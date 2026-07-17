@@ -1,0 +1,135 @@
+package com.novacrm.dashboard;
+
+import com.novacrm.dashboard.dto.AlertaResponse;
+import com.novacrm.dashboard.dto.DashboardChartsResponse;
+import com.novacrm.dashboard.dto.DashboardSummaryResponse;
+import com.novacrm.dashboard.dto.PuntoDato;
+import com.novacrm.estudiante.EstadoAcademico;
+import com.novacrm.estudiante.EstadoEmpleabilidad;
+import com.novacrm.estudiante.EstudianteRepository;
+import com.novacrm.programa.Programa;
+import com.novacrm.programa.ProgramaEstado;
+import com.novacrm.programa.ProgramaRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+@Transactional(readOnly = true)
+public class DashboardService {
+
+    private static final int DIAS_ALERTA_FIN_PROGRAMA = 45;
+
+    private final EstudianteRepository estudianteRepository;
+    private final ProgramaRepository programaRepository;
+
+    public DashboardService(EstudianteRepository estudianteRepository,
+                            ProgramaRepository programaRepository) {
+        this.estudianteRepository = estudianteRepository;
+        this.programaRepository = programaRepository;
+    }
+
+    public DashboardSummaryResponse resumen() {
+        ZoneId zona = ZoneId.systemDefault();
+        LocalDate hoy = LocalDate.now(zona);
+        Instant inicioMesActual = hoy.withDayOfMonth(1).atStartOfDay(zona).toInstant();
+        Instant inicioMesAnterior = hoy.withDayOfMonth(1).minusMonths(1).atStartOfDay(zona).toInstant();
+
+        long nuevosEsteMes = estudianteRepository.countByCreatedAtGreaterThanEqual(inicioMesActual);
+        long nuevosMesAnterior = estudianteRepository.countByCreatedAtBetween(inicioMesAnterior, inicioMesActual);
+
+        return new DashboardSummaryResponse(
+                estudianteRepository.count(),
+                nuevosEsteMes,
+                variacionPct(nuevosEsteMes, nuevosMesAnterior),
+                estudianteRepository.countByEstadoAcademico(EstadoAcademico.ACTIVO),
+                estudianteRepository.countByEstadoAcademico(EstadoAcademico.GRADUADO),
+                estudianteRepository.countByEstadoAcademico(EstadoAcademico.RETIRADO),
+                estudianteRepository.countByEstadoAcademico(EstadoAcademico.EN_PROCESO),
+                programaRepository.countByActivoTrue(),
+                0, // documentosPendientes: pendiente módulo Documentos
+                0  // hvsPorGenerar: pendiente módulo Hojas de Vida
+        );
+    }
+
+    public DashboardChartsResponse graficos() {
+        // Torta: distribución por estado académico.
+        List<PuntoDato> distribucionEstado = List.of(
+                PuntoDato.de("Activos", estudianteRepository.countByEstadoAcademico(EstadoAcademico.ACTIVO)),
+                PuntoDato.de("Graduados", estudianteRepository.countByEstadoAcademico(EstadoAcademico.GRADUADO)),
+                PuntoDato.de("Retirados", estudianteRepository.countByEstadoAcademico(EstadoAcademico.RETIRADO)),
+                PuntoDato.de("En proceso", estudianteRepository.countByEstadoAcademico(EstadoAcademico.EN_PROCESO))
+        );
+
+        // Líneas: ingresos por mes del año actual.
+        List<PuntoDato> historicoIngresos = estudianteRepository.contarIngresosPorMesAnioActual().stream()
+                .map(p -> PuntoDato.de(p.getMes(), p.getTotal()))
+                .toList();
+
+        // Barras horizontales: estudiantes activos por proyecto.
+        List<PuntoDato> estudiantesPorProyecto = estudianteRepository.contarActivosPorPrograma().stream()
+                .map(p -> PuntoDato.de(p.getNombre(), p.getTotal()))
+                .toList();
+
+        // Dona: empleabilidad con porcentaje.
+        long empleados = estudianteRepository.countByEstadoEmpleabilidad(EstadoEmpleabilidad.EMPLEADO);
+        long buscando = estudianteRepository.countByEstadoEmpleabilidad(EstadoEmpleabilidad.BUSCANDO);
+        long sinInfo = estudianteRepository.countByEstadoEmpleabilidad(EstadoEmpleabilidad.SIN_INFO);
+        long totalEmp = empleados + buscando + sinInfo;
+        List<PuntoDato> empleabilidad = List.of(
+                new PuntoDato("Empleado", empleados, pct(empleados, totalEmp)),
+                new PuntoDato("Buscando", buscando, pct(buscando, totalEmp)),
+                new PuntoDato("Sin info", sinInfo, pct(sinInfo, totalEmp))
+        );
+
+        return new DashboardChartsResponse(
+                distribucionEstado, historicoIngresos, estudiantesPorProyecto, empleabilidad);
+    }
+
+    public List<AlertaResponse> alertas() {
+        List<AlertaResponse> alertas = new ArrayList<>();
+
+        long conDatosFaltantes = estudianteRepository.contarActivosConDatosFaltantes();
+        if (conDatosFaltantes > 0) {
+            alertas.add(new AlertaResponse(
+                    "DATOS_FALTANTES", "MEDIA",
+                    "Estudiantes con datos incompletos",
+                    conDatosFaltantes + " estudiante(s) activo(s) sin celular, correo o documento.",
+                    null));
+        }
+
+        LocalDate hoy = LocalDate.now(ZoneId.systemDefault());
+        List<Programa> porFinalizar = programaRepository.findByEstadoAndFechaFinBetween(
+                ProgramaEstado.ACTIVO, hoy, hoy.plusDays(DIAS_ALERTA_FIN_PROGRAMA));
+        for (Programa p : porFinalizar) {
+            long dias = ChronoUnit.DAYS.between(hoy, p.getFechaFin());
+            alertas.add(new AlertaResponse(
+                    "PROGRAMA_POR_FINALIZAR", "ALTA",
+                    "«" + p.getNombre() + "» próximo a finalizar",
+                    "Finaliza en " + dias + " día(s) (" + p.getFechaFin() + ").",
+                    p.getId().toString()));
+        }
+
+        return alertas;
+    }
+
+    private double variacionPct(long actual, long anterior) {
+        if (anterior == 0) return actual > 0 ? 100.0 : 0.0;
+        return redondear((double) (actual - anterior) / anterior * 100);
+    }
+
+    private Double pct(long parte, long total) {
+        if (total == 0) return 0.0;
+        return redondear((double) parte / total * 100);
+    }
+
+    private double redondear(double v) {
+        return Math.round(v * 10.0) / 10.0;
+    }
+}

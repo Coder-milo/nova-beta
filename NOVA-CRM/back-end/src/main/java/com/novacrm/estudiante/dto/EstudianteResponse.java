@@ -1,0 +1,56 @@
+package com.novacrm.estudiante.dto;
+
+import com.novacrm.estudiante.EstadoAcademico;
+import com.novacrm.estudiante.EstadoEmpleabilidad;
+
+import java.time.Instant;
+import java.util.UUID;
+
+public record EstudianteResponse(
+        UUID id,
+        String nombre,
+        String apellido,
+        String email,
+        String telefono,
+        String celular,
+        String ciudad,
+        String barrio,
+        String tipoDocumento,
+        String numeroDocumento,
+        String nivelEducativo,
+        String titulo,
+        Integer aniosExperiencia,
+        String sectorExperiencia,
+        String ultimoCargo,
+        String perfilProfesional,
+        String sectorObjetivo,
+        String cargoObjetivo,
+        Boolean disponibilidadMovilidad,
+        String nacionalidad,
+        String clasificacionSisben,
+        String situacionLaboral,
+        String ingresoMensual,
+        Boolean responsableEconomico,
+        Boolean haTrabajado,
+        Boolean tieneComputador,
+        Boolean tieneInternet,
+        String motivacion,
+        Boolean interesMigratorio,
+        String resultadoPruebaEscrita,
+        String resultadoPruebaOral,
+        String institucionEducativa,
+        String programaAcademico,
+        String areaFormacion,
+        String estadoFormacion,
+        String disponibilidadLaboral,
+        String estadoBusqueda,
+        Integer postulacionesEnviadas,
+        Integer empresasContactadas,
+        EstadoAcademico estadoAcademico,
+        EstadoEmpleabilidad estadoEmpleabilidad,
+        String nivelIngles,
+        UUID programaId,
+        String programaNombre,
+        boolean activo,
+        Instant createdAt
+) {}
