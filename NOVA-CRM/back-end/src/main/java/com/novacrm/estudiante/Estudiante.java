@@ -71,6 +71,9 @@ public class Estudiante extends BaseEntity {
     @Column(nullable = false)
     private boolean activo = true;
 
+    @Column(name = "deleted_at")
+    private java.time.Instant deletedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_academico", nullable = false)
     private EstadoAcademico estadoAcademico = EstadoAcademico.ACTIVO;
@@ -196,6 +199,8 @@ public class Estudiante extends BaseEntity {
     public void setDisponibilidadMovilidad(Boolean disponibilidadMovilidad) { this.disponibilidadMovilidad = disponibilidadMovilidad; }
     public boolean isActivo() { return activo; }
     public void setActivo(boolean activo) { this.activo = activo; }
+    public java.time.Instant getDeletedAt() { return deletedAt; }
+    public void setDeletedAt(java.time.Instant deletedAt) { this.deletedAt = deletedAt; }
     public EstadoAcademico getEstadoAcademico() { return estadoAcademico; }
     public void setEstadoAcademico(EstadoAcademico estadoAcademico) { this.estadoAcademico = estadoAcademico; }
     public EstadoEmpleabilidad getEstadoEmpleabilidad() { return estadoEmpleabilidad; }

@@ -52,5 +52,6 @@ public record EstudianteResponse(
         UUID programaId,
         String programaNombre,
         boolean activo,
-        Instant createdAt
+        Instant createdAt,
+        Instant deletedAt
 ) {}

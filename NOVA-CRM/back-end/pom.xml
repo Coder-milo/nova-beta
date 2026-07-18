@@ -15,7 +15,8 @@
     <properties>
         <java.version>17</java.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
-        <testcontainers.version>1.19.7</testcontainers.version>
+        <!-- 1.21+ detecta el contexto de Docker Desktop (necesario en Windows) -->
+        <testcontainers.version>1.21.3</testcontainers.version>
         <springdoc.version>2.5.0</springdoc.version>
         <bucket4j.version>8.7.0</bucket4j.version>
     </properties>

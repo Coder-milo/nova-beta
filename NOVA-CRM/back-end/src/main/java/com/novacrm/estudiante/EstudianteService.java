@@ -5,11 +5,15 @@ import com.novacrm.exception.ResourceNotFoundException;
 import com.novacrm.estudiante.dto.EstudianteRequest;
 import com.novacrm.estudiante.dto.EstudianteResponse;
 import com.novacrm.programa.ProgramaRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -19,6 +23,9 @@ public class EstudianteService {
     private final EstudianteRepository estudianteRepository;
     private final ProgramaRepository programaRepository;
     private final NivelInglesRepository nivelInglesRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public EstudianteService(EstudianteRepository estudianteRepository,
                              ProgramaRepository programaRepository,
@@ -58,7 +65,29 @@ public class EstudianteService {
     public void softDelete(UUID id) {
         var estudiante = buscar(id);
         estudiante.setActivo(false);
+        estudiante.setDeletedAt(Instant.now());
         estudianteRepository.save(estudiante);
+    }
+
+    public Page<EstudianteResponse> listarPapelera(UUID programaId, Pageable pageable) {
+        return estudianteRepository.findByProgramaIdAndActivoFalse(programaId, pageable)
+                .map(this::toResponse);
+    }
+
+    @Transactional
+    public EstudianteResponse restaurar(UUID id) {
+        var estudiante = estudianteRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado: " + id));
+        if (estudiante.isActivo()) {
+            throw new com.novacrm.exception.BusinessException("El estudiante ya está activo");
+        }
+        estudiante.setActivo(true);
+        estudiante.setDeletedAt(null);
+        return toResponse(estudianteRepository.save(estudiante));
+    }
+
+    public long contarPapelera(UUID programaId) {
+        return estudianteRepository.countByProgramaIdAndActivoFalse(programaId);
     }
 
     public long contarPorPrograma(UUID programaId) {
@@ -132,7 +161,62 @@ public class EstudianteService {
                 e.getEstadoAcademico(), e.getEstadoEmpleabilidad(),
                 e.getNivelIngles() != null ? e.getNivelIngles().getNombre() : null,
                 e.getPrograma().getId(), e.getPrograma().getNombre(),
-                e.isActivo(), e.getCreatedAt()
+                e.isActivo(), e.getCreatedAt(), e.getDeletedAt()
         );
+    }
+
+    @Transactional
+    public void softDeleteMasivo(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        estudianteRepository.findAllById(ids).forEach(estudiante -> {
+            estudiante.setActivo(false);
+            estudiante.setDeletedAt(Instant.now());
+            estudianteRepository.save(estudiante);
+        });
+    }
+
+    @Transactional
+    public void hardDeleteMasivo(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return;
+
+        entityManager.createQuery(
+                "DELETE FROM Credencial c WHERE c.id IN (SELECT ec.id FROM EstudianteCertificacion ec WHERE ec.estudiante.id IN :ids)")
+                .setParameter("ids", ids)
+                .executeUpdate();
+
+        entityManager.createQuery(
+                "DELETE FROM Match m WHERE m.estudiante.id IN :ids")
+                .setParameter("ids", ids)
+                .executeUpdate();
+
+        entityManager.createQuery(
+                "DELETE FROM Notificacion n WHERE n.estudiante.id IN :ids")
+                .setParameter("ids", ids)
+                .executeUpdate();
+
+        entityManager.createQuery(
+                "DELETE FROM EstudianteHabilidad eh WHERE eh.estudiante.id IN :ids")
+                .setParameter("ids", ids)
+                .executeUpdate();
+
+        entityManager.createQuery(
+                "DELETE FROM EstudianteCertificacion ec WHERE ec.estudiante.id IN :ids")
+                .setParameter("ids", ids)
+                .executeUpdate();
+
+        List<UUID> lcIds = entityManager.createQuery(
+                "SELECT lc.id FROM LinkedinConfiguracion lc WHERE lc.id IN :ids", UUID.class)
+                .setParameter("ids", ids)
+                .getResultList();
+        if (!lcIds.isEmpty()) {
+            entityManager.createQuery("DELETE FROM LinkedinConfiguracion lc WHERE lc.id IN :lcIds")
+                    .setParameter("lcIds", lcIds)
+                    .executeUpdate();
+        }
+
+        entityManager.createQuery(
+                "DELETE FROM Estudiante e WHERE e.id IN :ids")
+                .setParameter("ids", ids)
+                .executeUpdate();
     }
 }
