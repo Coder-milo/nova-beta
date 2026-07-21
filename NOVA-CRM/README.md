@@ -2,11 +2,21 @@
 
 **CRM de Empleabilidad** — Sistema integral para la gestión de empleabilidad del programa CAC Eurocentres. Conecta estudiantes, programas, vacantes y empresas mediante un motor de matching inteligente, scraping automatizado de portales de empleo, importación masiva desde Excel, y emisión de certificaciones digitales verificables.
 
+## Features
+
+| Módulo | Capacidad |
+|--------|-----------|
+| **Matching inteligente** | 5 criterios ponderados (afinidad, habilidades, inglés, ubicación, experiencia) con tokenizador de sinónimos técnico-laborales. Pesos y umbral configurables en YAML sin recompilar. |
+| **Importación Excel dinámica** | Detecta automáticamente columnas de cualquier formato usando `ColumnMapper` + diccionario de sinónimos. Deduplicación por email y número de documento. |
+| **Notificaciones automáticas** | Al generar matches, se crean notificaciones para cada estudiante. |
+| **Scraping de vacantes** | Diario desde elempleo.com vía Jsoup. |
+| **Certificaciones digitales** | Emisión y verificación pública vía Thymeleaf + MinIO. |
+
 ## Stack
 
 | Capa | Tecnología |
 |------|-----------|
-| Lenguaje | Java 17 |
+| Lenguaje | Java 21 |
 | Framework | Spring Boot 3.3.0 |
 | Base de datos | PostgreSQL 16 (Flyway migrations) |
 | ORM | Hibernate 6 / Spring Data JPA |
@@ -47,7 +57,7 @@
 
 ## Empezar (desarrollo local)
 
-**Prerequisitos:** Java 17 JDK, Docker Desktop, Maven 3.9+
+**Prerequisitos:** Java 21 JDK, Docker Desktop, Maven 3.9+, Node.js 20+ (front-end)
 
 ```bash
 # 1. Clonar e ir al proyecto
@@ -77,10 +87,17 @@ La API arranca en `http://localhost:8080`. Swagger UI en `http://localhost:8080/
 | POST | `/api/v1/auth/login` | Público | Login JWT |
 | GET/POST | `/api/v1/programas` | Mixto | CRUD programas |
 | GET/POST | `/api/v1/estudiantes` | Coord./Admin | CRUD estudiantes |
+| GET | `/api/v1/estudiantes/papelera` | Coord./Admin | Listar papelera (inactivos) |
+| POST | `/api/v1/estudiantes/{id}/restaurar` | Coord./Admin | Restaurar estudiante de la papelera |
 | GET | `/api/v1/vacantes` | Público | Listar vacantes activas |
-| GET | `/api/v1/matches` | Autenticado | Matching puntuado |
+| GET/PATCH/POST | `/api/v1/matches` | Autenticado | Matching puntuado + marcar postulado + ejecutar bajo demanda |
 | GET/PUT | `/api/v1/notificaciones` | Autenticado | Notificaciones |
-| POST | `/api/v1/importar` | Admin | Importar Excel |
+| POST | `/api/v1/importar` | Admin | Importar Excel (mapeo dinámico por sinónimos) |
+| DELETE | `/api/v1/admin/programas/{id}/estudiantes` | Admin | Soft delete masivo de estudiantes de un programa |
+| DELETE | `/api/v1/admin/programas/{id}/reset` | Admin | Hard delete: elimina estudiantes y todas sus dependencias |
+| POST | `/api/v1/admin/programas/{id}/restaurar-estudiantes` | Admin | Restaura todos los estudiantes de un programa desde la papelera |
+| DELETE | `/api/v1/admin/purgar-papelera` | Admin | Elimina físicamente estudiantes con >30 días en papelera |
+| DELETE | `/api/v1/admin/cleanup` | Admin | Vacía todo el sistema transaccional (estudiantes, vacantes, matches) |
 | GET | `/credencial/{uuid}` | Público | Verificar credencial |
 | GET/POST | `/api/v1/linkedin/*` | Autenticado | LinkedIn OAuth |
 
@@ -91,7 +108,8 @@ Ver documentación completa en [`docs/api/endpoints.md`](docs/api/endpoints.md).
 | Tarea | Horario | Descripción |
 |-------|---------|-------------|
 | `ScrapingScheduler` | 06:00 diario | Scrapea elempleo.com (Bogotá) |
-| `MatchScheduler` | 07:00 diario | Procesa matching estudiantes ↔ vacantes (umbral ≥ 60) |
+| `MatchScheduler` | 07:00 diario | Procesa matching estudiantes ↔ vacantes (umbral configurable, peso por 5 criterios con sinónimos) |
+| `PurgeScheduler` | 03:00 domingo | Elimina físicamente estudiantes con más de 30 días en la papelera |
 
 ## Estructura del proyecto
 
@@ -114,11 +132,15 @@ NOVA-CRM/
 │   │   ├── empresa/        # Empresas
 │   │   ├── habilidad/      # Catálogo habilidades
 │   │   ├── catalogo/       # Catálogos (nivel inglés)
+│   │   ├── admin/          # Operaciones masivas (soft/hard delete, cleanup)
 │   │   ├── exception/      # Manejo global errores
 │   │   └── shared/         # BaseEntity
 │   ├── src/main/resources/
-│   │   ├── db/migration/   # Migraciones Flyway
-│   │   ├── templates/      # Thymeleaf
+│   │   ├── db/migration/       # Migraciones Flyway
+│   │   ├── templates/          # Thymeleaf
+│   │   ├── column-synonyms.yml # Sinónimos para mapeo dinámico de columnas Excel
+│   │   ├── matching-synonyms.yml # Sinónimos técnico-laborales para matching
+│   │   ├── matching-config.yml   # Pesos y umbral del motor de matching
 │   │   └── application.yml
 │   └── Dockerfile
 ├── docker-compose.yml

@@ -114,9 +114,38 @@ Actualiza estudiante. `@PreAuthorize COORDINADOR, ADMIN, ESTUDIANTE`
 
 ### `DELETE /api/v1/estudiantes/{id}`
 
-Eliminación lógica (soft-delete). `@PreAuthorize COORDINADOR, ADMIN`
+Eliminación lógica (soft-delete → papelera). `@PreAuthorize COORDINADOR, ADMIN`
+
+### `GET /api/v1/estudiantes/papelera`
+
+Lista estudiantes en la papelera (activo=false, ordenados por deleted_at DESC). `@PreAuthorize COORDINADOR, ADMIN`
+
+**Query params:** `programaId`, `page`, `size`
+
+**Response 200:**
+```json
+{
+  "content": [
+    {
+      "id": "uuid",
+      "nombre": "Juan",
+      "email": "juan@email.com",
+      "activo": false,
+      "deletedAt": "2026-07-15T10:30:00Z",
+      ...
+    }
+  ],
+  "totalElements": 5
+}
+```
+
+### `POST /api/v1/estudiantes/{id}/restaurar`
+
+Restaura un estudiante de la papelera (activo=true, deleted_at=null). `@PreAuthorize COORDINADOR, ADMIN`
 
 ---
+
+
 
 ## Vacantes
 
@@ -135,6 +164,8 @@ Obtiene vacante por ID. **Público.**
 ---
 
 ## Matching
+
+El motor evalúa 5 criterios (afinidad 35%, habilidades 10%, inglés 20%, ubicación 15%, experiencia 20%) usando un tokenizador con sinónimos técnico-laborales (`SkillSynonyms`). Pesos y umbral configurables via `matching-config.yml`. Al generar matches, se crean notificaciones automáticas para los estudiantes.
 
 Base: `/api/v1/matches`
 
@@ -171,6 +202,25 @@ Cuenta matches con notificaciones pendientes. `@PreAuthorize COORDINADOR, ADMIN,
 ```json
 {
   "pendientes": 3
+}
+```
+
+### `PATCH /api/v1/matches/{matchId}/postular`
+
+Marca un match como postulado (el estudiante aplicó a la vacante). `@PreAuthorize COORDINADOR, ADMIN, ESTUDIANTE`
+
+**Path params:** `matchId` (UUID del match)
+
+**Response:** `200 OK` (sin cuerpo)
+
+### `POST /api/v1/matches/ejecutar`
+
+Ejecuta el matching bajo demanda para todos los estudiantes activos contra vacantes activas. `@PreAuthorize COORDINADOR, ADMIN`
+
+**Response 200:**
+```json
+{
+  "matchesCreados": 12
 }
 ```
 
@@ -218,7 +268,7 @@ Marca notificación como leída. `@PreAuthorize COORDINADOR, ADMIN, ESTUDIANTE`
 
 ### `POST /api/v1/importar`
 
-Importa estudiantes desde archivo Excel. `@PreAuthorize COORDINADOR, ADMIN`
+Importa estudiantes desde archivo Excel con detección dinámica de columnas mediante `ColumnMapper` (sinónimos en `column-synonyms.yml`). Soporta formatos BBDD, Base Maestra y cualquier formato nuevo. Deduplicación por email y número de documento. `@PreAuthorize COORDINADOR, ADMIN`
 
 **Request:** `multipart/form-data` con campo `archivo` (.xlsx)
 
@@ -226,9 +276,21 @@ Importa estudiantes desde archivo Excel. `@PreAuthorize COORDINADOR, ADMIN`
 ```json
 {
   "importados": 25,
-  "errores": ["Fila 3: email inválido"]
+  "errores": 1,
+  "totalFilas": 30,
+  "columnasDetectadas": ["Nombre_Completo", "Correo", "Documento"],
+  "columnasMapeadas": {
+    "Nombre_Completo": "nombre",
+    "Correo": "email",
+    "Documento": "numeroDocumento"
+  },
+  "columnasSinMapeo": ["Comentarios"],
+  "erroresDetalle": ["Fila 3: Email vacío o no encontrado en la fila"]
 }
 ```
+
+- `columnasMapeadas`: mapeo columna → campo de entidad (incluye detección dinámica por sinónimos)
+- `columnasSinMapeo`: headers que no se pudieron mapear automáticamente
 
 ---
 
@@ -270,6 +332,72 @@ Página pública de verificación de credencial digital. Renderizada con Thymele
 | `GET /actuator/health` | Health check |
 | `GET /actuator/metrics` | Métricas Prometheus |
 | `GET /actuator/info` | Info de la aplicación |
+
+---
+
+## Admin (solo ADMIN)
+
+Base: `/api/v1/admin`
+
+### `DELETE /api/v1/admin/programas/{programaId}/estudiantes`
+
+Soft delete masivo: desactiva todos los estudiantes activos de un programa. Las relaciones (matches, notificaciones, habilidades) se conservan.
+
+**Response 200:**
+```json
+{
+  "eliminados": 15,
+  "tipo": "soft-delete"
+}
+```
+
+### `DELETE /api/v1/admin/programas/{programaId}/reset`
+
+Hard delete: elimina físicamente estudiantes + matches + notificaciones + habilidades + certificaciones + linkedin configs de un programa. Irreversible.
+
+**Response 200:**
+```json
+{
+  "estudiantesEliminados": 15,
+  "tipo": "hard-delete"
+}
+```
+
+### `DELETE /api/v1/admin/cleanup`
+
+Vacía todo el sistema transaccional: estudiantes, vacantes, matches, notificaciones, habilidades, certificaciones, credenciales y configuraciones LinkedIn. Deja intactos programas, empresas, catálogos y usuarios. Solo para reset completo del entorno.
+
+**Response 200:**
+```json
+{
+  "mensaje": "Sistema transaccional limpiado exitosamente"
+}
+```
+
+### `POST /api/v1/admin/programas/{programaId}/restaurar-estudiantes`
+
+Restaura todos los estudiantes de un programa desde la papelera. `@PreAuthorize ADMIN`
+
+**Response 200:**
+```json
+{
+  "mensaje": "Estudiantes restaurados del programa uuid",
+  "estudiantesRestaurados": 15
+}
+```
+
+### `DELETE /api/v1/admin/purgar-papelera`
+
+Elimina físicamente estudiantes con más de 30 días en la papelera y todas sus dependencias. `@PreAuthorize ADMIN`
+
+**Response 200:**
+```json
+{
+  "eliminados": 8,
+  "tipo": "hard-delete",
+  "retencion": "30 dias"
+}
+```
 
 ---
 
