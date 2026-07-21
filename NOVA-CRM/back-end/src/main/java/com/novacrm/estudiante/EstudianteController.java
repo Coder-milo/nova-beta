@@ -64,10 +64,42 @@ public class EstudianteController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Eliminar (soft delete) estudiante")
+    @Operation(summary = "Eliminar (soft delete) estudiante → va a la papelera")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void eliminar(@PathVariable UUID id) {
         estudianteService.softDelete(id);
+    }
+
+    @PostMapping("/bulk-delete")
+    @Operation(summary = "Eliminación masiva de estudiantes (soft o hard delete)")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminarMasivo(@RequestBody BulkDeleteRequest request) {
+        if (request.permanente()) {
+            estudianteService.hardDeleteMasivo(request.ids());
+        } else {
+            estudianteService.softDeleteMasivo(request.ids());
+        }
+    }
+
+    public record BulkDeleteRequest(java.util.List<UUID> ids, boolean permanente) {}
+
+    // --- Papelera ---
+
+    @GetMapping("/papelera")
+    @Operation(summary = "Listar estudiantes en la papelera (inactivos) por programa")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public Page<EstudianteResponse> listarPapelera(
+            @RequestParam UUID programaId,
+            @PageableDefault(size = 20, sort = "deletedAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return estudianteService.listarPapelera(programaId, pageable);
+    }
+
+    @PostMapping("/{id}/restaurar")
+    @Operation(summary = "Restaurar estudiante de la papelera")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public EstudianteResponse restaurar(@PathVariable UUID id) {
+        return estudianteService.restaurar(id);
     }
 }

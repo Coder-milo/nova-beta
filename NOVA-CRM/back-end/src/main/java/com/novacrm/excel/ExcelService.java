@@ -26,19 +26,38 @@ public class ExcelService {
     private final EstudianteRepository estudianteRepository;
     private final ProgramaRepository programaRepository;
     private final NivelInglesRepository nivelInglesRepository;
+    private final ColumnMapper columnMapper;
 
     private static final Map<String, String> BBDD_COLUMNS = buildBBDDMap();
     private static final Map<String, String> MAESTRA_COLUMNS = buildMaestraMap();
 
-    private static final Set<String> SKIP_BBDD = buildSkipBBDD();
-    private static final Set<String> SKIP_MAESTRA = buildSkipMaestra();
+    private static final Set<String> SKIP = Set.of(
+        "3.11 Si marco Otro, indique el Municipio...",
+        "4.5 Si tu respuesta fue Otro, especifica:",
+        "7.2 Disponibilidad de tiempo...",
+        "7.5 Acceso a equipo prestado...",
+        "9.2 Disposicion a asumir gastos migratorios",
+        "10.1 Autorizas uso de datos (Prototipo NOVA)",
+        "ID_Participante",
+        "HV_Revisada",
+        "LinkedIn_Optimizado",
+        "Simulacro_Entrevista"
+    );
+
+    private static final int MAX_FILAS = 5000;
 
     public ExcelService(EstudianteRepository estudianteRepository,
                         ProgramaRepository programaRepository,
-                        NivelInglesRepository nivelInglesRepository) {
+                        NivelInglesRepository nivelInglesRepository,
+                        ColumnMapper columnMapper) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
         this.nivelInglesRepository = nivelInglesRepository;
+        this.columnMapper = columnMapper;
+    }
+
+    static {
+        org.apache.poi.openxml4j.util.ZipSecureFile.setMinInflateRatio(0.01);
     }
 
     private void validarArchivo(MultipartFile archivo) {
@@ -71,8 +90,8 @@ public class ExcelService {
         m.put("3.12 Barrio", "barrio");
         m.put("4.1 Cual es tu clasificacion en SISBEN IV?", "clasificacionSisben");
         m.put("4.2 Actualmente, Cual es tu situacion laboral?", "situacionLaboral");
-        m.put("4.3 Cuanto tiempo de experiencia laboral tienes?", "aniosExperiencia");
-        m.put("4.4 En cual de los siguientes sectores...", "sectorExperiencia");
+        m.put("4.3 Cuanto tiempo de experiencia laboral tienes en total?", "aniosExperiencia");
+        m.put("4.4 En cual de los siguientes sectores tienes mayor experiencia laboral o formacion principal?", "sectorExperiencia");
         m.put("4.6 Si trabajas actualmente, cual es tu ingreso?", "ingresoMensual");
         m.put("4.7 Eres responsable economicamente de otros?", "responsableEconomico");
         m.put("5.1 Nivel educativo alcanzado", "nivelEducativo");
@@ -119,26 +138,6 @@ public class ExcelService {
         return m;
     }
 
-    private static Set<String> buildSkipBBDD() {
-        return Set.of(
-            "3.11 Si marco Otro, indique el Municipio...",
-            "4.5 Si tu respuesta fue Otro, especifica:",
-            "7.2 Disponibilidad de tiempo...",
-            "7.5 Acceso a equipo prestado...",
-            "9.2 Disposicion a asumir gastos migratorios",
-            "10.1 Autorizas uso de datos (Prototipo NOVA)"
-        );
-    }
-
-    private static Set<String> buildSkipMaestra() {
-        return Set.of(
-            "ID_Participante",
-            "HV_Revisada",
-            "LinkedIn_Optimizado",
-            "Simulacro_Entrevista"
-        );
-    }
-
     public record ResultadoImportacion(
         int importados,
         int errores,
@@ -146,15 +145,6 @@ public class ExcelService {
         List<String> columnasDetectadas,
         List<String> erroresDetalle
     ) {}
-
-    // Limite defensivo de filas para evitar cargas masivas / abuso.
-    private static final int MAX_FILAS = 5000;
-
-    static {
-        // Proteccion frente a "zip bombs" en archivos OOXML: descomprimir mas de 100x
-        // el tamano del zip aborta el parseo.
-        org.apache.poi.openxml4j.util.ZipSecureFile.setMinInflateRatio(0.01);
-    }
 
     @Transactional
     public Map<String, Object> importar(MultipartFile archivo, UUID programaId) {
@@ -198,6 +188,22 @@ public class ExcelService {
         boolean esFormatoBBDD = columnasDetectadas.stream().anyMatch(c -> c.startsWith("3."));
         boolean esFormatoMaestra = columnasDetectadas.contains("Nombre_Completo");
 
+        Map<String, String> exactOverrides;
+        if (esFormatoBBDD) {
+            exactOverrides = BBDD_COLUMNS;
+        } else if (esFormatoMaestra) {
+            exactOverrides = MAESTRA_COLUMNS;
+        } else {
+            exactOverrides = Collections.emptyMap();
+        }
+
+        Map<String, String> columnMap = columnMapper.buildColumnMap(columnasDetectadas, exactOverrides);
+
+        List<String> columnasSinMapeo = columnMap.entrySet().stream()
+                .filter(e -> e.getValue() == null)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+
         int importados = 0;
         int errores = 0;
         List<String> erroresDetalle = new ArrayList<>();
@@ -208,25 +214,52 @@ public class ExcelService {
                 estudiante.setPrograma(programa);
                 estudiante.setActivo(true);
 
-                if (esFormatoBBDD) {
-                    mapearBBDD(fila, estudiante);
-                } else if (esFormatoMaestra) {
-                    mapearMaestra(fila, estudiante);
-                } else {
-                    mapearGenerico(fila, estudiante);
+                for (var entry : columnMap.entrySet()) {
+                    String col = entry.getKey();
+                    String field = entry.getValue();
+                    if (field == null || SKIP.contains(col)) continue;
+
+                    String val = fila.get(col);
+                    if (val == null || val.isBlank()) continue;
+
+                    if (esFormatoMaestra && "Nombre_Completo".equals(col)) {
+                        splitAndSetNombreCompleto(estudiante, val);
+                        continue;
+                    }
+
+                    asignar(estudiante, field, val, col);
                 }
 
-                if (estudiante.getEmail() == null || estudiante.getEmail().isBlank()) {
+                // VALIDACIÓN DE CAMPOS OBLIGATORIOS
+                if (estudiante.getNombre() == null || estudiante.getNombre().trim().isEmpty()) {
+                    throw new BusinessException("El nombre es requerido y no puede estar vacío");
+                }
+                if (estudiante.getApellido() == null) {
+                    throw new BusinessException("El apellido es requerido");
+                }
+                if (estudiante.getEmail() == null || estudiante.getEmail().trim().isEmpty()) {
+                    throw new BusinessException("El email es requerido y no puede estar vacío");
+                }
+
+                if (estudiante.getEmail() != null && !estudiante.getEmail().isBlank()) {
+                    var existente = estudianteRepository.findByEmail(estudiante.getEmail());
+                    if (existente.isPresent()) {
+                        aplicarActualizacion(existente.get(), estudiante);
+                        estudianteRepository.save(existente.get());
+                    } else {
+                        upsertPorDocumentoOInsertar(estudiante);
+                    }
+                } else if (estudiante.getNumeroDocumento() != null
+                        && !estudiante.getNumeroDocumento().isBlank()) {
+                    var existenteDoc = estudianteRepository.findByNumeroDocumento(estudiante.getNumeroDocumento());
+                    if (existenteDoc.isPresent()) {
+                        aplicarActualizacion(existenteDoc.get(), estudiante);
+                        estudianteRepository.save(existenteDoc.get());
+                    } else {
+                        throw new BusinessException("Email vacío o no encontrado en la fila");
+                    }
+                } else {
                     throw new BusinessException("Email vacío o no encontrado en la fila");
-                }
-
-                var existente = estudianteRepository.findByEmail(estudiante.getEmail());
-                if (existente.isPresent()) {
-                    var est = existente.get();
-                    aplicarActualizacion(est, estudiante);
-                    estudianteRepository.save(est);
-                } else {
-                    estudianteRepository.save(estudiante);
                 }
                 importados++;
             } catch (Exception e) {
@@ -240,88 +273,72 @@ public class ExcelService {
         resultado.put("errores", errores);
         resultado.put("totalFilas", filas.size());
         resultado.put("columnasDetectadas", columnasDetectadas);
+        resultado.put("columnasMapeadas", columnMap);
+        resultado.put("columnasSinMapeo", columnasSinMapeo);
         resultado.put("erroresDetalle", erroresDetalle);
         return resultado;
     }
 
-    private void mapearBBDD(Map<String, String> fila, Estudiante e) {
-        for (var entry : BBDD_COLUMNS.entrySet()) {
-            String col = entry.getKey();
-            String campo = entry.getValue();
-            String val = fila.getOrDefault(col, "").trim();
-            if (val.isBlank() || SKIP_BBDD.contains(col)) continue;
-            asignar(e, campo, val, col);
-        }
-        if (fila.containsKey("3.5 Nacionalidad")) {
-            String nac = fila.get("3.5 Nacionalidad");
-            if (nac != null && !nac.isBlank()) e.setNacionalidad(nac.trim());
-        }
-    }
-
-    private void mapearMaestra(Map<String, String> fila, Estudiante e) {
-        String nombreCompleto = fila.getOrDefault("Nombre_Completo", "").trim();
-        if (!nombreCompleto.isBlank()) {
-            int idx = nombreCompleto.indexOf(' ');
-            if (idx > 0) {
-                e.setNombre(nombreCompleto.substring(0, idx).trim());
-                e.setApellido(nombreCompleto.substring(idx).trim());
-            } else {
-                e.setNombre(nombreCompleto);
-                e.setApellido("");
+    private void upsertPorDocumentoOInsertar(Estudiante estudiante) {
+        if (estudiante.getNumeroDocumento() != null
+                && !estudiante.getNumeroDocumento().isBlank()) {
+            var existenteDoc = estudianteRepository
+                    .findByNumeroDocumento(estudiante.getNumeroDocumento());
+            if (existenteDoc.isPresent()) {
+                aplicarActualizacion(existenteDoc.get(), estudiante);
+                estudianteRepository.save(existenteDoc.get());
+                return;
             }
         }
-        for (var entry : MAESTRA_COLUMNS.entrySet()) {
-            String col = entry.getKey();
-            if ("Nombre_Completo".equals(col)) continue;
-            String campo = entry.getValue();
-            String val = fila.getOrDefault(col, "").trim();
-            if (val.isBlank() || SKIP_MAESTRA.contains(col)) continue;
-            asignar(e, campo, val, col);
-        }
+        estudianteRepository.save(estudiante);
     }
 
-    private void mapearGenerico(Map<String, String> fila, Estudiante e) {
-        e.setNombre(fila.getOrDefault("nombre", fila.getOrDefault("Nombre", "")));
-        e.setApellido(fila.getOrDefault("apellido", fila.getOrDefault("Apellido", "")));
-        e.setEmail(fila.getOrDefault("email", fila.getOrDefault("Email", "")));
-        e.setTelefono(fila.getOrDefault("telefono", fila.getOrDefault("Teléfono", "")));
-        e.setCiudad(fila.getOrDefault("ciudad", fila.getOrDefault("Ciudad", "")));
-        e.setNumeroDocumento(fila.getOrDefault("numero_documento", fila.getOrDefault("Número Documento", "")));
+    private void splitAndSetNombreCompleto(Estudiante e, String nombreCompleto) {
+        if (nombreCompleto == null || nombreCompleto.isBlank()) return;
+        nombreCompleto = nombreCompleto.trim();
+        int idx = nombreCompleto.indexOf(' ');
+        if (idx > 0) {
+            e.setNombre(truncate(nombreCompleto.substring(0, idx).trim()));
+            e.setApellido(truncate(nombreCompleto.substring(idx).trim()));
+        } else {
+            e.setNombre(truncate(nombreCompleto));
+            e.setApellido("");
+        }
     }
 
     private void asignar(Estudiante e, String campo, String val, String columna) {
         try {
             switch (campo) {
-                case "email" -> e.setEmail(val);
-                case "nombre" -> e.setNombre(val);
-                case "apellido" -> e.setApellido(val);
-                case "tipoDocumento" -> e.setTipoDocumento(val);
-                case "numeroDocumento" -> e.setNumeroDocumento(val);
-                case "genero" -> e.setGenero(val);
-                case "celular" -> e.setCelular(val);
-                case "ciudad" -> e.setCiudad(val);
-                case "barrio" -> e.setBarrio(val);
-                case "nacionalidad" -> e.setNacionalidad(val);
-                case "clasificacionSisben" -> e.setClasificacionSisben(val);
-                case "situacionLaboral" -> e.setSituacionLaboral(val);
-                case "sectorExperiencia" -> e.setSectorExperiencia(val);
-                case "ingresoMensual" -> e.setIngresoMensual(val);
-                case "nivelEducativo" -> e.setNivelEducativo(val);
-                case "titulo" -> e.setTitulo(val);
+                case "email" -> e.setEmail(truncate(val));
+                case "nombre" -> e.setNombre(truncate(val));
+                case "apellido" -> e.setApellido(truncate(val));
+                case "tipoDocumento" -> e.setTipoDocumento(truncate(val));
+                case "numeroDocumento" -> e.setNumeroDocumento(truncate(val));
+                case "genero" -> e.setGenero(truncate(val));
+                case "celular" -> e.setCelular(truncate(val));
+                case "ciudad" -> e.setCiudad(truncate(val));
+                case "barrio" -> e.setBarrio(truncate(val));
+                case "nacionalidad" -> e.setNacionalidad(truncate(val));
+                case "clasificacionSisben" -> e.setClasificacionSisben(truncate(val));
+                case "situacionLaboral" -> e.setSituacionLaboral(truncate(val));
+                case "sectorExperiencia" -> e.setSectorExperiencia(truncate(val));
+                case "ingresoMensual" -> e.setIngresoMensual(truncate(val));
+                case "nivelEducativo" -> e.setNivelEducativo(truncate(val));
+                case "titulo" -> e.setTitulo(truncate(val));
                 case "perfilProfesional" -> e.setPerfilProfesional(val);
                 case "motivacion" -> e.setMotivacion(val);
-                case "ultimoCargo" -> e.setUltimoCargo(val);
-                case "sectorObjetivo" -> e.setSectorObjetivo(val);
-                case "cargoObjetivo" -> e.setCargoObjetivo(val);
-                case "resultadoPruebaEscrita" -> e.setResultadoPruebaEscrita(val);
-                case "resultadoPruebaOral" -> e.setResultadoPruebaOral(val);
-                case "institucionEducativa" -> e.setInstitucionEducativa(val);
-                case "programaAcademico" -> e.setProgramaAcademico(val);
-                case "areaFormacion" -> e.setAreaFormacion(val);
-                case "estadoFormacion" -> e.setEstadoFormacion(val);
-                case "disponibilidadLaboral" -> e.setDisponibilidadLaboral(val);
-                case "estadoBusqueda" -> e.setEstadoBusqueda(val);
-                case "aniosExperiencia" -> e.setAniosExperiencia(parseInt(val, columna));
+                case "ultimoCargo" -> e.setUltimoCargo(truncate(val));
+                case "sectorObjetivo" -> e.setSectorObjetivo(truncate(val));
+                case "cargoObjetivo" -> e.setCargoObjetivo(truncate(val));
+                case "resultadoPruebaEscrita" -> e.setResultadoPruebaEscrita(truncate(val));
+                case "resultadoPruebaOral" -> e.setResultadoPruebaOral(truncate(val));
+                case "institucionEducativa" -> e.setInstitucionEducativa(truncate(val));
+                case "programaAcademico" -> e.setProgramaAcademico(truncate(val));
+                case "areaFormacion" -> e.setAreaFormacion(truncate(val));
+                case "estadoFormacion" -> e.setEstadoFormacion(truncate(val));
+                case "disponibilidadLaboral" -> e.setDisponibilidadLaboral(truncate(val));
+                case "estadoBusqueda" -> e.setEstadoBusqueda(truncate(val));
+                case "aniosExperiencia" -> e.setAniosExperiencia(parseExperiencia(val, columna));
                 case "postulacionesEnviadas" -> e.setPostulacionesEnviadas(parseInt(val, columna));
                 case "empresasContactadas" -> e.setEmpresasContactadas(parseInt(val, columna));
                 case "responsableEconomico" -> e.setResponsableEconomico(parseBoolean(val));
@@ -330,17 +347,15 @@ public class ExcelService {
                 case "tieneInternet" -> e.setTieneInternet(parseBoolean(val));
                 case "interesMigratorio" -> e.setInteresMigratorio(parseBoolean(val));
                 case "fechaNacimiento" -> {
-                    try {
-                        for (var fmt : List.of(
-                                DateTimeFormatter.ofPattern("dd/MM/yyyy"),
-                                DateTimeFormatter.ofPattern("yyyy-MM-dd"),
-                                DateTimeFormatter.ofPattern("dd-MM-yyyy"))) {
-                            try {
-                                e.setFechaNacimiento(LocalDate.parse(val, fmt));
-                                break;
-                            } catch (DateTimeParseException ignored) {}
-                        }
-                    } catch (Exception ignored) {}
+                    for (var fmt : List.of(
+                            DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+                            DateTimeFormatter.ofPattern("dd-MM-yyyy"))) {
+                        try {
+                            e.setFechaNacimiento(LocalDate.parse(val, fmt));
+                            break;
+                        } catch (DateTimeParseException ignored) {}
+                    }
                 }
                 case "nivelIngles" -> {
                     var codigo = val.toUpperCase().replaceAll("[^A-Z0-9]", "");
@@ -355,6 +370,12 @@ public class ExcelService {
         } catch (Exception ex) {
             throw new BusinessException("Error mapeando columna '" + columna + "': " + ex.getMessage());
         }
+    }
+
+    private String truncate(String val) {
+        if (val == null) return null;
+        val = val.trim();
+        return val.length() > 255 ? val.substring(0, 255) : val;
     }
 
     private void aplicarActualizacion(Estudiante existente, Estudiante nuevo) {
@@ -398,6 +419,19 @@ public class ExcelService {
         if (nuevo.getPostulacionesEnviadas() != null) existente.setPostulacionesEnviadas(nuevo.getPostulacionesEnviadas());
         if (nuevo.getEmpresasContactadas() != null) existente.setEmpresasContactadas(nuevo.getEmpresasContactadas());
         if (nuevo.getDisponibilidadMovilidad() != null) existente.setDisponibilidadMovilidad(nuevo.getDisponibilidadMovilidad());
+    }
+
+    private Integer parseExperiencia(String val, String columna) {
+        if (val == null || val.isBlank()) return null;
+        var v = val.toLowerCase().trim()
+                .replace("á", "a").replace("é", "e")
+                .replace("í", "i").replace("ó", "o").replace("ú", "u");
+        if (v.contains("no tengo") || v.contains("ninguna")) return 0;
+        if (v.contains("menos")) return 0;
+        if (v.contains("entre 6") || v.contains("entre seis")) return 1;
+        if (v.contains("entre 1") || v.contains("entre uno")) return 1;
+        if (v.contains("mas de 2") || v.contains("mas de dos")) return 3;
+        return parseInt(val, columna);
     }
 
     private Integer parseInt(String val, String columna) {

@@ -43,7 +43,7 @@
 │                                                              │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │  Repositories (Spring Data JPA)                       │   │
-│  │  13 interfaces, each extending JpaRepository          │   │
+│   │  14 interfaces, each extending JpaRepository          │   │
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────┬───────────────────────────────────┘
                           │
@@ -102,14 +102,173 @@ Usuario ──┐                 Programa ──┐
 
 El `MatchingService` evalúa candidatos contra vacantes usando puntuación ponderada:
 
+### Pesos actuales
+
 | Criterio | Peso | Descripción |
 |----------|------|-------------|
-| Sector/Área | 30% | Coincidencia entre perfil del estudiante y sector de la vacante |
-| Nivel de inglés | 25% | El nivel del estudiante >= nivel requerido por la vacante |
-| Ubicación | 25% | Coincidencia de ubicación geográfica |
+| Afinidad de perfil | 35% | Coincidencia de términos (cargo, sector, experiencia, perfil, área de formación, nivel educativo) normalizados mediante diccionario de sinónimos técnico-laborales |
+| Habilidades | 10% | Habilidades registradas del estudiante (`estudiante_habilidad`) vs texto de la vacante |
+| Nivel de inglés | 20% | El nivel del estudiante >= nivel requerido por la vacante |
+| Ubicación | 15% | Coincidencia de ubicación geográfica; con disponibilidad de movilidad obtiene el 60% |
 | Experiencia | 20% | Años de experiencia del estudiante vs. requeridos |
 
-**Umbral mínimo:** 60/100 puntos. Ejecutado diariamente a las 07:00 por `MatchScheduler`.
+### Sinónimos técnico-laborales
+
+El tokenizador (`SkillSynonyms`) normaliza términos usando `matching-synonyms.yml` antes de comparar. Ej: "software engineer", "programador", "developer" se normalizan a un mismo grupo canónico.
+
+### Bonus por sector
+
+Si `sectorObjetivo` o `sectorExperiencia` del estudiante coincide con `empresa.sector`, la afinidad recibe un bonus de +15%.
+
+### Configurable sin recompilar
+
+Los pesos, umbral mínimo y máximo de vacantes se definen en `matching-config.yml` (no requiere recompilar, solo reinicio):
+
+```yaml
+pesos:
+  afinidad: 35
+  habilidades: 10
+  ingles: 20
+  ubicacion: 15
+  experiencia: 20
+umbral_minimo: 55
+max_vacantes_por_ejecucion: 500
+```
+
+### Notificaciones automáticas
+
+Al generar nuevos matches, el sistema crea automáticamente notificaciones para cada estudiante (`NotificacionService.generarNotificacionesMatch`).
+
+**Umbral mínimo:** 55/100 puntos (configurable). Ejecutado diariamente a las 07:00 por `MatchScheduler`.
+
+### SkillSynonyms — tokenizador con sinónimos
+
+El componente `SkillSynonyms` carga `matching-synonyms.yml` (28 grupos de sinónimos: roles, lenguajes, sectores, habilidades blandas) y normaliza los textos antes de comparar:
+
+1. Normaliza (NFD, lowercase, sin puntuación)
+2. Reemplaza frases multi-palabra por su grupo canónico (ej: `"software engineer"` → `"desarrollador"`)
+3. Divide en palabras y conserva solo las que son grupos canónicos conocidos
+
+### MatchingConfig — configuración externa
+
+`MatchingConfig` carga `matching-config.yml` via `@PostConstruct`. Los pesos deben sumar 100. El `umbral_minimo` define el puntaje mínimo para crear un Match. El `max_vacantes_por_ejecucion` controla cuántas vacantes se procesan por ciclo (ya no está limitado a 100).
+
+La clase está en el paquete `com.novacrm.config` y es inyectada en `MatchingService`.
+
+---
+
+## Importación Dinámica de Excel
+
+### ColumnMapper
+
+El componente `ColumnMapper` carga `column-synonyms.yml` (42 entradas con sinónimos para cada campo de `Estudiante`) y resuelve cualquier columna de un Excel a su campo de entidad correspondiente sin código hardcodeado.
+
+**Algoritmo de mapeo (`map(header)`):**
+1. **Normalización**: elimina prefijos numéricos (`"3.1 "`, `"4.3 "`), contenido parentético corto, acentos, puntuación, y convierte a lowercase
+2. **Coincidencia exacta**: busca el header normalizado en el índice invertido de sinónimos
+3. **Substring (con especificidad)**: si múltiples sinónimos coinciden via contains, se elige el de mayor longitud (más específico). Esto evita que términos genéricos como "experiencia laboral" sobrerrepresenten a campos específicos.
+4. **Solapamiento de palabras**: para sinónimos de ≥2 palabras, calcula ratio de intersección con las palabras del header (umbral 65%)
+
+**Flujo en `ExcelService.importar()`:**
+
+```
+Leer headers del Excel
+         │
+         ▼
+¿Comienza con "3."? ──sí──→ Mapa exacto BBDD + ColumnMapper como fallback
+         │ no
+         ▼
+¿Contiene "Nombre_Completo"? ──sí──→ Mapa exacto MAESTRA + ColumnMapper como fallback
+         │ no
+         ▼
+Usar ColumnMapper para todas las columnas (formato nuevo/desconocido)
+         │
+         ▼
+Por cada fila:
+  ├─ Mapear columna → campo vía ColumnMapper
+  ├─ Asignar valor al estudiante (conversión de tipos: enteros, booleanos, fechas, nivelIngles)
+  └─ Upsert:
+       ├─ Por email (primario)
+       └─ Por numeroDocumento (secundario, si email no encontró match)
+         │
+         ▼
+Devolver: importados, errores, columnasMapeadas, columnasSinMapeo
+```
+
+**Deduplicación mejorada**: ahora busca también por `numeroDocumento` si el email no existe. El repositorio `EstudianteRepository` tiene el nuevo método `findByNumeroDocumento()`.
+
+### Parsing inteligente de campos
+
+El método `asignar()` en `ExcelService` maneja conversiones de tipos con tolerancia a texto no estructurado:
+
+| Campo | Valores textuales aceptados | Conversión |
+|---|---|---|
+| `aniosExperiencia` | `"No tengo experiencia laboral aún"`, `"Menos de 6 meses"`, `"Entre 6 meses y 1 año"`, `"Entre 1 y 2 años"`, `"Más de 2 años"` | Texto → entero (0, 0, 1, 2, 3) |
+| `aniosExperiencia` | Números con coma decimal | `"3,5"` → `4` (redondeo) |
+| Booleanos | `"Sí"`, `"No"`, `"Si"`, `"True"`, `"False"`, `"1"`, `"0"` | Texto → `Boolean` |
+| `fechaNacimiento` | `dd/MM/yyyy`, `yyyy-MM-dd`, `dd-MM-yyyy` | Texto → `LocalDate` |
+| `nivelIngles` | `"B2"`, `"C1"`, `"A2"`, etc. | Código → entidad `NivelIngles` |
+
+### ExcelService — métodos eliminados
+
+- `mapearBBDD()` — reemplazado por el loop genérico sobre `columnMap`
+- `mapearMaestra()` — reemplazado; la lógica de `Nombre_Completo` se conserva como post-procesamiento
+- `mapearGenerico()` — reemplazado por `ColumnMapper`
+
+### Nuevos campos en respuesta
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `columnasMapeadas` | Map<String, String> | Header de Excel → campo de entidad |
+| `columnasSinMapeo` | List<String> | Headers que no se pudieron mapear |
+
+---
+
+## Nuevos componentes (esta sesión)
+
+| Componente | Ubicación | Propósito |
+|---|---|---|
+| `ColumnMapper` | `com.novacrm.excel` | Mapeo dinámico de columnas Excel por sinónimos |
+| `SkillSynonyms` | `com.novacrm.matching` | Tokenizador con sinónimos técnico-laborales para matching |
+| `MatchingConfig` | `com.novacrm.config` | Config externa de pesos/umbral del matching |
+| `EstudianteHabilidadRepository` | `com.novacrm.habilidad` | Repositorio para consultar habilidades por estudiante |
+| `AdminService` / `AdminController` | `com.novacrm.admin` | Operaciones masivas: soft/hard delete por programa, cleanup total |
+| `PurgeScheduler` | `com.novacrm.config` | Limpieza semanal de papelera (domingo 3 AM, retención 30 días) |
+
+### Papelera de reciclaje
+
+Todos los soft-deletes (`DELETE /api/v1/estudiantes/{id}`, `DELETE /admin/programas/{id}/estudiantes`) ahora marcan `deleted_at = now()` además de `activo = false`.
+
+**Endpoint públicos de papelera:**
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/api/v1/estudiantes/papelera?programaId=X` | Lista estudiantes en papelera (activo=false) paginados, ordenados por deleted_at DESC |
+| `POST` | `/api/v1/estudiantes/{id}/restaurar` | Restaura un estudiante (activo=true, deleted_at=null) |
+
+**Retención:** 30 días. El `PurgeScheduler` (domingo 3 AM) elimina físicamente estudiantes con `deleted_at < now() - 30 días`, incluyendo todas sus dependencias (matches, notificaciones, habilidades, certificaciones, credenciales).
+
+### Administración masiva
+
+El paquete `com.novacrm.admin` implementa cinco operaciones vía `EntityManager` para borrados eficientes sin cargar entidades en memoria:
+
+| Endpoint | Descripción |
+|---|---|
+| `DELETE /api/v1/admin/programas/{id}/estudiantes` | Soft delete (`activo=false`, `deleted_at=now()`) de todos los estudiantes de un programa |
+| `DELETE /api/v1/admin/programas/{id}/reset` | Hard delete con cascada: matches → notificaciones → habilidades → certificaciones → linkedin → estudiantes |
+| `POST /api/v1/admin/programas/{id}/restaurar-estudiantes` | Restaura todos los estudiantes de un programa desde la papelera |
+| `DELETE /api/v1/admin/purgar-papelera` | Elimina físicamente estudiantes con más de 30 días en papelera (purga manual) |
+| `DELETE /api/v1/admin/cleanup` | Vacía todo el sistema transaccional (deja catálogos, programas, empresas, usuarios) |
+
+### Archivos de configuración YAML
+
+| Archivo | Propósito |
+|---|---|
+| `column-synonyms.yml` | 42 grupos de sinónimos para mapeo de columnas Excel |
+| `matching-synonyms.yml` | 28 grupos de sinónimos técnico-laborales para matching |
+| `matching-config.yml` | Pesos, umbral mínimo y máximo de vacantes del matching |
+
+---
 
 ## Seguridad
 
@@ -130,6 +289,10 @@ El `MatchingService` evalúa candidatos contra vacantes usando puntuación ponde
 ### MatchScheduler
 - **Cron:** `0 0 7 * * *` (07:00 diario)
 - Ejecuta matching para todos los estudiantes activos contra vacantes activas
+
+### PurgeScheduler
+- **Cron:** `0 0 3 * * SUN` (03:00 domingo)
+- Elimina físicamente estudiantes con `activo=false` y `deleted_at < now() - 30 días`, incluyendo matches, notificaciones, habilidades, certificaciones y credenciales
 
 ## Configuración por entorno
 
@@ -157,7 +320,7 @@ El `MatchingService` evalúa candidatos contra vacantes usando puntuación ponde
 1. **UUID como PK** — IDs no secuenciales, seguros para exposición pública en URLs
 2. **Flyway + `ddl-auto: validate`** — El schema lo define SQL (Flyway), Hibernate solo valida consistencia
 3. **BaseEntity abstracta** — Todos los dominios comparten `id`, `createdAt`, `updatedAt`, `version` (optimistic locking)
-4. **Soft-delete** — Estudiantes y programas se desactivan (`activo = false`), no se eliminan físicamente
+4. **Soft-delete con papelera** — Estudiantes se desactivan (`activo = false`) con `deleted_at = now()`, permitiendo restaurarlos. Purga automática a los 30 días via `PurgeScheduler`. Programas solo se desactivan sin papelera.
 5. **DTOs con records (Java 17)** — Inmutables, concisos, sin dependencia de Lombok
 6. **Bucket4j sobre Redis** — Rate limiting en memoria (sin dependencia externa adicional)
 

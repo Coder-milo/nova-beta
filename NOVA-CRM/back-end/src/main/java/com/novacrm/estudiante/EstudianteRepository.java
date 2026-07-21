@@ -3,7 +3,9 @@ package com.novacrm.estudiante;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
@@ -13,6 +15,7 @@ import java.util.UUID;
 public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     Page<Estudiante> findByProgramaIdAndActivoTrue(UUID programaId, Pageable pageable);
     Optional<Estudiante> findByEmail(String email);
+    Optional<Estudiante> findByNumeroDocumento(String numeroDocumento);
     long countByProgramaIdAndActivoTrue(UUID programaId);
 
     // --- Dashboard: KPIs y variaciones temporales ---
@@ -48,6 +51,16 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
               and (e.celular is null or e.email is null or e.numeroDocumento is null)
             """)
     long contarActivosConDatosFaltantes();
+
+    // --- Papelera ---
+    Page<Estudiante> findByProgramaIdAndActivoFalse(UUID programaId, Pageable pageable);
+    long countByProgramaIdAndActivoFalse(UUID programaId);
+    long countByActivoFalse();
+    List<Estudiante> findByActivoFalseAndDeletedAtBefore(Instant fecha);
+
+    @Modifying
+    @Query("UPDATE Estudiante e SET e.activo = false, e.deletedAt = CURRENT_TIMESTAMP WHERE e.programa.id = :programaId AND e.activo = true")
+    int softDeleteByProgramaId(@Param("programaId") UUID programaId);
 
     interface ConteoPorProgramaProjection {
         UUID getProgramaId();

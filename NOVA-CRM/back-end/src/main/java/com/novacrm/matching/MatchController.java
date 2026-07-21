@@ -12,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -21,10 +22,14 @@ public class MatchController {
 
     private final MatchingService matchingService;
     private final OwnershipService ownershipService;
+    private final MatchRepository matchRepository;
 
-    public MatchController(MatchingService matchingService, OwnershipService ownershipService) {
+    public MatchController(MatchingService matchingService,
+                           OwnershipService ownershipService,
+                           MatchRepository matchRepository) {
         this.matchingService = matchingService;
         this.ownershipService = ownershipService;
+        this.matchRepository = matchRepository;
     }
 
     @GetMapping
@@ -43,5 +48,23 @@ public class MatchController {
     public long contarPendientes(@RequestParam UUID estudianteId, Authentication auth) {
         ownershipService.verificarAccesoEstudiante(auth, estudianteId);
         return matchingService.contarMatchesPendientes(estudianteId);
+    }
+
+    @PatchMapping("/{matchId}/postular")
+    @Operation(summary = "Marcar un match como postulado")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
+    public void marcarPostulado(@PathVariable UUID matchId, Authentication auth) {
+        var match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new com.novacrm.exception.ResourceNotFoundException("Match no encontrado: " + matchId));
+        ownershipService.verificarAccesoEstudiante(auth, match.getEstudiante().getId());
+        matchingService.marcarPostulado(matchId);
+    }
+
+    @PostMapping("/ejecutar")
+    @Operation(summary = "Ejecutar matching bajo demanda")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public Map<String, Object> ejecutarMatching() {
+        int creados = matchingService.ejecutarMatching();
+        return Map.of("matchesCreados", creados);
     }
 }
