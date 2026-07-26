@@ -21,4 +21,25 @@ public class AuthController {
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
     }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Renovar el access token con un refresh token")
+    public LoginResponse refresh(@Valid @RequestBody RefreshRequest request) {
+        return authService.refresh(request.refreshToken());
+    }
+
+    @PostMapping("/forgot-password")
+    @Operation(summary = "Solicitar enlace de recuperación de contraseña")
+    public java.util.Map<String, String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request.email());
+        // Respuesta idéntica exista o no el correo (evita enumeración de usuarios).
+        return java.util.Map.of("mensaje", "Si el correo existe, enviamos un enlace de recuperación");
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Restablecer la contraseña con el token del correo")
+    public java.util.Map<String, String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.token(), request.password());
+        return java.util.Map.of("mensaje", "Contraseña actualizada");
+    }
 }

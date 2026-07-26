@@ -23,21 +23,59 @@ public class EstudianteService {
     private final EstudianteRepository estudianteRepository;
     private final ProgramaRepository programaRepository;
     private final NivelInglesRepository nivelInglesRepository;
+    private final com.novacrm.auditoria.AuditoriaService auditoriaService;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public EstudianteService(EstudianteRepository estudianteRepository,
                              ProgramaRepository programaRepository,
-                             NivelInglesRepository nivelInglesRepository) {
+                             NivelInglesRepository nivelInglesRepository,
+                             com.novacrm.auditoria.AuditoriaService auditoriaService) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
         this.nivelInglesRepository = nivelInglesRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     public Page<EstudianteResponse> listarPorPrograma(UUID programaId, Pageable pageable) {
         return estudianteRepository.findByProgramaIdAndActivoTrue(programaId, pageable)
                 .map(this::toResponse);
+    }
+
+    public Page<EstudianteResponse> listarConDatosFaltantes(Pageable pageable) {
+        return estudianteRepository.buscarActivosConDatosFaltantes(pageable)
+                .map(this::toResponse);
+    }
+
+    /** Búsqueda avanzada sin exigir programa: nombre/documento/email, ciudad y estados. */
+    public Page<EstudianteResponse> buscarAvanzado(String q, UUID programaId, String ciudad,
+                                                   EstadoAcademico estadoAcademico,
+                                                   EstadoEmpleabilidad estadoEmpleabilidad,
+                                                   Pageable pageable) {
+        return estudianteRepository.buscarAvanzado(
+                        (q == null || q.isBlank()) ? null : q.trim(),
+                        programaId,
+                        (ciudad == null || ciudad.isBlank()) ? null : ciudad.trim(),
+                        estadoAcademico, estadoEmpleabilidad, pageable)
+                .map(this::toResponse);
+    }
+
+    /** Vincular (mover) un estudiante a otro programa. */
+    @Transactional
+    public EstudianteResponse vincularPrograma(UUID id, UUID programaId) {
+        var estudiante = buscar(id);
+        var programa = programaRepository.findById(programaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Programa no encontrado: " + programaId));
+        estudiante.setPrograma(programa);
+        return toResponse(estudianteRepository.save(estudiante));
+    }
+
+    @Transactional
+    public EstudianteResponse actualizarFoto(UUID id, String fotoUrl) {
+        var estudiante = buscar(id);
+        estudiante.setFotoUrl(fotoUrl);
+        return toResponse(estudianteRepository.save(estudiante));
     }
 
     public EstudianteResponse obtener(UUID id) {
@@ -51,14 +89,20 @@ public class EstudianteService {
         var estudiante = new Estudiante();
         aplicarRequest(estudiante, request);
         estudiante.setPrograma(programa);
-        return toResponse(estudianteRepository.save(estudiante));
+        var creado = estudianteRepository.save(estudiante);
+        auditoriaService.registrar("Estudiantes", "Creación", "Estudiante",
+                creado.getId().toString(), creado.getNombre() + " " + creado.getApellido(), null, null);
+        return toResponse(creado);
     }
 
     @Transactional
     public EstudianteResponse actualizar(UUID id, EstudianteRequest request) {
         var estudiante = buscar(id);
         aplicarRequest(estudiante, request);
-        return toResponse(estudianteRepository.save(estudiante));
+        var actualizado = estudianteRepository.save(estudiante);
+        auditoriaService.registrar("Estudiantes", "Actualización", "Estudiante",
+                id.toString(), actualizado.getNombre() + " " + actualizado.getApellido(), null, null);
+        return toResponse(actualizado);
     }
 
     @Transactional
@@ -67,6 +111,8 @@ public class EstudianteService {
         estudiante.setActivo(false);
         estudiante.setDeletedAt(Instant.now());
         estudianteRepository.save(estudiante);
+        auditoriaService.registrar("Estudiantes", "Eliminación", "Estudiante",
+                id.toString(), estudiante.getNombre() + " " + estudiante.getApellido(), null, null);
     }
 
     public Page<EstudianteResponse> listarPapelera(UUID programaId, Pageable pageable) {
@@ -141,6 +187,25 @@ public class EstudianteService {
         e.setEmpresasContactadas(r.empresasContactadas());
         if (r.estadoAcademico() != null) e.setEstadoAcademico(r.estadoAcademico());
         if (r.estadoEmpleabilidad() != null) e.setEstadoEmpleabilidad(r.estadoEmpleabilidad());
+        e.setDireccion(r.direccion());
+        e.setCompetencias(r.competencias());
+        e.setIdiomas(r.idiomas());
+        e.setReferencias(r.referencias());
+        e.setDisponibilidad(r.disponibilidad());
+    }
+
+    /** Porcentaje de perfil completado: campos clave para generar una HV de calidad. */
+    private static int calcularCompletitud(Estudiante e) {
+        String[] campos = {
+                e.getNombre(), e.getApellido(), e.getEmail(),
+                e.getCelular() != null ? e.getCelular() : e.getTelefono(),
+                e.getNumeroDocumento(), e.getCiudad(), e.getDireccion(),
+                e.getPerfilProfesional(), e.getNivelEducativo(), e.getTitulo(),
+                e.getCargoObjetivo(), e.getCompetencias()
+        };
+        int llenos = 0;
+        for (var c : campos) if (c != null && !c.isBlank()) llenos++;
+        return Math.round(llenos * 100f / campos.length);
     }
 
     private EstudianteResponse toResponse(Estudiante e) {
@@ -161,7 +226,10 @@ public class EstudianteService {
                 e.getEstadoAcademico(), e.getEstadoEmpleabilidad(),
                 e.getNivelIngles() != null ? e.getNivelIngles().getNombre() : null,
                 e.getPrograma().getId(), e.getPrograma().getNombre(),
-                e.isActivo(), e.getCreatedAt(), e.getDeletedAt()
+                e.isActivo(), e.getCreatedAt(), e.getDeletedAt(),
+                e.getDireccion(), e.getFotoUrl(), e.getCompetencias(),
+                e.getIdiomas(), e.getReferencias(), e.getDisponibilidad(),
+                calcularCompletitud(e)
         );
     }
 

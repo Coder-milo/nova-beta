@@ -3,11 +3,15 @@ package com.novacrm.excel;
 import com.novacrm.catalogo.nivel_ingles.NivelInglesRepository;
 import com.novacrm.estudiante.Estudiante;
 import com.novacrm.estudiante.EstudianteRepository;
+import com.novacrm.excel.dto.ImportPreviewResponse;
+import com.novacrm.excel.dto.ImportacionHistorialResponse;
 import com.novacrm.exception.BusinessException;
 import com.novacrm.programa.Programa;
 import com.novacrm.programa.ProgramaRepository;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,6 +31,7 @@ public class ExcelService {
     private final ProgramaRepository programaRepository;
     private final NivelInglesRepository nivelInglesRepository;
     private final ColumnMapper columnMapper;
+    private final ImportacionHistorialRepository importacionHistorialRepository;
 
     private static final Map<String, String> BBDD_COLUMNS = buildBBDDMap();
     private static final Map<String, String> MAESTRA_COLUMNS = buildMaestraMap();
@@ -49,11 +54,13 @@ public class ExcelService {
     public ExcelService(EstudianteRepository estudianteRepository,
                         ProgramaRepository programaRepository,
                         NivelInglesRepository nivelInglesRepository,
-                        ColumnMapper columnMapper) {
+                        ColumnMapper columnMapper,
+                        ImportacionHistorialRepository importacionHistorialRepository) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
         this.nivelInglesRepository = nivelInglesRepository;
         this.columnMapper = columnMapper;
+        this.importacionHistorialRepository = importacionHistorialRepository;
     }
 
     static {
@@ -153,6 +160,143 @@ public class ExcelService {
         var programa = programaRepository.findById(programaId)
                 .orElseThrow(() -> new BusinessException("Programa no encontrado: " + programaId));
 
+        DatosArchivo datos = parsearArchivo(archivo);
+        List<String> columnasDetectadas = datos.columnasDetectadas();
+        List<Map<String, String>> filas = datos.filas();
+
+        boolean esFormatoMaestra = columnasDetectadas.contains("Nombre_Completo");
+
+        Map<String, String> columnMap = construirColumnMap(columnasDetectadas);
+
+        List<String> columnasSinMapeo = columnMap.entrySet().stream()
+                .filter(e -> e.getValue() == null)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+
+        int importados = 0;
+        int creados = 0;
+        int actualizados = 0;
+        int errores = 0;
+        List<String> erroresDetalle = new ArrayList<>();
+
+        for (Map<String, String> fila : filas) {
+            try {
+                var estudiante = construirEstudiante(fila, columnMap, esFormatoMaestra);
+                estudiante.setPrograma(programa);
+                estudiante.setActivo(true);
+
+                if (estudiante.getEmail() != null && !estudiante.getEmail().isBlank()) {
+                    var existente = estudianteRepository.findByEmail(estudiante.getEmail());
+                    if (existente.isPresent()) {
+                        aplicarActualizacion(existente.get(), estudiante);
+                        estudianteRepository.save(existente.get());
+                        actualizados++;
+                    } else {
+                        if (upsertPorDocumentoOInsertar(estudiante)) {
+                            actualizados++;
+                        } else {
+                            creados++;
+                        }
+                    }
+                } else if (estudiante.getNumeroDocumento() != null
+                        && !estudiante.getNumeroDocumento().isBlank()) {
+                    var existenteDoc = estudianteRepository.findByNumeroDocumento(estudiante.getNumeroDocumento());
+                    if (existenteDoc.isPresent()) {
+                        aplicarActualizacion(existenteDoc.get(), estudiante);
+                        estudianteRepository.save(existenteDoc.get());
+                        actualizados++;
+                    } else {
+                        throw new BusinessException("Email vacío o no encontrado en la fila");
+                    }
+                } else {
+                    throw new BusinessException("Email vacío o no encontrado en la fila");
+                }
+                importados++;
+            } catch (Exception e) {
+                errores++;
+                erroresDetalle.add("Fila " + (importados + errores) + ": " + e.getMessage());
+            }
+        }
+
+        Map<String, Object> resultado = new HashMap<>();
+        resultado.put("importados", importados);
+        resultado.put("errores", errores);
+        resultado.put("totalFilas", filas.size());
+        resultado.put("columnasDetectadas", columnasDetectadas);
+        resultado.put("columnasMapeadas", columnMap);
+        resultado.put("columnasSinMapeo", columnasSinMapeo);
+        resultado.put("erroresDetalle", erroresDetalle);
+
+        registrarHistorial(archivo, programaId, creados, actualizados, errores, erroresDetalle);
+
+        return resultado;
+    }
+
+    public ImportPreviewResponse previewImport(MultipartFile archivo, UUID programaId) {
+        validarArchivo(archivo);
+
+        if (programaId != null && programaRepository.findById(programaId).isEmpty()) {
+            throw new BusinessException("Programa no encontrado: " + programaId);
+        }
+
+        DatosArchivo datos = parsearArchivo(archivo);
+        List<String> columnasDetectadas = datos.columnasDetectadas();
+        List<Map<String, String>> filas = datos.filas();
+
+        boolean esFormatoMaestra = columnasDetectadas.contains("Nombre_Completo");
+
+        Map<String, String> columnMap = construirColumnMap(columnasDetectadas);
+
+        List<String> advertencias = columnMap.entrySet().stream()
+                .filter(e -> e.getValue() == null)
+                .map(e -> "Columna sin mapeo: " + e.getKey())
+                .collect(Collectors.toList());
+
+        int nuevos = 0;
+        int actualizados = 0;
+        int conErrores = 0;
+        List<String> errores = new ArrayList<>();
+
+        int numFila = 0;
+        for (Map<String, String> fila : filas) {
+            numFila++;
+            try {
+                var estudiante = construirEstudiante(fila, columnMap, esFormatoMaestra);
+                if (estudianteRepository.findByEmail(estudiante.getEmail()).isPresent()) {
+                    actualizados++;
+                } else {
+                    nuevos++;
+                }
+            } catch (Exception e) {
+                conErrores++;
+                errores.add("Fila " + numFila + ": " + e.getMessage());
+            }
+        }
+
+        return new ImportPreviewResponse(
+                filas.size(),
+                nuevos + actualizados,
+                nuevos,
+                actualizados,
+                conErrores,
+                errores,
+                advertencias);
+    }
+
+    public List<ImportacionHistorialResponse> obtenerHistorial() {
+        return importacionHistorialRepository.findTop20ByOrderByCreatedAtDesc().stream()
+                .map(h -> new ImportacionHistorialResponse(
+                        h.getId(),
+                        h.getArchivo(),
+                        h.getUsuario(),
+                        h.getCreados(),
+                        h.getActualizados(),
+                        h.getErrores(),
+                        h.getCreatedAt()))
+                .collect(Collectors.toList());
+    }
+
+    private DatosArchivo parsearArchivo(MultipartFile archivo) {
         List<String> columnasDetectadas = new ArrayList<>();
         List<Map<String, String>> filas = new ArrayList<>();
 
@@ -185,6 +329,10 @@ public class ExcelService {
             throw new BusinessException("Error al leer el archivo Excel: " + e.getMessage());
         }
 
+        return new DatosArchivo(columnasDetectadas, filas);
+    }
+
+    private Map<String, String> construirColumnMap(List<String> columnasDetectadas) {
         boolean esFormatoBBDD = columnasDetectadas.stream().anyMatch(c -> c.startsWith("3."));
         boolean esFormatoMaestra = columnasDetectadas.contains("Nombre_Completo");
 
@@ -197,89 +345,62 @@ public class ExcelService {
             exactOverrides = Collections.emptyMap();
         }
 
-        Map<String, String> columnMap = columnMapper.buildColumnMap(columnasDetectadas, exactOverrides);
-
-        List<String> columnasSinMapeo = columnMap.entrySet().stream()
-                .filter(e -> e.getValue() == null)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-
-        int importados = 0;
-        int errores = 0;
-        List<String> erroresDetalle = new ArrayList<>();
-
-        for (Map<String, String> fila : filas) {
-            try {
-                var estudiante = new Estudiante();
-                estudiante.setPrograma(programa);
-                estudiante.setActivo(true);
-
-                for (var entry : columnMap.entrySet()) {
-                    String col = entry.getKey();
-                    String field = entry.getValue();
-                    if (field == null || SKIP.contains(col)) continue;
-
-                    String val = fila.get(col);
-                    if (val == null || val.isBlank()) continue;
-
-                    if (esFormatoMaestra && "Nombre_Completo".equals(col)) {
-                        splitAndSetNombreCompleto(estudiante, val);
-                        continue;
-                    }
-
-                    asignar(estudiante, field, val, col);
-                }
-
-                // VALIDACIÓN DE CAMPOS OBLIGATORIOS
-                if (estudiante.getNombre() == null || estudiante.getNombre().trim().isEmpty()) {
-                    throw new BusinessException("El nombre es requerido y no puede estar vacío");
-                }
-                if (estudiante.getApellido() == null) {
-                    throw new BusinessException("El apellido es requerido");
-                }
-                if (estudiante.getEmail() == null || estudiante.getEmail().trim().isEmpty()) {
-                    throw new BusinessException("El email es requerido y no puede estar vacío");
-                }
-
-                if (estudiante.getEmail() != null && !estudiante.getEmail().isBlank()) {
-                    var existente = estudianteRepository.findByEmail(estudiante.getEmail());
-                    if (existente.isPresent()) {
-                        aplicarActualizacion(existente.get(), estudiante);
-                        estudianteRepository.save(existente.get());
-                    } else {
-                        upsertPorDocumentoOInsertar(estudiante);
-                    }
-                } else if (estudiante.getNumeroDocumento() != null
-                        && !estudiante.getNumeroDocumento().isBlank()) {
-                    var existenteDoc = estudianteRepository.findByNumeroDocumento(estudiante.getNumeroDocumento());
-                    if (existenteDoc.isPresent()) {
-                        aplicarActualizacion(existenteDoc.get(), estudiante);
-                        estudianteRepository.save(existenteDoc.get());
-                    } else {
-                        throw new BusinessException("Email vacío o no encontrado en la fila");
-                    }
-                } else {
-                    throw new BusinessException("Email vacío o no encontrado en la fila");
-                }
-                importados++;
-            } catch (Exception e) {
-                errores++;
-                erroresDetalle.add("Fila " + (importados + errores) + ": " + e.getMessage());
-            }
-        }
-
-        Map<String, Object> resultado = new HashMap<>();
-        resultado.put("importados", importados);
-        resultado.put("errores", errores);
-        resultado.put("totalFilas", filas.size());
-        resultado.put("columnasDetectadas", columnasDetectadas);
-        resultado.put("columnasMapeadas", columnMap);
-        resultado.put("columnasSinMapeo", columnasSinMapeo);
-        resultado.put("erroresDetalle", erroresDetalle);
-        return resultado;
+        return columnMapper.buildColumnMap(columnasDetectadas, exactOverrides);
     }
 
-    private void upsertPorDocumentoOInsertar(Estudiante estudiante) {
+    private Estudiante construirEstudiante(Map<String, String> fila,
+                                           Map<String, String> columnMap,
+                                           boolean esFormatoMaestra) {
+        var estudiante = new Estudiante();
+
+        for (var entry : columnMap.entrySet()) {
+            String col = entry.getKey();
+            String field = entry.getValue();
+            if (field == null || SKIP.contains(col)) continue;
+
+            String val = fila.get(col);
+            if (val == null || val.isBlank()) continue;
+
+            if (esFormatoMaestra && "Nombre_Completo".equals(col)) {
+                splitAndSetNombreCompleto(estudiante, val);
+                continue;
+            }
+
+            asignar(estudiante, field, val, col);
+        }
+
+        // VALIDACIÓN DE CAMPOS OBLIGATORIOS
+        if (estudiante.getNombre() == null || estudiante.getNombre().trim().isEmpty()) {
+            throw new BusinessException("El nombre es requerido y no puede estar vacío");
+        }
+        if (estudiante.getApellido() == null) {
+            throw new BusinessException("El apellido es requerido");
+        }
+        if (estudiante.getEmail() == null || estudiante.getEmail().trim().isEmpty()) {
+            throw new BusinessException("El email es requerido y no puede estar vacío");
+        }
+
+        return estudiante;
+    }
+
+    private void registrarHistorial(MultipartFile archivo, UUID programaId,
+                                    int creados, int actualizados, int errores,
+                                    List<String> erroresDetalle) {
+        var historial = new ImportacionHistorial();
+        historial.setArchivo(archivo.getOriginalFilename());
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        historial.setUsuario(auth != null && auth.getName() != null ? auth.getName() : "sistema");
+        historial.setProgramaId(programaId);
+        historial.setCreados(creados);
+        historial.setActualizados(actualizados);
+        historial.setOmitidos(0);
+        historial.setErrores(errores);
+        String detalle = String.join("\n", erroresDetalle);
+        historial.setDetalle(detalle.length() > 2000 ? detalle.substring(0, 2000) : detalle);
+        importacionHistorialRepository.save(historial);
+    }
+
+    private boolean upsertPorDocumentoOInsertar(Estudiante estudiante) {
         if (estudiante.getNumeroDocumento() != null
                 && !estudiante.getNumeroDocumento().isBlank()) {
             var existenteDoc = estudianteRepository
@@ -287,11 +408,14 @@ public class ExcelService {
             if (existenteDoc.isPresent()) {
                 aplicarActualizacion(existenteDoc.get(), estudiante);
                 estudianteRepository.save(existenteDoc.get());
-                return;
+                return true;
             }
         }
         estudianteRepository.save(estudiante);
+        return false;
     }
+
+    private record DatosArchivo(List<String> columnasDetectadas, List<Map<String, String>> filas) {}
 
     private void splitAndSetNombreCompleto(Estudiante e, String nombreCompleto) {
         if (nombreCompleto == null || nombreCompleto.isBlank()) return;

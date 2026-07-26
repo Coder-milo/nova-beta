@@ -5,5 +5,6 @@ public record AlertaResponse(
         String severidad,   // ALTA, MEDIA, BAJA
         String titulo,
         String detalle,
-        String referenciaId // id del recurso relacionado, si aplica
+        String referenciaId, // id del recurso relacionado, si aplica
+        String ruta          // destino navegable para resolver la alerta
 ) {}

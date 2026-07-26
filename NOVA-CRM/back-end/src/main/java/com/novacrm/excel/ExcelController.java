@@ -1,5 +1,7 @@
 package com.novacrm.excel;
 
+import com.novacrm.excel.dto.ImportPreviewResponse;
+import com.novacrm.excel.dto.ImportacionHistorialResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
@@ -7,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,5 +30,20 @@ public class ExcelController {
     public Map<String, Object> importar(@RequestParam MultipartFile archivo,
                                          @RequestParam UUID programaId) {
         return excelService.importar(archivo, programaId);
+    }
+
+    @PostMapping(value = "/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Previsualizar importacion de estudiantes sin persistir cambios")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public ImportPreviewResponse preview(@RequestParam MultipartFile archivo,
+                                         @RequestParam UUID programaId) {
+        return excelService.previewImport(archivo, programaId);
+    }
+
+    @GetMapping("/historial")
+    @Operation(summary = "Historial de las ultimas 20 importaciones")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public List<ImportacionHistorialResponse> historial() {
+        return excelService.obtenerHistorial();
     }
 }

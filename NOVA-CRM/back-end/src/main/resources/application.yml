@@ -2,9 +2,9 @@ spring:
   application:
     name: nova-crm
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:novacrm}${DB_PARAMS:}
-    username: ${DB_USER:novacrm}
-    password: ${DB_PASSWORD:novacrm_secret}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${NOVA_DB_NAME:novacrm}${DB_PARAMS:}
+    username: ${NOVA_DB_USER:novacrm}
+    password: ${NOVA_DB_PASSWORD:novacrm_secret}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -39,8 +39,8 @@ logging:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:}
-    expiration-ms: 900000
+    secret: ${NOVA_JWT_SECRET:TlfnNVy2SjMmDUao7a6XpWTBRG4iLr3ZGdveIrsy/o0=}
+    expiration-ms: 28800000
     refresh-expiration-ms: 604800000
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:4200,http://localhost:3000}

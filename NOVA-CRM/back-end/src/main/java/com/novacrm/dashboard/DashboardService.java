@@ -29,6 +29,9 @@ public class DashboardService {
     private final EstudianteRepository estudianteRepository;
     private final ProgramaRepository programaRepository;
 
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
     public DashboardService(EstudianteRepository estudianteRepository,
                             ProgramaRepository programaRepository) {
         this.estudianteRepository = estudianteRepository;
@@ -53,8 +56,8 @@ public class DashboardService {
                 estudianteRepository.countByEstadoAcademico(EstadoAcademico.RETIRADO),
                 estudianteRepository.countByEstadoAcademico(EstadoAcademico.EN_PROCESO),
                 programaRepository.countByActivoTrue(),
-                0, // documentosPendientes: pendiente módulo Documentos
-                0  // hvsPorGenerar: pendiente módulo Hojas de Vida
+                contarDocumentosPendientes(),
+                contarHvsPorGenerar()
         );
     }
 
@@ -97,11 +100,18 @@ public class DashboardService {
 
         long conDatosFaltantes = estudianteRepository.contarActivosConDatosFaltantes();
         if (conDatosFaltantes > 0) {
+            var primeros = estudianteRepository.buscarActivosConDatosFaltantes(
+                    org.springframework.data.domain.PageRequest.of(0, 2)).getContent();
+            String referencia = conDatosFaltantes == 1 && !primeros.isEmpty()
+                    ? primeros.get(0).getId().toString() : null;
+            String ruta = referencia != null
+                    ? "/estudiantes/" + referencia
+                    : "/estudiantes?incompletos=1";
             alertas.add(new AlertaResponse(
                     "DATOS_FALTANTES", "MEDIA",
                     "Estudiantes con datos incompletos",
                     conDatosFaltantes + " estudiante(s) activo(s) sin celular, correo o documento.",
-                    null));
+                    referencia, ruta));
         }
 
         LocalDate hoy = LocalDate.now(ZoneId.systemDefault());
@@ -113,7 +123,7 @@ public class DashboardService {
                     "PROGRAMA_POR_FINALIZAR", "ALTA",
                     "«" + p.getNombre() + "» próximo a finalizar",
                     "Finaliza en " + dias + " día(s) (" + p.getFechaFin() + ").",
-                    p.getId().toString()));
+                    p.getId().toString(), "/proyectos/" + p.getId()));
         }
 
         return alertas;
@@ -131,5 +141,25 @@ public class DashboardService {
 
     private double redondear(double v) {
         return Math.round(v * 10.0) / 10.0;
+    }
+
+    /** Estudiantes activos que aún no tienen ningún documento cargado. */
+    private long contarDocumentosPendientes() {
+        return entityManager.createQuery(
+                        """
+                        SELECT COUNT(e) FROM Estudiante e WHERE e.activo = true
+                        AND NOT EXISTS (SELECT 1 FROM Documento d WHERE d.estudiante.id = e.id AND d.actual = true)
+                        """, Long.class)
+                .getSingleResult();
+    }
+
+    /** Estudiantes activos sin hoja de vida generada vigente. */
+    private long contarHvsPorGenerar() {
+        return entityManager.createQuery(
+                        """
+                        SELECT COUNT(e) FROM Estudiante e WHERE e.activo = true
+                        AND NOT EXISTS (SELECT 1 FROM HojaDeVida h WHERE h.estudiante.id = e.id AND h.actual = true)
+                        """, Long.class)
+                .getSingleResult();
     }
 }

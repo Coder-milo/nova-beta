@@ -14,6 +14,8 @@ import java.util.UUID;
 
 public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     Page<Estudiante> findByProgramaIdAndActivoTrue(UUID programaId, Pageable pageable);
+
+    List<Estudiante> findAllByProgramaIdAndActivoTrue(UUID programaId);
     Optional<Estudiante> findByEmail(String email);
     Optional<Estudiante> findByNumeroDocumento(String numeroDocumento);
     long countByProgramaIdAndActivoTrue(UUID programaId);
@@ -48,9 +50,20 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     @Query("""
             select count(e) from Estudiante e
             where e.activo = true
-              and (e.celular is null or e.email is null or e.numeroDocumento is null)
+              and (e.celular is null or trim(e.celular) = ''
+                   or e.email is null or trim(e.email) = ''
+                   or e.numeroDocumento is null or trim(e.numeroDocumento) = '')
             """)
     long contarActivosConDatosFaltantes();
+
+    @Query("""
+            select e from Estudiante e
+            where e.activo = true
+              and (e.celular is null or trim(e.celular) = ''
+                   or e.email is null or trim(e.email) = ''
+                   or e.numeroDocumento is null or trim(e.numeroDocumento) = '')
+            """)
+    Page<Estudiante> buscarActivosConDatosFaltantes(Pageable pageable);
 
     // --- Papelera ---
     Page<Estudiante> findByProgramaIdAndActivoFalse(UUID programaId, Pageable pageable);
@@ -72,4 +85,23 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
         String getMes();
         long getTotal();
     }
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT e FROM Estudiante e
+            WHERE e.activo = true
+              AND (:q IS NULL OR LOWER(e.nombre) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
+                   OR LOWER(e.apellido) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
+                   OR LOWER(e.email) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
+                   OR e.numeroDocumento LIKE CONCAT('%', CAST(:q AS string), '%'))
+              AND (:programaId IS NULL OR e.programa.id = :programaId)
+              AND (:ciudad IS NULL OR LOWER(e.ciudad) = LOWER(CAST(:ciudad AS string)))
+              AND (:estadoAcademico IS NULL OR e.estadoAcademico = :estadoAcademico)
+              AND (:estadoEmpleabilidad IS NULL OR e.estadoEmpleabilidad = :estadoEmpleabilidad)
+            """)
+    Page<Estudiante> buscarAvanzado(@org.springframework.data.repository.query.Param("q") String q,
+                                    @org.springframework.data.repository.query.Param("programaId") UUID programaId,
+                                    @org.springframework.data.repository.query.Param("ciudad") String ciudad,
+                                    @org.springframework.data.repository.query.Param("estadoAcademico") EstadoAcademico estadoAcademico,
+                                    @org.springframework.data.repository.query.Param("estadoEmpleabilidad") EstadoEmpleabilidad estadoEmpleabilidad,
+                                    Pageable pageable);
 }

@@ -32,6 +32,16 @@ public class MatchController {
         this.matchRepository = matchRepository;
     }
 
+    @GetMapping("/mis-matches")
+    @Operation(summary = "Obtener vacantes matcheadas del estudiante autenticado")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public Page<MatchResponse> obtenerMisMatches(
+            @PageableDefault(size = 20, sort = "puntaje", direction = Sort.Direction.DESC) Pageable pageable,
+            Authentication auth) {
+        var est = ownershipService.obtenerEstudianteAutenticado(auth);
+        return matchingService.obtenerMatches(est.getId(), pageable);
+    }
+
     @GetMapping
     @Operation(summary = "Obtener matches de un estudiante")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")

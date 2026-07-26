@@ -50,5 +50,10 @@ public record EstudianteRequest(
         Integer empresasContactadas,
         EstadoAcademico estadoAcademico,
         EstadoEmpleabilidad estadoEmpleabilidad,
-        UUID programaId
+        UUID programaId,
+        String direccion,
+        String competencias,
+        String idiomas,
+        String referencias,
+        String disponibilidad
 ) {}

@@ -16,5 +16,9 @@ public record ProgramaResponse(
         ProgramaEstado estado,
         boolean activo,
         long totalEstudiantes,
+        String cliente,
+        String responsable,
+        String observaciones,
+        int porcentajeAvance,
         Instant createdAt
 ) {}

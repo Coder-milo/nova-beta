@@ -2,6 +2,8 @@ package com.novacrm.programa;
 
 import com.novacrm.shared.BaseEntity;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "programa")
@@ -27,10 +29,21 @@ public class Programa extends BaseEntity {
     private ProgramaEstado estado = ProgramaEstado.BORRADOR;
 
     @Column(name = "config_matching", columnDefinition = "JSONB")
+    @JdbcTypeCode(SqlTypes.JSON)
     private String configMatching;
 
     @Column(name = "logo_url")
     private String logoUrl;
+
+    private String cliente;
+
+    private String responsable;
+
+    @Column(columnDefinition = "TEXT")
+    private String observaciones;
+
+    @Column(name = "porcentaje_avance", nullable = false)
+    private int porcentajeAvance = 0;
 
     @Column(nullable = false)
     private boolean activo = true;
@@ -57,6 +70,14 @@ public class Programa extends BaseEntity {
     public void setConfigMatching(String configMatching) { this.configMatching = configMatching; }
     public String getLogoUrl() { return logoUrl; }
     public void setLogoUrl(String logoUrl) { this.logoUrl = logoUrl; }
+    public String getCliente() { return cliente; }
+    public void setCliente(String cliente) { this.cliente = cliente; }
+    public String getResponsable() { return responsable; }
+    public void setResponsable(String responsable) { this.responsable = responsable; }
+    public String getObservaciones() { return observaciones; }
+    public void setObservaciones(String observaciones) { this.observaciones = observaciones; }
+    public int getPorcentajeAvance() { return porcentajeAvance; }
+    public void setPorcentajeAvance(int porcentajeAvance) { this.porcentajeAvance = porcentajeAvance; }
     public boolean isActivo() { return activo; }
     public void setActivo(boolean activo) { this.activo = activo; }
     public java.time.LocalDateTime getFechaFinalizacion() { return fechaFinalizacion; }

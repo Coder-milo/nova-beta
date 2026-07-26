@@ -2,6 +2,7 @@ package com.novacrm.programa;
 
 import com.novacrm.programa.dto.ProgramaRequest;
 import com.novacrm.programa.dto.ProgramaResponse;
+import com.novacrm.programa.dto.ProgramaResumenResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -25,9 +26,21 @@ public class ProgramaController {
     }
 
     @GetMapping
-    @Operation(summary = "Listar programas activos")
-    public List<ProgramaResponse> listar() {
-        return programaService.listarActivos();
+    @Operation(summary = "Listar programas activos (con filtros opcionales)")
+    public List<ProgramaResponse> listar(@RequestParam(required = false) String q,
+                                         @RequestParam(required = false) ProgramaEstado estado,
+                                         @RequestParam(required = false) String cliente,
+                                         @RequestParam(required = false) String responsable) {
+        if (q == null && estado == null && cliente == null && responsable == null) {
+            return programaService.listarActivos();
+        }
+        return programaService.buscar(q, estado, cliente, responsable);
+    }
+
+    @GetMapping("/{id}/resumen")
+    @Operation(summary = "Indicadores del proyecto (detalle)")
+    public ProgramaResumenResponse resumen(@PathVariable UUID id) {
+        return programaService.resumen(id);
     }
 
     @GetMapping("/{id}")
@@ -56,6 +69,14 @@ public class ProgramaController {
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public ProgramaResponse cambiarEstado(@PathVariable UUID id, @RequestBody CambioEstadoRequest request) {
         return programaService.cambiarEstado(id, request.estado());
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar programa (soft delete)")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminar(@PathVariable UUID id) {
+        programaService.eliminar(id);
     }
 
     public record CambioEstadoRequest(ProgramaEstado estado) {}

@@ -27,6 +27,16 @@ public class Usuario extends BaseEntity {
     @Column(nullable = false)
     private boolean activo = true;
 
+    @Column(name = "reset_token")
+    private String resetToken;
+
+    @Column(name = "reset_token_expira")
+    private java.time.LocalDateTime resetTokenExpira;
+
+    public String getResetToken() { return resetToken; }
+    public void setResetToken(String resetToken) { this.resetToken = resetToken; }
+    public java.time.LocalDateTime getResetTokenExpira() { return resetTokenExpira; }
+    public void setResetTokenExpira(java.time.LocalDateTime resetTokenExpira) { this.resetTokenExpira = resetTokenExpira; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
     public String getPassword() { return password; }

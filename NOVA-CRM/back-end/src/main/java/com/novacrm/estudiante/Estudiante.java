@@ -100,6 +100,22 @@ public class Estudiante extends BaseEntity {
 
     private String nacionalidad;
 
+    private String direccion;
+
+    @Column(name = "foto_url", columnDefinition = "TEXT")
+    private String fotoUrl;
+
+    @Column(columnDefinition = "TEXT")
+    private String competencias;
+
+    @Column(columnDefinition = "TEXT")
+    private String idiomas;
+
+    @Column(columnDefinition = "TEXT")
+    private String referencias;
+
+    private String disponibilidad;
+
     @Column(name = "clasificacion_sisben")
     private String clasificacionSisben;
 
@@ -215,6 +231,18 @@ public class Estudiante extends BaseEntity {
     public void setLinkedinAccessToken(String linkedinAccessToken) { this.linkedinAccessToken = linkedinAccessToken; }
     public String getNacionalidad() { return nacionalidad; }
     public void setNacionalidad(String nacionalidad) { this.nacionalidad = nacionalidad; }
+    public String getDireccion() { return direccion; }
+    public void setDireccion(String direccion) { this.direccion = direccion; }
+    public String getFotoUrl() { return fotoUrl; }
+    public void setFotoUrl(String fotoUrl) { this.fotoUrl = fotoUrl; }
+    public String getCompetencias() { return competencias; }
+    public void setCompetencias(String competencias) { this.competencias = competencias; }
+    public String getIdiomas() { return idiomas; }
+    public void setIdiomas(String idiomas) { this.idiomas = idiomas; }
+    public String getReferencias() { return referencias; }
+    public void setReferencias(String referencias) { this.referencias = referencias; }
+    public String getDisponibilidad() { return disponibilidad; }
+    public void setDisponibilidad(String disponibilidad) { this.disponibilidad = disponibilidad; }
     public String getClasificacionSisben() { return clasificacionSisben; }
     public void setClasificacionSisben(String clasificacionSisben) { this.clasificacionSisben = clasificacionSisben; }
     public String getSituacionLaboral() { return situacionLaboral; }

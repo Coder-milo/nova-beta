@@ -1,4 +1,7 @@
 allowBuilds:
-  msw: false
-  sharp: false
-confirmModulesPurge: false
+  esbuild: set this to true or false
+  msw: set this to true or false
+onlyBuiltDependencies:
+  - esbuild
+ignoredBuiltDependencies:
+  - msw

@@ -13,25 +13,44 @@ import java.util.UUID;
 public class OwnershipService {
 
     private final EstudianteRepository estudianteRepository;
+    private final com.novacrm.programa.ProgramaRepository programaRepository;
 
-    public OwnershipService(EstudianteRepository estudianteRepository) {
+    public OwnershipService(EstudianteRepository estudianteRepository,
+                            com.novacrm.programa.ProgramaRepository programaRepository) {
         this.estudianteRepository = estudianteRepository;
+        this.programaRepository = programaRepository;
     }
 
     /**
-     * Un usuario cuyo unico rol es ESTUDIANTE solo puede acceder a los datos del
+     * Un usuario cuyo único rol es ESTUDIANTE solo puede acceder a los datos del
      * estudiante cuyo email coincide con el suyo (subject del JWT). ADMIN y
-     * COORDINADOR no tienen restriccion.
+     * COORDINADOR no tienen restricción.
      */
     public void verificarAccesoEstudiante(Authentication auth, UUID estudianteId) {
         if (tieneRolPrivilegiado(auth)) {
             return;
         }
-        var propio = estudianteRepository.findByEmail(auth.getName())
-                .orElseThrow(() -> new AccessDeniedException("No existe un estudiante asociado a este usuario"));
+        var propio = obtenerEstudianteAutenticado(auth);
         if (!propio.getId().equals(estudianteId)) {
             throw new AccessDeniedException("No puedes acceder a datos de otro estudiante");
         }
+    }
+
+    @Transactional
+    public com.novacrm.estudiante.Estudiante obtenerEstudianteAutenticado(Authentication auth) {
+        String email = auth.getName();
+        return estudianteRepository.findByEmail(email).orElseGet(() -> {
+            var programas = programaRepository.findAll();
+            if (programas.isEmpty()) {
+                throw new com.novacrm.exception.ResourceNotFoundException("No hay programas configurados en el sistema");
+            }
+            var est = new com.novacrm.estudiante.Estudiante();
+            est.setNombre("Estudiante");
+            est.setApellido("CAC");
+            est.setEmail(email);
+            est.setPrograma(programas.get(0));
+            return estudianteRepository.save(est);
+        });
     }
 
     private boolean tieneRolPrivilegiado(Authentication auth) {

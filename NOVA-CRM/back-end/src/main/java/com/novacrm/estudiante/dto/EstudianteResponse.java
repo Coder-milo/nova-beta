@@ -53,5 +53,12 @@ public record EstudianteResponse(
         String programaNombre,
         boolean activo,
         Instant createdAt,
-        Instant deletedAt
+        Instant deletedAt,
+        String direccion,
+        String fotoUrl,
+        String competencias,
+        String idiomas,
+        String referencias,
+        String disponibilidad,
+        int porcentajeCompletitud
 ) {}
