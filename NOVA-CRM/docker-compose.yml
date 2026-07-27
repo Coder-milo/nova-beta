@@ -54,11 +54,28 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-novacrm}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-novacrm_secret}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET es requerido - definelo en .env (genera uno con: openssl rand -base64 32)}
+      JWT_SECRET: "${JWT_SECRET}"
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AWS_SES_FROM_EMAIL: ${AWS_SES_FROM_EMAIL:-noreply@novacrm.com}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      # Servidor SMTP. Con esto la app envia por Brevo, Resend o el correo
+      # institucional. Sin host configurado, cae a Amazon SES.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      # Remitente; los proveedores exigen tenerlo verificado en su panel.
+      CORREO_REMITENTE: ${CORREO_REMITENTE:-}
+      CORREO_NOMBRE_REMITENTE: ${CORREO_NOMBRE_REMITENTE:-NOVA - CAC Eurocentres}
+      # Imagenes de la plantilla (URLs publicas).
+      CORREO_LOGO_URL: ${CORREO_LOGO_URL:-}
+      CORREO_BANNER_PIE_URL: ${CORREO_BANNER_PIE_URL:-}
+      # Mientras tenga direcciones, SOLO se escribe a ellas. Es la salvaguarda
+      # que impide que una prueba termine escribiendo a los 107 participantes.
+      # Vaciarla habilita el envio real a todos.
+      CORREO_DESTINATARIOS_PERMITIDOS: ${CORREO_DESTINATARIOS_PERMITIDOS:-}
       LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
       LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET}
       LINKEDIN_REDIRECT_URI: ${LINKEDIN_REDIRECT_URI:-https://api.novacrm.com/api/v1/linkedin/callback}

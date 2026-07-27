@@ -14,10 +14,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Scraper de elempleo.com. La página de resultados incluye por cada oferta un
- * atributo data-ga4-offerdata con JSON estructurado (id, título, empresa,
- * ubicación, salario, cargos equivalentes) — se parsea ese JSON en lugar de
- * depender de la estructura visual del HTML.
+ * Lectura de ofertas de elempleo.com a partir del atributo
+ * {@code data-ga4-offerdata} de la pagina de resultados, que trae la oferta en
+ * JSON (id, titulo, empresa, ubicacion, salario, cargos equivalentes).
+ *
+ * <p><strong>Desactivado por defecto y a proposito.</strong> Extraer contenido
+ * de un portal suele estar restringido por sus condiciones de uso, y hacerlo
+ * sin permiso expone al programa y a sus aliados. Activarlo con
+ * {@code app.scraping.elempleo.enabled=true} debe ser una decision consciente,
+ * tomada solo si existe un acuerdo o un servicio contratado con el portal que
+ * lo ampare.
+ *
+ * <p>Cuando se activa, se identifica con un agente propio —para que el portal
+ * sepa quien consulta y pueda contactar— y espera entre peticiones para no
+ * cargar su servidor.
  */
 @Component
 public class ElempleoScraper implements PortalScraper {
@@ -27,23 +37,43 @@ public class ElempleoScraper implements PortalScraper {
     private static final String PORTAL = "ELEMPLEO";
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    /** Agente identificable: nada de hacerse pasar por un navegador. */
+    private static final String USER_AGENT =
+            "NOVA-CRM/1.0 (+programa de empleabilidad CAC; contacto: coordinacion@novacrm.com)";
+
+    /** Pausa entre peticiones para no saturar el portal. */
+    private static final long PAUSA_MS = 2_000;
+
     private final VacanteRepository vacanteRepository;
     private final EmpresaRepository empresaRepository;
+    private final boolean habilitado;
 
-    public ElempleoScraper(VacanteRepository vacanteRepository, EmpresaRepository empresaRepository) {
+    public ElempleoScraper(VacanteRepository vacanteRepository,
+                           EmpresaRepository empresaRepository,
+                           @org.springframework.beans.factory.annotation.Value(
+                                   "${app.scraping.elempleo.enabled:false}") boolean habilitado) {
         this.vacanteRepository = vacanteRepository;
         this.empresaRepository = empresaRepository;
+        this.habilitado = habilitado;
+        if (habilitado) {
+            log.warn("El scraping de elempleo.com esta ACTIVADO. Asegurate de contar con "
+                    + "autorizacion del portal: sus condiciones de uso pueden prohibirlo.");
+        }
     }
 
     @Override
     public List<Vacante> buscar(String keyword, String ubicacion) {
+        if (!habilitado) {
+            return List.of();
+        }
         List<Vacante> resultados = new ArrayList<>();
         try {
+            Thread.sleep(PAUSA_MS);
             // La búsqueda es por palabra clave; la ubicación llega por oferta en el JSON.
             var url = SITE_ROOT + "/co/ofertas-empleo/"
                     + keyword.trim().toLowerCase().replace(" ", "-");
             var doc = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                    .userAgent(USER_AGENT)
                     .timeout(15000)
                     .get();
 
@@ -85,8 +115,13 @@ public class ElempleoScraper implements PortalScraper {
                     log.warn("Error parseando oferta en Elempleo: {}", e.getMessage());
                 }
             }
+        } catch (InterruptedException e) {
+            // No basta con registrarlo: hay que devolver el flag para que quien
+            // gobierna el hilo pueda detenerlo de verdad.
+            Thread.currentThread().interrupt();
+            log.warn("Consulta a Elempleo interrumpida");
         } catch (Exception e) {
-            log.error("Error scraping Elempleo: {}", e.getMessage());
+            log.error("Error consultando Elempleo: {}", e.getMessage());
         }
         return resultados;
     }

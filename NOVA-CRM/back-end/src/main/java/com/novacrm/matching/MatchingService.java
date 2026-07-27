@@ -96,7 +96,10 @@ public class MatchingService {
         int page = 0;
 
         while (procesadas < maxVacantes) {
-            var pagina = vacanteRepository.findByActivoTrueOrderByCreatedAtDesc(PageRequest.of(page, 200));
+            // Solo vigentes: recomendar una vacante vencida hace que el
+            // estudiante se postule a una plaza que ya no existe.
+            var pagina = vacanteRepository.findVigentes(
+                    java.time.LocalDateTime.now(), PageRequest.of(page, 200));
             var vacantes = pagina.getContent();
             if (vacantes.isEmpty()) break;
 
@@ -177,15 +180,10 @@ public class MatchingService {
             puntaje += config.getPesoHabilidades() * 0.4;
         }
 
-        // 3) Nivel de ingles.
-        int requerido = ordenNivelRequerido(v.getNivelInglesRequerido());
-        if (requerido == 0) {
-            puntaje += config.getPesoIngles();
-        } else if (e.getNivelIngles() != null) {
-            int estudiante = e.getNivelIngles().getOrden();
-            double ratio = Math.min((double) estudiante / requerido, 1.0);
-            puntaje += config.getPesoIngles() * ratio;
-        }
+        // 3) Nivel de ingles: se puntua contra el nivel medido en las pruebas,
+        // no contra el que declara el estudiante. Y si la vacante es de voz,
+        // contra el oral, que es donde esta la brecha real.
+        puntaje += puntajeIngles(e, v, config);
 
         // 4) Ubicacion.
         if (e.getCiudad() != null && v.getUbicacion() != null) {
@@ -224,6 +222,36 @@ public class MatchingService {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Puntua el ajuste de ingles entre estudiante y vacante.
+     *
+     * <p>Se extrae del calculo general porque encierra la decision que mas
+     * afecta al resultado: que nivel del estudiante se compara. Antes se usaba
+     * {@code estudiante.getNivelIngles()}, que es el que la persona declara en
+     * el formulario de admision. En la primera cohorte ese dato estaba inflado
+     * en 89 de 102 casos, asi que el motor recomendaba vacantes que el
+     * candidato no podia sostener en la entrevista.
+     */
+    double puntajeIngles(Estudiante e, Vacante v, MatchingConfig config) {
+        int requerido = ordenNivelRequerido(v.getNivelInglesRequerido());
+        if (requerido == 0) {
+            // La vacante no exige ingles: no penaliza a nadie.
+            return config.getPesoIngles();
+        }
+
+        var perfil = PerfilIngles.de(e);
+        var nivel = VacanteDeVoz.esDeVoz(v) ? perfil.paraVacanteDeVoz() : perfil.efectivo();
+
+        if (nivel.isEmpty()) {
+            // Sin dato alguno no se puede afirmar que cumpla ni que no cumpla.
+            // Se puntua a la mitad para que no desplace a quien si esta medido.
+            return config.getPesoIngles() * 0.5;
+        }
+
+        double ratio = Math.min((double) nivel.get().getOrden() / requerido, 1.0);
+        return config.getPesoIngles() * ratio;
     }
 
     private int ordenNivelRequerido(String requerido) {

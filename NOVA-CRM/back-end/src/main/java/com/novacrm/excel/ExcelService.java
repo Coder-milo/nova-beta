@@ -33,10 +33,10 @@ public class ExcelService {
     private final ColumnMapper columnMapper;
     private final ImportacionHistorialRepository importacionHistorialRepository;
 
-    private static final Map<String, String> BBDD_COLUMNS = buildBBDDMap();
-    private static final Map<String, String> MAESTRA_COLUMNS = buildMaestraMap();
+    static final Map<String, String> BBDD_COLUMNS = buildBBDDMap();
+    static final Map<String, String> MAESTRA_COLUMNS = buildMaestraMap();
 
-    private static final Set<String> SKIP = Set.of(
+    static final Set<String> SKIP = Set.of(
         "3.11 Si marco Otro, indique el Municipio...",
         "4.5 Si tu respuesta fue Otro, especifica:",
         "7.2 Disponibilidad de tiempo...",
@@ -567,11 +567,38 @@ public class ExcelService {
         }
     }
 
-    private Boolean parseBoolean(String val) {
+    // Solo palabras completas e inequivocas. Las iniciales sueltas ("s", "n")
+    // quedan fuera a proposito: "N/A" empieza por "n" y significa "sin dato",
+    // no "no".
+    private static final Set<String> RESPUESTAS_SI = Set.of("si", "true", "yes", "1");
+    private static final Set<String> RESPUESTAS_NO = Set.of("no", "false", "0");
+
+    /**
+     * Interpreta la respuesta a una pregunta de si/no.
+     *
+     * <p>El formulario de admision no responde con "Si" a secas: las opciones
+     * reales son del estilo "Si, propio", "Si, tengo acceso a un computador" o
+     * "No tengo la posibilidad...". Por eso se decide con la primera palabra y
+     * no con la cadena completa; comparar la cadena entera descartaba en
+     * silencio la respuesta de todos los participantes.
+     *
+     * @return {@code true}/{@code false}, o {@code null} si la respuesta no
+     *         empieza por una afirmacion ni una negacion reconocible.
+     */
+    static Boolean parseBoolean(String val) {
         if (val == null || val.isBlank()) return null;
-        var v = val.toLowerCase().trim();
-        if (Set.of("si", "sí", "true", "yes", "1").contains(v)) return true;
-        if (Set.of("no", "false", "not", "0").contains(v)) return false;
+
+        String v = java.text.Normalizer.normalize(val.trim().toLowerCase(Locale.ROOT),
+                        java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}", "");
+
+        String primeraPalabra = Arrays.stream(v.split("[^a-z0-9]+"))
+                .filter(p -> !p.isBlank())
+                .findFirst()
+                .orElse("");
+
+        if (RESPUESTAS_SI.contains(primeraPalabra)) return true;
+        if (RESPUESTAS_NO.contains(primeraPalabra)) return false;
         return null;
     }
 

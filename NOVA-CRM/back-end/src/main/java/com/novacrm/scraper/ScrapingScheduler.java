@@ -16,10 +16,17 @@ public class ScrapingScheduler {
         this.scrapingService = scrapingService;
     }
 
+    /**
+     * Una vez al dia. La frecuencia no es casual: las condiciones de uso de las
+     * APIs de las que se toman ofertas piden no consultarlas mas de unas pocas
+     * veces diarias.
+     */
     @Scheduled(cron = "0 0 6 * * ?")
     public void ejecutarScrapingDiario() {
-        log.info("Iniciando scraping diario de vacantes...");
-        int total = scrapingService.ejecutarScraping();
-        log.info("Scraping diario completado: {} vacantes nuevas", total);
+        log.info("Iniciando actualizacion diaria de vacantes...");
+        var resultado = scrapingService.actualizar(ScrapingEjecucion.Origen.PROGRAMADA);
+        log.info("Actualizacion diaria completada: {} nuevas, {} cerradas, {} vigentes",
+                resultado.vacantesNuevas(), resultado.vacantesCerradas(),
+                resultado.vigentesTotal());
     }
 }

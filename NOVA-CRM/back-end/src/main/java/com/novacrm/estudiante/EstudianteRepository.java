@@ -104,4 +104,31 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
                                     @org.springframework.data.repository.query.Param("estadoAcademico") EstadoAcademico estadoAcademico,
                                     @org.springframework.data.repository.query.Param("estadoEmpleabilidad") EstadoEmpleabilidad estadoEmpleabilidad,
                                     Pageable pageable);
+
+    // --- Insumos para la busqueda de vacantes -------------------------------
+    // Los terminos con los que se rastrean los portales salen de lo que los
+    // propios estudiantes declararon querer, no de una lista fija.
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT DISTINCT e.cargoObjetivo FROM Estudiante e
+            WHERE e.activo = true AND e.cargoObjetivo IS NOT NULL AND e.cargoObjetivo <> ''
+            """)
+    java.util.List<String> findCargosObjetivoDeActivos();
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT DISTINCT e.sectorObjetivo FROM Estudiante e
+            WHERE e.activo = true AND e.sectorObjetivo IS NOT NULL AND e.sectorObjetivo <> ''
+            """)
+    java.util.List<String> findSectoresObjetivoDeActivos();
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT e.ciudad FROM Estudiante e
+            WHERE e.activo = true AND e.ciudad IS NOT NULL AND e.ciudad <> ''
+            GROUP BY e.ciudad
+            ORDER BY COUNT(e) DESC
+            """)
+    java.util.List<String> findCiudadesDeActivosPorFrecuencia();
+
+    /** Destinatarios de un anuncio general. */
+    List<Estudiante> findAllByActivoTrue();
 }

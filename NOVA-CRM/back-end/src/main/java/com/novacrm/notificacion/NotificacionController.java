@@ -51,4 +51,32 @@ public class NotificacionController {
     public void marcarLeida(@PathVariable UUID id, Authentication auth) {
         notificacionService.marcarLeida(id, auth);
     }
+
+    @PostMapping("/anuncio")
+    @Operation(summary = "Publicar un anuncio para los estudiantes (feria de empleo, convocatoria)")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+    public java.util.Map<String, Object> publicarAnuncio(
+            @jakarta.validation.Valid @RequestBody AnuncioRequest request) {
+        int destinatarios = notificacionService.publicarAnuncio(
+                request.titulo(), request.mensaje(), request.programaId());
+        return java.util.Map.of(
+                "destinatarios", destinatarios,
+                "mensaje", destinatarios == 0
+                        ? "No hay estudiantes activos a quienes avisar"
+                        : "Anuncio enviado a " + destinatarios + " estudiante(s)");
+    }
+
+    /**
+     * @param programaId limita el anuncio a un programa; nulo lo envia a todos
+     */
+    public record AnuncioRequest(
+            @jakarta.validation.constraints.NotBlank(message = "El titulo es obligatorio")
+            @jakarta.validation.constraints.Size(max = 500)
+            String titulo,
+
+            @jakarta.validation.constraints.NotBlank(message = "El mensaje es obligatorio")
+            String mensaje,
+
+            UUID programaId) {}
 }

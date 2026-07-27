@@ -13,12 +13,9 @@ import java.util.UUID;
 public class OwnershipService {
 
     private final EstudianteRepository estudianteRepository;
-    private final com.novacrm.programa.ProgramaRepository programaRepository;
 
-    public OwnershipService(EstudianteRepository estudianteRepository,
-                            com.novacrm.programa.ProgramaRepository programaRepository) {
+    public OwnershipService(EstudianteRepository estudianteRepository) {
         this.estudianteRepository = estudianteRepository;
-        this.programaRepository = programaRepository;
     }
 
     /**
@@ -36,21 +33,56 @@ public class OwnershipService {
         }
     }
 
-    @Transactional
+    /**
+     * Devuelve el estudiante correspondiente al usuario autenticado.
+     *
+     * <p>No crea el registro si no existe. Antes lo hacia, y una simple
+     * consulta de perfil acababa insertando un estudiante llamado
+     * "Estudiante CAC" matriculado en {@code findAll().get(0)}: un programa
+     * arbitrario, porque la consulta no lleva orden. Como el endpoint tambien
+     * lo pueden usar coordinadores y administradores, bastaba con que uno
+     * entrase a su perfil para ensuciar la base con matriculas falsas.
+     *
+     * <p>El vinculo entre usuario y estudiante se crea al importar la base o
+     * al darlo de alta, no al leerlo.
+     *
+     * @throws ResourceNotFoundException si el usuario no tiene ficha de estudiante
+     */
     public com.novacrm.estudiante.Estudiante obtenerEstudianteAutenticado(Authentication auth) {
         String email = auth.getName();
-        return estudianteRepository.findByEmail(email).orElseGet(() -> {
-            var programas = programaRepository.findAll();
-            if (programas.isEmpty()) {
-                throw new com.novacrm.exception.ResourceNotFoundException("No hay programas configurados en el sistema");
-            }
-            var est = new com.novacrm.estudiante.Estudiante();
-            est.setNombre("Estudiante");
-            est.setApellido("CAC");
-            est.setEmail(email);
-            est.setPrograma(programas.get(0));
-            return estudianteRepository.save(est);
-        });
+        return estudianteRepository.findByEmail(email)
+                .orElseThrow(() -> new com.novacrm.exception.ResourceNotFoundException(
+                        "El usuario " + email + " no tiene una ficha de estudiante asociada. "
+                                + "Debe crearse desde la gestion de estudiantes o importarse."));
+    }
+
+    /**
+     * Un estudiante solo puede mirar el programa en el que esta matriculado.
+     *
+     * <p>Esto cubre lo que {@link #verificarAccesoEstudiante} no llega a ver: un
+     * estudiante puede no estar pidiendo la ficha de nadie y aun asi estar
+     * asomandose a otro programa —su identidad visual, sus vacantes, su gente—.
+     * Saber que existe el programa de otro cliente y con que marca opera ya es
+     * informacion que no le corresponde.
+     */
+    public void verificarAccesoPrograma(Authentication auth, UUID programaId) {
+        if (tieneRolPrivilegiado(auth)) {
+            return;
+        }
+        var propio = obtenerEstudianteAutenticado(auth);
+        if (propio.getPrograma() == null || !propio.getPrograma().getId().equals(programaId)) {
+            throw new AccessDeniedException("Solo puedes ver el programa en el que estas matriculado");
+        }
+    }
+
+    /** El programa del estudiante autenticado. Para no tener que pedirselo. */
+    public UUID programaDelEstudianteAutenticado(Authentication auth) {
+        var propio = obtenerEstudianteAutenticado(auth);
+        if (propio.getPrograma() == null) {
+            throw new com.novacrm.exception.ResourceNotFoundException(
+                    "Tu ficha no esta asociada a ningun programa");
+        }
+        return propio.getPrograma().getId();
     }
 
     private boolean tieneRolPrivilegiado(Authentication auth) {

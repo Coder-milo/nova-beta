@@ -6,8 +6,11 @@ back-end/target/
 # Secretos y entorno
 .env
 
-# Logs
+# Logs. `*.log` no cubria backend.log.err, y un log de runtime ya se colo una
+# vez en un commit.
 *.log
+*.log.*
+*.err
 
 # IDE / OS
 .idea/

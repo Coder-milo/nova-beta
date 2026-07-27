@@ -59,9 +59,38 @@ public class Vacante extends BaseEntity {
     @Column(name = "hash_dedup")
     private String hashDedup;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "motivo_cierre", length = 30)
+    private MotivoCierre motivoCierre;
+
+    @Column(name = "fecha_cierre")
+    private LocalDateTime fechaCierre;
+
+    /** Correo de quien la registro a mano; nulo si vino de un portal. */
+    @Column(name = "creada_por")
+    private String creadaPor;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "empresa_id")
     private Empresa empresa;
+
+    /**
+     * Cierra la vacante dejando constancia del porque.
+     *
+     * <p>Se hace aqui y no desde fuera para que no pueda quedar una vacante
+     * inactiva sin motivo, que es lo que impide saber despues si la plaza se
+     * cubrio o simplemente vencio.
+     */
+    public void cerrar(MotivoCierre motivo, LocalDateTime cuando) {
+        this.activo = false;
+        this.motivoCierre = motivo;
+        this.fechaCierre = cuando;
+    }
+
+    /** Vigente: sigue abierta y no ha pasado su fecha de expiracion. */
+    public boolean estaVigente(LocalDateTime ahora) {
+        return activo && (fechaExpiracion == null || fechaExpiracion.isAfter(ahora));
+    }
 
     public String getTitulo() { return titulo; }
     public void setTitulo(String titulo) { this.titulo = titulo; }
@@ -97,4 +126,10 @@ public class Vacante extends BaseEntity {
     public void setHashDedup(String hashDedup) { this.hashDedup = hashDedup; }
     public Empresa getEmpresa() { return empresa; }
     public void setEmpresa(Empresa empresa) { this.empresa = empresa; }
+    public MotivoCierre getMotivoCierre() { return motivoCierre; }
+    public void setMotivoCierre(MotivoCierre motivoCierre) { this.motivoCierre = motivoCierre; }
+    public java.time.LocalDateTime getFechaCierre() { return fechaCierre; }
+    public void setFechaCierre(java.time.LocalDateTime fechaCierre) { this.fechaCierre = fechaCierre; }
+    public String getCreadaPor() { return creadaPor; }
+    public void setCreadaPor(String creadaPor) { this.creadaPor = creadaPor; }
 }
