@@ -6,6 +6,13 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "front-end", "dev"],
       "port": 3000
+    },
+    {
+      "name": "front-end-tras-proxy",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "front-end", "dev"],
+      "port": 3000,
+      "env": { "TRUST_PROXY_HEADERS": "true" }
     }
   ]
 }

@@ -41,6 +41,8 @@ import {
 import type { ReactNode } from 'react'
 
 import { PageSpinner } from '@/components/ui/page-spinner'
+import { PanelCuentasEstudiante } from '@/components/admin/panel-cuentas-estudiante'
+import { PanelBranding } from '@/components/admin/panel-branding'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -929,8 +931,8 @@ export default function ConfiguracionPage() {
                   <span className="text-xs font-medium text-green-700 dark:text-green-300">Token JWT firmado y verificado</span>
                 </div>
                 <div className="text-xs text-muted-foreground space-y-1.5">
-                  <p>• Autenticación cifrada vía Cookie HTTP `nova_token` y LocalStorage.</p>
-                  <p>• Las sesiones expiran automáticamente después de 24 horas de inactividad.</p>
+                  <p>• El token se guarda en una cookie HttpOnly, inaccesible desde el navegador.</p>
+                  <p>• La sesión caduca a las 8 horas y se renueva sola durante 7 días.</p>
                 </div>
               </CardContent>
             </Card>
@@ -1097,12 +1099,21 @@ export default function ConfiguracionPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Cuentas de los estudiantes. Aparte de la tabla de arriba porque
+              son otro tipo de cuenta —rol ESTUDIANTE, alta masiva, sin
+              contrasena que nadie teclee— y porque basta con COORDINADOR. */}
+          <PanelCuentasEstudiante />
         </div>
       )}
 
       {/* ── PESTAÑA 5: APARIENCIA & MANTENIMIENTO ──────────────────────────── */}
       {activeTab === 'mantenimiento' && (
         <div className="flex flex-col gap-6">
+          {/* Identidad de cada proyecto. Va antes que el tema claro/oscuro
+              porque es lo que ve el cliente; el tema es preferencia personal. */}
+          <PanelBranding />
+
           {/* Apariencia */}
           <Card className="rounded-2xl shadow-sm">
             <CardHeader className="border-b border-border/50">

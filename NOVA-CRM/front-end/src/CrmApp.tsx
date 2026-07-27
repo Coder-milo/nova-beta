@@ -1,12 +1,19 @@
-import { lazy, Suspense, type ComponentType } from 'react'
+import { lazy, Suspense, useEffect, type ComponentType } from 'react'
 import { AdminShell } from '@/components/admin/admin-shell'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { PageSpinner } from '@/components/ui/page-spinner'
-import { AuthProvider } from '@/lib/auth'
+import { AuthProvider, useAuth } from '@/lib/auth'
+import { ProveedorBranding } from '@/lib/branding'
+import {
+  estudiantePuedeVer,
+  soloEsEstudiante,
+  RUTA_INICIO_ESTUDIANTE,
+} from '@/lib/navigation'
 import { usePathname } from '@/compat/next-navigation'
 
 const DashboardPage = lazy(() => import('@/app/page'))
 const AuditoriaPage = lazy(() => import('@/app/auditoria/page'))
+const ComunicacionesPage = lazy(() => import('@/app/comunicaciones/page'))
 const ConfiguracionPage = lazy(() => import('@/app/configuracion/page'))
 const DocumentosPage = lazy(() => import('@/app/documentos/page'))
 const EstudiantesPage = lazy(() => import('@/app/estudiantes/page'))
@@ -28,6 +35,7 @@ const VacantesPage = lazy(() => import('@/app/vacantes/page'))
 const exactRoutes: Record<string, ComponentType> = {
   '/': DashboardPage,
   '/auditoria': AuditoriaPage,
+  '/comunicaciones': ComunicacionesPage,
   '/configuracion': ConfiguracionPage,
   '/documentos': DocumentosPage,
   '/estudiantes': EstudiantesPage,
@@ -79,22 +87,55 @@ function resolvePage(pathname: string): ComponentType {
   return NotFoundPage
 }
 
+/**
+ * Un estudiante solo abre sus propias pantallas.
+ *
+ * Sin esto aterrizaba en `/`, que es el dashboard de administración: pedía
+ * datos de todos los proyectos, el backend respondia 403 —correctamente— y la
+ * pantalla se quedaba en «Cargando dashboard…» para siempre. Se corrige la URL
+ * con `replaceState` en vez de navegar para no dejar la pantalla prohibida en
+ * el historial, donde el boton Atras la volveria a abrir.
+ */
 function CurrentRoute() {
   const pathname = usePathname()
-  const Page = resolvePage(pathname)
+  const { user } = useAuth()
+  const esEstudiante = soloEsEstudiante(user?.roles)
+
+  useEffect(() => {
+    if (
+      esEstudiante &&
+      !estudiantePuedeVer(pathname) &&
+      typeof window !== 'undefined'
+    ) {
+      window.history.replaceState(null, '', RUTA_INICIO_ESTUDIANTE)
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    }
+  }, [esEstudiante, pathname])
+
+  // Mientras el efecto corrige la URL ya se pinta el portal, para que no
+  // llegue a montarse el dashboard y disparar las llamadas que dan 403.
+  const Page =
+    esEstudiante && !estudiantePuedeVer(pathname)
+      ? PortalEstudiantePage
+      : resolvePage(pathname)
+
   return <Page />
 }
 
 export default function CrmApp() {
   return (
     <AuthProvider>
-      <TooltipProvider delay={200}>
-        <AdminShell>
-          <Suspense fallback={<PageSpinner />}>
-            <CurrentRoute />
-          </Suspense>
-        </AdminShell>
-      </TooltipProvider>
+      {/* Dentro de AuthProvider: la identidad se pide con la sesion ya puesta,
+          porque el servidor la resuelve a partir de quien eres. */}
+      <ProveedorBranding>
+        <TooltipProvider delay={200}>
+          <AdminShell>
+            <Suspense fallback={<PageSpinner />}>
+              <CurrentRoute />
+            </Suspense>
+          </AdminShell>
+        </TooltipProvider>
+      </ProveedorBranding>
     </AuthProvider>
   )
 }

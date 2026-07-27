@@ -16,6 +16,7 @@ import { notifications } from '@/lib/mock-data'
 import { getNavItemsForRoles } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
+import { useBranding } from '@/lib/branding'
 
 type HeaderProps = {
   onOpenMobile: () => void
@@ -27,6 +28,8 @@ export function Header({ onOpenMobile, collapsed, onToggleCollapsed }: HeaderPro
   const pathname = usePathname()
   const router   = useRouter()
   const { user, logout } = useAuth()
+  const { branding } = useBranding()
+
   const availableNavItems = getNavItemsForRoles(user?.roles)
   const current = availableNavItems.find((item) => {
     const href = item.href.split('?')[0]
@@ -44,14 +47,32 @@ export function Header({ onOpenMobile, collapsed, onToggleCollapsed }: HeaderPro
     router.push('/login')
   }
 
+  const bannerUrl = branding?.bannerPanelUrl || branding?.correoHeaderUrl
+  const tituloHeader = branding?.tituloHeader || current?.title || 'NOVA CRM'
+  const subtituloHeader = branding?.subtituloHeader || 'NOVA · Gestión académica'
+
   return (
-    <header className="glass-chrome sticky top-0 z-30 flex h-18 shrink-0 items-center gap-3 border-b border-border px-4 shadow-[0_8px_28px_-24px_rgba(15,23,42,0.45)] transition-all md:px-7">
+    <header className="glass-chrome sticky top-0 z-30 flex h-18 shrink-0 items-center gap-3 border-b border-border border-t-2 border-t-primary px-4 shadow-[0_8px_28px_-24px_rgba(15,23,42,0.45)] transition-all md:px-7 relative overflow-hidden">
+      {/* Fondo adaptativo del banner en el header */}
+      {bannerUrl && (
+        <div className="absolute inset-0 pointer-events-none z-0 opacity-10 dark:opacity-20 transition-opacity duration-500">
+          {/* Centrado y no `object-right`: en pantallas estrechas el recorte
+              por la derecha se comia el logo, que en casi todos los banners
+              esta a la izquierda. */}
+          <img
+            src={bannerUrl}
+            alt=""
+            className="h-full w-full object-cover object-center"
+          />
+        </div>
+      )}
+
       {/* Botón menú móvil */}
       <button
         type="button"
         onClick={onOpenMobile}
         aria-label="Abrir menú"
-        className="flex size-9 items-center justify-center rounded-xl border border-border/50 bg-card/95 text-foreground shadow-sm backdrop-blur-xl transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-primary/30 hover:bg-card hover:scale-105 active:scale-95 active:duration-100 lg:hidden"
+        className="relative z-10 flex size-9 items-center justify-center rounded-xl border border-border/50 bg-card/95 text-foreground shadow-sm backdrop-blur-xl transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-primary/30 hover:bg-card hover:scale-105 active:scale-95 active:duration-100 lg:hidden"
       >
         <List className="size-5" />
       </button>
@@ -61,17 +82,21 @@ export function Header({ onOpenMobile, collapsed, onToggleCollapsed }: HeaderPro
         onClick={onToggleCollapsed}
         aria-label={collapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
         title={collapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
-        className="hidden size-9 shrink-0 items-center justify-center rounded-xl border border-border/55 bg-card/95 text-muted-foreground shadow-sm transition-all hover:border-primary/30 hover:bg-card hover:text-primary active:scale-95 lg:flex"
+        className="relative z-10 hidden size-9 shrink-0 items-center justify-center rounded-xl border border-border/55 bg-card/95 text-muted-foreground shadow-sm transition-all hover:border-primary/30 hover:bg-card hover:text-primary active:scale-95 lg:flex"
       >
         <Sidebar className="size-5" />
       </button>
 
-      <div className="min-w-0">
+      {/* El banner va solo de fondo (arriba). Tenerlo ademas en un recuadro
+          repetia la misma imagen dos veces en la misma barra y le robaba el
+          sitio al titulo del proyecto, que es lo que hay que leer. */}
+
+      <div className="relative z-10 min-w-0">
         <h1 className="truncate text-base font-semibold tracking-tight text-foreground md:text-lg">
-          {current?.title ?? 'NOVA CRM'}
+          {tituloHeader}
         </h1>
         <p className="truncate text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground md:text-[11px]">
-          NOVA · Gestión académica
+          {subtituloHeader}
         </p>
       </div>
 

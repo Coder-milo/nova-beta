@@ -73,13 +73,33 @@
 }
 
 /* ── MODO CLARO (Light Glass Cristalino & Luminoso) ───────────────────────── */
+/*
+ * Tono de la marca.
+ *
+ * Los neutros de este panel nunca fueron grises: son azules muy desaturados
+ * (#EDF3F9, #DDE8F5...). Por eso, al personalizar un proyecto en verde, el
+ * fondo y el menú seguían tirando a azul y el conjunto no cuajaba.
+ *
+ * Ahora se componen a partir de estas dos variables, que escribe
+ * `paletaDesde()` sobre <html>. Solo van el tono y cuánto teñir: la claridad de
+ * cada uno se queda aquí, porque un estilo en línea gana a `.dark` y un valor
+ * pensado para modo claro se quedaría puesto también de noche.
+ *
+ * Los valores de respaldo reproducen el azul institucional, así que sin ningún
+ * proyecto configurado el panel se ve exactamente como antes.
+ */
+:root {
+  --marca-h: 211;
+  --marca-sn: 50%;
+}
+
 :root, .light {
   color-scheme: light;
 
   /* Variables semánticas — Light Crystal Clean */
-  --background: #EDF3F9;
+  --background: hsl(var(--marca-h) var(--marca-sn) 95.3%);
   --foreground: #080F1D;
-  --card: rgba(252, 253, 255, 0.94);
+  --card: hsl(var(--marca-h) var(--marca-sn) 99% / 0.94);
   --card-foreground: #080F1D;
   --popover: #FFFFFF;
   --popover-foreground: #080F1D;
@@ -87,9 +107,9 @@
   --primary: #1268E8;
   --primary-foreground: #FFFFFF;
 
-  --secondary: #DDE8F5;
+  --secondary: hsl(var(--marca-h) var(--marca-sn) 91.4%);
   --secondary-foreground: #101827;
-  --muted: #E6EDF5;
+  --muted: hsl(var(--marca-h) var(--marca-sn) 93.1%);
   --muted-foreground: #3E4D63;
   --accent: #D8E9FF;
   --accent-foreground: #0B5ED7;
@@ -101,8 +121,8 @@
   --warning: #FF9500;
   --warning-foreground: #FFFFFF;
 
-  --border: rgba(31, 70, 116, 0.14);
-  --input: rgba(31, 70, 116, 0.18);
+  --border: hsl(var(--marca-h) 58% 28.8% / 0.14);
+  --input: hsl(var(--marca-h) 58% 28.8% / 0.18);
   --ring: #1268E8;
 
   --chart-1: #0071E3;
@@ -113,13 +133,13 @@
 
   --radius: 1rem;
 
-  --sidebar: rgba(247, 250, 253, 0.97);
+  --sidebar: hsl(var(--marca-h) var(--marca-sn) 98% / 0.97);
   --sidebar-foreground: #080F1D;
   --sidebar-primary: #1268E8;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #D6E7FA;
+  --sidebar-accent: hsl(var(--marca-h) var(--marca-sn) 90.6%);
   --sidebar-accent-foreground: #080F1D;
-  --sidebar-border: rgba(31, 70, 116, 0.18);
+  --sidebar-border: hsl(var(--marca-h) 58% 28.8% / 0.18);
   --sidebar-ring: #1268E8;
 
   --glass-chrome: rgba(247, 250, 253, 0.96);
@@ -138,12 +158,13 @@
 .dark {
   color-scheme: dark;
 
-  /* Variables semánticas — Dark CAC Glass */
-  --background: #03060D;
+  /* Variables semánticas — Dark CAC Glass.
+     Mismo tono de marca, claridades propias del modo oscuro. */
+  --background: hsl(var(--marca-h) 62% 3.1%);
   --foreground: #F4F7FC;
-  --card: rgba(12, 21, 39, 0.66);
+  --card: hsl(var(--marca-h) 53% 10% / 0.66);
   --card-foreground: #F4F7FC;
-  --popover: rgba(9, 17, 32, 0.9);
+  --popover: hsl(var(--marca-h) 56% 8% / 0.9);
   --popover-foreground: #F4F7FC;
 
   --primary: #315CFF;
@@ -173,7 +194,7 @@
   --chart-4: #FF9500;
   --chart-5: #FF3B30;
 
-  --sidebar: rgba(4, 10, 22, 0.62);
+  --sidebar: hsl(var(--marca-h) 69% 5.1% / 0.62);
   --sidebar-foreground: #F8FAFC;
   --sidebar-primary: #315CFF;
   --sidebar-primary-foreground: #FFFFFF;
@@ -203,9 +224,15 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.011em;
+    /* Los dos halos del fondo llevaban un azul escrito a fuego, así que un
+       proyecto en verde acababa con dos manchas azules en las esquinas.
+       Siguen al tono de la marca; el segundo se desplaza 20 grados para que no
+       sea el mismo color plano repetido dos veces. */
     background-image:
-      radial-gradient(circle at 12% 0%, rgba(18, 104, 232, 0.08), transparent 28rem),
-      radial-gradient(circle at 92% 92%, rgba(14, 165, 233, 0.05), transparent 30rem);
+      radial-gradient(circle at 12% 0%,
+        hsl(var(--marca-h) 86% 49% / 0.08), transparent 28rem),
+      radial-gradient(circle at 92% 92%,
+        hsl(calc(var(--marca-h) + 20) 89% 48% / 0.05), transparent 30rem);
   }
   h1, h2, h3, h4 {
     text-wrap: balance;
@@ -214,7 +241,7 @@
     color: var(--foreground);
   }
   ::selection {
-    background: rgba(0, 113, 227, 0.35);
+    background: hsl(var(--marca-h) 100% 45% / 0.35);
     color: #FFFFFF;
   }
 }
@@ -308,14 +335,17 @@ input[type="checkbox"] {
 }
 
 input[type="checkbox"]:hover {
-  border-color: #0071E3 !important;
+  border-color: var(--primary) !important;
   transform: scale(1.08);
 }
 
+/* Usa --primary y no un azul fijo: las casillas salen por todo el panel
+   —selector de estudiantes, roles, avisos— y eran de las pocas cosas que
+   seguían azules con un proyecto en verde. */
 input[type="checkbox"]:checked {
-  background-color: #0071E3 !important;
-  border-color: #0071E3 !important;
-  box-shadow: 0 2px 8px rgba(0, 113, 227, 0.40);
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 2px 8px hsl(var(--marca-h) 100% 45% / 0.4);
 }
 
 input[type="checkbox"]:checked::before {
@@ -493,17 +523,19 @@ input[type="checkbox"]:disabled {
   z-index: 2;
 }
 
+/* El ítem activo del menú llevaba su propio azul literal, así que era lo único
+   del panel que no se enteraba de la marca del proyecto. */
 .sidebar-nav-item--active {
-  color: #0c62b4;
-  border-color: rgba(37, 112, 197, 0.34);
-  background: rgba(205, 228, 249, 0.68);
+  color: hsl(var(--marca-h) 88% 38%);
+  border-color: hsl(var(--marca-h) 55% 46% / 0.34);
+  background: hsl(var(--marca-h) 76% 89% / 0.68);
   -webkit-backdrop-filter: blur(20px) saturate(175%);
   backdrop-filter: blur(20px) saturate(175%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.88),
-    inset 0 -1px 0 rgba(39, 92, 158, 0.1),
-    0 0 0 1px rgba(18, 104, 232, 0.07),
-    0 10px 22px -15px rgba(18, 104, 232, 0.58);
+    inset 0 -1px 0 hsl(var(--marca-h) 60% 39% / 0.1),
+    0 0 0 1px hsl(var(--marca-h) 86% 49% / 0.07),
+    0 10px 22px -15px hsl(var(--marca-h) 86% 49% / 0.58);
 }
 
 .sidebar-nav-item--active::before {
@@ -519,15 +551,15 @@ input[type="checkbox"]:disabled {
 
 .dark .sidebar-nav-item--active {
   color: #fff;
-  border-color: rgba(150, 180, 239, 0.33);
-  background: rgba(38, 62, 108, 0.7);
+  border-color: hsl(var(--marca-h) 60% 76% / 0.33);
+  background: hsl(var(--marca-h) 48% 29% / 0.7);
   -webkit-backdrop-filter: blur(22px) saturate(185%);
   backdrop-filter: blur(22px) saturate(185%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     inset 0 -1px 0 rgba(0, 0, 0, 0.24),
-    0 0 0 1px rgba(49, 92, 255, 0.1),
-    0 11px 26px -15px rgba(35, 78, 242, 0.72);
+    0 0 0 1px hsl(var(--marca-h) 100% 60% / 0.1),
+    0 11px 26px -15px hsl(var(--marca-h) 89% 54% / 0.72);
 }
 
 .dark .sidebar-nav-item--active::before {
@@ -688,10 +720,18 @@ textarea {
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  /* Capa fija a pantalla completa: es el fondo que se ve detrás de todo el
+     panel. Llevaba dos halos y un velo azules escritos a fuego, y era el
+     motivo principal de que un proyecto en verde siguiera «sintiéndose» azul. */
   background:
-    radial-gradient(44rem 36rem at 5% 0%, rgba(18, 104, 232, 0.10), transparent 66%),
-    radial-gradient(38rem 34rem at 96% 8%, rgba(14, 165, 233, 0.07), transparent 66%),
-    linear-gradient(160deg, rgba(242, 247, 252, 0.90) 0%, rgba(249, 251, 254, 0.88) 48%, rgba(235, 242, 249, 0.91) 100%),
+    radial-gradient(44rem 36rem at 5% 0%,
+      hsl(var(--marca-h) 86% 49% / 0.10), transparent 66%),
+    radial-gradient(38rem 34rem at 96% 8%,
+      hsl(calc(var(--marca-h) + 20) 89% 48% / 0.07), transparent 66%),
+    linear-gradient(160deg,
+      hsl(var(--marca-h) var(--marca-sn) 96.9% / 0.90) 0%,
+      hsl(var(--marca-h) var(--marca-sn) 98.6% / 0.88) 48%,
+      hsl(var(--marca-h) var(--marca-sn) 95.3% / 0.91) 100%),
     url("/brand/photos/estudiantes-cac.webp") center 42% / cover no-repeat;
 }
 
@@ -717,11 +757,18 @@ textarea {
 }
 
 .dark .ambient-mesh {
+  /* El halo rojo se deja tal cual: es el contrapunto de la identidad, no el
+     color de marca, y girarlo con el tono dejaba los dos halos casi iguales. */
   background:
-    radial-gradient(52rem 42rem at 94% -4%, rgba(32, 68, 255, 0.22), transparent 66%),
+    radial-gradient(52rem 42rem at 94% -4%,
+      hsl(var(--marca-h) 100% 56% / 0.22), transparent 66%),
     radial-gradient(45rem 38rem at -2% 88%, rgba(232, 18, 52, 0.17), transparent 68%),
-    radial-gradient(36rem 28rem at 54% 48%, rgba(32, 65, 155, 0.09), transparent 72%),
-    linear-gradient(145deg, #02040a 0%, #050914 48%, #02040a 100%);
+    radial-gradient(36rem 28rem at 54% 48%,
+      hsl(var(--marca-h) 66% 37% / 0.09), transparent 72%),
+    linear-gradient(145deg,
+      hsl(var(--marca-h) 67% 2.4%) 0%,
+      hsl(var(--marca-h) 60% 5.5%) 48%,
+      hsl(var(--marca-h) 67% 2.4%) 100%);
 }
 
 /* Fine grid: unchanged in light mode and subtler over the CAC dark waves. */

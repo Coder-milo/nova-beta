@@ -1,0 +1,191 @@
+/**
+ * Manejo de la sesion en el servidor.
+ *
+ * Los tokens viven en cookies HttpOnly: el JavaScript de la pagina no puede
+ * leerlos, asi que un XSS no puede robarlos. Antes se guardaban en
+ * localStorage y ademas se copiaban a una cookie escrita desde JS —que por
+ * definicion no puede ser HttpOnly y no llevaba el flag Secure—, con lo que el
+ * refresh token, valido durante siete dias, quedaba al alcance de cualquier
+ * script inyectado.
+ *
+ * Este modulo solo debe importarse desde codigo de servidor (middleware y
+ * rutas de API de Astro).
+ */
+
+import type { AstroCookies } from 'astro'
+
+export const ACCESS_COOKIE = 'nova_token'
+export const REFRESH_COOKIE = 'nova_refresh'
+
+/** 8 horas: la misma vigencia que el access token del backend. */
+const ACCESS_MAX_AGE = 60 * 60 * 8
+/** 7 dias: la misma vigencia que el refresh token del backend. */
+const REFRESH_MAX_AGE = 60 * 60 * 24 * 7
+
+export function backendBase(): string {
+  return import.meta.env.BACKEND_URL ?? 'http://localhost:8080'
+}
+
+/**
+ * `secure` solo en produccion: el navegador descarta las cookies Secure
+ * servidas por http, y en desarrollo se trabaja sobre http://localhost.
+ */
+function opcionesBase() {
+  return {
+    httpOnly: true,
+    secure: import.meta.env.PROD,
+    sameSite: 'lax' as const,
+    path: '/',
+  }
+}
+
+export function guardarSesion(cookies: AstroCookies, token: string, refreshToken?: string): void {
+  cookies.set(ACCESS_COOKIE, token, { ...opcionesBase(), maxAge: ACCESS_MAX_AGE })
+  if (refreshToken) {
+    cookies.set(REFRESH_COOKIE, refreshToken, { ...opcionesBase(), maxAge: REFRESH_MAX_AGE })
+  }
+}
+
+export function borrarSesion(cookies: AstroCookies): void {
+  cookies.delete(ACCESS_COOKIE, { path: '/' })
+  cookies.delete(REFRESH_COOKIE, { path: '/' })
+}
+
+/** Datos de usuario que la interfaz necesita mostrar. Nunca incluye tokens. */
+export interface UsuarioSesion {
+  usuarioId: string
+  email: string
+  nombre: string
+  roles: string[]
+}
+
+interface RespuestaLogin extends UsuarioSesion {
+  token: string
+  refreshToken: string
+}
+
+export function soloDatosDeUsuario(respuesta: RespuestaLogin): UsuarioSesion {
+  return {
+    usuarioId: respuesta.usuarioId,
+    email: respuesta.email,
+    nombre: respuesta.nombre,
+    roles: respuesta.roles,
+  }
+}
+
+/**
+ * Si hay que creerse el `X-Forwarded-For` que llega a este servidor.
+ *
+ * En desarrollo el navegador habla directamente con Astro, asi que la cabecera
+ * la escribe el cliente y no vale nada. En produccion Astro va detras del
+ * balanceador de Render, que es quien la pone: ahi es la unica forma de saber
+ * quien esta al otro lado. Por eso es una decision de despliegue y viene
+ * desactivada por defecto: creersela sin proxy delante permite a cualquiera
+ * estrenar contador de rate limit en cada peticion.
+ */
+function seConfiaEnElProxy(): boolean {
+  return import.meta.env.TRUST_PROXY_HEADERS === 'true'
+}
+
+/**
+ * La IP real de quien hace la peticion.
+ *
+ * <p>`clientAddress` de Astro es la direccion del socket, y detras de un
+ * balanceador esa direccion es la del balanceador: la misma para todo el
+ * mundo. Si el backend recibe esa, los 108 estudiantes vuelven a compartir un
+ * unico contador y basta con que cinco entren en el mismo minuto para que el
+ * sexto reciba un 429.
+ *
+ * <p>Se toma la entrada **de mas a la derecha** del `X-Forwarded-For`: cada
+ * proxy anade la direccion desde la que le llego la peticion, asi que con un
+ * unico proxy de confianza delante, la ultima es la que ese proxy vio y las
+ * anteriores pudo escribirlas el cliente.
+ */
+export function resolverIpCliente(request: Request, clientAddress?: string): string | undefined {
+  if (!seConfiaEnElProxy()) {
+    return clientAddress
+  }
+  const reenviadas = request.headers.get('x-forwarded-for')
+  if (!reenviadas) {
+    return clientAddress
+  }
+  const ultima = reenviadas
+    .split(',')
+    .map((ip) => ip.trim())
+    .filter((ip) => ip.length > 0)
+    .pop()
+  return ultima ?? clientAddress
+}
+
+/**
+ * Cabeceras para hablar con el backend desde el servidor.
+ *
+ * La IP del cliente es obligatoria: el backend limita por IP y todas estas
+ * llamadas salen de este mismo servidor. Sin reenviarla, los 108 estudiantes
+ * comparten un unico contador.
+ */
+export function cabecerasHaciaBackend(ipCliente?: string): HeadersInit {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (ipCliente) {
+    headers['x-forwarded-for'] = ipCliente
+  }
+  return headers
+}
+
+/** Por que no se pudo renovar. La diferencia decide si se cierra la sesion. */
+export type FalloRenovacion = 'sin-refresh' | 'refresh-invalido' | 'temporal'
+
+export interface ResultadoRenovacion {
+  token: string | null
+  fallo?: FalloRenovacion
+}
+
+/**
+ * Canjea el refresh token por uno nuevo.
+ *
+ * <p>Distingue dos fracasos que antes se trataban igual y no lo son:
+ *
+ * - **El refresh ya no vale** (401/403): la sesion se acabo, se borra.
+ * - **Algo temporal** (429, 5xx, red caida): el refresh sigue siendo bueno.
+ *   Borrar la sesion aqui era el nucleo del bucle: un 429 por rate limit
+ *   destruia una sesion valida de siete dias, mandaba al usuario a /login, y
+ *   alli su intento de entrar chocaba con el mismo contador agotado. El
+ *   mensaje que veia era "Demasiados intentos", que no explicaba nada.
+ */
+export async function renovarSesion(
+  cookies: AstroCookies,
+  clientAddress?: string,
+): Promise<ResultadoRenovacion> {
+  const refreshToken = cookies.get(REFRESH_COOKIE)?.value
+  if (!refreshToken) return { token: null, fallo: 'sin-refresh' }
+
+  let respuesta: Response
+  try {
+    respuesta = await fetch(new URL('/api/v1/auth/refresh', backendBase()), {
+      method: 'POST',
+      headers: cabecerasHaciaBackend(clientAddress),
+      body: JSON.stringify({ refreshToken }),
+    })
+  } catch {
+    // Backend inalcanzable. La sesion no tiene la culpa.
+    return { token: null, fallo: 'temporal' }
+  }
+
+  // El backend responde 400 cuando el refresh no vale (lanza BusinessException,
+  // no una excepcion de seguridad), asi que 400 cuenta como token invalido y no
+  // como error temporal. Se incluyen 401 y 403 por si algun dia se corrige a un
+  // codigo mas apropiado: la clasificacion seguiria siendo correcta.
+  if (respuesta.status === 400 || respuesta.status === 401 || respuesta.status === 403) {
+    borrarSesion(cookies)
+    return { token: null, fallo: 'refresh-invalido' }
+  }
+
+  // 429, 5xx: el refresh sigue valido, es el servidor el que no puede ahora.
+  if (!respuesta.ok) {
+    return { token: null, fallo: 'temporal' }
+  }
+
+  const renovado = (await respuesta.json()) as RespuestaLogin
+  guardarSesion(cookies, renovado.token, renovado.refreshToken)
+  return { token: renovado.token }
+}
