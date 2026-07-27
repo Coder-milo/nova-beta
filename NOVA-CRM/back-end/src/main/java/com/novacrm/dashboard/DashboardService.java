@@ -28,14 +28,17 @@ public class DashboardService {
 
     private final EstudianteRepository estudianteRepository;
     private final ProgramaRepository programaRepository;
+    private final com.novacrm.seguimiento.SeguimientoRepository seguimientoRepository;
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
 
     public DashboardService(EstudianteRepository estudianteRepository,
-                            ProgramaRepository programaRepository) {
+                            ProgramaRepository programaRepository,
+                            com.novacrm.seguimiento.SeguimientoRepository seguimientoRepository) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
+        this.seguimientoRepository = seguimientoRepository;
     }
 
     public DashboardSummaryResponse resumen() {
@@ -125,6 +128,14 @@ public class DashboardService {
                     "Finaliza en " + dias + " día(s) (" + p.getFechaFin() + ").",
                     p.getId().toString(), "/proyectos/" + p.getId()));
         }
+
+        // Compromisos de seguimiento que ya vencieron. Es el aviso que le dice
+        // al coordinador a quien llamar hoy.
+        com.novacrm.pipeline.AlertasEmpleabilidad
+                .porSeguimientosVencidos(seguimientoRepository.findVencidos(hoy), hoy)
+                .forEach(a -> alertas.add(new AlertaResponse(
+                        a.tipo(), a.severidad(), a.titulo(), a.detalle(),
+                        a.referenciaId(), a.ruta())));
 
         return alertas;
     }

@@ -53,6 +53,16 @@ public class HvService {
         this.completitudService = completitudService;
     }
 
+    /**
+     * Indica si el estudiante tiene una hoja de vida vigente.
+     *
+     * <p>Se expone aqui, y no el repositorio, para que el resto de modulos
+     * consulten el hecho sin acoplarse al almacenamiento de este.
+     */
+    public boolean tieneHvVigente(java.util.UUID estudianteId) {
+        return hvRepository.existsByEstudianteIdAndActualTrue(estudianteId);
+    }
+
     // ── Plantillas ───────────────────────────────────────────────────────────
 
     public List<PlantillaResponse> listarPlantillas() {

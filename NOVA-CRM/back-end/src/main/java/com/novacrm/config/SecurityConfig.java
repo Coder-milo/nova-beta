@@ -23,6 +23,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.novacrm.auth.JwtClaims;
+
 import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -32,7 +34,18 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Value("${app.jwt.secret:super_secret_jwt_key_nova_crm_2026_default_secret_key_32bytes}")
+    /** Longitud minima exigida por HMAC-SHA256 (RFC 7518, seccion 3.2). */
+    private static final int LONGITUD_MINIMA_SECRETO = 32;
+
+    /**
+     * Secretos que estuvieron versionados en el repositorio. Se rechazan de forma
+     * explicita: cualquiera con acceso al codigo podria firmar tokens validos.
+     */
+    private static final java.util.Set<String> SECRETOS_COMPROMETIDOS = java.util.Set.of(
+            "TlfnNVy2SjMmDUao7a6XpWTBRG4iLr3ZGdveIrsy/o0=",
+            "super_secret_jwt_key_nova_crm_2026_default_secret_key_32bytes");
+
+    @Value("${app.jwt.secret:}")
     private String jwtSecret;
 
     @jakarta.annotation.PostConstruct
@@ -40,6 +53,16 @@ public class SecurityConfig {
         if (jwtSecret == null || jwtSecret.isBlank()) {
             throw new IllegalStateException(
                     "La variable de entorno JWT_SECRET es obligatoria. Genera una con: openssl rand -base64 32");
+        }
+        if (SECRETOS_COMPROMETIDOS.contains(jwtSecret.trim())) {
+            throw new IllegalStateException(
+                    "JWT_SECRET tiene un valor que estuvo publicado en el repositorio y ya no es secreto. "
+                            + "Genera uno nuevo con: openssl rand -base64 32");
+        }
+        if (jwtSecret.getBytes(StandardCharsets.UTF_8).length < LONGITUD_MINIMA_SECRETO) {
+            throw new IllegalStateException(
+                    "JWT_SECRET debe tener al menos " + LONGITUD_MINIMA_SECRETO
+                            + " bytes. Genera uno con: openssl rand -base64 32");
         }
     }
 
@@ -94,6 +117,13 @@ public class SecurityConfig {
                                 .build()
                                 .parseSignedClaims(token)
                                 .getPayload();
+
+                        // Solo el access token autentica. El refresh token esta firmado
+                        // con la misma clave, pero sirve unicamente en /auth/refresh.
+                        if (!JwtClaims.TYPE_ACCESS.equals(claims.get(JwtClaims.TYPE, String.class))) {
+                            throw new io.jsonwebtoken.JwtException(
+                                    "El token no es un access token");
+                        }
 
                         List<?> roles = claims.get("roles") instanceof List<?> lista ? lista : List.of();
                         var auth = new org.springframework.security.authentication

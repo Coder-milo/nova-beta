@@ -20,5 +20,10 @@ public record VacanteResponse(
         String urlAplicar,
         String empresaNombre,
         LocalDateTime fechaPublicacion,
-        Instant createdAt
+        Instant createdAt,
+        /** Si sigue abierta. Una oferta cerrada se conserva pero no se recomienda. */
+        boolean activa,
+        LocalDateTime fechaExpiracion,
+        /** EXPIRADA, CUBIERTA o RETIRADA; nulo mientras siga abierta. */
+        String motivoCierre
 ) {}

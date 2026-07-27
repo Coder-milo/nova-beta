@@ -19,16 +19,54 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class NotificacionService {
 
+    /** Anuncio general del coordinador (feria de empleo, convocatoria, aviso). */
+    public static final String TIPO_ANUNCIO = "ANUNCIO";
+
     private final NotificacionRepository notificacionRepository;
     private final MatchRepository matchRepository;
     private final OwnershipService ownershipService;
+    private final com.novacrm.estudiante.EstudianteRepository estudianteRepository;
 
     public NotificacionService(NotificacionRepository notificacionRepository,
                                MatchRepository matchRepository,
-                               OwnershipService ownershipService) {
+                               OwnershipService ownershipService,
+                               com.novacrm.estudiante.EstudianteRepository estudianteRepository) {
         this.notificacionRepository = notificacionRepository;
         this.matchRepository = matchRepository;
         this.ownershipService = ownershipService;
+        this.estudianteRepository = estudianteRepository;
+    }
+
+    /**
+     * Publica un anuncio para todos los estudiantes activos.
+     *
+     * <p>Se crea una notificacion por estudiante en lugar de una sola global
+     * porque cada uno la marca como leida por separado; con un unico registro
+     * compartido no habria forma de saber quien la vio.
+     *
+     * @return cuantos destinatarios recibieron el anuncio
+     */
+    @Transactional
+    public int publicarAnuncio(String titulo, String mensaje, UUID programaId) {
+        var destinatarios = programaId == null
+                ? estudianteRepository.findAllByActivoTrue()
+                : estudianteRepository.findAllByProgramaIdAndActivoTrue(programaId);
+
+        if (destinatarios.isEmpty()) {
+            return 0;
+        }
+
+        var notificaciones = destinatarios.stream().map(estudiante -> {
+            var n = new Notificacion();
+            n.setEstudiante(estudiante);
+            n.setTitulo(titulo);
+            n.setMensaje(mensaje);
+            n.setTipo(TIPO_ANUNCIO);
+            return n;
+        }).toList();
+
+        notificacionRepository.saveAll(notificaciones);
+        return notificaciones.size();
     }
 
     public Page<NotificacionResponse> obtenerNotificaciones(UUID estudianteId, Pageable pageable) {

@@ -30,7 +30,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
-    @Value("${app.jwt.secret:super_secret_jwt_key_nova_crm_2026_default_secret_key_32bytes}")
+    @Value("${app.jwt.secret:}")
     private String jwtSecret;
 
     @Value("${app.jwt.expiration-ms}")
@@ -75,7 +75,7 @@ public class AuthService {
         } catch (Exception e) {
             throw new BusinessException("Refresh token invalido o expirado");
         }
-        if (!"refresh".equals(claims.get("type", String.class))) {
+        if (!JwtClaims.TYPE_REFRESH.equals(claims.get(JwtClaims.TYPE, String.class))) {
             throw new BusinessException("El token no es un refresh token");
         }
         var usuario = usuarioRepository.findByEmail(claims.getSubject())
@@ -131,6 +131,7 @@ public class AuthService {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
                 .subject(usuario.getEmail())
+                .claim(JwtClaims.TYPE, JwtClaims.TYPE_ACCESS)
                 .claim("usuarioId", usuario.getId().toString())
                 .claim("roles", usuario.getRoles().stream().map(Enum::name).toList())
                 .issuedAt(new Date())
@@ -143,7 +144,7 @@ public class AuthService {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
                 .subject(usuario.getEmail())
-                .claim("type", "refresh")
+                .claim(JwtClaims.TYPE, JwtClaims.TYPE_REFRESH)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + refreshExpiration))
                 .signWith(key)
