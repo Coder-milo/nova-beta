@@ -54,7 +54,10 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-novacrm}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-novacrm_secret}
-      JWT_SECRET: "${JWT_SECRET}"
+      # El `:?` corta el arranque con un mensaje accionable si falta. Sin el,
+      # Compose pasa una cadena vacia y el fallo aparece mucho despues, dentro
+      # de la aplicacion y con un mensaje que no dice donde definirlo.
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET es requerido - definelo en .env (genera uno con: openssl rand -base64 32)}"
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_REGION: ${AWS_REGION:-us-east-1}
