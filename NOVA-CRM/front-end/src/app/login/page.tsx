@@ -7,6 +7,7 @@ import { useRouter } from '@/compat/next-navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiCallError, useAuth } from '@/lib/auth'
+import { RUTA_INICIO_ESTUDIANTE, soloEsEstudiante } from '@/lib/navigation'
 
 const LOGIN_BACKGROUNDS = [
   '/fondo-login.webp',
@@ -57,8 +58,12 @@ export default function LoginPage() {
 
     startTransition(async () => {
       try {
-        await login(email.trim(), password)
-        router.replace('/')
+        const usuario = await login(email.trim(), password)
+        // Cada rol a su sitio. Mandar a todo el mundo a `/` dejaba al
+        // estudiante en el dashboard de administracion, que no puede consultar.
+        router.replace(
+          soloEsEstudiante(usuario?.roles) ? RUTA_INICIO_ESTUDIANTE : '/',
+        )
       } catch (err) {
         if (err instanceof ApiCallError) {
           if (err.status === 401 || err.status === 403) {

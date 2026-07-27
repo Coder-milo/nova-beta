@@ -1,62 +1,29 @@
 /**
  * Cliente HTTP centralizado para el backend NOVA CRM.
  *
- * - Lee la URL base desde NEXT_PUBLIC_API_URL (.env.local).
- * - Adjunta automáticamente el header Authorization: Bearer <token>
- *   cuando existe un token en localStorage (clave: "nova_token").
- * - En Server Components de Next.js no hay localStorage; en ese caso
- *   el token debe pasarse explícitamente via options.token.
+ * - Las peticiones van a rutas relativas: las atiende el proxy /api del
+ *   servidor de Astro, que es quien habla con el backend.
+ * - El token NO se maneja aqui. Vive en una cookie HttpOnly que el navegador
+ *   envia sola y que el proxy traduce a la cabecera Authorization. Guardarlo
+ *   en localStorage lo dejaba al alcance de cualquier XSS.
+ * - En renderizado de servidor se puede pasar el token explicitamente via
+ *   options.token.
  * - Lanza ApiCallError con el status HTTP y el cuerpo de error del backend
  *   para que los componentes puedan distinguir 401 de 422 de 500.
  */
 
-import type { ApiError, LoginRequest, LoginResponse } from './types'
+import type { ApiError, LoginRequest } from './types'
 
 const BASE_URL = ''
 
-const TOKEN_KEY = 'nova_token'
-const REFRESH_TOKEN_KEY = 'nova_refresh_token'
-const USER_KEY = 'nova_user'
-const ACCESS_COOKIE_MAX_AGE = 28_800
-
-let refreshPromise: Promise<string | null> | null = null
-
-function clearExpiredSession() {
+/** Cierra la sesion en el servidor, que es quien puede borrar la cookie. */
+async function cerrarSesionCaducada(): Promise<void> {
   if (typeof window === 'undefined') return
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(REFRESH_TOKEN_KEY)
-  localStorage.removeItem(USER_KEY)
-  document.cookie = 'nova_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-}
-
-async function renewAccessToken(): Promise<string | null> {
-  if (typeof window === 'undefined') return null
-  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
-  if (!refreshToken) return null
-
-  if (!refreshPromise) {
-    refreshPromise = fetch(`${BASE_URL}/api/v1/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-      cache: 'no-store',
-    })
-      .then(async (response) => {
-        if (!response.ok) return null
-        const renewed = (await response.json()) as LoginResponse
-        localStorage.setItem(TOKEN_KEY, renewed.token)
-        localStorage.setItem(REFRESH_TOKEN_KEY, renewed.refreshToken)
-        document.cookie = `nova_token=${renewed.token}; path=/; max-age=${ACCESS_COOKIE_MAX_AGE}; SameSite=Lax`
-        window.dispatchEvent(new CustomEvent<string>('nova:token-refreshed', { detail: renewed.token }))
-        return renewed.token
-      })
-      .catch(() => null)
-      .finally(() => {
-        refreshPromise = null
-      })
+  try {
+    await fetch('/auth/session', { method: 'DELETE' })
+  } catch {
+    // Si la llamada falla igualmente redirigimos: la cookie caducara sola.
   }
-
-  return refreshPromise
 }
 
 export class ApiCallError extends Error {
@@ -73,24 +40,18 @@ export class ApiCallError extends Error {
 interface FetchOptions extends Omit<RequestInit, 'body'> {
   // Cuerpo tipado (se serializa como JSON automáticamente).
   data?: unknown
-  // Token JWT opcional; si no se provee se intenta desde localStorage.
+  // Token explícito para renderizado en servidor. En el navegador no se usa:
+  // el proxy lo toma de la cookie HttpOnly.
   token?: string
-  retryAfterRefresh?: boolean
 }
 
 async function apiFetch<T>(
   path: string,
-  { data, token, headers: extraHeaders, retryAfterRefresh = false, ...init }: FetchOptions = {},
+  { data, token, headers: extraHeaders, ...init }: FetchOptions = {},
 ): Promise<T> {
-  // Resolver token: primero el parámetro explícito, luego localStorage.
-  let jwt = token
-  if (!jwt && typeof window !== 'undefined') {
-    jwt = localStorage.getItem('nova_token') ?? undefined
-  }
-
   const headers: Record<string, string> = {
     ...(data !== undefined ? { 'Content-Type': 'application/json' } : {}),
-    ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(extraHeaders as Record<string, string>),
   }
 
@@ -98,33 +59,30 @@ async function apiFetch<T>(
     ...init,
     body: data !== undefined ? JSON.stringify(data) : undefined,
     headers,
-    // Evita que Next.js cachee respuestas de la API del backend
-    // a menos que el llamador lo solicite explícitamente.
+    // La cookie de sesión debe viajar para que el proxy pueda autenticar.
+    credentials: init.credentials ?? 'same-origin',
     cache: init.cache ?? 'no-store',
   })
 
   if (!response.ok) {
-    // Spring puede responder 403 cuando un JWT vencido deja la solicitud
-    // como anónima. Renovamos una sola vez y repetimos la petición original.
+    // Solo el 401 cierra la sesión.
+    //
+    // El 403 significa "estás autenticado pero esto no es para ti", y es una
+    // respuesta perfectamente normal: un estudiante pidiendo el dashboard de
+    // administración recibe 403 y debe seguir dentro. Cerrarle la sesión ahí lo
+    // dejaba sin poder entrar nunca: iniciaba sesión, la primera pantalla
+    // pedía datos de admin, y el 403 lo devolvía a /login diciendo que su
+    // sesión había expirado cuando acababa de crearla.
+    //
+    // El caso ambiguo —Spring devuelve 403 cuando un JWT vencido deja la
+    // petición como anónima— lo resuelve el proxy antes de llegar aquí: ya
+    // intentó renovar y, si el refresh tampoco valía, responde 401.
     if (
-      (response.status === 401 || response.status === 403) &&
+      response.status === 401 &&
       typeof window !== 'undefined' &&
-      !path.startsWith('/api/v1/auth/') &&
-      !retryAfterRefresh &&
-      jwt
+      !path.startsWith('/api/v1/auth/')
     ) {
-      const renewedToken = await renewAccessToken()
-      if (renewedToken) {
-        return apiFetch<T>(path, {
-          ...init,
-          data,
-          headers: extraHeaders,
-          token: renewedToken,
-          retryAfterRefresh: true,
-        })
-      }
-
-      clearExpiredSession()
+      await cerrarSesionCaducada()
       if (window.location.pathname !== '/login') {
         window.location.assign('/login?expired=1')
       }
@@ -146,10 +104,13 @@ async function apiFetch<T>(
   return response.json() as Promise<T>
 }
 
-function resolverJwt(token?: string): string | undefined {
-  if (token) return token
-  if (typeof window !== 'undefined') return localStorage.getItem('nova_token') ?? undefined
-  return undefined
+/**
+ * Cabecera de autenticación solo para renderizado en servidor. En el navegador
+ * se devuelve vacía a propósito: la cookie HttpOnly viaja sola y el proxy la
+ * convierte en el Authorization que espera el backend.
+ */
+function cabeceraAuth(token?: string): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 /** Sube archivos como multipart/form-data (valores string o File). */
@@ -159,11 +120,11 @@ async function apiUpload<T>(path: string, fields: Record<string, File | string |
     if (v === undefined) continue
     form.append(k, v)
   }
-  const jwt = resolverJwt(token)
   const res = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
     body: form,
-    headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+    headers: cabeceraAuth(token),
+    credentials: 'same-origin',
     cache: 'no-store',
   })
   if (!res.ok) {
@@ -177,14 +138,13 @@ async function apiUpload<T>(path: string, fields: Record<string, File | string |
 
 /** Descarga un binario autenticado y dispara el guardado en el navegador. */
 export async function apiDownload(path: string, nombreArchivo: string, opciones?: { method?: string; data?: unknown }): Promise<void> {
-  const jwt = resolverJwt()
   const res = await fetch(`${BASE_URL}${path}`, {
     method: opciones?.method ?? 'GET',
     headers: {
-      ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
       ...(opciones?.data !== undefined ? { 'Content-Type': 'application/json' } : {}),
     },
     body: opciones?.data !== undefined ? JSON.stringify(opciones.data) : undefined,
+    credentials: 'same-origin',
     cache: 'no-store',
   })
   if (!res.ok) {
@@ -205,9 +165,8 @@ export async function apiDownload(path: string, nombreArchivo: string, opciones?
 
 /** Obtiene un binario autenticado sin descargarlo (previsualizaciones, visor PDF). */
 export async function apiBlob(path: string): Promise<Blob> {
-  const jwt = resolverJwt()
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+    credentials: 'same-origin',
     cache: 'no-store',
   })
   if (!res.ok) {
@@ -220,11 +179,23 @@ export async function apiBlob(path: string): Promise<Blob> {
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
+/** Usuario de la sesión. No incluye tokens: quedan en cookies HttpOnly. */
+export interface UsuarioSesion {
+  usuarioId: string
+  email: string
+  nombre: string
+  roles: string[]
+}
+
 export const authApi = {
+  /**
+   * El login va contra /auth/session y no contra el backend directamente: esa
+   * ruta guarda los tokens en cookies HttpOnly y devuelve solo el usuario, de
+   * modo que el token nunca pasa por el JavaScript de la página.
+   */
   login: (body: LoginRequest) =>
-    apiFetch<LoginResponse>('/api/v1/auth/login', { method: 'POST', data: body }),
-  refresh: (refreshToken: string) =>
-    apiFetch<LoginResponse>('/api/v1/auth/refresh', { method: 'POST', data: { refreshToken } }),
+    apiFetch<UsuarioSesion>('/auth/session', { method: 'POST', data: body }),
+  logout: () => apiFetch<{ mensaje: string }>('/auth/session', { method: 'DELETE' }),
   forgotPassword: (email: string) =>
     apiFetch<{ mensaje: string }>('/api/v1/auth/forgot-password', { method: 'POST', data: { email } }),
   resetPassword: (token: string, password: string) =>
@@ -353,15 +324,11 @@ export const importarApi = {
     form.append('archivo', archivo)
     form.append('programaId', programaId)
 
-    let jwt = token
-    if (!jwt && typeof window !== 'undefined') {
-      jwt = localStorage.getItem('nova_token') ?? undefined
-    }
-
     return fetch(`${BASE_URL}/api/v1/importar`, {
       method: 'POST',
       body: form,
-      headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+      headers: cabeceraAuth(token),
+      credentials: 'same-origin',
       cache: 'no-store',
     }).then(async (res) => {
       if (!res.ok) {
@@ -663,4 +630,67 @@ export const usuariosApi = {
     apiFetch<UsuarioResponse>(`/api/v1/usuarios/${id}`, { method: 'PUT', data: body, token }),
   desactivar: (id: string, token?: string) =>
     apiFetch<void>(`/api/v1/usuarios/${id}`, { method: 'DELETE', token }),
+}
+
+// ─── Comunicaciones ──────────────────────────────────────────────────────────
+
+import type { BrandingRequest, BrandingResponse, Padron, ResumenAltaCuentas } from './types'
+
+export const comunicacionesApi = {
+  /** Publica un anuncio que llega a los estudiantes como notificación. */
+  publicarAnuncio: (
+    body: { titulo: string; mensaje: string; programaId?: string },
+    token?: string,
+  ) =>
+    apiFetch<{ destinatarios: number; mensaje: string }>(
+      '/api/v1/notificaciones/anuncio',
+      { method: 'POST', data: body, token },
+    ),
+
+  /**
+   * Quién tiene cuenta y quién no. Es un GET: abrir la pantalla no debe hacer
+   * una petición a la URL que crea cuentas.
+   */
+  padronEstudiantes: (token?: string) =>
+    apiFetch<Padron>('/api/v1/admin/cuentas-estudiante', { token }),
+
+  /**
+   * Crea las cuentas de acceso que falten. `simulacion` va explícito porque el
+   * backend simula por defecto: crear 107 cuentas no debe ser el efecto de una
+   * llamada hecha por descuido.
+   */
+  crearCuentasEstudiante: (
+    body: { estudianteIds?: string[]; enviarCorreo: boolean; simulacion: boolean },
+    token?: string,
+  ) =>
+    apiFetch<ResumenAltaCuentas>('/api/v1/admin/cuentas-estudiante', {
+      method: 'POST',
+      data: body,
+      token,
+    }),
+}
+
+/**
+ * Identidad visual por proyecto.
+ *
+ * `mio()` no lleva el id del programa a propósito: un estudiante no debe tener
+ * que manejar —ni poder cambiar— el identificador de un proyecto. El servidor
+ * lo deduce de su sesión.
+ */
+export const brandingApi = {
+  mio: (token?: string) => apiFetch<BrandingResponse>('/api/v1/branding/mio', { token }),
+
+  obtener: (programaId: string, token?: string) =>
+    apiFetch<BrandingResponse>(`/api/v1/branding/${programaId}`, { token }),
+
+  guardar: (programaId: string, body: BrandingRequest, token?: string) =>
+    apiFetch<BrandingResponse>(`/api/v1/branding/${programaId}`, {
+      method: 'PUT',
+      data: body,
+      token,
+    }),
+
+  /** Vuelve a la gama global del panel. */
+  restablecer: (programaId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/branding/${programaId}`, { method: 'DELETE', token }),
 }

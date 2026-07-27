@@ -31,11 +31,12 @@ const BASE_URL = ''
 async function reemplazarDocumento(id: string, archivo: File): Promise<void> {
   const form = new FormData()
   form.append('archivo', archivo)
-  const jwt = typeof window !== 'undefined' ? localStorage.getItem('nova_token') ?? undefined : undefined
+  // Sin cabecera Authorization: la cookie HttpOnly viaja sola y el proxy /api
+  // la traduce al Bearer que espera el backend.
   const res = await fetch(`${BASE_URL}/api/v1/documentos/${id}`, {
     method: 'PUT',
     body: form,
-    headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+    credentials: 'same-origin',
     cache: 'no-store',
   })
   if (!res.ok) {

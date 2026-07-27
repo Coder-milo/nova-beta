@@ -578,3 +578,114 @@ export interface BusquedaResponse {
   programas: ResultadoBusqueda[]
   documentos: ResultadoBusqueda[]
 }
+
+// ─── Comunicaciones ──────────────────────────────────────────────────────────
+
+/** Qué pasó con la cuenta de acceso de un estudiante. */
+export interface FilaPadron {
+  estudianteId: string
+  nombre: string
+  /** null si la ficha no tiene correo: no hay a dónde escribirle. */
+  email: string | null
+  tieneCuenta: boolean
+  /** false si hay lista de direcciones de prueba y esta no está en ella. */
+  sePuedeEscribir: boolean
+}
+
+/** Quién tiene cuenta y quién no. Solo lectura, alimenta el selector. */
+export interface Padron {
+  total: number
+  conCuenta: number
+  sinCuenta: number
+  sinCorreo: number
+  /** Vacía = se escribe a todos. Con valores = solo a esas direcciones. */
+  destinatariosPermitidos: string[]
+  canalDeCorreo: string
+  estudiantes: FilaPadron[]
+}
+
+/** Qué pasó con la cuenta. No dice nada del correo: son cosas distintas. */
+export type EstadoCuenta = 'CREADA' | 'YA_TENIA' | 'SIN_CORREO'
+
+/** Qué pasó con el correo, que es una pregunta aparte del alta. */
+export type EnvioCorreo =
+  | 'ENVIADO'
+  | 'NO_SOLICITADO'
+  | 'BLOQUEADO_POR_LISTA'
+  | 'FALLIDO'
+  | 'SIN_DIRECCION'
+
+export interface ResultadoCuenta {
+  estudianteId: string
+  nombre: string
+  email: string | null
+  estado: EstadoCuenta
+  envio: EnvioCorreo
+  correoEnviado: boolean
+  detalle: string
+}
+
+export interface ResumenAltaCuentas {
+  creadas: number
+  yaTenian: number
+  sinCorreo: number
+  correosEnviados: number
+  correosFallidos: number
+  simulacion: boolean
+  /** Canal por el que se envió: SMTP, SES o "ninguno". */
+  canalDeCorreo: string
+  detalle: ResultadoCuenta[]
+}
+
+// ─── Identidad visual por proyecto ───────────────────────────────────────────
+
+/** Medida exacta que se exige al subir una imagen, con el motivo. */
+export interface MedidaExigida {
+  clave: string
+  etiqueta: string
+  /** Ancho exacto del archivo, en px. */
+  ancho: number
+  /** Alto exacto del archivo, en px. */
+  alto: number
+  /** A qué ancho se muestra: la mitad, por las pantallas retina. */
+  anchoVista: number
+  /** Qué pasa si no se respeta. Se muestra al administrador. */
+  porque: string
+}
+
+export interface BrandingRequest {
+  colorPrimario?: string | null
+  tituloHeader?: string | null
+  subtituloHeader?: string | null
+  bannerPanelUrl?: string | null
+  bannerPanelAncho?: number | null
+  bannerPanelAlto?: number | null
+  correoHeaderUrl?: string | null
+  correoHeaderAncho?: number | null
+  correoHeaderAlto?: number | null
+  correoPieUrl?: string | null
+  correoPieAncho?: number | null
+  correoPieAlto?: number | null
+  correoTextoPie?: string | null
+}
+
+export interface BrandingResponse {
+  programaId: string
+  programaNombre: string
+  /** false = el proyecto usa la gama global del panel. */
+  personalizado: boolean
+  colorPrimario: string | null
+  tituloHeader: string | null
+  subtituloHeader: string | null
+  bannerPanelUrl: string | null
+  bannerPanelAncho: number | null
+  bannerPanelAlto: number | null
+  correoHeaderUrl: string | null
+  correoHeaderAncho: number | null
+  correoHeaderAlto: number | null
+  correoPieUrl: string | null
+  correoPieAncho: number | null
+  correoPieAlto: number | null
+  correoTextoPie: string | null
+  medidasExigidas: MedidaExigida[]
+}
