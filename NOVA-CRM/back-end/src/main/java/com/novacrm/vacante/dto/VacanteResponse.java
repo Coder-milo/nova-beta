@@ -25,5 +25,13 @@ public record VacanteResponse(
         boolean activa,
         LocalDateTime fechaExpiracion,
         /** EXPIRADA, CUBIERTA o RETIRADA; nulo mientras siga abierta. */
-        String motivoCierre
+        String motivoCierre,
+        /** Ciudad limpia, para filtrar; `ubicacion` es el texto del anuncio. */
+        String ciudad,
+        /** Tiempo completo, medio tiempo, por horas. */
+        String jornada,
+        /** Falso en ofertas que registro un estudiante y nadie ha validado. */
+        boolean revisada,
+        /** Correo de quien la registro; nulo si vino de un portal. */
+        String creadaPor
 ) {}

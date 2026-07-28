@@ -29,6 +29,8 @@ public class MatchingService {
     private final SkillSynonyms skillSynonyms;
     private final MatchingConfig config;
     private final NotificacionService notificacionService;
+    private final com.novacrm.postulacion.PostulacionService postulacionService;
+    private final com.novacrm.postulacion.PostulacionRepository postulacionRepository;
 
     private static final List<String> NIVELES_INGLES = List.of("A1", "A2", "B1", "B2", "C1", "C2");
 
@@ -38,7 +40,9 @@ public class MatchingService {
                            EstudianteHabilidadRepository estudianteHabilidadRepository,
                            SkillSynonyms skillSynonyms,
                            MatchingConfig config,
-                           NotificacionService notificacionService) {
+                           NotificacionService notificacionService,
+                           com.novacrm.postulacion.PostulacionService postulacionService,
+                           com.novacrm.postulacion.PostulacionRepository postulacionRepository) {
         this.matchRepository = matchRepository;
         this.estudianteRepository = estudianteRepository;
         this.vacanteRepository = vacanteRepository;
@@ -46,6 +50,8 @@ public class MatchingService {
         this.skillSynonyms = skillSynonyms;
         this.config = config;
         this.notificacionService = notificacionService;
+        this.postulacionService = postulacionService;
+        this.postulacionRepository = postulacionRepository;
     }
 
     public Page<MatchResponse> obtenerMatches(UUID estudianteId, org.springframework.data.domain.Pageable pageable) {
@@ -77,12 +83,45 @@ public class MatchingService {
         return matchRepository.countByEstudianteIdAndNotificadoFalse(estudianteId);
     }
 
+    /**
+     * Marca el match y abre la postulacion correspondiente.
+     *
+     * <p>Antes solo ponia un booleano, y ahi se acababa el rastro: no quedaba
+     * ni la fecha ni forma de anotar despues que hubo entrevista. Ahora esto es
+     * la puerta de entrada al seguimiento —una sola decision en un solo sitio—,
+     * de modo que postularse desde las vacantes recomendadas y anotar una
+     * postulacion a mano acaban en la misma tabla.
+     */
     @Transactional
-    public void marcarPostulado(UUID matchId) {
+    public void marcarPostulado(UUID matchId, String autor, boolean loHaceElEstudiante) {
         var match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new com.novacrm.exception.ResourceNotFoundException("Match no encontrado: " + matchId));
+        boolean yaEstaba = match.isPostulado();
         match.setPostulado(true);
         matchRepository.save(match);
+
+        if (yaEstaba) {
+            return;
+        }
+        var vacante = match.getVacante();
+        var estudianteId = match.getEstudiante().getId();
+        // Si ya hay postulacion a esa vacante no se duplica: pudo registrarla
+        // el coordinador a mano antes de que el estudiante pulsara el boton.
+        if (postulacionRepository.findByEstudianteIdAndVacanteId(estudianteId, vacante.getId()).isPresent()) {
+            return;
+        }
+        postulacionService.crear(estudianteId,
+                new com.novacrm.postulacion.dto.PostulacionDtos.CrearPostulacion(
+                        estudianteId,
+                        vacante.getId(),
+                        vacante.getEmpresa() != null ? vacante.getEmpresa().getNombre() : "Sin registrar",
+                        vacante.getTitulo(),
+                        vacante.getFuente(),
+                        java.time.LocalDate.now(),
+                        com.novacrm.postulacion.EstadoPostulacion.ENVIADA,
+                        vacante.getUrlAplicar() != null ? vacante.getUrlAplicar() : vacante.getUrlOrigen(),
+                        null),
+                autor, loHaceElEstudiante);
     }
 
     @Transactional
@@ -97,11 +136,16 @@ public class MatchingService {
 
         while (procesadas < maxVacantes) {
             // Solo vigentes: recomendar una vacante vencida hace que el
-            // estudiante se postule a una plaza que ya no existe.
+            // estudiante se postule a una plaza que ya no existe. Y solo
+            // revisadas: una oferta que sugirio un participante se ve, pero no
+            // se le recomienda a los otros 106 hasta que el equipo la valide.
             var pagina = vacanteRepository.findVigentes(
                     java.time.LocalDateTime.now(), PageRequest.of(page, 200));
-            var vacantes = pagina.getContent();
-            if (vacantes.isEmpty()) break;
+            if (pagina.getContent().isEmpty()) break;
+            // El corte se mira sobre la pagina sin filtrar: una pagina entera
+            // de ofertas sin revisar no significa que se hayan acabado las
+            // vacantes, y cortar ahi dejaria fuera todas las siguientes.
+            var vacantes = pagina.getContent().stream().filter(Vacante::isRevisada).toList();
 
             for (Vacante v : vacantes) {
                 if (procesadas >= maxVacantes) break;

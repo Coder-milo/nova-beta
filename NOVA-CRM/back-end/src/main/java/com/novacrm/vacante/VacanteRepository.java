@@ -56,4 +56,26 @@ public interface VacanteRepository extends JpaRepository<Vacante, UUID> {
 
     /** Evita registrar dos veces la misma oferta pegada a mano. */
     Optional<Vacante> findByUrlOrigen(String urlOrigen);
+
+    /** Vacantes abiertas de una empresa. Para la ficha del CRM. */
+    long countByEmpresaIdAndActivoTrue(UUID empresaId);
+
+    /** Registradas por un estudiante y aun sin validar. */
+    Page<Vacante> findByRevisadaFalseAndActivoTrue(Pageable pageable);
+
+    /**
+     * Vigentes y validadas: las unicas que entran al matching.
+     *
+     * <p>Una oferta sin revisar se ve en el listado, pero recomendarsela a los
+     * 107 participantes es otra cosa. Es el filtro que impide que una oferta
+     * falsa registrada por alguien llegue sola a toda la cohorte.
+     */
+    @Query("""
+            SELECT v FROM Vacante v
+            WHERE v.activo = true
+              AND v.revisada = true
+              AND (v.fechaExpiracion IS NULL OR v.fechaExpiracion > :ahora)
+            ORDER BY v.createdAt DESC
+            """)
+    List<Vacante> findVigentesRevisadas(@Param("ahora") LocalDateTime ahora);
 }

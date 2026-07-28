@@ -173,6 +173,68 @@ public class Estudiante extends BaseEntity {
     @Column(name = "empresas_contactadas")
     private Integer empresasContactadas;
 
+    // ── Edad ────────────────────────────────────────────────────────────────
+
+    /**
+     * Edad tal y como la trae la hoja de seguimiento, junto a la fecha en que
+     * se capturo.
+     *
+     * <p>Una edad suelta caduca: reimportar el archivo el año que viene dejaria
+     * a los 107 participantes con la edad del año pasado. Guardando cuando se
+     * capturo se puede envejecer, y en cuanto alguien registre la fecha de
+     * nacimiento real deja de usarse.
+     */
+    @Column(name = "edad_al_registrar")
+    private Integer edadAlRegistrar;
+
+    @Column(name = "fecha_captura_edad")
+    private java.time.LocalDate fechaCapturaEdad;
+
+    // ── Enlaces de trabajo ──────────────────────────────────────────────────
+
+    /** Carpeta de Drive del participante: HV, certificados, soportes. */
+    @Column(name = "carpeta_url", length = 1000)
+    private String carpetaUrl;
+
+    /**
+     * Perfil publico de LinkedIn.
+     *
+     * <p>Distinto de {@link #linkedinUserId}, que es el identificador de OAuth
+     * y no sirve para abrir nada. Este es el enlace que el equipo revisa cuando
+     * evalua si el perfil esta optimizado.
+     */
+    @Column(name = "linkedin_url", length = 1000)
+    private String linkedinUrl;
+
+    /**
+     * Los cinco hitos de preparacion, cada uno con tres estados.
+     *
+     * <p>Se capturan; no se deducen. Ver {@link PreparacionEmpleabilidad}.
+     */
+    @Embedded
+    private PreparacionEmpleabilidad preparacion = new PreparacionEmpleabilidad();
+
+    /** La edad a dia de hoy, venga de donde venga. */
+    public Integer edad(java.time.LocalDate hoy) {
+        return EdadParticipante.resolver(fechaNacimiento, edadAlRegistrar, fechaCapturaEdad, hoy);
+    }
+
+    public Integer getEdadAlRegistrar() { return edadAlRegistrar; }
+    public void setEdadAlRegistrar(Integer edadAlRegistrar) { this.edadAlRegistrar = edadAlRegistrar; }
+    public java.time.LocalDate getFechaCapturaEdad() { return fechaCapturaEdad; }
+    public void setFechaCapturaEdad(java.time.LocalDate f) { this.fechaCapturaEdad = f; }
+    public String getCarpetaUrl() { return carpetaUrl; }
+    public void setCarpetaUrl(String carpetaUrl) { this.carpetaUrl = carpetaUrl; }
+    public String getLinkedinUrl() { return linkedinUrl; }
+    public void setLinkedinUrl(String linkedinUrl) { this.linkedinUrl = linkedinUrl; }
+    public PreparacionEmpleabilidad getPreparacion() {
+        if (preparacion == null) {
+            preparacion = new PreparacionEmpleabilidad();
+        }
+        return preparacion;
+    }
+    public void setPreparacion(PreparacionEmpleabilidad p) { this.preparacion = p; }
+
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
     public String getApellido() { return apellido; }

@@ -60,5 +60,39 @@ public record EstudianteResponse(
         String idiomas,
         String referencias,
         String disponibilidad,
-        int porcentajeCompletitud
+        int porcentajeCompletitud,
+
+        // ── Hitos de preparacion ────────────────────────────────────────────
+        String hitoCvListo,
+        String hitoCvIngles,
+        String hitoLinkedinCreado,
+        String hitoLinkedinOptimizado,
+        String hitoPerfilOcupacional,
+        /** Cuantos de los cinco estan terminados. */
+        int hitosCumplidos,
+        /** Lo que falta, en el orden en que conviene hacerlo. */
+        java.util.List<String> pendientesPreparacion,
+
+        /**
+         * El "% de empleabilidad" que reporta el programa.
+         *
+         * <p>Derivado, no guardado: sale de los cinco hitos y de tener
+         * colocacion vigente. Guardarlo obligaria a recalcularlo a mano cada
+         * vez que cambia un hito, que es como la hoja acabo con la columna
+         * desfasada.
+         */
+        int porcentajeEmpleabilidad,
+        /** Si tiene una colocacion vigente registrada. */
+        boolean colocado,
+
+        // ── Edad ────────────────────────────────────────────────────────────
+        java.time.LocalDate fechaNacimiento,
+        Integer edadAlRegistrar,
+        java.time.LocalDate fechaCapturaEdad,
+        /** Resuelta a dia de hoy; nula si no hay con que calcularla. */
+        Integer edad,
+
+        // ── Enlaces de trabajo ──────────────────────────────────────────────
+        String carpetaUrl,
+        String linkedinUrl
 ) {}

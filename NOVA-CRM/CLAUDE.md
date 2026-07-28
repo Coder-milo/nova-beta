@@ -200,9 +200,109 @@ administración, y las llamadas que dispara esa pantalla devolvían 403.
 
 **El pipeline de empleabilidad no se captura a mano.** `com.novacrm.pipeline` calcula la etapa del
 embudo (`SIN_PERFIL → PERFIL_LISTO → PREPARADO → POSTULANDO → COLOCADO`) a partir de hechos que ya
-registran otros módulos: HV vigente (`HvService.tieneHvVigente`), `linkedinUserId`, un `Seguimiento`
-de tipo `SIMULACRO*` completado, y los `Match` con `postulado = true`. La deducción vive en un método
-estático puro (`PipelineEmpleabilidadService.construir`) para poder probarla sin base de datos.
+registran otros módulos: HV vigente (`HvService.tieneHvVigente`), un `Seguimiento` de tipo
+`SIMULACRO*` completado, las filas de `postulacion` y las de `colocacion`. La deducción vive en un
+método estático puro (`PipelineEmpleabilidadService.construir`) para poder probarla sin base de datos.
+
+**Pero no todo se puede deducir, y eso era el agujero.** Salario, canal de consecución, estado de una
+postulación concreta y respuesta de una empresa son hechos que ningún módulo genera solo. Mientras no
+tuvieron sitio, el equipo siguió llevándolos en `seguimiento_Nova.xlsx` y el CRM no podía sustituirlo.
+Viven en `com.novacrm.postulacion`, `com.novacrm.colocacion` y en los campos de CRM de `Empresa`.
+
+**Los cinco hitos de preparación se capturan y tienen tres estados.**
+`PreparacionEmpleabilidad` (embebido en `Estudiante`) guarda `cvListo`, `cvEnIngles`,
+`linkedinCreado`, `linkedinOptimizado` y `perfilOcupacional` como `EstadoHito`
+(`NO | EN_PROCESO | SI`). Dos motivos, los dos medidos sobre datos reales:
+
+- **`linkedinOptimizado` se deducía de `linkedinUserId` y era falso.** Eso es tener el perfil creado,
+  no trabajado. En el seguimiento hay 74 creados y 9 optimizados: el CRM reportaba ocho veces más de
+  lo que el programa había hecho.
+- **"En proceso" no cabe en un booleano.** Hay 14 perfiles ocupacionales y 10 HV en inglés a medias;
+  colapsarlos falsea el indicador en las dos direcciones.
+
+**`PuntajeEmpleabilidad` replica la fórmula de la hoja, rarezas incluidas.** Pesos 0,15 / 0,15 / 0,10
+/ 0,15 / 0,15 y 0,30 por estar colocado; un hito a medias aporta **0,07 fijo** —no la mitad de su
+peso, es un único `IF` copiado a las cinco columnas— y el total se **trunca**, no se redondea.
+Verificado contra las 107 filas: coincide en las 107, y el promedio da el 31,5 % publicado. Si se
+"mejora" la fórmula, el indicador cambia de valor sin que nadie haya cambiado de situación y no habrá
+forma de explicarle al financiador si la diferencia es el programa o el cambio de sistema.
+
+## Postulaciones: lo que el estudiante actualiza llega al tablero
+
+`Match.postulado` era un booleano y no daba para más: ni a qué, ni cuándo, ni en qué quedó. Una
+persona puede tener cinco procesos vivos en estados distintos y las cinco cosas son ciertas a la vez.
+`Postulacion` es una fila por proceso, con `EstadoPostulacion` (los siete estados de la hoja).
+
+**`vacante_id` es opcional a propósito.** Muchas postulaciones salen de una feria o de un contacto
+directo, y exigir una vacante registrada obligaría a inventarla. Por eso empresa y cargo van también
+como texto: la postulación sobrevive a que la vacante se cierre.
+
+**Cada cambio de estado escribe en `seguimiento`**, y ahí está el valor del módulo: el estudiante
+actualiza desde su cuenta y el equipo lo ve sin transcribir nada. Se escriben hasta dos apuntes:
+
+- Siempre uno de tipo `POSTULACION` — el rastro de lo que pasó.
+- Uno de tipo `CONTACTO` **solo si la tarjeta debe moverse**, que lo decide `AvanceDelTablero`
+  (clase pura). Tres reglas, todas para que el tablero no se vuelva inservible: solo hacia adelante
+  (anotar una postulación nueva no devuelve a "en proceso" a quien ya tiene entrevista); un rechazo
+  no mueve nada (es información del proceso, no de la persona); y de `CERRADO` no se sale solo.
+
+**Que un estudiante marque `CONTRATADO` es una noticia, no un dato verificado.** No cuenta como
+colocación: aparece en `GET /api/v1/postulaciones/pendientes-de-confirmar` para que el equipo la
+registre con contrato y salario.
+
+`MatchController.marcarPostulado` crea la `Postulacion` correspondiente, para que postularse desde
+las vacantes recomendadas y anotarla a mano acaben en la misma tabla.
+
+## Colocaciones: la cifra que se reporta
+
+Antes solo existía `EstadoEmpleabilidad.EMPLEADO`, un valor de enum sin nada detrás. `Colocacion`
+guarda empresa, cargo, fecha, salario, modalidad, contrato y `ChecklistIngreso`.
+
+**`CanalConsecucion` es lo que distingue el impacto del programa.** `AUTOGESTIONADO` se registra
+igual pero no se le atribuye: mezclarlo con `OPEN_HOUSE` o `VISITA_CAC` infla la cifra reportada con
+gente que encontró trabajo por su cuenta. Va enumerado —al revés que `Postulacion.canal`, que es
+texto libre— porque es categoría de reporte y tiene que ser comparable entre cohortes.
+
+**La diferencia contra la meta no se guarda: se calcula.** La meta es
+`app.colocacion.meta-salarial` (`META_SALARIAL`, por defecto 2.276.176) y sube con el mínimo cada
+año; guardar la resta dejaría histórico que miente.
+
+**Las casillas del checklist son `Boolean`, no `boolean`.** `null` es "sin revisar" y `false` es
+"revisado y no cumple". Solo la segunda hay que perseguirla, y con un booleano se ven igual.
+
+**`TipoVinculacion.FORMACION` no cuenta como empleo** y no mueve la tarjeta a `COLOCADO`.
+
+## CRM de empresas
+
+`Empresa` era un catálogo colgado de `Vacante`. Ahora lleva contacto, `EstadoRelacion`, próximo paso
+y cargos típicos —estos permiten sugerir una empresa aunque hoy no tenga vacante publicada, que es
+como trabaja el equipo—.
+
+**Los contadores no son columnas.** Participantes, respuestas y contratados se cuentan desde
+`postulacion` y `colocacion`. En la hoja eran columnas y decían "104" en todas las filas.
+
+**Se cuentan por ficha _o_ por nombre**, y al crear una empresa se enganchan las filas huérfanas
+(`vincularPorNombre`). Lo habitual es dar de alta la empresa cuando la relación ya lleva meses, así
+que sus postulaciones anteriores tienen `empresa_id` nulo; contar solo por ficha dejaba en cero
+justo a las empresas con las que más se ha trabajado. El enganche usa `saveAndFlush`: el `UPDATE`
+masivo se salta el contexto de persistencia y sin volcar antes la fila nueva revienta la FK.
+
+## Ofertas registradas a mano
+
+`VacanteRequest` ya no exige enlace: pide **enlace o título** (`@AssertTrue isIdentificable`). Una
+oferta de feria no tiene URL y exigirla dejaba fuera justo las que no están en ningún portal.
+`jornada` (tiempo completo / medio tiempo) es distinto de `tipoContrato` (figura jurídica), y
+`ciudad` es aparte de `ubicacion`, que es el texto libre del anuncio.
+
+**`revisada` es la puerta que separa lo que entra al matching.** Un estudiante puede registrar una
+oferta (`POST /api/v1/vacantes/sugeridas`): se guarda y él puede postularse, pero entra con
+`revisada = false` y `MatchingService` la ignora hasta que alguien la valide. Recomendarle a los 107
+participantes una oferta sin verificar es el camino por el que una estafa de empleo llega a toda una
+cohorte.
+
+**La edad se guarda como fecha de nacimiento.** `EdadParticipante.resolver` acepta además el par
+(edad, fecha de captura) porque de la hoja solo se puede importar el número, y un número suelto deja
+de ser cierto al año siguiente.
 
 **El matching puntúa el inglés medido, no el declarado.** `MatchingService.puntajeIngles` usa
 `PerfilIngles`, que lee `resultadoPruebaEscrita` y `resultadoPruebaOral`, no el nivel que el

@@ -60,14 +60,24 @@ public class MatchController {
         return matchingService.contarMatchesPendientes(estudianteId);
     }
 
+    /**
+     * Marca un match como postulado y abre su postulacion.
+     *
+     * <p>Postularse desde aqui y anotar una postulacion a mano acaban en la
+     * misma tabla, asi que a partir de este momento el proceso se puede seguir
+     * —entrevista, respuesta, resultado— desde la cuenta del participante.
+     */
     @PatchMapping("/{matchId}/postular")
-    @Operation(summary = "Marcar un match como postulado")
+    @Operation(summary = "Marcar un match como postulado y abrir su seguimiento")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public void marcarPostulado(@PathVariable UUID matchId, Authentication auth) {
         var match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new com.novacrm.exception.ResourceNotFoundException("Match no encontrado: " + matchId));
         ownershipService.verificarAccesoEstudiante(auth, match.getEstudiante().getId());
-        matchingService.marcarPostulado(matchId);
+        boolean esElPropioEstudiante = auth.getAuthorities().stream()
+                .noneMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
+                        || a.getAuthority().equals("ROLE_COORDINADOR"));
+        matchingService.marcarPostulado(matchId, auth.getName(), esElPropioEstudiante);
     }
 
     @PostMapping("/ejecutar")

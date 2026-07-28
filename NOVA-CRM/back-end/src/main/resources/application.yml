@@ -78,6 +78,12 @@ app:
     # Si algun dia la API queda expuesta directamente a internet, hay que
     # dejar esta lista vacia: de lo contrario el limite es falseable.
     trusted-proxies: ${RATE_LIMIT_TRUSTED_PROXIES:127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+  colocacion:
+    # Salario objetivo del programa: por debajo de esto una colocacion cuenta,
+    # pero no como colocacion digna. Es configuracion y no una constante porque
+    # sube con el salario minimo cada año; por eso la diferencia contra la meta
+    # se calcula al leer y no se guarda en la fila de cada colocacion.
+    meta-salarial: ${META_SALARIAL:2276176}
   minio:
     url: ${MINIO_ENDPOINT:${MINIO_URL:http://localhost:9000}}
     access-key: ${MINIO_ACCESS_KEY:}
@@ -92,6 +98,11 @@ app:
     # direccion este verificada en su panel antes de aceptar el envio.
     remitente: ${CORREO_REMITENTE:}
     nombre-remitente: ${CORREO_NOMBRE_REMITENTE:NOVA - CAC Eurocentres}
+    # De donde cuelgan las URL de imagen que se escriben en los correos.
+    # En produccion TIENE que ser el dominio publico del backend: es la
+    # direccion que el cliente de correo del destinatario va a abrir desde su
+    # ordenador, donde localhost no es esta maquina.
+    base-url-publica: ${CORREO_BASE_URL_PUBLICA:http://localhost:8080}
     # Imagenes de la plantilla. Deben ser URLs publicas: los clientes de correo
     # no muestran adjuntos incrustados de forma fiable.
     logo-url: ${CORREO_LOGO_URL:}

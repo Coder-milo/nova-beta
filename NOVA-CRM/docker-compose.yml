@@ -72,6 +72,9 @@ services:
       # Remitente; los proveedores exigen tenerlo verificado en su panel.
       CORREO_REMITENTE: ${CORREO_REMITENTE:-}
       CORREO_NOMBRE_REMITENTE: ${CORREO_NOMBRE_REMITENTE:-NOVA - CAC Eurocentres}
+      # Dominio publico del backend. Las imagenes de los correos cuelgan de
+      # aqui; en produccion no puede ser localhost.
+      CORREO_BASE_URL_PUBLICA: ${CORREO_BASE_URL_PUBLICA:-http://localhost:8080}
       # Imagenes de la plantilla (URLs publicas).
       CORREO_LOGO_URL: ${CORREO_LOGO_URL:-}
       CORREO_BANNER_PIE_URL: ${CORREO_BANNER_PIE_URL:-}

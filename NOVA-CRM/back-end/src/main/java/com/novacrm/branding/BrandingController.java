@@ -23,9 +23,15 @@ import java.util.UUID;
 public class BrandingController {
 
     private final BrandingService brandingService;
+    private final ImagenBrandingService imagenService;
+    private final com.novacrm.documento.StorageService storageService;
 
-    public BrandingController(BrandingService brandingService) {
+    public BrandingController(BrandingService brandingService,
+                              ImagenBrandingService imagenService,
+                              com.novacrm.documento.StorageService storageService) {
         this.brandingService = brandingService;
+        this.imagenService = imagenService;
+        this.storageService = storageService;
     }
 
     /**
@@ -63,5 +69,56 @@ public class BrandingController {
     public ResponseEntity<Void> restablecer(@PathVariable UUID programaId) {
         brandingService.restablecer(programaId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Sube una imagen de marca y devuelve la URL con la que referenciarla.
+     *
+     * <p>El servidor <strong>decodifica el archivo</strong> para comprobar las
+     * medidas en vez de creer lo que diga el cliente: la pantalla ya recorta
+     * con un canvas, pero si el servidor se fia, una imagen del tamano
+     * equivocado sale descuadrada a 108 bandejas de entrada.
+     */
+    @PostMapping(value = "/{programaId}/imagen", consumes = "multipart/form-data")
+    @Operation(summary = "Subir una imagen de marca")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public java.util.Map<String, String> subirImagen(
+            @PathVariable UUID programaId,
+            @RequestParam("clave") String clave,
+            @RequestParam("archivo") org.springframework.web.multipart.MultipartFile archivo) {
+
+        var exigida = MedidasExigidas.TODAS.stream()
+                .filter(m -> m.clave().equalsIgnoreCase(clave))
+                .findFirst()
+                .orElseThrow(() -> new com.novacrm.exception.BusinessException(
+                        "Imagen desconocida: " + clave));
+
+        return java.util.Map.of("url", imagenService.guardar(exigida, archivo));
+    }
+
+    /**
+     * Sirve una imagen de marca. <strong>Abierto a proposito</strong>: lo abre
+     * el cliente de correo del destinatario, que no tiene sesion ni la puede
+     * tener. Son imagenes de marca, no datos de nadie.
+     */
+    @GetMapping("/imagen/**")
+    @Operation(summary = "Servir una imagen de marca (publico)")
+    public ResponseEntity<byte[]> imagen(jakarta.servlet.http.HttpServletRequest request) {
+        String prefijo = "/api/v1/branding/imagen/";
+        String bruta = request.getRequestURI().substring(
+                request.getRequestURI().indexOf(prefijo) + prefijo.length());
+
+        // Sin esta comprobacion, un `../` en la URL leeria cualquier archivo del
+        // servidor, y este endpoint no pide sesion.
+        String key = ImagenBrandingService.claveSegura(
+                java.net.URLDecoder.decode(bruta, java.nio.charset.StandardCharsets.UTF_8));
+
+        byte[] contenido = storageService.descargar(key);
+        return ResponseEntity.ok()
+                .header("Content-Type", key.endsWith(".jpg") ? "image/jpeg" : "image/png")
+                // Las imagenes de marca cambian poco y las pide cada bandeja que
+                // abre el correo; sin cache es una descarga por apertura.
+                .header("Cache-Control", "public, max-age=604800")
+                .body(contenido);
     }
 }
