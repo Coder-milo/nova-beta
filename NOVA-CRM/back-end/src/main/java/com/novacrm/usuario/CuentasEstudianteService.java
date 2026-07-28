@@ -4,6 +4,7 @@ import com.novacrm.auth.Rol;
 import com.novacrm.auth.Usuario;
 import com.novacrm.auth.UsuarioRepository;
 import com.novacrm.branding.BrandingService;
+import com.novacrm.config.DestinatariosPermitidos;
 import com.novacrm.config.EmailService;
 import com.novacrm.config.MarcaCorreo;
 import com.novacrm.config.PlantillaCorreo;
@@ -52,6 +53,10 @@ public class CuentasEstudianteService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final BrandingService brandingService;
+    /** La salvaguarda vive en un componente propio: es la unica cosa que
+     *  separa una prueba de un envio a 108 personas reales, y dos copias de
+     *  esa comprobacion son dos sitios donde puede quedar mal. */
+    private final DestinatariosPermitidos destinatarios;
 
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
@@ -62,23 +67,19 @@ public class CuentasEstudianteService {
     @Value("${app.correo.banner-pie-url:}")
     private String bannerPieUrl;
 
-    /**
-     * Direcciones a las que se permite enviar. Vacia = sin restriccion.
-     * Es la salvaguarda para probar sin escribir a los 107 participantes.
-     */
-    @Value("${app.correo.destinatarios-permitidos:}")
-    private String destinatariosPermitidos;
 
     public CuentasEstudianteService(EstudianteRepository estudianteRepository,
                                     UsuarioRepository usuarioRepository,
                                     PasswordEncoder passwordEncoder,
                                     EmailService emailService,
-                                    BrandingService brandingService) {
+                                    BrandingService brandingService,
+                                    DestinatariosPermitidos destinatarios) {
         this.estudianteRepository = estudianteRepository;
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
         this.brandingService = brandingService;
+        this.destinatarios = destinatarios;
     }
 
     /**
@@ -307,20 +308,11 @@ public class CuentasEstudianteService {
      * que evita que una prueba termine escribiendo a los 107 participantes.
      */
     boolean destinatarioPermitido(String email) {
-        var permitidos = listaDeDestinatarios();
-        return permitidos.isEmpty()
-                || permitidos.stream().anyMatch(d -> d.equalsIgnoreCase(email));
+        return destinatarios.permite(email);
     }
 
-    /** La lista configurada, ya normalizada. Vacia = sin restriccion. */
     private List<String> listaDeDestinatarios() {
-        if (destinatariosPermitidos == null || destinatariosPermitidos.isBlank()) {
-            return List.of();
-        }
-        return java.util.Arrays.stream(destinatariosPermitidos.split(","))
-                .map(String::trim)
-                .filter(d -> !d.isEmpty())
-                .toList();
+        return destinatarios.lista();
     }
 
     /**

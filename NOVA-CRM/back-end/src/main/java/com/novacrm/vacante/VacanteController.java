@@ -75,11 +75,52 @@ public class VacanteController {
     }
 
     @PostMapping
-    @Operation(summary = "Registrar una oferta pegando su enlace")
+    @Operation(summary = "Registrar una oferta, con enlace o escribiendola a mano")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
     public VacanteResponse crear(@Valid @RequestBody VacanteRequest request, Authentication auth) {
-        return vacanteService.crearDesdeUrl(request, auth.getName());
+        return vacanteService.crearDesdeUrl(request, auth.getName(), true);
+    }
+
+    /**
+     * Alta de una oferta por parte de un participante.
+     *
+     * <p>Los estudiantes encuentran ofertas que el sistema no ve —grupos de
+     * WhatsApp, avisos en la universidad, un conocido— y perderlas es perder lo
+     * mejor que tiene el programa. Entra {@code revisada = false}: se guarda y
+     * el participante puede postularse a ella, pero no se le recomienda a nadie
+     * mas hasta que alguien del equipo la valide.
+     */
+    @PostMapping("/sugeridas")
+    @Operation(summary = "Registrar una oferta encontrada por un estudiante")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
+    public VacanteResponse sugerir(@Valid @RequestBody VacanteRequest request, Authentication auth) {
+        return vacanteService.crearDesdeUrl(request, auth.getName(), false);
+    }
+
+    @GetMapping("/pendientes-de-revisar")
+    @Operation(summary = "Ofertas sugeridas por estudiantes y aun sin validar")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public Page<VacanteResponse> pendientesDeRevisar(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            Pageable pageable) {
+        return vacanteService.pendientesDeRevisar(pageable);
+    }
+
+    @PostMapping("/{id}/revisar")
+    @Operation(summary = "Dar por buena una oferta sugerida por un estudiante")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public VacanteResponse revisar(@PathVariable UUID id) {
+        return vacanteService.marcarRevisada(id);
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Corregir una oferta ya registrada")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public VacanteResponse actualizar(@PathVariable UUID id,
+                                      @Valid @RequestBody VacanteRequest request) {
+        return vacanteService.actualizar(id, request);
     }
 
     @PostMapping("/{id}/cerrar")

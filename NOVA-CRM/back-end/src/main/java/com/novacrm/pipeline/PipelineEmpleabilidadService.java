@@ -32,15 +32,21 @@ public class PipelineEmpleabilidadService {
     private final HvService hvService;
     private final SeguimientoRepository seguimientoRepository;
     private final MatchRepository matchRepository;
+    private final com.novacrm.postulacion.PostulacionRepository postulacionRepository;
+    private final com.novacrm.colocacion.ColocacionRepository colocacionRepository;
 
     public PipelineEmpleabilidadService(EstudianteRepository estudianteRepository,
                                         HvService hvService,
                                         SeguimientoRepository seguimientoRepository,
-                                        MatchRepository matchRepository) {
+                                        MatchRepository matchRepository,
+                                        com.novacrm.postulacion.PostulacionRepository postulacionRepository,
+                                        com.novacrm.colocacion.ColocacionRepository colocacionRepository) {
         this.estudianteRepository = estudianteRepository;
         this.hvService = hvService;
         this.seguimientoRepository = seguimientoRepository;
         this.matchRepository = matchRepository;
+        this.postulacionRepository = postulacionRepository;
+        this.colocacionRepository = colocacionRepository;
     }
 
     public PipelineEmpleabilidad calcular(UUID estudianteId) {
@@ -48,13 +54,30 @@ public class PipelineEmpleabilidadService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "No existe el estudiante " + estudianteId));
 
+        // Postulaciones: manda la tabla de postulaciones. Se toma el maximo
+        // con los matches marcados porque quedan registros anteriores a que
+        // existiera la tabla; sumarlos contaria dos veces la misma postulacion,
+        // ya que marcar un match ahora crea tambien su postulacion.
+        long postulaciones = Math.max(
+                postulacionRepository.countByEstudianteId(estudianteId),
+                matchRepository.countByEstudianteIdAndPostuladoTrue(estudianteId));
+
+        // Colocado es tener una colocacion registrada. El enum antiguo se
+        // sigue mirando porque hay fichas marcadas EMPLEADO de antes, pero es
+        // el que sobra: no dice ni donde ni desde cuando.
+        boolean colocado = colocacionRepository.existsByEstudianteIdAndActivaTrue(estudianteId)
+                || estudiante.getEstadoEmpleabilidad() == EstadoEmpleabilidad.EMPLEADO;
+
         var hechos = new Hechos(
                 hvService.tieneHvVigente(estudianteId),
-                estudiante.getLinkedinUserId() != null && !estudiante.getLinkedinUserId().isBlank(),
+                // Optimizado es un hito que alguien revisa, no el hecho de
+                // tener el perfil vinculado. Se deducia de linkedinUserId y era
+                // falso: en el programa hay 74 perfiles creados y 9 optimizados.
+                estudiante.getPreparacion().getLinkedinOptimizado().cumplido(),
                 seguimientoRepository.existeSimulacroCompletado(estudianteId),
-                matchRepository.countByEstudianteIdAndPostuladoTrue(estudianteId),
+                postulaciones,
                 matchRepository.contarEmpresasContactadas(estudianteId),
-                estudiante.getEstadoEmpleabilidad() == EstadoEmpleabilidad.EMPLEADO);
+                colocado);
 
         return construir(estudianteId, nombreCompleto(estudiante), hechos);
     }

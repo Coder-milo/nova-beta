@@ -59,6 +59,39 @@ public class Vacante extends BaseEntity {
     @Column(name = "hash_dedup")
     private String hashDedup;
 
+    /**
+     * Tiempo completo, medio tiempo, por horas.
+     *
+     * <p>Distinto de {@link #tipoContrato} —indefinido, termino fijo, obra o
+     * labor—, que es la figura juridica. Se metian en el mismo campo y luego no
+     * se podia filtrar "solo tiempo completo", que es lo primero que pregunta
+     * quien necesita el ingreso completo.
+     */
+    @Column(length = 40)
+    private String jornada;
+
+    /**
+     * Ciudad de la plaza.
+     *
+     * <p>Aparte de {@link #ubicacion}, que es texto libre del anuncio
+     * ("Barranquilla, Atlantico - Zona norte"). Sin una ciudad limpia no se
+     * puede filtrar por lo unico que decide si la persona puede tomar el
+     * empleo.
+     */
+    @Column(length = 255)
+    private String ciudad;
+
+    /**
+     * Validada por el equipo.
+     *
+     * <p>Falso solo en las que registra un estudiante. La oferta se guarda y se
+     * ve, pero no entra al matching hasta que alguien la mira: recomendarle a
+     * los otros 106 participantes una oferta sin revisar es exactamente el
+     * camino por el que una estafa de empleo llega a toda una cohorte.
+     */
+    @Column(nullable = false)
+    private boolean revisada = true;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "motivo_cierre", length = 30)
     private MotivoCierre motivoCierre;
@@ -132,4 +165,10 @@ public class Vacante extends BaseEntity {
     public void setFechaCierre(java.time.LocalDateTime fechaCierre) { this.fechaCierre = fechaCierre; }
     public String getCreadaPor() { return creadaPor; }
     public void setCreadaPor(String creadaPor) { this.creadaPor = creadaPor; }
+    public String getJornada() { return jornada; }
+    public void setJornada(String jornada) { this.jornada = jornada; }
+    public String getCiudad() { return ciudad; }
+    public void setCiudad(String ciudad) { this.ciudad = ciudad; }
+    public boolean isRevisada() { return revisada; }
+    public void setRevisada(boolean revisada) { this.revisada = revisada; }
 }

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,6 +25,7 @@ public class EstudianteService {
     private final ProgramaRepository programaRepository;
     private final NivelInglesRepository nivelInglesRepository;
     private final com.novacrm.auditoria.AuditoriaService auditoriaService;
+    private final com.novacrm.colocacion.ColocacionRepository colocacionRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -31,11 +33,13 @@ public class EstudianteService {
     public EstudianteService(EstudianteRepository estudianteRepository,
                              ProgramaRepository programaRepository,
                              NivelInglesRepository nivelInglesRepository,
-                             com.novacrm.auditoria.AuditoriaService auditoriaService) {
+                             com.novacrm.auditoria.AuditoriaService auditoriaService,
+                             com.novacrm.colocacion.ColocacionRepository colocacionRepository) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
         this.nivelInglesRepository = nivelInglesRepository;
         this.auditoriaService = auditoriaService;
+        this.colocacionRepository = colocacionRepository;
     }
 
     public Page<EstudianteResponse> listarPorPrograma(UUID programaId, Pageable pageable) {
@@ -192,7 +196,113 @@ public class EstudianteService {
         e.setIdiomas(r.idiomas());
         e.setReferencias(r.referencias());
         e.setDisponibilidad(r.disponibilidad());
+        aplicarPreparacion(e, r);
     }
+
+    /**
+     * Campos que solo se tocan cuando llegan.
+     *
+     * <p>El resto de la ficha se sobrescribe entera —es un PUT— pero estos no
+     * pueden: el portal del estudiante manda un formulario mas corto, y si
+     * arrastrara los hitos a nulo, guardar el perfil desde ahi borraria lo que
+     * el coordinador acaba de marcar. Nulo significa "no lo cambies".
+     */
+    private void aplicarPreparacion(Estudiante e, EstudianteRequest r) {
+        var p = e.getPreparacion();
+        if (r.hitoCvListo() != null) p.setCvListo(r.hitoCvListo());
+        if (r.hitoCvIngles() != null) p.setCvEnIngles(r.hitoCvIngles());
+        if (r.hitoLinkedinCreado() != null) p.setLinkedinCreado(r.hitoLinkedinCreado());
+        if (r.hitoLinkedinOptimizado() != null) p.setLinkedinOptimizado(r.hitoLinkedinOptimizado());
+        if (r.hitoPerfilOcupacional() != null) p.setPerfilOcupacional(r.hitoPerfilOcupacional());
+
+        if (r.carpetaUrl() != null) e.setCarpetaUrl(vacioANulo(r.carpetaUrl()));
+        if (r.linkedinUrl() != null) e.setLinkedinUrl(vacioANulo(r.linkedinUrl()));
+        if (r.edadAlRegistrar() != null) {
+            e.setEdadAlRegistrar(r.edadAlRegistrar());
+            // Sin la fecha de captura la edad no se puede envejecer y queda
+            // inservible; si no la mandan, se toma hoy.
+            e.setFechaCapturaEdad(
+                    r.fechaCapturaEdad() != null ? r.fechaCapturaEdad() : LocalDate.now());
+        }
+        // La fecha de nacimiento existia en la entidad y no la escribia nadie:
+        // llegaba en el request y se perdia por el camino.
+        if (r.fechaNacimiento() != null && !r.fechaNacimiento().isBlank()) {
+            try {
+                e.setFechaNacimiento(LocalDate.parse(r.fechaNacimiento().trim()));
+            } catch (java.time.format.DateTimeParseException ex) {
+                throw new com.novacrm.exception.BusinessException(
+                        "La fecha de nacimiento debe venir como AAAA-MM-DD");
+            }
+        }
+    }
+
+    private static String vacioANulo(String valor) {
+        return valor.isBlank() ? null : valor.trim();
+    }
+
+    /**
+     * Cambia solo los hitos de preparacion de un participante.
+     *
+     * <p>Existe aparte del PUT completo porque es lo que el equipo mueve a
+     * diario: mandar la ficha entera para marcar una casilla arriesga pisar el
+     * resto con lo que tuviera cargado el formulario.
+     */
+    @Transactional
+    public EstudianteResponse actualizarPreparacion(UUID id, PreparacionRequest cambios) {
+        var estudiante = buscar(id);
+        var p = estudiante.getPreparacion();
+        if (cambios.cvListo() != null) p.setCvListo(cambios.cvListo());
+        if (cambios.cvEnIngles() != null) p.setCvEnIngles(cambios.cvEnIngles());
+        if (cambios.linkedinCreado() != null) p.setLinkedinCreado(cambios.linkedinCreado());
+        if (cambios.linkedinOptimizado() != null) p.setLinkedinOptimizado(cambios.linkedinOptimizado());
+        if (cambios.perfilOcupacional() != null) p.setPerfilOcupacional(cambios.perfilOcupacional());
+        if (cambios.carpetaUrl() != null) estudiante.setCarpetaUrl(vacioANulo(cambios.carpetaUrl()));
+        if (cambios.linkedinUrl() != null) estudiante.setLinkedinUrl(vacioANulo(cambios.linkedinUrl()));
+        return toResponse(estudianteRepository.save(estudiante));
+    }
+
+    /**
+     * Marca el mismo hito en varios participantes de una vez.
+     *
+     * <p>Ponerse al dia con 107 fichas de una en una es lo que hace que el
+     * equipo vuelva a la hoja de calculo. Solo un hito por llamada: cambiar
+     * varios a la vez en bloque casi siempre significa marcar algo que no se ha
+     * revisado.
+     *
+     * @return cuantas fichas se modificaron
+     */
+    @Transactional
+    public int actualizarPreparacionMasiva(List<UUID> ids, String hito, EstadoHito valor) {
+        if (ids == null || ids.isEmpty() || valor == null) {
+            return 0;
+        }
+        var estudiantes = estudianteRepository.findAllById(ids);
+        for (var e : estudiantes) {
+            var p = e.getPreparacion();
+            switch (hito == null ? "" : hito.trim().toUpperCase()) {
+                case "CV_LISTO" -> p.setCvListo(valor);
+                case "CV_INGLES" -> p.setCvEnIngles(valor);
+                case "LINKEDIN_CREADO" -> p.setLinkedinCreado(valor);
+                case "LINKEDIN_OPTIMIZADO" -> p.setLinkedinOptimizado(valor);
+                case "PERFIL_OCUPACIONAL" -> p.setPerfilOcupacional(valor);
+                default -> throw new com.novacrm.exception.BusinessException(
+                        "Hito desconocido: " + hito + ". Valores validos: CV_LISTO, CV_INGLES, "
+                                + "LINKEDIN_CREADO, LINKEDIN_OPTIMIZADO, PERFIL_OCUPACIONAL");
+            }
+        }
+        estudianteRepository.saveAll(estudiantes);
+        return estudiantes.size();
+    }
+
+    /** Cambios sobre los hitos. Todo opcional: lo nulo no se toca. */
+    public record PreparacionRequest(
+            EstadoHito cvListo,
+            EstadoHito cvEnIngles,
+            EstadoHito linkedinCreado,
+            EstadoHito linkedinOptimizado,
+            EstadoHito perfilOcupacional,
+            String carpetaUrl,
+            String linkedinUrl) {}
 
     /** Porcentaje de perfil completado: campos clave para generar una HV de calidad. */
     private static int calcularCompletitud(Estudiante e) {
@@ -209,6 +319,8 @@ public class EstudianteService {
     }
 
     private EstudianteResponse toResponse(Estudiante e) {
+        var prep = e.getPreparacion();
+        boolean colocado = colocacionRepository.existsByEstudianteIdAndActivaTrue(e.getId());
         return new EstudianteResponse(
                 e.getId(), e.getNombre(), e.getApellido(), e.getEmail(),
                 e.getTelefono(), e.getCelular(), e.getCiudad(), e.getBarrio(),
@@ -229,7 +341,22 @@ public class EstudianteService {
                 e.isActivo(), e.getCreatedAt(), e.getDeletedAt(),
                 e.getDireccion(), e.getFotoUrl(), e.getCompetencias(),
                 e.getIdiomas(), e.getReferencias(), e.getDisponibilidad(),
-                calcularCompletitud(e)
+                calcularCompletitud(e),
+                prep.getCvListo().name(),
+                prep.getCvEnIngles().name(),
+                prep.getLinkedinCreado().name(),
+                prep.getLinkedinOptimizado().name(),
+                prep.getPerfilOcupacional().name(),
+                prep.cumplidos(),
+                prep.pendientes(),
+                PuntajeEmpleabilidad.porcentaje(prep, colocado),
+                colocado,
+                e.getFechaNacimiento(),
+                e.getEdadAlRegistrar(),
+                e.getFechaCapturaEdad(),
+                e.edad(LocalDate.now()),
+                e.getCarpetaUrl(),
+                e.getLinkedinUrl()
         );
     }
 

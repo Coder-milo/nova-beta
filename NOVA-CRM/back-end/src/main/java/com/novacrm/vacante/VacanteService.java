@@ -48,30 +48,46 @@ public class VacanteService {
     }
 
     /**
-     * Registra una oferta a mano a partir de su enlace.
+     * Registra una oferta a mano.
      *
-     * <p>Lo que no venga en la peticion se intenta completar leyendo la propia
-     * pagina; si no se puede, la oferta se guarda igual y queda por completar.
+     * <p>Si viene enlace, lo que falte se intenta completar leyendo la pagina;
+     * si no se puede, la oferta se guarda igual y queda por completar. Sin
+     * enlace tambien se guarda: las ofertas de feria o de contacto directo no
+     * tienen ninguno y son las que no estan en ningun portal.
+     *
+     * @param revisada falso solo para las que registra un estudiante; esas se
+     *                 ven y se pueden usar, pero no entran al matching hasta
+     *                 que alguien del equipo las mire
      */
     @Transactional
-    public VacanteResponse crearDesdeUrl(VacanteRequest request, String creadaPor) {
-        String url = request.url().trim();
+    public VacanteResponse crearDesdeUrl(VacanteRequest request, String creadaPor, boolean revisada) {
+        String url = request.url() == null || request.url().isBlank() ? null : request.url().trim();
 
-        vacanteRepository.findByUrlOrigen(url).ifPresent(existente -> {
-            throw new BusinessException("Esa oferta ya esta registrada: " + existente.getTitulo());
-        });
+        if (url != null) {
+            vacanteRepository.findByUrlOrigen(url).ifPresent(existente -> {
+                throw new BusinessException("Esa oferta ya esta registrada: " + existente.getTitulo());
+            });
+        }
 
         var vacante = new Vacante();
         vacante.setUrlOrigen(url);
-        vacante.setUrlAplicar(url);
+        vacante.setUrlAplicar(primeroNoVacio(request.urlAplicar(), url));
         vacante.setFuente(FUENTE_MANUAL);
         vacante.setCreadaPor(creadaPor);
         vacante.setActivo(true);
+        vacante.setRevisada(revisada);
         vacante.setFechaPublicacion(LocalDateTime.now());
         vacante.setFechaExpiracion(request.fechaExpiracion());
-        vacante.setHashDedup(sha256(FUENTE_MANUAL + "|" + url));
+        // Sin enlace no hay nada estable con lo que deduplicar, asi que el
+        // hash se calcula sobre titulo y empresa. No evita todos los duplicados
+        // —dos personas escribiran el mismo cargo distinto— pero si el caso
+        // habitual, que es registrar dos veces lo mismo.
+        vacante.setHashDedup(sha256(FUENTE_MANUAL + "|"
+                + (url != null ? url : nullSafe(request.titulo()) + "|" + nullSafe(request.empresaNombre()))));
 
-        var metadatos = lectorDeOferta.leer(url);
+        var metadatos = url == null
+                ? java.util.Optional.<LectorDeOferta.Metadatos>empty()
+                : lectorDeOferta.leer(url);
 
         vacante.setTitulo(primeroNoVacio(
                 request.titulo(),
@@ -81,13 +97,7 @@ public class VacanteService {
                 request.descripcion(),
                 metadatos.map(LectorDeOferta.Metadatos::descripcion).orElse(null)));
 
-        vacante.setRequisitos(request.requisitos());
-        vacante.setUbicacion(request.ubicacion());
-        vacante.setRangoSalarial(request.rangoSalarial());
-        vacante.setTipoContrato(request.tipoContrato());
-        vacante.setModalidadTrabajo(request.modalidadTrabajo());
-        vacante.setNivelInglesRequerido(request.nivelInglesRequerido());
-        vacante.setAniosExperienciaRequeridos(request.aniosExperienciaRequeridos());
+        aplicarDatos(vacante, request);
 
         String empresaNombre = primeroNoVacio(
                 request.empresaNombre(),
@@ -97,6 +107,85 @@ public class VacanteService {
         }
 
         return toResponse(vacanteRepository.save(vacante));
+    }
+
+    /**
+     * Corrige una oferta ya registrada.
+     *
+     * <p>Faltaba: solo habia alta, asi que arreglar un salario mal tecleado
+     * obligaba a cerrar la oferta y volver a crearla, perdiendo por el camino
+     * las postulaciones que colgaban de ella.
+     *
+     * <p><strong>No toca {@code revisada}.</strong> Es la marca que decide si
+     * una oferta entra al matching; dejarla en un PUT abierto seria una via
+     * para colar al recomendador una oferta sin verificar. Se sube solo por
+     * {@link #marcarRevisada(UUID)}, que exige COORDINADOR o ADMIN.
+     */
+    @Transactional
+    public VacanteResponse actualizar(UUID id, VacanteRequest request) {
+        var vacante = buscar(id);
+
+        vacante.setTitulo(primeroNoVacio(request.titulo(), vacante.getTitulo(), "Oferta sin titulo"));
+        vacante.setDescripcion(request.descripcion());
+        aplicarDatos(vacante, request);
+        vacante.setFechaExpiracion(request.fechaExpiracion());
+
+        String url = vacio(request.url()) ? null : request.url().trim();
+        if (url != null && !url.equals(vacante.getUrlOrigen())) {
+            vacanteRepository.findByUrlOrigen(url).ifPresent(otra -> {
+                if (!otra.getId().equals(id)) {
+                    throw new BusinessException("Ya hay otra oferta registrada con ese enlace");
+                }
+            });
+            vacante.setUrlOrigen(url);
+        }
+        vacante.setUrlAplicar(primeroNoVacio(request.urlAplicar(), url, vacante.getUrlAplicar()));
+
+        if (!vacio(request.empresaNombre())) {
+            vacante.setEmpresa(empresaOCrear(request.empresaNombre().trim()));
+        }
+
+        return toResponse(vacanteRepository.save(vacante));
+    }
+
+    /** Campos que se copian igual al crear y al editar. */
+    private void aplicarDatos(Vacante vacante, VacanteRequest request) {
+        vacante.setRequisitos(request.requisitos());
+        vacante.setUbicacion(request.ubicacion());
+        vacante.setCiudad(request.ciudad());
+        vacante.setRangoSalarial(request.rangoSalarial());
+        vacante.setTipoContrato(request.tipoContrato());
+        vacante.setJornada(request.jornada());
+        vacante.setModalidadTrabajo(request.modalidadTrabajo());
+        vacante.setNivelInglesRequerido(request.nivelInglesRequerido());
+        vacante.setAniosExperienciaRequeridos(request.aniosExperienciaRequeridos());
+    }
+
+    private static boolean vacio(String valor) {
+        return valor == null || valor.isBlank();
+    }
+
+    /**
+     * Da por buena una oferta que registro un estudiante.
+     *
+     * <p>Hasta este momento la oferta se ve pero no se le recomienda a nadie
+     * mas. Es el paso que impide que una oferta sin verificar llegue sola a
+     * toda la cohorte.
+     */
+    @Transactional
+    public VacanteResponse marcarRevisada(UUID id) {
+        var vacante = buscar(id);
+        vacante.setRevisada(true);
+        return toResponse(vacanteRepository.save(vacante));
+    }
+
+    /** Ofertas registradas por estudiantes y aun sin validar. */
+    public Page<VacanteResponse> pendientesDeRevisar(Pageable pageable) {
+        return vacanteRepository.findByRevisadaFalseAndActivoTrue(pageable).map(this::toResponse);
+    }
+
+    private static String nullSafe(String valor) {
+        return valor == null ? "" : valor.trim();
     }
 
     /**
@@ -173,6 +262,7 @@ public class VacanteService {
                 v.getFechaPublicacion(), v.getCreatedAt(),
                 v.isActivo(),
                 v.getFechaExpiracion(),
-                v.getMotivoCierre() == null ? null : v.getMotivoCierre().name());
+                v.getMotivoCierre() == null ? null : v.getMotivoCierre().name(),
+                v.getCiudad(), v.getJornada(), v.isRevisada(), v.getCreadaPor());
     }
 }

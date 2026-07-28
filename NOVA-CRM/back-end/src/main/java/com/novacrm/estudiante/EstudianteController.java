@@ -167,6 +167,45 @@ public class EstudianteController {
         return estudianteService.actualizar(id, request);
     }
 
+    /**
+     * Mueve solo los hitos de preparacion.
+     *
+     * <p>Aparte del PUT completo porque es lo que el equipo toca a diario:
+     * mandar la ficha entera para marcar una casilla arriesga pisar el resto
+     * con lo que tuviera cargado el formulario. Sin rol de estudiante: los
+     * hitos los verifica el programa, no el participante.
+     */
+    @PatchMapping("/{id}/preparacion")
+    @Operation(summary = "Actualizar los hitos de preparacion de un participante")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public EstudianteResponse actualizarPreparacion(
+            @PathVariable UUID id,
+            @RequestBody EstudianteService.PreparacionRequest cambios) {
+        return estudianteService.actualizarPreparacion(id, cambios);
+    }
+
+    /**
+     * Marca el mismo hito en varias fichas de una vez.
+     *
+     * <p>Poner al dia 107 participantes de uno en uno es lo que hace que el
+     * equipo vuelva a la hoja de calculo.
+     */
+    @PatchMapping("/preparacion-masiva")
+    @Operation(summary = "Marcar un hito en varios participantes")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public java.util.Map<String, Object> actualizarPreparacionMasiva(
+            @RequestBody PreparacionMasivaRequest request) {
+        int total = estudianteService.actualizarPreparacionMasiva(
+                request.ids(), request.hito(), request.valor());
+        return java.util.Map.of("actualizados", total);
+    }
+
+    /** Un solo hito por llamada: en bloque, varios a la vez casi siempre es un error. */
+    public record PreparacionMasivaRequest(
+            java.util.List<UUID> ids,
+            String hito,
+            EstadoHito valor) {}
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Eliminar (soft delete) estudiante → va a la papelera")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")

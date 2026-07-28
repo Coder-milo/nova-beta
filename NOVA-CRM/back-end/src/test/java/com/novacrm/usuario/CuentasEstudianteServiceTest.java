@@ -34,6 +34,7 @@ class CuentasEstudianteServiceTest {
     private UsuarioRepository usuarioRepository;
     private EmailService emailService;
     private com.novacrm.branding.BrandingService brandingService;
+    private com.novacrm.config.DestinatariosPermitidos permitidos;
     private CuentasEstudianteService servicio;
 
     @BeforeEach
@@ -50,13 +51,19 @@ class CuentasEstudianteServiceTest {
         brandingService = mock(com.novacrm.branding.BrandingService.class);
         when(brandingService.paraCorreo(any())).thenReturn(Optional.empty());
 
+        // La lista de permitidos se inyecta ya construida: es un componente
+        // real y no un mock, porque lo que se prueba aqui es justamente que
+        // bloquee. Un mock la dejaria diciendo que si a todo.
+        permitidos = new com.novacrm.config.DestinatariosPermitidos("");
         servicio = new CuentasEstudianteService(
-                estudianteRepository, usuarioRepository, encoder, emailService, brandingService);
+                estudianteRepository, usuarioRepository, encoder, emailService,
+                brandingService, permitidos);
 
         ReflectionTestUtils.setField(servicio, "frontendUrl", "http://localhost:3000");
         ReflectionTestUtils.setField(servicio, "logoUrl", "");
         ReflectionTestUtils.setField(servicio, "bannerPieUrl", "");
-        ReflectionTestUtils.setField(servicio, "destinatariosPermitidos", "");
+        ReflectionTestUtils.setField(servicio, "destinatarios",
+                new com.novacrm.config.DestinatariosPermitidos(""));
     }
 
     private Estudiante estudiante(String email) {
@@ -126,7 +133,8 @@ class CuentasEstudianteServiceTest {
 
     @Test
     void elPadronMarcaAQuienBloquearaLaListaDePruebas() {
-        ReflectionTestUtils.setField(servicio, "destinatariosPermitidos", "luis@ejemplo.com");
+        ReflectionTestUtils.setField(servicio, "destinatarios",
+                new com.novacrm.config.DestinatariosPermitidos("luis@ejemplo.com"));
         tresEstudiantes();
 
         var padron = servicio.padron();
@@ -182,8 +190,8 @@ class CuentasEstudianteServiceTest {
 
     @Test
     void unaDireccionFueraDeLaListaDePruebasNoRecibeCorreoPeroSiCuenta() {
-        ReflectionTestUtils.setField(servicio, "destinatariosPermitidos",
-                "hectorluissuarezarroyo@gmail.com");
+        ReflectionTestUtils.setField(servicio, "destinatarios",
+                new com.novacrm.config.DestinatariosPermitidos("hectorluissuarezarroyo@gmail.com"));
         estudiante("otra.persona@ejemplo.com");
         when(usuarioRepository.findByEmail("otra.persona@ejemplo.com")).thenReturn(Optional.empty());
 
@@ -227,8 +235,8 @@ class CuentasEstudianteServiceTest {
 
     @Test
     void elTokenDeActivacionSoloSeEmiteSiDeVerdadSeVaAEnviar() {
-        ReflectionTestUtils.setField(servicio, "destinatariosPermitidos",
-                "hectorluissuarezarroyo@gmail.com");
+        ReflectionTestUtils.setField(servicio, "destinatarios",
+                new com.novacrm.config.DestinatariosPermitidos("hectorluissuarezarroyo@gmail.com"));
         estudiante("otra.persona@ejemplo.com");
         when(usuarioRepository.findByEmail("otra.persona@ejemplo.com")).thenReturn(Optional.empty());
 

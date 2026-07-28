@@ -80,6 +80,11 @@ public class SecurityConfig {
                 .requestMatchers("/credencial/**").permitAll()
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
+                // Solo las imagenes de marca, no todo /branding: las abre el
+                // cliente de correo del destinatario, que no tiene sesion ni la
+                // puede tener. La clave se valida por lista blanca antes de
+                // tocar el disco (ImagenBrandingService.claveSegura).
+                .requestMatchers(HttpMethod.GET, "/api/v1/branding/imagen/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/programas/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/vacantes/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/certificaciones/**").permitAll()
