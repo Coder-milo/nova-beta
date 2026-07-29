@@ -33,6 +33,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { FilePreview } from '@/components/ui/file-preview'
 import { actividadesApi, comunicacionesApi, programasApi, ApiCallError } from '@/lib/api'
 import type { ActividadRequest, ProgramaResponse } from '@/lib/types'
 
@@ -93,8 +94,8 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
   const listo = titulo.trim().length > 0 && mensaje.trim().length > 0
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="rounded-2xl border-border shadow-sm">
+      <CardHeader className="border-b border-border/70">
         <CardTitle className="flex items-center gap-2">
           <Megaphone className="size-5 text-primary" weight="duotone" />
           Publicar un anuncio
@@ -111,7 +112,7 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
           </label>
           <input
             id="anuncio-titulo"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            className="h-10 w-full rounded-xl border border-input bg-card/90 px-3.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
             placeholder="Feria de empleo BPO — 12 de agosto"
             maxLength={500}
             value={titulo}
@@ -121,7 +122,8 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
 
         <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4 space-y-3">
           <div className="flex items-center gap-2"><ImageSquare className="size-4 text-primary" /><div><p className="text-sm font-medium">Material del anuncio <span className="font-normal text-muted-foreground">(opcional)</span></p><p className="text-xs text-muted-foreground">Adjunta el póster o un video, o comparte el enlace del evento.</p></div></div>
-          <label className="block"><span className="mb-1.5 block text-xs font-medium">Imagen o video</span><input type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime" onChange={(event) => { setArchivo(event.target.files?.[0] ?? null); setEnlace('') }} className="block w-full text-xs text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-background file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-foreground hover:file:bg-secondary" />{archivo && <p className="mt-1 text-xs text-muted-foreground">Archivo seleccionado: {archivo.name}</p>}</label>
+          <label className="block"><span className="mb-1.5 block text-xs font-medium">Imagen o video</span><input type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime" onChange={(event) => { setArchivo(event.target.files?.[0] ?? null); setEnlace('') }} className="block w-full text-xs text-muted-foreground file:mr-3 file:rounded-xl file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-xs file:font-medium file:text-foreground hover:file:bg-secondary" />{archivo && <p className="mt-1 text-xs text-muted-foreground">Archivo seleccionado: {archivo.name}</p>}</label>
+          {archivo && <FilePreview archivo={archivo} nombre={archivo.name} contentType={archivo.type} />}
           <div className="grid gap-2 sm:grid-cols-[150px_minmax(0,1fr)]"><select aria-label="Tipo de enlace" value={tipoEnlace} disabled={!!archivo} onChange={(event) => setTipoEnlace(event.target.value as 'LINK' | 'IMAGE' | 'VIDEO')} className="h-10 rounded-lg border border-border bg-background px-3 text-sm"><option value="LINK">Enlace externo</option><option value="IMAGE">Imagen externa</option><option value="VIDEO">Video externo</option></select><div className="relative"><LinkSimple className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground" /><input value={enlace} disabled={!!archivo} onChange={(event) => setEnlace(event.target.value)} placeholder="https://…" className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm disabled:cursor-not-allowed disabled:opacity-50" /></div></div>
           {archivo && <p className="text-[11px] text-muted-foreground">El archivo tiene prioridad sobre el enlace. Máximo 25 MB.</p>}
         </div>
@@ -132,7 +134,7 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
           </label>
           <textarea
             id="anuncio-mensaje"
-            className="min-h-32 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            className="min-h-32 w-full rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
             placeholder="Cuéntales de qué se trata, dónde y a qué hora."
             value={mensaje}
             onChange={(e) => setMensaje(e.target.value)}
@@ -145,7 +147,7 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
           </label>
           <select
             id="anuncio-programa"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            className="h-10 w-full rounded-xl border border-input bg-card/90 px-3.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
             value={programaId}
             onChange={(e) => setProgramaId(e.target.value)}
           >

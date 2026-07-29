@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwise, CaretLeft, CaretRight, CircleNotch, ClockCounterClockwise, DownloadSimple, FileArrowUp, FileText, MagnifyingGlass, Trash, UploadSimple, WarningCircle, X } from '@phosphor-icons/react'
+import { ArrowsClockwise, CaretLeft, CaretRight, CircleNotch, ClockCounterClockwise, DownloadSimple, Eye, FileArrowUp, FileText, MagnifyingGlass, Trash, UploadSimple, WarningCircle, X } from '@phosphor-icons/react'
 /**
  * Página de Documentos — módulo documental completo con versionado.
  *
@@ -20,6 +20,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { FilePreview, FilePreviewSheet } from '@/components/ui/file-preview'
 import { documentosApi, programasApi, ApiCallError } from '@/lib/api'
 import type { DocumentoResponse, ProgramaResponse, Page, ApiError } from '@/lib/types'
 
@@ -92,6 +93,7 @@ export default function DocumentosPage() {
   const reemplazoRef = useRef<HTMLInputElement>(null)
 
   const [rowBusy, setRowBusy] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState<DocumentoResponse | null>(null)
 
   // ── Cargar ────────────────────────────────────────────────────────────────
   const load = useCallback(async (p: number, query: string, tipo: string) => {
@@ -197,18 +199,20 @@ export default function DocumentosPage() {
       <p className="text-sm text-muted-foreground">Repositorio interno del equipo. Los documentos personales de cada estudiante se consultan desde su ficha.</p>
 
       {/* Subir documento */}
-      <Card className="rounded-lg border-border shadow-none">
-        <CardContent className="flex flex-wrap items-end gap-3 py-4">
+      <Card className="rounded-2xl border-border shadow-sm">
+        <CardContent className="space-y-4 py-5">
+          <div><p className="text-sm font-semibold text-foreground">Guardar documento institucional</p><p className="mt-1 text-xs text-muted-foreground">Este repositorio es solo para archivos del equipo; los documentos del estudiante permanecen en su expediente.</p></div>
+          <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="up-archivo" className="text-[11px] uppercase tracking-wider text-muted-foreground">Archivo</label>
             <input id="up-archivo" ref={uploadRef} type="file" disabled={uploadBusy}
               onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
-              className="text-xs text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-background file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-foreground hover:file:bg-secondary" />
+              className="text-xs text-muted-foreground file:mr-3 file:rounded-xl file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-xs file:font-medium file:text-foreground hover:file:bg-secondary" />
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="up-tipo" className="text-[11px] uppercase tracking-wider text-muted-foreground">Tipo</label>
             <select id="up-tipo" value={tipoSubida} onChange={(e) => setTipoSubida(e.target.value)} disabled={uploadBusy}
-              className="h-9 rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
+              className="h-10 rounded-xl border border-input bg-card/90 px-3 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15">
               <option value="">Sin tipo</option>
               {tipos.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -216,7 +220,7 @@ export default function DocumentosPage() {
           <div className="flex flex-col gap-1.5">
             <label htmlFor="up-vinculo" className="text-[11px] uppercase tracking-wider text-muted-foreground">Vincular a</label>
             <select id="up-vinculo" value={vinculoPgm} onChange={(e) => setVinculoPgm(e.target.value)} disabled={uploadBusy}
-              className="h-9 rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
+              className="h-10 rounded-xl border border-input bg-card/90 px-3 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15">
               <option value="">Global (sin vínculo)</option>
               {programas.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </select>
@@ -225,6 +229,8 @@ export default function DocumentosPage() {
             {uploadBusy ? <CircleNotch className="size-4 animate-spin" /> : <UploadSimple className="size-4" />} Subir documento
           </Button>
           {uploadMsg && <span className="text-xs text-muted-foreground">{uploadMsg}</span>}
+          </div>
+          {archivo && <FilePreview archivo={archivo} nombre={archivo.name} contentType={archivo.type} />}
         </CardContent>
       </Card>
 
@@ -302,6 +308,10 @@ export default function DocumentosPage() {
                       <td className="px-4 py-3 text-muted-foreground tabular-nums">{formatoFecha(doc.createdAt)}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex gap-1">
+                          <button type="button" onClick={() => setPreviewDoc(doc)} disabled={rowBusy} title="Vista previa" aria-label={`Previsualizar ${doc.nombre}`}
+                            className="inline-flex size-8 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-40">
+                            <Eye className="size-4" />
+                          </button>
                           <button type="button" onClick={() => handleDownload(doc)} disabled={rowBusy} title="Descargar" aria-label={`Descargar ${doc.nombre}`}
                             className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-40">
                             <DownloadSimple className="size-4" />
@@ -404,6 +414,14 @@ export default function DocumentosPage() {
           )}
         </SheetContent>
       </Sheet>
+      {previewDoc && <FilePreviewSheet
+        open={Boolean(previewDoc)}
+        onOpenChange={(open) => { if (!open) setPreviewDoc(null) }}
+        endpoint={`/api/v1/documentos/${previewDoc.id}/descargar`}
+        nombre={previewDoc.nombre}
+        contentType={previewDoc.contentType}
+        onDownload={() => handleDownload(previewDoc)}
+      />}
     </div>
   )
 }

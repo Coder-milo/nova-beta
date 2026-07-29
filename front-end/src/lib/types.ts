@@ -334,6 +334,25 @@ export interface VacanteResponse {
   createdAt: string
 }
 
+/** Datos que el equipo registra cuando crea una vacante sin importar un enlace. */
+export interface VacanteRequest {
+  url?: string
+  titulo: string
+  descripcion?: string
+  requisitos?: string
+  ubicacion?: string
+  ciudad?: string
+  rangoSalarial?: string
+  tipoContrato?: string
+  jornada?: string
+  modalidadTrabajo?: string
+  nivelInglesRequerido?: string
+  aniosExperienciaRequeridos?: number
+  empresaNombre?: string
+  urlAplicar?: string
+  fechaExpiracion?: string
+}
+
 export interface MatchResponse {
   id: string
   estudianteId: string

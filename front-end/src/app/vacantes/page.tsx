@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowSquareOut, ArrowsClockwise, Briefcase, Buildings, CalendarBlank, CaretLeft, CaretRight, CircleNotch, CurrencyDollar, Globe, MagnifyingGlass, MapPin, Translate, WarningCircle } from '@phosphor-icons/react'
+import { ArrowSquareOut, ArrowsClockwise, Briefcase, Buildings, CalendarBlank, CaretLeft, CaretRight, CheckCircle, CircleNotch, CurrencyDollar, Globe, LinkSimple, MagnifyingGlass, MapPin, Plus, Translate, WarningCircle } from '@phosphor-icons/react'
 /**
  * Página de Vacantes y Matching.
  *
@@ -19,7 +19,31 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { vacantesApi, matchesApi, ApiCallError } from '@/lib/api'
-import type { VacanteResponse, Page } from '@/lib/types'
+import type { VacanteRequest, VacanteResponse, Page } from '@/lib/types'
+
+type VacanteForm = {
+  titulo: string
+  empresaNombre: string
+  ubicacion: string
+  modalidadTrabajo: string
+  tipoContrato: string
+  jornada: string
+  rangoSalarial: string
+  nivelInglesRequerido: string
+  aniosExperienciaRequeridos: string
+  urlAplicar: string
+  url: string
+  fechaExpiracion: string
+  descripcion: string
+  requisitos: string
+}
+
+const formularioVacio: VacanteForm = {
+  titulo: '', empresaNombre: '', ubicacion: '', modalidadTrabajo: 'Híbrido',
+  tipoContrato: '', jornada: 'Tiempo completo', rangoSalarial: '', nivelInglesRequerido: '',
+  aniosExperienciaRequeridos: '', urlAplicar: '', url: '', fechaExpiracion: '',
+  descripcion: '', requisitos: '',
+}
 
 export default function VacantesPage() {
   const [page, setPage]               = useState<Page<VacanteResponse> | null>(null)
@@ -30,6 +54,51 @@ export default function VacantesPage() {
   const [selected, setSelected]       = useState<VacanteResponse | null>(null)
   const [matching, setMatching]       = useState(false)
   const [matchingMsg, setMatchingMsg] = useState<string | null>(null)
+  const [creando, setCreando]         = useState(false)
+  const [guardando, setGuardando]     = useState(false)
+  const [formError, setFormError]     = useState<string | null>(null)
+  const [formVacante, setFormVacante] = useState<VacanteForm>(formularioVacio)
+
+  const actualizarFormulario = (campo: keyof VacanteForm, valor: string) => {
+    setFormVacante((anterior) => ({ ...anterior, [campo]: valor }))
+  }
+
+  const crearVacante = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!formVacante.titulo.trim()) {
+      setFormError('Indica el título de la vacante para poder publicarla.')
+      return
+    }
+    setGuardando(true); setFormError(null)
+    const datos: VacanteRequest = {
+      titulo: formVacante.titulo.trim(),
+      empresaNombre: formVacante.empresaNombre.trim() || undefined,
+      ubicacion: formVacante.ubicacion.trim() || undefined,
+      modalidadTrabajo: formVacante.modalidadTrabajo || undefined,
+      tipoContrato: formVacante.tipoContrato || undefined,
+      jornada: formVacante.jornada || undefined,
+      rangoSalarial: formVacante.rangoSalarial.trim() || undefined,
+      nivelInglesRequerido: formVacante.nivelInglesRequerido || undefined,
+      aniosExperienciaRequeridos: formVacante.aniosExperienciaRequeridos ? Number(formVacante.aniosExperienciaRequeridos) : undefined,
+      urlAplicar: formVacante.urlAplicar.trim() || undefined,
+      url: formVacante.url.trim() || undefined,
+      fechaExpiracion: formVacante.fechaExpiracion || undefined,
+      descripcion: formVacante.descripcion.trim() || undefined,
+      requisitos: formVacante.requisitos.trim() || undefined,
+    }
+    try {
+      await vacantesApi.crear(datos)
+      setCreando(false)
+      setFormVacante(formularioVacio)
+      setMatchingMsg('Vacante creada correctamente. Ya está disponible para el matching de estudiantes.')
+      setCurrentPage(0)
+      await load(0)
+    } catch (err) {
+      setFormError(err instanceof ApiCallError
+        ? (err.body.message ?? `No se pudo crear la vacante (HTTP ${err.status}).`)
+        : 'No se pudo conectar con el backend para crear la vacante.')
+    } finally { setGuardando(false) }
+  }
 
   const runMatching = async () => {
     setMatching(true); setMatchingMsg(null)
@@ -92,6 +161,9 @@ export default function VacantesPage() {
       {/* Cabecera */}
       <div className="flex justify-end gap-4">
         <div className="flex shrink-0 gap-2">
+          <Button size="sm" onClick={() => { setFormError(null); setCreando(true) }}>
+            <Plus className="size-3.5" /> Nueva vacante
+          </Button>
           <Button variant="outline" size="sm" onClick={() => load(currentPage)}>
             <ArrowsClockwise className="size-3.5" /> Refrescar
           </Button>
@@ -234,6 +306,57 @@ export default function VacantesPage() {
           )}
         </>
       )}
+
+      {/* Creación manual */}
+      <Sheet open={creando} onOpenChange={(open) => { if (!open && !guardando) setCreando(false) }}>
+        <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-2xl">
+          <SheetHeader className="border-b border-border bg-muted/25 p-6">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><Briefcase className="size-5" /></div>
+            <SheetTitle className="mt-3 text-lg">Registrar vacante</SheetTitle>
+            <SheetDescription>Completa los datos esenciales. La oportunidad quedará lista para el matching y las postulaciones.</SheetDescription>
+          </SheetHeader>
+          <form onSubmit={crearVacante} className="space-y-6 p-6">
+            {formError && <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"><WarningCircle className="mt-0.5 size-4 shrink-0" />{formError}</div>}
+
+            <section className="space-y-4">
+              <div><p className="text-sm font-semibold">Información principal</p><p className="text-xs text-muted-foreground">Los datos que verán los estudiantes al encontrar la oportunidad.</p></div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="space-y-1.5 sm:col-span-2"><span className="text-xs font-medium text-foreground">Título de la vacante <span className="text-destructive">*</span></span><Input autoFocus value={formVacante.titulo} onChange={(e) => actualizarFormulario('titulo', e.target.value)} placeholder="Ej. Analista de soporte técnico" disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium text-foreground">Empresa</span><Input value={formVacante.empresaNombre} onChange={(e) => actualizarFormulario('empresaNombre', e.target.value)} placeholder="Nombre de la empresa" disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium text-foreground">Ubicación</span><Input value={formVacante.ubicacion} onChange={(e) => actualizarFormulario('ubicacion', e.target.value)} placeholder="Ciudad o ubicación" disabled={guardando} /></label>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-border bg-muted/20 p-4 space-y-4">
+              <div><p className="text-sm font-semibold">Condiciones de la oportunidad</p><p className="text-xs text-muted-foreground">Esta información hace más preciso el matching.</p></div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="space-y-1.5"><span className="text-xs font-medium">Modalidad</span><select value={formVacante.modalidadTrabajo} onChange={(e) => actualizarFormulario('modalidadTrabajo', e.target.value)} disabled={guardando} className="h-10 w-full rounded-xl border border-input bg-card/90 px-3.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"><option>Presencial</option><option>Híbrido</option><option>Remoto</option></select></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">Tipo de contrato</span><Input value={formVacante.tipoContrato} onChange={(e) => actualizarFormulario('tipoContrato', e.target.value)} placeholder="Término indefinido, prestación…" disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">Jornada</span><select value={formVacante.jornada} onChange={(e) => actualizarFormulario('jornada', e.target.value)} disabled={guardando} className="h-10 w-full rounded-xl border border-input bg-card/90 px-3.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"><option>Tiempo completo</option><option>Medio tiempo</option><option>Por horas</option><option>Práctica</option></select></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">Rango salarial</span><Input value={formVacante.rangoSalarial} onChange={(e) => actualizarFormulario('rangoSalarial', e.target.value)} placeholder="Ej. $2.000.000 - $2.500.000" disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">Nivel de inglés</span><Input value={formVacante.nivelInglesRequerido} onChange={(e) => actualizarFormulario('nivelInglesRequerido', e.target.value)} placeholder="No requerido, B1, B2…" disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">Experiencia mínima (años)</span><Input type="number" min="0" max="50" value={formVacante.aniosExperienciaRequeridos} onChange={(e) => actualizarFormulario('aniosExperienciaRequeridos', e.target.value)} placeholder="0" disabled={guardando} /></label>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div><p className="text-sm font-semibold">Descripción y publicación</p><p className="text-xs text-muted-foreground">Añade detalles para que el estudiante entienda el perfil solicitado.</p></div>
+              <label className="block space-y-1.5"><span className="text-xs font-medium">Descripción</span><textarea rows={4} value={formVacante.descripcion} onChange={(e) => actualizarFormulario('descripcion', e.target.value)} placeholder="Responsabilidades, objetivo del cargo y contexto de la oportunidad…" disabled={guardando} className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15" /></label>
+              <label className="block space-y-1.5"><span className="text-xs font-medium">Requisitos</span><textarea rows={3} value={formVacante.requisitos} onChange={(e) => actualizarFormulario('requisitos', e.target.value)} placeholder="Conocimientos, herramientas, estudios o certificaciones requeridas…" disabled={guardando} className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15" /></label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="space-y-1.5"><span className="flex items-center gap-1 text-xs font-medium"><LinkSimple className="size-3" /> Enlace para postularse</span><Input type="url" value={formVacante.urlAplicar} onChange={(e) => actualizarFormulario('urlAplicar', e.target.value)} placeholder="https://…" disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">Fecha de cierre</span><Input type="datetime-local" value={formVacante.fechaExpiracion} onChange={(e) => actualizarFormulario('fechaExpiracion', e.target.value)} disabled={guardando} /></label>
+                <label className="space-y-1.5 sm:col-span-2"><span className="text-xs font-medium">Enlace de referencia <span className="text-muted-foreground">(opcional)</span></span><Input type="url" value={formVacante.url} onChange={(e) => actualizarFormulario('url', e.target.value)} placeholder="https://sitio-de-la-empresa.com/vacante" disabled={guardando} /></label>
+              </div>
+            </section>
+
+            <div className="sticky bottom-0 -mx-6 flex items-center justify-between border-t border-border bg-background/95 px-6 py-4 backdrop-blur">
+              <p className="hidden text-xs text-muted-foreground sm:block">Los campos sin asterisco son opcionales.</p>
+              <div className="ml-auto flex gap-2"><Button type="button" variant="outline" onClick={() => setCreando(false)} disabled={guardando}>Cancelar</Button><Button type="submit" disabled={guardando}>{guardando ? <><CircleNotch className="size-4 animate-spin" /> Publicando…</> : <><CheckCircle className="size-4" /> Publicar vacante</>}</Button></div>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
 
       {/* Drawer de detalle */}
       <Sheet open={selected !== null} onOpenChange={(open) => { if (!open) setSelected(null) }}>

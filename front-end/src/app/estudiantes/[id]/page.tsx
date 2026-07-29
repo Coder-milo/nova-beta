@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, ArrowsClockwise, Briefcase, Camera, CheckCircle, CircleNotch, ClipboardText, ClockCounterClockwise, DownloadSimple, FileText, FolderOpen, GraduationCap, PencilSimple, Plus, ReadCvLogo, SquaresFour, Star, Trash, UploadSimple, User, WarningCircle } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowsClockwise, Briefcase, Camera, CheckCircle, CircleNotch, ClipboardText, ClockCounterClockwise, DownloadSimple, Eye, FileText, FolderOpen, GraduationCap, PencilSimple, Plus, ReadCvLogo, SquaresFour, Star, Trash, UploadSimple, User, WarningCircle } from '@phosphor-icons/react'
 /**
  * Perfil completo del estudiante (expediente institucional).
  *
@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { EstadoDot } from '@/components/ui/estado-dot'
+import { FilePreview, FilePreviewSheet } from '@/components/ui/file-preview'
 import {
   estudiantesApi, perfilApi, seguimientosApi, hvApi, documentosApi,
   auditoriaApi, pipelineApi, postulacionesApi, colocacionesApi, ApiCallError,
@@ -147,6 +148,7 @@ export default function PerfilEstudiantePage() {
   const [docFile, setDocFile]           = useState<File | null>(null)
   const [docTipo, setDocTipo]           = useState('')
   const [subiendoDoc, setSubiendoDoc]   = useState(false)
+  const [documentoPreview, setDocumentoPreview] = useState<DocumentoResponse | null>(null)
   const docRef = useRef<HTMLInputElement>(null)
 
   // Seguimientos
@@ -611,6 +613,32 @@ export default function PerfilEstudiantePage() {
             </Card>
           </div>
 
+          <Card className="rounded-2xl border-border shadow-sm">
+            <CardHeader className="border-b border-border/70 pb-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <CardTitle className="text-base">Ficha de empleabilidad</CardTitle>
+                  <CardDescription>Información consolidada para orientar el acompañamiento y las oportunidades adecuadas.</CardDescription>
+                </div>
+                <Badge variant="outline" className="rounded-lg">Perfil {completitud}% completado</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="grid gap-4 pt-5 lg:grid-cols-3">
+              <section className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                <div className="mb-3 flex items-center gap-2"><span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary"><Briefcase className="size-3.5" /></span><p className="text-sm font-semibold">Perfil laboral</p></div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3"><DetailField label="Ultimo cargo" value={est.ultimoCargo} /><DetailField label="Experiencia" value={est.aniosExperiencia != null ? `${est.aniosExperiencia} anos` : null} /><DetailField label="Sector experiencia" value={est.sectorExperiencia} /><DetailField label="Cargo objetivo" value={est.cargoObjetivo} /></div>
+              </section>
+              <section className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                <div className="mb-3 flex items-center gap-2"><span className="flex size-7 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-300"><GraduationCap className="size-3.5" /></span><p className="text-sm font-semibold">Formacion y capacidades</p></div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3"><DetailField label="Nivel educativo" value={est.nivelEducativo} /><DetailField label="Titulo" value={est.titulo} /><DetailField label="Nivel de ingles" value={est.nivelIngles} /><DetailField label="Area de formacion" value={est.areaFormacion} /></div>
+              </section>
+              <section className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                <div className="mb-3 flex items-center gap-2"><span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"><ClipboardText className="size-3.5" /></span><p className="text-sm font-semibold">Gestion de empleabilidad</p></div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3"><DetailField label="Situacion laboral" value={est.situacionLaboral} /><DetailField label="Sector objetivo" value={est.sectorObjetivo} /><DetailField label="Disponibilidad" value={est.disponibilidadLaboral} /><DetailField label="Postulaciones" value={est.postulacionesEnviadas} /></div>
+              </section>
+            </CardContent>
+          </Card>
+
           {camposFaltantes.length > 0 && (
             <Card className="rounded-lg border-border shadow-none border-amber-300/60 dark:border-amber-700/40">
               <CardContent className="pt-5">
@@ -631,19 +659,24 @@ export default function PerfilEstudiantePage() {
 
       {/* ── Personal ───────────────────────────────────────────────────────── */}
       {tab === 'personal' && (
-        <Card className="rounded-lg border-border shadow-none">
-          <CardHeader>
+        <Card className="rounded-2xl border-border shadow-sm">
+          <CardHeader className="border-b border-border/70">
             <CardTitle className="text-base">Información personal</CardTitle>
             <CardDescription>Datos de contacto y ubicación del estudiante.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
               <DetailField label="Email" value={est.email} />
               <DetailField label="Teléfono" value={est.telefono} />
               <DetailField label="Celular" value={est.celular} />
               <DetailField label="Dirección" value={est.direccion} />
               <DetailField label="Ciudad" value={est.ciudad} />
               <DetailField label="Barrio" value={est.barrio} />
+              <DetailField label="Documento" value={est.tipoDocumento && est.numeroDocumento ? `${est.tipoDocumento} ${est.numeroDocumento}` : null} />
+              <DetailField label="SISBEN" value={est.clasificacionSisben} />
+              <DetailField label="Tiene computador" value={est.tieneComputador == null ? null : est.tieneComputador ? 'Si' : 'No'} />
+              <DetailField label="Tiene internet" value={est.tieneInternet == null ? null : est.tieneInternet ? 'Si' : 'No'} />
+              <DetailField label="Movilidad" value={est.disponibilidadMovilidad == null ? null : est.disponibilidadMovilidad ? 'Disponible' : 'No disponible'} />
               <DetailField label="Fecha de nacimiento" value={null} />
               <DetailField label="Género" value={null} />
               <DetailField label="Nacionalidad" value={est.nacionalidad} />
@@ -654,13 +687,13 @@ export default function PerfilEstudiantePage() {
 
       {/* ── Académico ──────────────────────────────────────────────────────── */}
       {tab === 'academico' && (
-        <Card className="rounded-lg border-border shadow-none">
-          <CardHeader>
+        <Card className="rounded-2xl border-border shadow-sm">
+          <CardHeader className="border-b border-border/70">
             <CardTitle className="text-base">Información académica</CardTitle>
             <CardDescription>Formación base y nivel de idioma.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
               <DetailField label="Nivel educativo" value={est.nivelEducativo} />
               <DetailField label="Título" value={est.titulo} />
               <DetailField label="Institución educativa" value={est.institucionEducativa} />
@@ -668,6 +701,10 @@ export default function PerfilEstudiantePage() {
               <DetailField label="Área de formación" value={est.areaFormacion} />
               <DetailField label="Estado de formación" value={est.estadoFormacion} />
               <DetailField label="Nivel de inglés" value={est.nivelIngles} />
+              <DetailField label="Prueba escrita" value={est.resultadoPruebaEscrita} />
+              <DetailField label="Prueba oral" value={est.resultadoPruebaOral} />
+              <DetailField label="Idiomas" value={est.idiomas} />
+              <DetailField label="Competencias" value={est.competencias} />
             </div>
           </CardContent>
         </Card>
@@ -676,7 +713,7 @@ export default function PerfilEstudiantePage() {
       {/* ── Formación ──────────────────────────────────────────────────────── */}
       {tab === 'formacion' && (
         <div className="flex flex-col gap-4">
-          <Card className="rounded-lg border-border shadow-none">
+          <Card className="rounded-2xl border-border shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">Agregar formación</CardTitle>
               <CardDescription>Formación adicional del estudiante (cursos, diplomados, títulos).</CardDescription>
@@ -923,15 +960,16 @@ export default function PerfilEstudiantePage() {
               <CardDescription>Certificados, actas y soportes del estudiante.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubirDocumento} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <form onSubmit={handleSubirDocumento} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div className="flex flex-col gap-1.5 flex-1">
                   <label htmlFor="doc-file" className="text-[11px] uppercase tracking-wider text-muted-foreground">Archivo</label>
                   <input ref={docRef} id="doc-file" type="file" onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium" disabled={subiendoDoc} />
+                    className="h-10 w-full rounded-xl border border-input bg-card/90 px-3 py-1.5 text-sm file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium" disabled={subiendoDoc} />
                 </div>
                 <div className="flex flex-col gap-1.5 sm:w-52">
                   <label htmlFor="doc-tipo" className="text-[11px] uppercase tracking-wider text-muted-foreground">Tipo</label>
-                  <select id="doc-tipo" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={docTipo} onChange={(e) => setDocTipo(e.target.value)} disabled={subiendoDoc}>
+                  <select id="doc-tipo" className="h-10 rounded-xl border border-input bg-card/90 px-3 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" value={docTipo} onChange={(e) => setDocTipo(e.target.value)} disabled={subiendoDoc}>
                     <option value="">— Sin clasificar —</option>
                     {tiposDoc.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
@@ -939,6 +977,8 @@ export default function PerfilEstudiantePage() {
                 <Button type="submit" size="sm" disabled={subiendoDoc || !docFile}>
                   {subiendoDoc ? <><CircleNotch className="size-3.5 animate-spin" /> Subiendo…</> : <><UploadSimple className="size-3.5" /> Subir</>}
                 </Button>
+                </div>
+                {docFile && <FilePreview archivo={docFile} nombre={docFile.name} contentType={docFile.type} />}
               </form>
             </CardContent>
           </Card>
@@ -972,6 +1012,10 @@ export default function PerfilEstudiantePage() {
                         <td className="px-4 py-3 text-muted-foreground tabular-nums">{fechaCorta(doc.createdAt)}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="inline-flex gap-1">
+                            <button type="button" onClick={() => setDocumentoPreview(doc)} aria-label={`Previsualizar ${doc.nombre}`} title="Vista previa"
+                              className="inline-flex size-8 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+                              <Eye className="size-4" />
+                            </button>
                             <button type="button" onClick={() => documentosApi.descargar(doc.id, doc.nombre).catch((err) => flash('error', errorDe(err, 'Error al descargar')))}
                               aria-label={`Descargar ${doc.nombre}`} title="Descargar"
                               className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
@@ -990,6 +1034,14 @@ export default function PerfilEstudiantePage() {
               </div>
             </Card>
           )}
+          {documentoPreview && <FilePreviewSheet
+            open={Boolean(documentoPreview)}
+            onOpenChange={(open) => { if (!open) setDocumentoPreview(null) }}
+            endpoint={`/api/v1/documentos/${documentoPreview.id}/descargar`}
+            nombre={documentoPreview.nombre}
+            contentType={documentoPreview.contentType}
+            onDownload={() => documentosApi.descargar(documentoPreview.id, documentoPreview.nombre).catch((err) => flash('error', errorDe(err, 'Error al descargar')))}
+          />}
         </div>
       )}
 

@@ -7,6 +7,7 @@ import {
   CircleNotch,
   CloudArrowUp,
   DownloadSimple,
+  Eye,
   File,
   FilePdf,
   FileText,
@@ -19,6 +20,7 @@ import type { DocumentoResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
+import { FilePreview, FilePreviewSheet } from '@/components/ui/file-preview'
 import {
   Card,
   CardContent,
@@ -66,6 +68,7 @@ export function StudentDocumentos() {
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [selectedTipo, setSelectedTipo] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewDoc, setPreviewDoc] = useState<DocumentoResponse | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const cargar = async () => {
@@ -241,6 +244,8 @@ export function StudentDocumentos() {
               />
             </label>
 
+            {selectedFile && <FilePreview archivo={selectedFile} nombre={selectedFile.name} contentType={selectedFile.type} />}
+
             {uploadError && (
               <p className="flex items-center gap-1.5 text-sm text-destructive">
                 <XCircle className="size-4" /> {uploadError}
@@ -326,6 +331,14 @@ export function StudentDocumentos() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    title="Vista previa"
+                    onClick={() => setPreviewDoc(doc)}
+                  >
+                    <Eye className="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     title="Descargar"
                     onClick={() => handleDownload(doc)}
                   >
@@ -348,6 +361,14 @@ export function StudentDocumentos() {
           </div>
         )}
       </div>
+      {previewDoc && <FilePreviewSheet
+        open={Boolean(previewDoc)}
+        onOpenChange={(open) => { if (!open) setPreviewDoc(null) }}
+        endpoint={`/api/v1/documentos/${previewDoc.id}/mi-descarga`}
+        nombre={previewDoc.nombre}
+        contentType={previewDoc.contentType}
+        onDownload={() => handleDownload(previewDoc)}
+      />}
     </div>
   )
 }

@@ -358,13 +358,15 @@ export const importarExtApi = {
 
 // ─── Vacantes ────────────────────────────────────────────────────────────────
 
-import type { VacanteResponse } from './types'
+import type { VacanteRequest, VacanteResponse } from './types'
 
 export const vacantesApi = {
   listar: (page = 0, size = 20, token?: string) =>
     apiFetch<Page<VacanteResponse>>(`/api/v1/vacantes?page=${page}&size=${size}`, { token }),
   obtener: (id: string, token?: string) =>
     apiFetch<VacanteResponse>(`/api/v1/vacantes/${id}`, { token }),
+  crear: (datos: VacanteRequest, token?: string) =>
+    apiFetch<VacanteResponse>('/api/v1/vacantes', { method: 'POST', data: datos, token }),
   /** Escanea los portales de empleo bajo demanda (COORDINADOR/ADMIN). */
   escanear: (token?: string) =>
     apiFetch<{ vacantesNuevas: number }>('/api/v1/vacantes/scraping', { method: 'POST', token }),
