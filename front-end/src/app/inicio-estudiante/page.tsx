@@ -68,10 +68,6 @@ export default function InicioEstudiantePage() {
   useEffect(() => { refrescar() }, [refrescar])
 
   const bannerUrl = branding?.bannerPanelUrl
-  const iniciales = useMemo(
-    () => `${perfil?.nombre?.[0] ?? ''}${perfil?.apellido?.[0] ?? ''}`.toUpperCase(),
-    [perfil],
-  )
   const ultimo = seguimientos[0]
   const alertas = useMemo(() => {
     if (!perfil) return []
@@ -104,18 +100,11 @@ export default function InicioEstudiantePage() {
           <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
         )}
         <div className={`absolute inset-0 ${bannerUrl ? 'bg-gradient-to-r from-background/90 via-background/62 to-background/15 dark:from-background/88 dark:via-background/52 dark:to-background/12' : 'bg-primary/[0.035]'}`} />
-        <div className="relative flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between md:p-8">
+        <div className="relative p-6 md:p-8">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-[.14em] text-primary">{branding?.subtituloHeader || 'Portal del estudiante'}</p>
             <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Hola, {perfil?.nombre}</h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Aquí tienes un resumen de tu proceso y los próximos pasos que requieren tu atención.</p>
-          </div>
-          <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-background/85 p-4 shadow-sm backdrop-blur-sm">
-            <span className="flex size-11 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">{iniciales || 'EC'}</span>
-            <div>
-              <p className="text-sm font-semibold">Estado de empleabilidad</p>
-              <p className="text-xs text-muted-foreground">{perfil?.estadoEmpleabilidad || 'Estado pendiente'}</p>
-            </div>
           </div>
         </div>
       </section>
