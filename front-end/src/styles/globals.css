@@ -775,10 +775,25 @@ textarea {
 /* El portal estudiantil conserva una atmósfera neutra para que predomine el
    color elegido por cada proyecto, no la fotografía del panel administrativo. */
 .dark .student-project-shell .ambient-mesh {
-  background:
-    radial-gradient(52rem 42rem at 94% -4%, hsl(var(--marca-h) 100% 56% / 0.22), transparent 66%),
-    radial-gradient(45rem 38rem at -2% 88%, hsl(calc(var(--marca-h) + 26) 88% 58% / 0.13), transparent 68%),
-    linear-gradient(145deg, hsl(var(--marca-h) 67% 2.4%) 0%, hsl(var(--marca-h) 60% 5.5%) 48%, hsl(var(--marca-h) 67% 2.4%) 100%);
+  /* El portal del estudiante no usa halos ni manchas de luz: conserva un
+     fondo oscuro uniforme, apenas teñido con la identidad del proyecto. */
+  background: hsl(var(--marca-h) 52% 4%);
+}
+
+/* Sin sombras flotantes en el portal oscuro: las tarjetas se separan por
+   borde y contraste de superficie, no por un resplandor alrededor. */
+.dark .student-project-shell .liquid-glass,
+.dark .student-project-shell .glass-card,
+.dark .student-project-shell .apple-glass,
+.dark .student-project-shell .glass-card:hover,
+.dark .student-project-shell .apple-glass:hover {
+  box-shadow: none;
+}
+
+.dark .student-project-shell .liquid-glass::after,
+.dark .student-project-shell .glass-card::after,
+.dark .student-project-shell .apple-glass::after {
+  display: none;
 }
 
 /* Fine grid: unchanged in light mode and subtler over the CAC dark waves. */
