@@ -305,7 +305,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                       <span className="ml-auto text-xs text-muted-foreground">{notification.tiempo}</span>
                     </div>
                      <span className="pl-3.5 text-xs text-muted-foreground">{notification.detalle}</span>
-                     {'mediaUrl' in notification && notification.mediaUrl && (
+                     {notification.mediaUrl && (
                        notification.mediaTipo === 'IMAGE' ? <img src={notification.mediaUrl} alt="Material del anuncio" className="mt-2 max-h-36 w-full rounded-lg border border-border/60 object-cover" />
                          : notification.mediaTipo === 'VIDEO' ? <video src={notification.mediaUrl} controls className="mt-2 max-h-36 w-full rounded-lg border border-border/60" />
                            : <a href={notification.mediaUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="mt-2 pl-3.5 text-xs font-medium text-primary hover:underline">Abrir información del anuncio</a>

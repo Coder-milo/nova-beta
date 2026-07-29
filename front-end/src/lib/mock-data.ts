@@ -269,6 +269,8 @@ export type Notification = {
   detalle: string
   tiempo: string
   leida: boolean
+  mediaUrl?: string | null
+  mediaTipo?: 'IMAGE' | 'VIDEO' | 'LINK' | null
 }
 
 export const notifications: Notification[] = [
