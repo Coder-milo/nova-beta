@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credencial Verificada - NOVA CRM</title>
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f4f8; margin: 0; padding: 2rem; display: flex; justify-content: center; }
+        .card { background: white; border-radius: 16px; padding: 2rem; max-width: 600px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.1); text-align: center; }
+        .badge { width: 120px; height: 120px; margin: 0 auto 1rem; background: #059669; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .badge svg { width: 60px; height: 60px; fill: white; }
+        h1 { color: #065f46; font-size: 1.5rem; margin: 0 0 .5rem; }
+        .label { color: #6b7280; font-size: .875rem; margin-top: 1rem; }
+        .value { font-size: 1.125rem; font-weight: 600; margin: .25rem 0; }
+        .verified { background: #ecfdf5; color: #065f46; padding: .75rem; border-radius: 8px; margin-top: 1.5rem; font-weight: 600; }
+        .footer { margin-top: 2rem; font-size: .75rem; color: #9ca3af; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="badge">
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+    </div>
+    <h1>Credencial Verificada</h1>
+    <p>Esta credencial ha sido emitida por CAC Eurocentres a través de NOVA CRM.</p>
+
+    <div class="label">Estudiante</div>
+    <div class="value" th:text="${nombreEstudiante}">Nombre Apellido</div>
+
+    <div class="label">Certificacion</div>
+    <div class="value" th:text="${nombreCertificacion}">Certificación</div>
+
+    <div class="label">Programa</div>
+    <div class="value" th:text="${programa}">Programa</div>
+
+    <div class="label">Fecha de Emision</div>
+    <div class="value" th:text="${#temporals.format(fechaEmision, 'dd/MM/yyyy')}">01/01/2025</div>
+
+    <div class="verified">✓ Credencial auténtica y vigente</div>
+
+    <div class="footer">
+        NOVA CRM — CAC Eurocentres<br>
+        ID de verificación: <span th:text="${uuid}">uuid</span>
+    </div>
+</div>
+</body>
+</html>

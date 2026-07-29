@@ -1,0 +1,17 @@
+# Build (Java / Maven)
+back-end/target/
+*.class
+*.jar
+
+# Secretos y entorno
+.env
+
+# Logs
+*.log
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,12 @@
+# Configuracion del algoritmo de matching.
+# Modificar este archivo y reiniciar la aplicacion para aplicar cambios.
+pesos:
+  afinidad: 35
+  habilidades: 10
+  ingles: 20
+  ubicacion: 15
+  experiencia: 20
+
+umbral_minimo: 55
+
+max_vacantes_por_ejecucion: 500

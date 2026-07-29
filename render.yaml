@@ -1,0 +1,36 @@
+# Blueprint de despliegue gratuito en Render (https://render.com).
+# La base de datos es Postgres gratuito en Neon (https://neon.tech) — se configura
+# aparte y sus datos se pegan en las variables DB_* del panel de Render.
+#
+# NO se necesita MinIO ni AWS SES para esta primera version en produccion.
+services:
+  - type: web
+    name: nova-crm-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./back-end/Dockerfile
+    dockerContext: ./back-end
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      # Render genera un secreto aleatorio y seguro automaticamente.
+      - key: JWT_SECRET
+        generateValue: true
+      # Datos de la base Neon (pegar en el panel de Render — no se versionan).
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      # Neon exige TLS.
+      - key: DB_PARAMS
+        value: "?sslmode=require"
+      # Origenes permitidos del frontend (coma-separados). Ajustar al desplegar el front.
+      - key: CORS_ORIGINS
+        sync: false

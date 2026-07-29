@@ -1,0 +1,11 @@
+---
+import CrmApp from '@/CrmApp'
+import InitialLoader from '@/components/initial-loader.astro'
+import BaseLayout from '@/layouts/base-layout.astro'
+---
+
+<BaseLayout>
+  <CrmApp client:only="react">
+    <InitialLoader slot="fallback" />
+  </CrmApp>
+</BaseLayout>
