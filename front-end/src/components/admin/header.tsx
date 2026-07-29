@@ -457,7 +457,6 @@ export function Header({ onOpenMobile }: HeaderProps) {
             <SheetTitle>{messageCopy.title}</SheetTitle>
             <SheetDescription>{messageCopy.subtitle}</SheetDescription>
           </SheetHeader>
-          {esEstudiante && <div className="shrink-0 border-b border-border/60 bg-card px-4 py-3 sm:px-5"><div className="mx-auto flex max-w-3xl items-end gap-2"><textarea value={studentBody} onChange={(event) => setStudentBody(event.target.value)} rows={2} maxLength={5000} placeholder={locale === 'es' ? 'Escribe un mensaje al equipo de acompañamiento…' : 'Write a message to the support team…'} className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" />{messageError && <p className="sr-only">{messageError}</p>}<Button className="h-11 shrink-0 rounded-xl" onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || !studentBody.trim()}>{sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}<span className="hidden sm:inline">{locale === 'es' ? 'Enviar' : 'Send'}</span></Button></div></div>}
           <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.8fr)]">
             <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 lg:max-h-none lg:border-b-0 lg:border-r">
               {messages.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : messages.map((message) => (
@@ -466,9 +465,10 @@ export function Header({ onOpenMobile }: HeaderProps) {
                 </button>
               ))}
             </div>
-            <div className="min-h-0 min-w-0 overflow-y-auto bg-background/45 p-5 sm:p-6">
-              {!selectedMessage ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
-                <div className="mx-auto max-w-2xl space-y-5">
+            <div className="flex min-h-0 min-w-0 flex-col bg-background/45">
+              <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
+                {!selectedMessage ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
+                  <div className="mx-auto max-w-2xl space-y-5">
                   <div>
                     <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{selectedMessage.asunto}</h2><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', selectedMessage.estado === 'ABIERTO' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{selectedMessage.estado === 'ABIERTO' ? messageCopy.open : messageCopy.answered}</span></div>
                     {!esEstudiante && <p className="text-xs text-muted-foreground">{selectedMessage.estudianteNombre} · {selectedMessage.estudianteEmail}</p>}
@@ -480,8 +480,10 @@ export function Header({ onOpenMobile }: HeaderProps) {
                   ) : (
                     <div className="space-y-2"><label htmlFor="respuesta-mensaje" className="text-sm font-medium text-foreground">{messageCopy.reply}</label><textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} rows={6} maxLength={5000} className="w-full rounded-xl border border-input bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder={messageCopy.replyPlaceholder} />{messageError && <p className="text-xs text-destructive">{messageError}</p>}<Button type="button" onClick={() => void responderMensaje()} disabled={sendingReply || !reply.trim()}>{sendingReply ? messageCopy.sending : selectedMessage.estado === 'RESPONDIDO' ? messageCopy.update : messageCopy.send}</Button></div>
                   )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
+              {esEstudiante && <div className="shrink-0 border-t border-border/60 bg-card px-4 py-3 sm:px-5"><div className="mx-auto flex max-w-2xl items-end gap-2"><textarea value={studentBody} onChange={(event) => setStudentBody(event.target.value)} rows={2} maxLength={5000} placeholder={locale === 'es' ? 'Escribe un mensaje al equipo de acompañamiento…' : 'Write a message to the support team…'} className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" />{messageError && <p className="sr-only">{messageError}</p>}<Button className="h-11 shrink-0 rounded-xl" onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || !studentBody.trim()}>{sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}<span className="hidden sm:inline">{locale === 'es' ? 'Enviar' : 'Send'}</span></Button></div></div>}
             </div>
           </div>
         </SheetContent>
