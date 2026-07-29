@@ -73,7 +73,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       {/* Malla ambiente de luz y fondo con foto institucional de la Sede CAC */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden z-0 select-none">
         <div className="ambient-mesh" />
-        <DarkBrandBackdrop />
+        {!esEstudiante && <DarkBrandBackdrop />}
         {/* Velos translúcidos adaptables a la luz y oscuridad */}
         <div className="ambient-grid absolute inset-0 opacity-[0.035] dark:opacity-100" />
       </div>
