@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ArrowBendDownLeft,
   ArrowsClockwise,
@@ -83,6 +83,47 @@ function formatMessageTime(value: string, locale: 'es' | 'en') {
   }).format(date)
 }
 
+type Conversacion = {
+  id: string
+  asunto: string
+  mensajes: MensajeResponse[]
+  ultimo: MensajeResponse
+  pendiente: boolean
+}
+
+/** Los envíos antiguos usaban "Seguimiento:" en cada respuesta. Al quitar
+ * todos esos prefijos, una conversación conserva el mismo hilo incluso si se
+ * creó antes de que existiera la bandeja tipo chat. */
+function asuntoConversacion(asunto: string): string {
+  let limpio = asunto.trim()
+  const prefijo = /^(seguimiento|follow-up)\s*:\s*/i
+  while (prefijo.test(limpio)) limpio = limpio.replace(prefijo, '').trim()
+  return limpio || 'Consulta al equipo de acompañamiento'
+}
+
+function agruparConversaciones(mensajes: MensajeResponse[]): Conversacion[] {
+  const grupos = new Map<string, { asunto: string; mensajes: MensajeResponse[] }>()
+  for (const mensaje of mensajes) {
+    const asunto = asuntoConversacion(mensaje.asunto)
+    const id = `${mensaje.estudianteId}:${asunto.toLocaleLowerCase()}`
+    const grupo = grupos.get(id) ?? { asunto, mensajes: [] }
+    grupo.mensajes.push(mensaje)
+    grupos.set(id, grupo)
+  }
+  return Array.from(grupos.entries()).map(([id, grupo]) => {
+    const mensajesOrdenados = [...grupo.mensajes].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    )
+    return {
+      id,
+      asunto: grupo.asunto,
+      mensajes: mensajesOrdenados,
+      ultimo: mensajesOrdenados[mensajesOrdenados.length - 1],
+      pendiente: mensajesOrdenados.some((mensaje) => mensaje.estado === 'ABIERTO'),
+    }
+  }).sort((a, b) => new Date(b.ultimo.createdAt).getTime() - new Date(a.ultimo.createdAt).getTime())
+}
+
 function IconButton({
   label,
   children,
@@ -136,6 +177,14 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<BusquedaResponse>(BUSQUEDA_VACIA)
+
+  const conversaciones = useMemo(() => agruparConversaciones(messages), [messages])
+  const conversacionSeleccionada = useMemo(
+    () => selectedMessage
+      ? conversaciones.find((conversacion) => conversacion.mensajes.some((mensaje) => mensaje.id === selectedMessage.id)) ?? null
+      : null,
+    [conversaciones, selectedMessage],
+  )
 
   useEffect(() => {
     let active = true
@@ -220,8 +269,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
       }))
     : adminNotifications
   const unreadNotifications = notificationItems.filter((notification) => !notification.leida).length
-  const pendingMessages = messages.filter((message) =>
-    esEstudiante ? message.estado === 'RESPONDIDO' : message.estado === 'ABIERTO',
+  const pendingMessages = conversaciones.filter((conversacion) =>
+    esEstudiante ? conversacion.mensajes.some((mensaje) => mensaje.estado === 'RESPONDIDO') : conversacion.pendiente,
   ).length
 
   const openNotification = async (id: string) => {
@@ -294,7 +343,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
     setSendingStudentMessage(true); setMessageError('')
     try {
       const asunto = selectedMessage
-        ? `${locale === 'es' ? 'Seguimiento' : 'Follow-up'}: ${selectedMessage.asunto}`
+        ? asuntoConversacion(selectedMessage.asunto)
         : (locale === 'es' ? 'Consulta al equipo de acompañamiento' : 'Question for the support team')
       const nuevo = await mensajesApi.enviar({ asunto, contenido: studentBody.trim() })
       setMessages((actual) => [nuevo, ...actual])
@@ -459,26 +508,38 @@ export function Header({ onOpenMobile }: HeaderProps) {
           </SheetHeader>
           <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.8fr)]">
             <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 lg:max-h-none lg:border-b-0 lg:border-r">
-              {messages.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : messages.map((message) => (
-                <button key={message.id} type="button" onClick={() => abrirMensaje(message)} className={cn('mb-1 w-full rounded-xl border border-transparent px-3 py-3 text-left transition-all hover:border-primary/15 hover:bg-background', selectedMessage?.id === message.id && 'border-primary/20 bg-background shadow-sm')}>
-                  <div className="flex items-start gap-2.5"><span className={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', message.estado === 'ABIERTO' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>{(esEstudiante ? 'AC' : message.estudianteNombre || 'E').slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? message.asunto : message.estudianteNombre}</span>{message.estado === 'ABIERTO' && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{esEstudiante ? (message.respuesta ?? message.contenido) : message.asunto}</span><span className="mt-1 block text-[10px] text-muted-foreground">{formatMessageTime(message.createdAt, locale)}</span></span></div>
+              {conversaciones.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : conversaciones.map((conversacion) => (
+                <button key={conversacion.id} type="button" onClick={() => abrirMensaje(conversacion.ultimo)} className={cn('mb-1 w-full rounded-xl border border-transparent px-3 py-3 text-left transition-all hover:border-primary/15 hover:bg-background', conversacionSeleccionada?.id === conversacion.id && 'border-primary/20 bg-background shadow-sm')}>
+                  <div className="flex items-start gap-2.5"><span className={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', conversacion.pendiente ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>{(esEstudiante ? 'AC' : conversacion.ultimo.estudianteNombre || 'E').slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? conversacion.asunto : conversacion.ultimo.estudianteNombre}</span>{conversacion.pendiente && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{esEstudiante ? (conversacion.ultimo.respuesta ?? conversacion.ultimo.contenido) : conversacion.asunto}</span><span className="mt-1 block text-[10px] text-muted-foreground">{formatMessageTime(conversacion.ultimo.createdAt, locale)}</span></span></div>
                 </button>
               ))}
             </div>
             <div className="flex min-h-0 min-w-0 flex-col bg-background/45">
               <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
-                {!selectedMessage ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
+                {!conversacionSeleccionada ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
                   <div className="mx-auto max-w-2xl space-y-5">
                   <div>
-                    <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{selectedMessage.asunto}</h2><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', selectedMessage.estado === 'ABIERTO' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{selectedMessage.estado === 'ABIERTO' ? messageCopy.open : messageCopy.answered}</span></div>
-                    {!esEstudiante && <p className="text-xs text-muted-foreground">{selectedMessage.estudianteNombre} · {selectedMessage.estudianteEmail}</p>}
-                    <p className="mt-1 text-xs text-muted-foreground">{formatMessageTime(selectedMessage.createdAt, locale)}</p>
+                    <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{conversacionSeleccionada.asunto}</h2><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', conversacionSeleccionada.pendiente ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{conversacionSeleccionada.pendiente ? messageCopy.open : messageCopy.answered}</span></div>
+                    {!esEstudiante && <p className="text-xs text-muted-foreground">{conversacionSeleccionada.ultimo.estudianteNombre} · {conversacionSeleccionada.ultimo.estudianteEmail}</p>}
+                    <p className="mt-1 text-xs text-muted-foreground">{formatMessageTime(conversacionSeleccionada.ultimo.createdAt, locale)}</p>
                   </div>
-                  <div className="break-words rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm leading-7 text-foreground whitespace-pre-wrap">{selectedMessage.contenido}</div>
-                  {esEstudiante ? (
-                    selectedMessage.respuesta ? <div className="rounded-xl border border-primary/20 bg-primary/5 p-3"><p className="text-xs font-semibold text-primary">{messageCopy.response}</p><p className="mt-1 break-words whitespace-pre-wrap text-sm leading-6 text-foreground">{selectedMessage.respuesta}</p></div> : <p className="text-sm text-muted-foreground">{messageCopy.waiting}</p>
-                  ) : (
-                    <div className="space-y-2"><label htmlFor="respuesta-mensaje" className="text-sm font-medium text-foreground">{messageCopy.reply}</label><textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} rows={6} maxLength={5000} className="w-full rounded-xl border border-input bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder={messageCopy.replyPlaceholder} />{messageError && <p className="text-xs text-destructive">{messageError}</p>}<Button type="button" onClick={() => void responderMensaje()} disabled={sendingReply || !reply.trim()}>{sendingReply ? messageCopy.sending : selectedMessage.estado === 'RESPONDIDO' ? messageCopy.update : messageCopy.send}</Button></div>
+                  <div className="space-y-4">
+                    {conversacionSeleccionada.mensajes.map((mensaje) => (
+                      <div key={mensaje.id} className="space-y-2">
+                        <div className={cn('flex', esEstudiante ? 'justify-end' : 'justify-start')}>
+                          <div className={cn('max-w-[88%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap', esEstudiante ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-muted/25 text-foreground')}>
+                            <p className={cn('mb-1 text-[10px] font-semibold', esEstudiante ? 'text-primary-foreground/75' : 'text-muted-foreground')}>{esEstudiante ? (locale === 'es' ? 'Tú' : 'You') : mensaje.estudianteNombre}</p>
+                            {mensaje.contenido}
+                            <p className={cn('mt-1 text-[10px]', esEstudiante ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{formatMessageTime(mensaje.createdAt, locale)}</p>
+                          </div>
+                        </div>
+                        {mensaje.respuesta && <div className={cn('flex', esEstudiante ? 'justify-start' : 'justify-end')}><div className={cn('max-w-[88%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap', esEstudiante ? 'rounded-tl-md border border-primary/20 bg-primary/5 text-foreground' : 'rounded-br-md bg-primary text-primary-foreground')}><p className={cn('mb-1 text-[10px] font-semibold', esEstudiante ? 'text-primary' : 'text-primary-foreground/75')}>{messageCopy.response}</p>{mensaje.respuesta}<p className={cn('mt-1 text-[10px]', esEstudiante ? 'text-muted-foreground' : 'text-primary-foreground/70')}>{mensaje.respondidoAt ? formatMessageTime(mensaje.respondidoAt, locale) : ''}</p></div></div>}
+                      </div>
+                    ))}
+                  </div>
+                  {esEstudiante && !conversacionSeleccionada.mensajes.some((mensaje) => mensaje.respuesta) && <p className="text-sm text-muted-foreground">{messageCopy.waiting}</p>}
+                  {!esEstudiante && (
+                    <div className="space-y-2"><label htmlFor="respuesta-mensaje" className="text-sm font-medium text-foreground">{messageCopy.reply}</label><textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} rows={6} maxLength={5000} className="w-full rounded-xl border border-input bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder={messageCopy.replyPlaceholder} />{messageError && <p className="text-xs text-destructive">{messageError}</p>}<Button type="button" onClick={() => void responderMensaje()} disabled={sendingReply || !reply.trim()}>{sendingReply ? messageCopy.sending : selectedMessage?.estado === 'RESPONDIDO' ? messageCopy.update : messageCopy.send}</Button></div>
                   )}
                   </div>
                 )}
