@@ -129,8 +129,6 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [sendingReply, setSendingReply] = useState(false)
   const [messageError, setMessageError] = useState('')
   const [messagesLoading, setMessagesLoading] = useState(false)
-  const [studentComposer, setStudentComposer] = useState(false)
-  const [studentSubject, setStudentSubject] = useState('')
   const [studentBody, setStudentBody] = useState('')
   const [sendingStudentMessage, setSendingStudentMessage] = useState(false)
 
@@ -292,13 +290,16 @@ export function Header({ onOpenMobile }: HeaderProps) {
   }
 
   const enviarMensajeEstudiante = async () => {
-    if (!studentSubject.trim() || !studentBody.trim()) return
+    if (!studentBody.trim()) return
     setSendingStudentMessage(true); setMessageError('')
     try {
-      const nuevo = await mensajesApi.enviar({ asunto: studentSubject.trim(), contenido: studentBody.trim() })
+      const asunto = selectedMessage
+        ? `${locale === 'es' ? 'Seguimiento' : 'Follow-up'}: ${selectedMessage.asunto}`
+        : (locale === 'es' ? 'Consulta al equipo de acompañamiento' : 'Question for the support team')
+      const nuevo = await mensajesApi.enviar({ asunto, contenido: studentBody.trim() })
       setMessages((actual) => [nuevo, ...actual])
       setSelectedMessage(nuevo); setReply('')
-      setStudentSubject(''); setStudentBody(''); setStudentComposer(false)
+      setStudentBody('')
     } catch (error) {
       setMessageError(error instanceof Error ? error.message : 'No se pudo enviar el mensaje.')
     } finally { setSendingStudentMessage(false) }
@@ -451,13 +452,12 @@ export function Header({ onOpenMobile }: HeaderProps) {
       </Sheet>
 
       <Sheet open={messageSheetOpen} onOpenChange={setMessageSheetOpen}>
-        <SheetContent side="right" className="h-dvh w-full max-w-none gap-0 border-l border-border bg-popover p-0 sm:w-[min(92vw,1100px)]">
+        <SheetContent side="right" className="h-dvh w-full max-w-none gap-0 border-l border-border bg-popover p-0 sm:w-[min(92vw,1100px)] sm:!max-w-none">
           <SheetHeader className="shrink-0 border-b border-border/60 bg-[linear-gradient(115deg,color-mix(in_srgb,var(--primary)_17%,transparent),transparent_58%)] pr-14">
             <SheetTitle>{messageCopy.title}</SheetTitle>
             <SheetDescription>{messageCopy.subtitle}</SheetDescription>
           </SheetHeader>
-          {esEstudiante && <div className="border-b border-border/60 bg-card px-5 py-3"><div className="mx-auto flex max-w-2xl items-center justify-between gap-3"><div><p className="text-sm font-semibold text-foreground">{locale === 'es' ? '¿Necesitas ayuda?' : 'Need help?'}</p><p className="text-xs text-muted-foreground">{locale === 'es' ? 'Envía una solicitud al equipo de acompañamiento.' : 'Send a request to the support team.'}</p></div><Button size="sm" variant={studentComposer ? 'outline' : 'default'} onClick={() => setStudentComposer((value) => !value)}>{studentComposer ? (locale === 'es' ? 'Cerrar' : 'Close') : (locale === 'es' ? 'Nuevo mensaje' : 'New message')}</Button></div></div>}
-          {esEstudiante && studentComposer && <div className="border-b border-border/60 bg-muted/[0.18] px-5 py-4"><div className="mx-auto max-w-2xl space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm"><div className="flex items-center gap-2"><span className="flex size-8 items-center justify-center rounded-xl bg-primary/10 text-primary"><PaperPlaneTilt className="size-4" /></span><div><p className="text-sm font-semibold">{locale === 'es' ? 'Escribe al equipo' : 'Write to the team'}</p><p className="text-[11px] text-muted-foreground">{locale === 'es' ? 'Te responderán en esta misma bandeja.' : 'They will reply in this same inbox.'}</p></div></div><Input value={studentSubject} onChange={(event) => setStudentSubject(event.target.value)} maxLength={160} placeholder={locale === 'es' ? 'Asunto de tu solicitud' : 'Request subject'} /><textarea value={studentBody} onChange={(event) => setStudentBody(event.target.value)} rows={4} maxLength={5000} placeholder={locale === 'es' ? 'Cuéntanos cómo podemos ayudarte...' : 'Tell us how we can help...'} className="w-full resize-y rounded-xl border border-input bg-background p-3 text-sm leading-6 outline-none focus:border-primary focus:ring-3 focus:ring-primary/15" />{messageError && <p className="text-xs text-destructive">{messageError}</p>}<div className="flex justify-end"><Button onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || !studentSubject.trim() || !studentBody.trim()}>{sendingStudentMessage ? <><ArrowsClockwise className="size-4 animate-spin" />{locale === 'es' ? 'Enviando...' : 'Sending...'}</> : <><PaperPlaneTilt className="size-4" />{locale === 'es' ? 'Enviar mensaje' : 'Send message'}</>}</Button></div></div></div>}
+          {esEstudiante && <div className="shrink-0 border-b border-border/60 bg-card px-4 py-3 sm:px-5"><div className="mx-auto flex max-w-3xl items-end gap-2"><textarea value={studentBody} onChange={(event) => setStudentBody(event.target.value)} rows={2} maxLength={5000} placeholder={locale === 'es' ? 'Escribe un mensaje al equipo de acompañamiento…' : 'Write a message to the support team…'} className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" />{messageError && <p className="sr-only">{messageError}</p>}<Button className="h-11 shrink-0 rounded-xl" onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || !studentBody.trim()}>{sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}<span className="hidden sm:inline">{locale === 'es' ? 'Enviar' : 'Send'}</span></Button></div></div>}
           <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.8fr)]">
             <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 lg:max-h-none lg:border-b-0 lg:border-r">
               {messages.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : messages.map((message) => (
