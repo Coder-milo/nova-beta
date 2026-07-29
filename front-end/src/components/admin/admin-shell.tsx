@@ -8,6 +8,7 @@ import { SidebarNav } from '@/components/admin/sidebar-nav'
 import { Header } from '@/components/admin/header'
 import { DarkBrandBackdrop } from '@/components/admin/dark-brand-backdrop'
 import { StudentHelpChat } from '@/components/student/student-help-chat'
+import { LocaleContentTranslator } from '@/components/ui/locale-content-translator'
 import { useAuth } from '@/lib/auth'
 import { soloEsEstudiante } from '@/lib/navigation'
 
@@ -51,10 +52,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className={cn(
+      <div className={cn(
       'relative flex h-svh max-h-svh w-full bg-background text-foreground overflow-hidden',
       esEstudiante && 'student-project-shell',
-    )}>
+      )}>
+      <LocaleContentTranslator />
       {/* ── Barra de progreso de navegación (top) ───────────────────────── */}
       {navLoading && (
         <div

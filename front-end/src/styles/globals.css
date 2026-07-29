@@ -770,18 +770,22 @@ textarea {
 }
 
 .dark .ambient-mesh {
-  /* El halo rojo se deja tal cual: es el contrapunto de la identidad, no el
-     color de marca, y girarlo con el tono dejaba los dos halos casi iguales. */
+  /* Fondo institucional propio del panel administrativo. La fotografía queda
+     muy atenuada para aportar profundidad sin competir con los datos. */
   background:
-    radial-gradient(52rem 42rem at 94% -4%,
-      hsl(var(--marca-h) 100% 56% / 0.22), transparent 66%),
-    radial-gradient(45rem 38rem at -2% 88%, rgba(232, 18, 52, 0.17), transparent 68%),
-    radial-gradient(36rem 28rem at 54% 48%,
-      hsl(var(--marca-h) 66% 37% / 0.09), transparent 72%),
-    linear-gradient(145deg,
-      hsl(var(--marca-h) 67% 2.4%) 0%,
-      hsl(var(--marca-h) 60% 5.5%) 48%,
-      hsl(var(--marca-h) 67% 2.4%) 100%);
+    linear-gradient(115deg, hsl(222 45% 4% / 0.94), hsl(221 42% 7% / 0.87) 55%, hsl(224 38% 6% / 0.93)),
+    radial-gradient(52rem 42rem at 94% -4%, hsl(var(--marca-h) 100% 56% / 0.16), transparent 66%),
+    radial-gradient(45rem 38rem at -2% 88%, rgba(232, 18, 52, 0.10), transparent 68%),
+    url("/brand/photos/academy-admin-backdrop.png") center center / cover no-repeat;
+}
+
+/* El portal estudiantil conserva una atmósfera neutra para que predomine el
+   color elegido por cada proyecto, no la fotografía del panel administrativo. */
+.dark .student-project-shell .ambient-mesh {
+  background:
+    radial-gradient(52rem 42rem at 94% -4%, hsl(var(--marca-h) 100% 56% / 0.22), transparent 66%),
+    radial-gradient(45rem 38rem at -2% 88%, rgba(232, 18, 52, 0.13), transparent 68%),
+    linear-gradient(145deg, hsl(var(--marca-h) 67% 2.4%) 0%, hsl(var(--marca-h) 60% 5.5%) 48%, hsl(var(--marca-h) 67% 2.4%) 100%);
 }
 
 /* Fine grid: unchanged in light mode and subtler over the CAC dark waves. */

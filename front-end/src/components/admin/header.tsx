@@ -1,15 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
+  ArrowBendDownLeft,
+  ArrowsClockwise,
   Bell,
   ChatCircle,
+  CheckCircle,
+  Clock,
+  EnvelopeSimple,
   FileText,
   FolderSimple,
   GraduationCap,
   Globe,
   List,
   MagnifyingGlass,
+  PaperPlaneTilt,
+  UserCircle,
+  WarningCircle,
 } from '@phosphor-icons/react'
 import { usePathname, useRouter } from '@/compat/next-navigation'
 import { Button } from '@/components/ui/button'
@@ -120,6 +128,11 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [reply, setReply] = useState('')
   const [sendingReply, setSendingReply] = useState(false)
   const [messageError, setMessageError] = useState('')
+  const [messagesLoading, setMessagesLoading] = useState(false)
+  const [studentComposer, setStudentComposer] = useState(false)
+  const [studentSubject, setStudentSubject] = useState('')
+  const [studentBody, setStudentBody] = useState('')
+  const [sendingStudentMessage, setSendingStudentMessage] = useState(false)
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -144,18 +157,31 @@ export function Header({ onOpenMobile }: HeaderProps) {
     return () => { active = false }
   }, [esEstudiante])
 
-  useEffect(() => {
-    let active = true
-    void (async () => {
-      try {
-        const data = esEstudiante ? await mensajesApi.mios() : await mensajesApi.listar()
-        if (active) setMessages(data)
-      } catch {
-        if (active) setMessages([])
-      }
-    })()
-    return () => { active = false }
+  const cargarMensajes = useCallback(async () => {
+    setMessagesLoading(true)
+    setMessageError('')
+    try {
+      const data = esEstudiante ? await mensajesApi.mios() : await mensajesApi.listar()
+      setMessages(data)
+      setSelectedMessage((actual) => {
+        const siguiente = data.find((item) => item.id === actual?.id) ?? data[0] ?? null
+        setReply(siguiente?.respuesta ?? '')
+        return siguiente
+      })
+    } catch (error) {
+      setMessages([])
+      setSelectedMessage(null)
+      setMessageError(error instanceof Error ? error.message : 'No se pudieron cargar los mensajes.')
+    } finally { setMessagesLoading(false) }
   }, [esEstudiante])
+
+  useEffect(() => { void cargarMensajes() }, [cargarMensajes])
+  useEffect(() => { if (messageSheetOpen) void cargarMensajes() }, [messageSheetOpen, cargarMensajes])
+  useEffect(() => {
+    const abrirBandeja = () => setMessageSheetOpen(true)
+    window.addEventListener('nova:open-messages', abrirBandeja)
+    return () => window.removeEventListener('nova:open-messages', abrirBandeja)
+  }, [])
 
   useEffect(() => {
     if (!searchOpen || esEstudiante || searchQuery.trim().length < 2) {
@@ -229,6 +255,26 @@ export function Header({ onOpenMobile }: HeaderProps) {
     setMessageSheetOpen(true)
   }
 
+  const messageCopy = locale === 'es'
+    ? {
+        title: esEstudiante ? 'Mis mensajes' : 'Mensajes de estudiantes',
+        subtitle: esEstudiante ? 'Consulta las respuestas del equipo de acompañamiento.' : 'Revisa, prioriza y responde las solicitudes recibidas desde el portal estudiantil.',
+        inbox: 'Bandeja', pending: 'pendientes', all: 'Todos', empty: 'No hay mensajes para mostrar.',
+        select: 'Selecciona un mensaje para ver la conversación.', sent: 'Mensaje recibido', response: 'Respuesta del equipo',
+        reply: 'Responder al estudiante', replyPlaceholder: 'Escribe una respuesta clara, útil y respetuosa…',
+        send: 'Enviar respuesta', update: 'Actualizar respuesta', sending: 'Enviando…', waiting: 'El equipo está revisando este mensaje.',
+        open: 'Pendiente', answered: 'Respondido', refresh: 'Actualizar bandeja', from: 'De', to: 'Para',
+      }
+    : {
+        title: esEstudiante ? 'My messages' : 'Student messages',
+        subtitle: esEstudiante ? 'Check the answers from the support team.' : 'Review, prioritize, and respond to requests from the student portal.',
+        inbox: 'Inbox', pending: 'pending', all: 'All', empty: 'No messages to show.',
+        select: 'Select a message to view the conversation.', sent: 'Message received', response: 'Team response',
+        reply: 'Reply to student', replyPlaceholder: 'Write a clear, helpful, and respectful response…',
+        send: 'Send reply', update: 'Update reply', sending: 'Sending…', waiting: 'The team is reviewing this message.',
+        open: 'Open', answered: 'Answered', refresh: 'Refresh inbox', from: 'From', to: 'To',
+      }
+
   const responderMensaje = async () => {
     if (!selectedMessage || !reply.trim() || esEstudiante) return
     setSendingReply(true)
@@ -243,6 +289,19 @@ export function Header({ onOpenMobile }: HeaderProps) {
     } finally {
       setSendingReply(false)
     }
+  }
+
+  const enviarMensajeEstudiante = async () => {
+    if (!studentSubject.trim() || !studentBody.trim()) return
+    setSendingStudentMessage(true); setMessageError('')
+    try {
+      const nuevo = await mensajesApi.enviar({ asunto: studentSubject.trim(), contenido: studentBody.trim() })
+      setMessages((actual) => [nuevo, ...actual])
+      setSelectedMessage(nuevo); setReply('')
+      setStudentSubject(''); setStudentBody(''); setStudentComposer(false)
+    } catch (error) {
+      setMessageError(error instanceof Error ? error.message : 'No se pudo enviar el mensaje.')
+    } finally { setSendingStudentMessage(false) }
   }
 
   const abrirResultado = (resultado: ResultadoBusqueda) => {
@@ -392,33 +451,34 @@ export function Header({ onOpenMobile }: HeaderProps) {
       </Sheet>
 
       <Sheet open={messageSheetOpen} onOpenChange={setMessageSheetOpen}>
-        <SheetContent side="right" className="w-full border-l border-border bg-popover p-0 sm:max-w-xl">
-          <SheetHeader className="border-b border-border/60 pr-12">
-            <SheetTitle>{esEstudiante ? 'Mis mensajes' : 'Mensajes de estudiantes'}</SheetTitle>
-            <SheetDescription>{esEstudiante ? 'Consulta las respuestas del equipo de acompañamiento.' : 'Revisa y responde las solicitudes enviadas desde el portal estudiantil.'}</SheetDescription>
+        <SheetContent side="right" className="w-full border-l border-border bg-popover p-0 sm:max-w-4xl">
+          <SheetHeader className="border-b border-border/60 bg-[linear-gradient(115deg,color-mix(in_srgb,var(--primary)_17%,transparent),transparent_58%)] pr-14">
+            <SheetTitle>{messageCopy.title}</SheetTitle>
+            <SheetDescription>{messageCopy.subtitle}</SheetDescription>
           </SheetHeader>
-          <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[190px_minmax(0,1fr)]">
-            <div className="max-h-56 overflow-y-auto border-b border-border/60 md:max-h-none md:border-b-0 md:border-r">
-              {messages.length === 0 ? <p className="p-4 text-sm text-muted-foreground">No hay mensajes para mostrar.</p> : messages.map((message) => (
-                <button key={message.id} type="button" onClick={() => abrirMensaje(message)} className={cn('w-full border-b border-border/60 px-3 py-3 text-left transition-colors hover:bg-muted/60', selectedMessage?.id === message.id && 'bg-primary/10')}>
-                  <div className="flex items-center gap-2"><span className={cn('size-2 rounded-full', message.estado === 'ABIERTO' ? 'bg-primary' : 'bg-muted-foreground/30')} /><span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? message.asunto : message.estudianteNombre}</span></div>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">{esEstudiante ? (message.respuesta ?? message.contenido) : message.asunto}</p>
+          {esEstudiante && <div className="border-b border-border/60 bg-card px-5 py-3"><div className="mx-auto flex max-w-2xl items-center justify-between gap-3"><div><p className="text-sm font-semibold text-foreground">{locale === 'es' ? '¿Necesitas ayuda?' : 'Need help?'}</p><p className="text-xs text-muted-foreground">{locale === 'es' ? 'Envía una solicitud al equipo de acompañamiento.' : 'Send a request to the support team.'}</p></div><Button size="sm" variant={studentComposer ? 'outline' : 'default'} onClick={() => setStudentComposer((value) => !value)}>{studentComposer ? (locale === 'es' ? 'Cerrar' : 'Close') : (locale === 'es' ? 'Nuevo mensaje' : 'New message')}</Button></div></div>}
+          {esEstudiante && studentComposer && <div className="border-b border-border/60 bg-muted/[0.18] px-5 py-4"><div className="mx-auto max-w-2xl space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm"><div className="flex items-center gap-2"><span className="flex size-8 items-center justify-center rounded-xl bg-primary/10 text-primary"><PaperPlaneTilt className="size-4" /></span><div><p className="text-sm font-semibold">{locale === 'es' ? 'Escribe al equipo' : 'Write to the team'}</p><p className="text-[11px] text-muted-foreground">{locale === 'es' ? 'Te responderán en esta misma bandeja.' : 'They will reply in this same inbox.'}</p></div></div><Input value={studentSubject} onChange={(event) => setStudentSubject(event.target.value)} maxLength={160} placeholder={locale === 'es' ? 'Asunto de tu solicitud' : 'Request subject'} /><textarea value={studentBody} onChange={(event) => setStudentBody(event.target.value)} rows={4} maxLength={5000} placeholder={locale === 'es' ? 'Cuéntanos cómo podemos ayudarte...' : 'Tell us how we can help...'} className="w-full resize-y rounded-xl border border-input bg-background p-3 text-sm leading-6 outline-none focus:border-primary focus:ring-3 focus:ring-primary/15" />{messageError && <p className="text-xs text-destructive">{messageError}</p>}<div className="flex justify-end"><Button onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || !studentSubject.trim() || !studentBody.trim()}>{sendingStudentMessage ? <><ArrowsClockwise className="size-4 animate-spin" />{locale === 'es' ? 'Enviando...' : 'Sending...'}</> : <><PaperPlaneTilt className="size-4" />{locale === 'es' ? 'Enviar mensaje' : 'Send message'}</>}</Button></div></div></div>}
+          <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]">
+            <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 md:max-h-none md:border-b-0 md:border-r">
+              {messages.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : messages.map((message) => (
+                <button key={message.id} type="button" onClick={() => abrirMensaje(message)} className={cn('mb-1 w-full rounded-xl border border-transparent px-3 py-3 text-left transition-all hover:border-primary/15 hover:bg-background', selectedMessage?.id === message.id && 'border-primary/20 bg-background shadow-sm')}>
+                  <div className="flex items-start gap-2.5"><span className={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', message.estado === 'ABIERTO' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>{(esEstudiante ? 'AC' : message.estudianteNombre || 'E').slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? message.asunto : message.estudianteNombre}</span>{message.estado === 'ABIERTO' && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{esEstudiante ? (message.respuesta ?? message.contenido) : message.asunto}</span><span className="mt-1 block text-[10px] text-muted-foreground">{formatMessageTime(message.createdAt, locale)}</span></span></div>
                 </button>
               ))}
             </div>
-            <div className="min-h-0 overflow-y-auto p-4">
-              {!selectedMessage ? <p className="py-12 text-center text-sm text-muted-foreground">Selecciona un mensaje para ver el detalle.</p> : (
-                <div className="space-y-4">
+            <div className="min-h-0 overflow-y-auto bg-background/45 p-5 sm:p-6">
+              {!selectedMessage ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
+                <div className="mx-auto max-w-2xl space-y-5">
                   <div>
-                    <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{selectedMessage.asunto}</h2><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', selectedMessage.estado === 'ABIERTO' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{selectedMessage.estado === 'ABIERTO' ? 'Pendiente' : 'Respondido'}</span></div>
+                    <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{selectedMessage.asunto}</h2><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', selectedMessage.estado === 'ABIERTO' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{selectedMessage.estado === 'ABIERTO' ? messageCopy.open : messageCopy.answered}</span></div>
                     {!esEstudiante && <p className="text-xs text-muted-foreground">{selectedMessage.estudianteNombre} · {selectedMessage.estudianteEmail}</p>}
                     <p className="mt-1 text-xs text-muted-foreground">{formatMessageTime(selectedMessage.createdAt, locale)}</p>
                   </div>
-                  <div className="rounded-xl border border-border/70 bg-muted/25 p-3 text-sm leading-6 text-foreground whitespace-pre-wrap">{selectedMessage.contenido}</div>
+                  <div className="rounded-2xl border border-border/70 bg-muted/25 p-4 text-sm leading-7 text-foreground whitespace-pre-wrap">{selectedMessage.contenido}</div>
                   {esEstudiante ? (
-                    selectedMessage.respuesta ? <div className="rounded-xl border border-primary/20 bg-primary/5 p-3"><p className="text-xs font-semibold text-primary">Respuesta del equipo</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-foreground">{selectedMessage.respuesta}</p></div> : <p className="text-sm text-muted-foreground">El equipo aún está revisando este mensaje.</p>
+                    selectedMessage.respuesta ? <div className="rounded-xl border border-primary/20 bg-primary/5 p-3"><p className="text-xs font-semibold text-primary">{messageCopy.response}</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-foreground">{selectedMessage.respuesta}</p></div> : <p className="text-sm text-muted-foreground">{messageCopy.waiting}</p>
                   ) : (
-                    <div className="space-y-2"><label htmlFor="respuesta-mensaje" className="text-sm font-medium text-foreground">Respuesta para el estudiante</label><textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} rows={6} maxLength={5000} className="w-full rounded-xl border border-input bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder="Escribe una respuesta clara y útil…" />{messageError && <p className="text-xs text-destructive">{messageError}</p>}<Button type="button" onClick={() => void responderMensaje()} disabled={sendingReply || !reply.trim()}>{sendingReply ? 'Enviando…' : selectedMessage.estado === 'RESPONDIDO' ? 'Actualizar respuesta' : 'Enviar respuesta'}</Button></div>
+                    <div className="space-y-2"><label htmlFor="respuesta-mensaje" className="text-sm font-medium text-foreground">{messageCopy.reply}</label><textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} rows={6} maxLength={5000} className="w-full rounded-xl border border-input bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder={messageCopy.replyPlaceholder} />{messageError && <p className="text-xs text-destructive">{messageError}</p>}<Button type="button" onClick={() => void responderMensaje()} disabled={sendingReply || !reply.trim()}>{sendingReply ? messageCopy.sending : selectedMessage.estado === 'RESPONDIDO' ? messageCopy.update : messageCopy.send}</Button></div>
                   )}
                 </div>
               )}
