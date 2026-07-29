@@ -5,6 +5,8 @@ import com.novacrm.shared.BaseEntity;
 import jakarta.persistence.*;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "mensaje_estudiante", indexes = {
@@ -35,6 +37,11 @@ public class MensajeEstudiante extends BaseEntity {
     @Column(name = "respondido_at")
     private Instant respondidoAt;
 
+    /** Archivos que el estudiante adjuntó al mensaje. Se eliminan junto con él. */
+    @OneToMany(mappedBy = "mensaje", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("createdAt ASC")
+    private List<MensajeAdjunto> adjuntos = new ArrayList<>();
+
     public Estudiante getEstudiante() { return estudiante; }
     public void setEstudiante(Estudiante estudiante) { this.estudiante = estudiante; }
     public String getAsunto() { return asunto; }
@@ -49,4 +56,5 @@ public class MensajeEstudiante extends BaseEntity {
     public void setRespondidoPor(String respondidoPor) { this.respondidoPor = respondidoPor; }
     public Instant getRespondidoAt() { return respondidoAt; }
     public void setRespondidoAt(Instant respondidoAt) { this.respondidoAt = respondidoAt; }
+    public List<MensajeAdjunto> getAdjuntos() { return adjuntos; }
 }

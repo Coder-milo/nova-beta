@@ -1,6 +1,7 @@
 package com.novacrm.mensaje.dto;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record MensajeResponse(
@@ -14,5 +15,7 @@ public record MensajeResponse(
         Instant createdAt,
         String respuesta,
         String respondidoPor,
-        Instant respondidoAt) {
+        Instant respondidoAt,
+        List<MensajeAdjuntoResponse> adjuntos,
+        List<MensajeAdjuntoResponse> respuestaAdjuntos) {
 }

@@ -1,0 +1,2 @@
+ALTER TABLE mensaje_adjunto
+    ADD COLUMN es_respuesta BOOLEAN NOT NULL DEFAULT FALSE;

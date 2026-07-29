@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowBendDownLeft,
   ArrowsClockwise,
@@ -15,9 +15,11 @@ import {
   Globe,
   List,
   MagnifyingGlass,
+  Paperclip,
   PaperPlaneTilt,
   UserCircle,
   WarningCircle,
+  X,
 } from '@phosphor-icons/react'
 import { usePathname, useRouter } from '@/compat/next-navigation'
 import { Button } from '@/components/ui/button'
@@ -81,6 +83,15 @@ function formatMessageTime(value: string, locale: 'es' | 'en') {
   return new Intl.DateTimeFormat(locale === 'es' ? 'es-CO' : 'en-US', {
     day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
   }).format(date)
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function isImageAttachment(contentType: string) {
+  return contentType.startsWith('image/')
 }
 
 type Conversacion = {
@@ -167,11 +178,15 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [messageSheetOpen, setMessageSheetOpen] = useState(false)
   const [selectedMessage, setSelectedMessage] = useState<MensajeResponse | null>(null)
   const [reply, setReply] = useState('')
+  const [replyAttachments, setReplyAttachments] = useState<File[]>([])
   const [sendingReply, setSendingReply] = useState(false)
   const [messageError, setMessageError] = useState('')
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [studentBody, setStudentBody] = useState('')
+  const [studentAttachments, setStudentAttachments] = useState<File[]>([])
   const [sendingStudentMessage, setSendingStudentMessage] = useState(false)
+  const studentFileInputRef = useRef<HTMLInputElement>(null)
+  const replyFileInputRef = useRef<HTMLInputElement>(null)
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -210,6 +225,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
     try {
       const data = esEstudiante ? await mensajesApi.mios() : await mensajesApi.listar()
       setMessages(data)
+      setReplyAttachments([])
       setSelectedMessage((actual) => {
         const siguiente = data.find((item) => item.id === actual?.id) ?? data[0] ?? null
         setReply(siguiente?.respuesta ?? '')
@@ -298,6 +314,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const abrirMensaje = (message: MensajeResponse) => {
     setSelectedMessage(message)
     setReply(message.respuesta ?? '')
+    setReplyAttachments([])
     setMessageError('')
     setMessageSheetOpen(true)
   }
@@ -323,14 +340,15 @@ export function Header({ onOpenMobile }: HeaderProps) {
       }
 
   const responderMensaje = async () => {
-    if (!selectedMessage || !reply.trim() || esEstudiante) return
+    if (!selectedMessage || (!reply.trim() && replyAttachments.length === 0) || esEstudiante) return
     setSendingReply(true)
     setMessageError('')
     try {
-      const actualizado = await mensajesApi.responder(selectedMessage.id, reply.trim())
+      const actualizado = await mensajesApi.responder(selectedMessage.id, reply.trim(), replyAttachments)
       setMessages((items) => items.map((item) => item.id === actualizado.id ? actualizado : item))
       setSelectedMessage(actualizado)
       setReply(actualizado.respuesta ?? '')
+      setReplyAttachments([])
     } catch (error) {
       setMessageError(error instanceof Error ? error.message : 'No se pudo enviar la respuesta.')
     } finally {
@@ -339,19 +357,59 @@ export function Header({ onOpenMobile }: HeaderProps) {
   }
 
   const enviarMensajeEstudiante = async () => {
-    if (!studentBody.trim()) return
+    if (!studentBody.trim() && studentAttachments.length === 0) return
     setSendingStudentMessage(true); setMessageError('')
     try {
       const asunto = selectedMessage
         ? asuntoConversacion(selectedMessage.asunto)
         : (locale === 'es' ? 'Consulta al equipo de acompañamiento' : 'Question for the support team')
-      const nuevo = await mensajesApi.enviar({ asunto, contenido: studentBody.trim() })
+      const nuevo = await mensajesApi.enviar({ asunto, contenido: studentBody.trim(), archivos: studentAttachments })
       setMessages((actual) => [nuevo, ...actual])
       setSelectedMessage(nuevo); setReply('')
       setStudentBody('')
+      setStudentAttachments([])
     } catch (error) {
       setMessageError(error instanceof Error ? error.message : 'No se pudo enviar el mensaje.')
     } finally { setSendingStudentMessage(false) }
+  }
+
+  const agregarAdjuntosEstudiante = (archivos: File[]) => {
+    const candidatos = archivos.filter((archivo) => archivo.size > 0)
+    const demasiadoGrandes = candidatos.filter((archivo) => archivo.size > 10 * 1024 * 1024)
+    if (demasiadoGrandes.length > 0) {
+      setMessageError(locale === 'es' ? 'Cada archivo puede pesar hasta 10 MB.' : 'Each file can be up to 10 MB.')
+      return
+    }
+    const disponibles = Math.max(0, 5 - studentAttachments.length)
+    if (candidatos.length > disponibles) {
+      setMessageError(locale === 'es' ? 'Puedes adjuntar hasta 5 archivos por mensaje.' : 'You can attach up to 5 files per message.')
+    } else {
+      setMessageError('')
+    }
+    if (disponibles > 0) setStudentAttachments((actual) => [...actual, ...candidatos.slice(0, disponibles)])
+  }
+
+  const quitarAdjuntoEstudiante = (indice: number) => {
+    setStudentAttachments((actual) => actual.filter((_, actualIndice) => actualIndice !== indice))
+  }
+
+  const agregarAdjuntosRespuesta = (archivos: File[]) => {
+    const candidatos = archivos.filter((archivo) => archivo.size > 0)
+    if (candidatos.some((archivo) => archivo.size > 10 * 1024 * 1024)) {
+      setMessageError(locale === 'es' ? 'Cada archivo puede pesar hasta 10 MB.' : 'Each file can be up to 10 MB.')
+      return
+    }
+    const disponibles = Math.max(0, 5 - replyAttachments.length)
+    if (candidatos.length > disponibles) {
+      setMessageError(locale === 'es' ? 'Puedes adjuntar hasta 5 archivos por respuesta.' : 'You can attach up to 5 files per reply.')
+    } else {
+      setMessageError('')
+    }
+    if (disponibles > 0) setReplyAttachments((actual) => [...actual, ...candidatos.slice(0, disponibles)])
+  }
+
+  const quitarAdjuntoRespuesta = (indice: number) => {
+    setReplyAttachments((actual) => actual.filter((_, actualIndice) => actualIndice !== indice))
   }
 
   const abrirResultado = (resultado: ResultadoBusqueda) => {
@@ -510,11 +568,11 @@ export function Header({ onOpenMobile }: HeaderProps) {
             <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 lg:max-h-none lg:border-b-0 lg:border-r">
               {conversaciones.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : conversaciones.map((conversacion) => (
                 <button key={conversacion.id} type="button" onClick={() => abrirMensaje(conversacion.ultimo)} className={cn('mb-1 w-full rounded-xl border border-transparent px-3 py-3 text-left transition-all hover:border-primary/15 hover:bg-background', conversacionSeleccionada?.id === conversacion.id && 'border-primary/20 bg-background shadow-sm')}>
-                  <div className="flex items-start gap-2.5"><span className={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', conversacion.pendiente ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>{(esEstudiante ? 'AC' : conversacion.ultimo.estudianteNombre || 'E').slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? conversacion.asunto : conversacion.ultimo.estudianteNombre}</span>{conversacion.pendiente && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{esEstudiante ? (conversacion.ultimo.respuesta ?? conversacion.ultimo.contenido) : conversacion.asunto}</span><span className="mt-1 block text-[10px] text-muted-foreground">{formatMessageTime(conversacion.ultimo.createdAt, locale)}</span></span></div>
+                  <div className="flex items-start gap-2.5"><span className={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', conversacion.pendiente ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>{(esEstudiante ? 'AC' : conversacion.ultimo.estudianteNombre || 'E').slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? conversacion.asunto : conversacion.ultimo.estudianteNombre}</span>{conversacion.pendiente && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{esEstudiante ? (conversacion.ultimo.respuesta || conversacion.ultimo.contenido || ((conversacion.ultimo.respuestaAdjuntos?.length ?? 0) > 0 || (conversacion.ultimo.adjuntos?.length ?? 0) > 0 ? '📎 Archivo adjunto' : '')) : conversacion.asunto}</span><span className="mt-1 block text-[10px] text-muted-foreground">{formatMessageTime(conversacion.ultimo.createdAt, locale)}</span></span></div>
                 </button>
               ))}
             </div>
-            <div className="flex min-h-0 min-w-0 flex-col bg-background/45">
+            <div className="flex min-h-0 min-w-0 flex-col bg-muted/[0.12]">
               <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
                 {!conversacionSeleccionada ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
                   <div className="mx-auto max-w-2xl space-y-5">
@@ -527,45 +585,130 @@ export function Header({ onOpenMobile }: HeaderProps) {
                     {conversacionSeleccionada.mensajes.map((mensaje) => (
                       <div key={mensaje.id} className="space-y-2">
                         <div className={cn('flex', esEstudiante ? 'justify-end' : 'justify-start')}>
-                          <div className={cn('max-w-[88%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap', esEstudiante ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-muted/25 text-foreground')}>
+                          <div className={cn('max-w-[88%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap', esEstudiante ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground')}>
                             <p className={cn('mb-1 text-[10px] font-semibold', esEstudiante ? 'text-primary-foreground/75' : 'text-muted-foreground')}>{esEstudiante ? (locale === 'es' ? 'Tú' : 'You') : mensaje.estudianteNombre}</p>
-                            {mensaje.contenido}
+                            {mensaje.contenido && <p>{mensaje.contenido}</p>}
+                            {(mensaje.adjuntos ?? []).length > 0 && (
+                              <div className="mt-2 grid gap-2">
+                                {mensaje.adjuntos.map((adjunto) => (
+                                  <a
+                                    key={adjunto.id}
+                                    href={adjunto.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className={cn('block overflow-hidden rounded-xl border text-left transition hover:brightness-95', esEstudiante ? 'border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground' : 'border-border/70 bg-muted/35 text-foreground')}
+                                  >
+                                    {isImageAttachment(adjunto.contentType) ? (
+                                      <><img src={adjunto.url} alt={adjunto.nombre} loading="lazy" className="max-h-64 w-full rounded-t-[11px] object-cover" /><span className="flex items-center gap-2 px-3 py-2 text-xs font-medium"><Paperclip className="size-3.5 shrink-0" />{adjunto.nombre}</span></>
+                                    ) : (
+                                      <span className="flex items-center gap-2 px-3 py-2.5 text-xs font-medium"><FileText className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{adjunto.nombre}</span><span className="shrink-0 opacity-70">{formatFileSize(adjunto.tamano)}</span></span>
+                                    )}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                             <p className={cn('mt-1 text-[10px]', esEstudiante ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{formatMessageTime(mensaje.createdAt, locale)}</p>
                           </div>
                         </div>
-                        {mensaje.respuesta && <div className={cn('flex', esEstudiante ? 'justify-start' : 'justify-end')}><div className={cn('max-w-[88%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap', esEstudiante ? 'rounded-tl-md border border-primary/20 bg-primary/5 text-foreground' : 'rounded-br-md bg-primary text-primary-foreground')}><p className={cn('mb-1 text-[10px] font-semibold', esEstudiante ? 'text-primary' : 'text-primary-foreground/75')}>{messageCopy.response}</p>{mensaje.respuesta}<p className={cn('mt-1 text-[10px]', esEstudiante ? 'text-muted-foreground' : 'text-primary-foreground/70')}>{mensaje.respondidoAt ? formatMessageTime(mensaje.respondidoAt, locale) : ''}</p></div></div>}
+                        {(mensaje.respuesta || (mensaje.respuestaAdjuntos ?? []).length > 0) && (
+                          <div className={cn('flex', esEstudiante ? 'justify-start' : 'justify-end')}>
+                            <div className={cn('max-w-[88%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap', esEstudiante ? 'rounded-tl-md border border-primary/20 bg-primary/5 text-foreground' : 'rounded-br-md bg-primary text-primary-foreground')}>
+                              <p className={cn('mb-1 text-[10px] font-semibold', esEstudiante ? 'text-primary' : 'text-primary-foreground/75')}>{messageCopy.response}</p>
+                              {mensaje.respuesta && <p>{mensaje.respuesta}</p>}
+                              {(mensaje.respuestaAdjuntos ?? []).length > 0 && (
+                                <div className="mt-2 grid gap-2">
+                                  {mensaje.respuestaAdjuntos.map((adjunto) => (
+                                    <a key={adjunto.id} href={adjunto.url} target="_blank" rel="noreferrer" className={cn('block overflow-hidden rounded-xl border text-left transition hover:brightness-95', esEstudiante ? 'border-primary/20 bg-background text-foreground' : 'border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground')}>
+                                      {isImageAttachment(adjunto.contentType) ? (
+                                        <><img src={adjunto.url} alt={adjunto.nombre} loading="lazy" className="max-h-64 w-full rounded-t-[11px] object-cover" /><span className="flex items-center gap-2 px-3 py-2 text-xs font-medium"><Paperclip className="size-3.5 shrink-0" />{adjunto.nombre}</span></>
+                                      ) : (
+                                        <span className="flex items-center gap-2 px-3 py-2.5 text-xs font-medium"><FileText className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{adjunto.nombre}</span><span className="shrink-0 opacity-70">{formatFileSize(adjunto.tamano)}</span></span>
+                                      )}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                              <p className={cn('mt-1 text-[10px]', esEstudiante ? 'text-muted-foreground' : 'text-primary-foreground/70')}>{mensaje.respondidoAt ? formatMessageTime(mensaje.respondidoAt, locale) : ''}</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                   {esEstudiante && !conversacionSeleccionada.mensajes.some((mensaje) => mensaje.respuesta) && <p className="text-sm text-muted-foreground">{messageCopy.waiting}</p>}
                   {!esEstudiante && (
-                    <div className="space-y-2"><label htmlFor="respuesta-mensaje" className="text-sm font-medium text-foreground">{messageCopy.reply}</label><textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} rows={6} maxLength={5000} className="w-full rounded-xl border border-input bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" placeholder={messageCopy.replyPlaceholder} />{messageError && <p className="text-xs text-destructive">{messageError}</p>}<Button type="button" onClick={() => void responderMensaje()} disabled={sendingReply || !reply.trim()}>{sendingReply ? messageCopy.sending : selectedMessage?.estado === 'RESPONDIDO' ? messageCopy.update : messageCopy.send}</Button></div>
+                    <div className="space-y-2 rounded-2xl border border-border/70 bg-background p-3">
+                      <label htmlFor="respuesta-mensaje" className="text-sm font-medium text-foreground">{messageCopy.reply}</label>
+                      {replyAttachments.length > 0 && <div className="flex flex-wrap gap-2">{replyAttachments.map((archivo, indice) => (
+                        <span key={`${archivo.name}-${archivo.lastModified}-${indice}`} className="inline-flex max-w-full items-center gap-2 rounded-xl border border-border/70 bg-muted/25 px-2.5 py-1.5 text-xs text-foreground"><Paperclip className="size-3.5 shrink-0 text-primary" /><span className="max-w-40 truncate font-medium">{archivo.name}</span><span className="text-muted-foreground">{formatFileSize(archivo.size)}</span><button type="button" onClick={() => quitarAdjuntoRespuesta(indice)} aria-label={`${locale === 'es' ? 'Quitar' : 'Remove'} ${archivo.name}`} className="rounded p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"><X className="size-3.5" /></button></span>
+                      ))}</div>}
+                      <input ref={replyFileInputRef} type="file" multiple accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx" className="sr-only" onChange={(event) => { agregarAdjuntosRespuesta(Array.from(event.target.files ?? [])); event.target.value = '' }} />
+                      <div className="flex items-end gap-2">
+                        <button type="button" onClick={() => replyFileInputRef.current?.click()} disabled={sendingReply} aria-label={locale === 'es' ? 'Adjuntar archivo' : 'Attach file'} title={locale === 'es' ? 'Adjuntar archivo o imagen' : 'Attach a file or image'} className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-input bg-background text-muted-foreground transition hover:border-primary/35 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"><Paperclip className="size-5" /></button>
+                        <textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} onPaste={(event) => { const imagenes = Array.from(event.clipboardData.files).filter((archivo) => archivo.type.startsWith('image/')); if (imagenes.length > 0) { event.preventDefault(); agregarAdjuntosRespuesta(imagenes) } }} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void responderMensaje() } }} rows={3} maxLength={5000} className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" placeholder={messageCopy.replyPlaceholder} />
+                        <Button type="button" className="h-11 shrink-0 rounded-xl" onClick={() => void responderMensaje()} disabled={sendingReply || (!reply.trim() && replyAttachments.length === 0)}>{sendingReply ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}<span className="hidden sm:inline">{sendingReply ? messageCopy.sending : selectedMessage?.estado === 'RESPONDIDO' ? messageCopy.update : messageCopy.send}</span></Button>
+                      </div>
+                      {messageError && <p className="text-xs text-destructive">{messageError}</p>}
+                    </div>
                   )}
                   </div>
                 )}
               </div>
               {esEstudiante && (
                 <div className="shrink-0 border-t border-border/60 bg-card px-4 py-3 sm:px-5">
-                  <div className="mx-auto flex max-w-2xl items-end gap-2">
-                    <textarea
-                      value={studentBody}
-                      onChange={(event) => setStudentBody(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' && !event.shiftKey) {
-                          event.preventDefault()
-                          void enviarMensajeEstudiante()
-                        }
-                      }}
-                      rows={2}
-                      maxLength={5000}
-                      placeholder={locale === 'es' ? 'Escribe un mensaje al equipo de acompañamiento…' : 'Write a message to the support team…'}
-                      className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
-                    />
-                    {messageError && <p className="sr-only">{messageError}</p>}
-                    <Button className="h-11 shrink-0 rounded-xl" onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || !studentBody.trim()}>
-                      {sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}
-                      <span className="hidden sm:inline">{locale === 'es' ? 'Enviar' : 'Send'}</span>
-                    </Button>
+                  <div className="mx-auto max-w-2xl">
+                    {studentAttachments.length > 0 && (
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        {studentAttachments.map((archivo, indice) => (
+                          <span key={`${archivo.name}-${archivo.lastModified}-${indice}`} className="inline-flex max-w-full items-center gap-2 rounded-xl border border-border/70 bg-background px-2.5 py-1.5 text-xs text-foreground shadow-sm">
+                            <Paperclip className="size-3.5 shrink-0 text-primary" />
+                            <span className="max-w-40 truncate font-medium">{archivo.name}</span>
+                            <span className="text-muted-foreground">{formatFileSize(archivo.size)}</span>
+                            <button type="button" onClick={() => quitarAdjuntoEstudiante(indice)} aria-label={`${locale === 'es' ? 'Quitar' : 'Remove'} ${archivo.name}`} className="rounded p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"><X className="size-3.5" /></button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {messageError && <p className="mb-2 text-xs text-destructive">{messageError}</p>}
+                    <div className="flex items-end gap-2">
+                      <input
+                        ref={studentFileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx"
+                        className="sr-only"
+                        onChange={(event) => {
+                          agregarAdjuntosEstudiante(Array.from(event.target.files ?? []))
+                          event.target.value = ''
+                        }}
+                      />
+                      <button type="button" onClick={() => studentFileInputRef.current?.click()} disabled={sendingStudentMessage} aria-label={locale === 'es' ? 'Adjuntar archivo' : 'Attach file'} title={locale === 'es' ? 'Adjuntar archivo o imagen' : 'Attach a file or image'} className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-input bg-background text-muted-foreground transition hover:border-primary/35 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"><Paperclip className="size-5" /></button>
+                      <textarea
+                        value={studentBody}
+                        onChange={(event) => setStudentBody(event.target.value)}
+                        onPaste={(event) => {
+                          const imagenes = Array.from(event.clipboardData.files).filter((archivo) => archivo.type.startsWith('image/'))
+                          if (imagenes.length > 0) {
+                            event.preventDefault()
+                            agregarAdjuntosEstudiante(imagenes)
+                          }
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && !event.shiftKey) {
+                            event.preventDefault()
+                            void enviarMensajeEstudiante()
+                          }
+                        }}
+                        rows={2}
+                        maxLength={5000}
+                        placeholder={locale === 'es' ? 'Escribe un mensaje o pega una imagen…' : 'Write a message or paste an image…'}
+                        className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
+                      />
+                      <Button className="h-11 shrink-0 rounded-xl" onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || (!studentBody.trim() && studentAttachments.length === 0)}>
+                        {sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}
+                        <span className="hidden sm:inline">{locale === 'es' ? 'Enviar' : 'Send'}</span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}

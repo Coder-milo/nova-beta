@@ -407,6 +407,17 @@ export interface MensajeResponse {
   respuesta: string | null
   respondidoPor: string | null
   respondidoAt: string | null
+  adjuntos: MensajeAdjuntoResponse[]
+  respuestaAdjuntos: MensajeAdjuntoResponse[]
+}
+
+export interface MensajeAdjuntoResponse {
+  id: string
+  nombre: string
+  contentType: string
+  tamano: number
+  /** Ruta autenticada para abrir o descargar el adjunto. */
+  url: string
 }
 
 // ─── Módulos del diseño (proyectos enriquecidos, HV, documentos, etc.) ────────

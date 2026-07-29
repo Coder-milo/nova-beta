@@ -114,14 +114,23 @@ function cabeceraAuth(token?: string): Record<string, string> {
 }
 
 /** Sube archivos como multipart/form-data (valores string o File). */
-async function apiUpload<T>(path: string, fields: Record<string, File | string | undefined>, token?: string): Promise<T> {
+async function apiUpload<T>(
+  path: string,
+  fields: Record<string, File | File[] | string | undefined>,
+  token?: string,
+  method: 'POST' | 'PUT' = 'POST',
+): Promise<T> {
   const form = new FormData()
   for (const [k, v] of Object.entries(fields)) {
     if (v === undefined) continue
+    if (Array.isArray(v)) {
+      for (const archivo of v) form.append(k, archivo)
+      continue
+    }
     form.append(k, v)
   }
   const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'POST',
+    method,
     body: form,
     headers: cabeceraAuth(token),
     credentials: 'same-origin',
@@ -422,14 +431,22 @@ export const mensajesApi = {
     apiFetch<MensajeResponse[]>('/api/v1/mensajes/mios', { token }),
   listar: (token?: string) =>
     apiFetch<MensajeResponse[]>('/api/v1/mensajes', { token }),
-  enviar: (body: { asunto: string; contenido: string }, token?: string) =>
-    apiFetch<MensajeResponse>('/api/v1/mensajes/mios', {
-      method: 'POST', data: body, token,
-    }),
-  responder: (id: string, respuesta: string, token?: string) =>
-    apiFetch<MensajeResponse>(`/api/v1/mensajes/${id}/respuesta`, {
-      method: 'PUT', data: { respuesta }, token,
-    }),
+  enviar: (body: { asunto: string; contenido: string; archivos?: File[] }, token?: string) =>
+    body.archivos?.length
+      ? apiUpload<MensajeResponse>('/api/v1/mensajes/mios', {
+          asunto: body.asunto,
+          contenido: body.contenido,
+          archivos: body.archivos,
+        }, token)
+      : apiFetch<MensajeResponse>('/api/v1/mensajes/mios', {
+          method: 'POST', data: body, token,
+        }),
+  responder: (id: string, respuesta: string, archivos?: File[], token?: string) =>
+    archivos?.length
+      ? apiUpload<MensajeResponse>(`/api/v1/mensajes/${id}/respuesta`, { respuesta, archivos }, token, 'PUT')
+      : apiFetch<MensajeResponse>(`/api/v1/mensajes/${id}/respuesta`, {
+          method: 'PUT', data: { respuesta }, token,
+        }),
 }
 
 // ─── Admin ───────────────────────────────────────────────────────────────────
