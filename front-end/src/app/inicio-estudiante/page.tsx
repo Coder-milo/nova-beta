@@ -99,7 +99,7 @@ export default function InicioEstudiantePage() {
         {bannerUrl && (
           <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
         )}
-        <div className={`absolute inset-0 ${bannerUrl ? 'bg-gradient-to-r from-background/90 via-background/62 to-background/15 dark:from-background/88 dark:via-background/52 dark:to-background/12' : 'bg-primary/[0.035]'}`} />
+        {!bannerUrl && <div className="absolute inset-0 bg-primary/[0.035]" />}
         <div className="relative p-6 md:p-8">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-[.14em] text-primary">{branding?.subtituloHeader || 'Portal del estudiante'}</p>
@@ -109,9 +109,9 @@ export default function InicioEstudiantePage() {
         </div>
       </section>
 
-      {alertas.length > 0 && <section className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.055] p-5">
-        <div className="flex items-start gap-3"><span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300"><WarningCircle className="size-5" weight="duotone" /></span><div><h2 className="font-semibold">Alertas para avanzar</h2><p className="mt-1 text-sm text-muted-foreground">Estas acciones te ayudan a completar tu proceso de empleabilidad.</p></div></div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">{alertas.map((alerta) => alerta.externa ? <a key={alerta.id} href={alerta.href} target="_blank" rel="noreferrer" className="group rounded-xl border border-border/70 bg-background/75 p-4 transition hover:border-primary/40 hover:bg-background"><p className="text-sm font-semibold">{alerta.titulo}</p><p className="mt-1 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">Ir a LinkedIn <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></a> : <Link key={alerta.id} href={alerta.href} className="group rounded-xl border border-border/70 bg-background/75 p-4 transition hover:border-primary/40 hover:bg-background"><p className="text-sm font-semibold">{alerta.titulo}</p><p className="mt-1 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">Resolver ahora <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></Link>)}</div>
+      {alertas.length > 0 && <section className="rounded-2xl border border-amber-500/25 bg-amber-50 p-5 dark:bg-amber-950">
+        <div className="flex items-start gap-3"><span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"><WarningCircle className="size-5" weight="duotone" /></span><div><h2 className="font-semibold">Alertas para avanzar</h2><p className="mt-1 text-sm text-muted-foreground">Estas acciones te ayudan a completar tu proceso de empleabilidad.</p></div></div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">{alertas.map((alerta) => alerta.externa ? <a key={alerta.id} href={alerta.href} target="_blank" rel="noreferrer" className="group rounded-xl border border-border/70 bg-card p-4 transition hover:border-primary/40 hover:bg-card"><p className="text-sm font-semibold">{alerta.titulo}</p><p className="mt-1 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">Ir a LinkedIn <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></a> : <Link key={alerta.id} href={alerta.href} className="group rounded-xl border border-border/70 bg-card p-4 transition hover:border-primary/40 hover:bg-card"><p className="text-sm font-semibold">{alerta.titulo}</p><p className="mt-1 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">Resolver ahora <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></Link>)}</div>
       </section>}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
