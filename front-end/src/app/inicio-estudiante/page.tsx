@@ -113,7 +113,7 @@ export default function InicioEstudiantePage() {
           <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-background/85 p-4 shadow-sm backdrop-blur-sm">
             <span className="flex size-11 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">{iniciales || 'EC'}</span>
             <div>
-              <p className="text-sm font-semibold">{branding?.tituloHeader || perfil?.programaNombre || 'Programa sin asignar'}</p>
+              <p className="text-sm font-semibold">Estado de empleabilidad</p>
               <p className="text-xs text-muted-foreground">{perfil?.estadoEmpleabilidad || 'Estado pendiente'}</p>
             </div>
           </div>
