@@ -1,0 +1,142 @@
+spring:
+  application:
+    name: nova-crm
+  datasource:
+    # Nombre canonico primero (el que inyectan docker-compose y render.yaml);
+    # se acepta el prefijo NOVA_* como alias para no romper entornos antiguos.
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:${NOVA_DB_NAME:novacrm}}${DB_PARAMS:}
+    username: ${DB_USER:${NOVA_DB_USER:novacrm}}
+    password: ${DB_PASSWORD:${NOVA_DB_PASSWORD:novacrm_secret}}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  # Servidor SMTP. Con estas cuatro propiedades la aplicacion envia por
+  # cualquier proveedor (Brevo, Resend, Mailgun o el correo institucional).
+  # Si no hay host, se usa Amazon SES.
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    date-format: com.fasterxml.jackson.databind.util.ISO8601DateFormat
+
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: never
+    include-binding-errors: never
+
+logging:
+  level:
+    root: INFO
+    com.novacrm: DEBUG
+
+app:
+  jwt:
+    # Sin valor por defecto a proposito: la app no debe arrancar nunca con un
+    # secreto conocido. SecurityConfig valida y falla con un mensaje accionable.
+    secret: ${JWT_SECRET:${NOVA_JWT_SECRET:}}
+    expiration-ms: 28800000
+    refresh-expiration-ms: 604800000
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:4200,http://localhost:3000}
+  rate-limit:
+    login-max: 5
+    login-window-minutes: 1
+    api-max: 100
+    api-window-minutes: 1
+    # Desde que direcciones se acepta la cabecera X-Forwarded-For. La API
+    # siempre va detras de un proxy (el SSR de Astro en local y en docker, el
+    # balanceador en Render), asi que por defecto se confia en loopback y en
+    # los rangos privados. Sin esto todo el trafico compartiria un unico
+    # contador y la API devolveria 429 con pocos usuarios simultaneos.
+    # Si algun dia la API queda expuesta directamente a internet, hay que
+    # dejar esta lista vacia: de lo contrario el limite es falseable.
+    trusted-proxies: ${RATE_LIMIT_TRUSTED_PROXIES:127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+  colocacion:
+    # Salario objetivo del programa: por debajo de esto una colocacion cuenta,
+    # pero no como colocacion digna. Es configuracion y no una constante porque
+    # sube con el salario minimo cada año; por eso la diferencia contra la meta
+    # se calcula al leer y no se guarda en la fila de cada colocacion.
+    meta-salarial: ${META_SALARIAL:2276176}
+  minio:
+    url: ${MINIO_ENDPOINT:${MINIO_URL:http://localhost:9000}}
+    access-key: ${MINIO_ACCESS_KEY:}
+    secret-key: ${MINIO_SECRET_KEY:}
+    bucket: ${MINIO_BUCKET:novacrm}
+  ses:
+    region: ${AWS_REGION:${SES_REGION:us-east-1}}
+    source-email: ${AWS_SES_FROM_EMAIL:${SES_SOURCE_EMAIL:noreply@novacrm.com}}
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  correo:
+    # Remitente. Los proveedores gratuitos (Brevo, Resend...) exigen que la
+    # direccion este verificada en su panel antes de aceptar el envio.
+    remitente: ${CORREO_REMITENTE:}
+    nombre-remitente: ${CORREO_NOMBRE_REMITENTE:NOVA - CAC Eurocentres}
+    # De donde cuelgan las URL de imagen que se escriben en los correos.
+    # En produccion TIENE que ser el dominio publico del backend: es la
+    # direccion que el cliente de correo del destinatario va a abrir desde su
+    # ordenador, donde localhost no es esta maquina.
+    base-url-publica: ${CORREO_BASE_URL_PUBLICA:http://localhost:8080}
+    # Imagenes de la plantilla. Deben ser URLs publicas: los clientes de correo
+    # no muestran adjuntos incrustados de forma fiable.
+    logo-url: ${CORREO_LOGO_URL:}
+    banner-pie-url: ${CORREO_BANNER_PIE_URL:}
+    # Mientras esta lista tenga direcciones, SOLO se escribe a ellas. Es la
+    # salvaguarda para probar el envio sin escribir a los 107 participantes.
+    # Vaciarla habilita el envio real a todos.
+    destinatarios-permitidos: ${CORREO_DESTINATARIOS_PERMITIDOS:}
+  linkedin:
+    client-id: ${LINKEDIN_CLIENT_ID:}
+    client-secret: ${LINKEDIN_CLIENT_SECRET:}
+    redirect-uri: ${LINKEDIN_REDIRECT_URI:}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  health:
+    mail:
+      # Sin esto, tener declarado spring.mail.* activa una comprobacion que
+      # intenta conectarse al SMTP en cada consulta de salud. Sin credenciales
+      # falla y deja la aplicacion entera como DOWN, aunque todo lo demas
+      # funcione: el health check del contenedor y el de Render la darian por
+      # caida. Que el correo no este configurado no es que la app este caida;
+      # eso se consulta con EmailService.canalActivo().
+      enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  metrics:
+    tags:
+      application: ${spring.application.name}
