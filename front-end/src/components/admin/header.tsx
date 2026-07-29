@@ -173,6 +173,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const esEstudiante = soloEsEstudiante(user?.roles)
 
   const [studentNotifications, setStudentNotifications] = useState<NotificacionResponse[]>([])
+  const [studentUnreadNotifications, setStudentUnreadNotifications] = useState(0)
   const [adminNotifications, setAdminNotifications] = useState(notifications)
   const [messages, setMessages] = useState<MensajeResponse[]>([])
   const [messageSheetOpen, setMessageSheetOpen] = useState(false)
@@ -209,20 +210,33 @@ export function Header({ onOpenMobile }: HeaderProps) {
 
   useEffect(() => {
     let active = true
-    void (async () => {
+    const cargarNotificaciones = async () => {
       try {
         if (esEstudiante) {
           const profile = await estudiantesApi.obtenerMiPerfil()
-          const response = await notificacionesApi.listarPorEstudiante(profile.id, 0, 8)
-          if (active) setStudentNotifications(response.content)
+          const [response, unread] = await Promise.all([
+            notificacionesApi.listarPorEstudiante(profile.id, 0, 8),
+            notificacionesApi.contarNoLeidas(profile.id),
+          ])
+          if (active) {
+            setStudentNotifications(response.content)
+            setStudentUnreadNotifications(unread)
+            window.dispatchEvent(new CustomEvent('nova:notifications-updated', { detail: unread }))
+          }
         } else if (active) {
           setStudentNotifications([])
+          setStudentUnreadNotifications(0)
         }
       } catch {
-        if (active) setStudentNotifications([])
+        if (active) {
+          setStudentNotifications([])
+          setStudentUnreadNotifications(0)
+        }
       }
-    })()
-    return () => { active = false }
+    }
+    void cargarNotificaciones()
+    const refreshId = window.setInterval(() => { void cargarNotificaciones() }, 45_000)
+    return () => { active = false; window.clearInterval(refreshId) }
   }, [esEstudiante])
 
   useEffect(() => {
@@ -324,7 +338,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
          mediaTipo: notification.mediaTipo,
       }))
     : adminNotifications
-  const unreadNotifications = notificationItems.filter((notification) => !notification.leida).length
+  const unreadNotifications = esEstudiante
+    ? studentUnreadNotifications
+    : notificationItems.filter((notification) => !notification.leida).length
   const pendingMessages = conversaciones.filter((conversacion) =>
     esEstudiante ? conversacion.mensajes.some((mensaje) => mensaje.estado === 'RESPONDIDO') : conversacion.pendiente,
   ).length
@@ -338,6 +354,11 @@ export function Header({ onOpenMobile }: HeaderProps) {
           setStudentNotifications((items) =>
             items.map((item) => (item.id === id ? { ...item, leida: true } : item)),
           )
+          setStudentUnreadNotifications((count) => {
+            const updatedCount = Math.max(0, count - 1)
+            window.dispatchEvent(new CustomEvent('nova:notifications-updated', { detail: updatedCount }))
+            return updatedCount
+          })
         } catch {
           // La bandeja permite volver a intentar la acción si falla la red.
         }
@@ -671,7 +692,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                         : directMessages.length === 0 ? <p className="py-10 text-center text-sm text-muted-foreground">{locale === 'es' ? ('Aún no hay mensajes con ' + directContact.nombre + '.') : ('There are no messages with ' + directContact.nombre + ' yet.')}</p>
                           : directMessages.map((mensaje) => (
                             <div key={mensaje.id} className={cn('flex', mensaje.enviadoPorMi ? 'justify-end' : 'justify-start')}>
-                              <div className={cn('max-w-[88%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap', mensaje.enviadoPorMi ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground')}>
+                              <div className={cn('max-w-[74%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap sm:max-w-[70%]', mensaje.enviadoPorMi ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground')}>
                                 {!mensaje.enviadoPorMi && <p className="mb-1 text-[10px] font-semibold text-muted-foreground">{mensaje.remitenteNombre}</p>}
                                 <p>{mensaje.contenido}</p>
                                 <p className={cn('mt-1 text-[10px]', mensaje.enviadoPorMi ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{formatMessageTime(mensaje.createdAt, locale)}</p>
@@ -691,7 +712,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                     {conversacionSeleccionada.mensajes.map((mensaje) => (
                       <div key={mensaje.id} className="space-y-2">
                         <div className={cn('flex', esEstudiante ? 'justify-end' : 'justify-start')}>
-                          <div className={cn('max-w-[88%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap', esEstudiante ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground')}>
+                          <div className={cn('max-w-[74%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap sm:max-w-[70%]', esEstudiante ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground')}>
                             <p className={cn('mb-1 text-[10px] font-semibold', esEstudiante ? 'text-primary-foreground/75' : 'text-muted-foreground')}>{esEstudiante ? (locale === 'es' ? 'Tú' : 'You') : mensaje.estudianteNombre}</p>
                             {mensaje.contenido && <p>{mensaje.contenido}</p>}
                             {(mensaje.adjuntos ?? []).length > 0 && (
@@ -718,7 +739,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                         </div>
                         {(mensaje.respuesta || (mensaje.respuestaAdjuntos ?? []).length > 0) && (
                           <div className={cn('flex', esEstudiante ? 'justify-start' : 'justify-end')}>
-                            <div className={cn('max-w-[88%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap', esEstudiante ? 'rounded-tl-md border border-primary/20 bg-primary/5 text-foreground' : 'rounded-br-md bg-primary text-primary-foreground')}>
+                            <div className={cn('max-w-[74%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap sm:max-w-[70%]', esEstudiante ? 'rounded-tl-md border border-primary/20 bg-primary/5 text-foreground' : 'rounded-br-md bg-primary text-primary-foreground')}>
                               <p className={cn('mb-1 text-[10px] font-semibold', esEstudiante ? 'text-primary' : 'text-primary-foreground/75')}>{messageCopy.response}</p>
                               {mensaje.respuesta && <p>{mensaje.respuesta}</p>}
                               {(mensaje.respuestaAdjuntos ?? []).length > 0 && (

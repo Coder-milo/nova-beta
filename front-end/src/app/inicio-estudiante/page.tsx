@@ -62,6 +62,17 @@ export default function InicioEstudiantePage() {
     return () => { active = false }
   }, [])
 
+  // La campana del encabezado consulta el total real de no leídas. Al abrir una
+  // notificación, ambos indicadores se actualizan en el mismo instante.
+  useEffect(() => {
+    const actualizarContador = (event: Event) => {
+      const count = (event as CustomEvent<number>).detail
+      if (typeof count === 'number' && Number.isFinite(count)) setNoLeidas(Math.max(0, count))
+    }
+    window.addEventListener('nova:notifications-updated', actualizarContador)
+    return () => window.removeEventListener('nova:notifications-updated', actualizarContador)
+  }, [])
+
   // Al volver al inicio se consulta la identidad más reciente. Así una imagen
   // publicada por el administrador se refleja sin depender del estado que
   // quedó montado antes de que se guardara el proyecto.
