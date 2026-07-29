@@ -41,8 +41,8 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { notifications } from '@/lib/mock-data'
-import { busquedaApi, estudiantesApi, mensajesApi, notificacionesApi } from '@/lib/api'
-import type { BusquedaResponse, MensajeResponse, NotificacionResponse, ResultadoBusqueda } from '@/lib/types'
+import { busquedaApi, chatsApi, estudiantesApi, mensajesApi, notificacionesApi } from '@/lib/api'
+import type { BusquedaResponse, ChatContactoResponse, ChatDirectoMensajeResponse, MensajeResponse, NotificacionResponse, ResultadoBusqueda } from '@/lib/types'
 import { getNavItemsForRoles, soloEsEstudiante } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -112,11 +112,11 @@ function asuntoConversacion(asunto: string): string {
   return limpio || 'Consulta al equipo de acompañamiento'
 }
 
-function agruparConversaciones(mensajes: MensajeResponse[]): Conversacion[] {
+function agruparConversaciones(mensajes: MensajeResponse[], esChatAcademy = false): Conversacion[] {
   const grupos = new Map<string, { asunto: string; mensajes: MensajeResponse[] }>()
   for (const mensaje of mensajes) {
-    const asunto = asuntoConversacion(mensaje.asunto)
-    const id = `${mensaje.estudianteId}:${asunto.toLocaleLowerCase()}`
+    const asunto = esChatAcademy ? 'CAC Academy' : asuntoConversacion(mensaje.asunto)
+    const id = esChatAcademy ? `${mensaje.estudianteId}:cac-academy` : `${mensaje.estudianteId}:${asunto.toLocaleLowerCase()}`
     const grupo = grupos.get(id) ?? { asunto, mensajes: [] }
     grupo.mensajes.push(mensaje)
     grupos.set(id, grupo)
@@ -185,6 +185,12 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [studentBody, setStudentBody] = useState('')
   const [studentAttachments, setStudentAttachments] = useState<File[]>([])
   const [sendingStudentMessage, setSendingStudentMessage] = useState(false)
+  const [directContact, setDirectContact] = useState<ChatContactoResponse | null>(null)
+  const [directMessages, setDirectMessages] = useState<ChatDirectoMensajeResponse[]>([])
+  const [directLoading, setDirectLoading] = useState(false)
+  const [contactQuery, setContactQuery] = useState('')
+  const [contactResults, setContactResults] = useState<ChatContactoResponse[]>([])
+  const [contactsLoading, setContactsLoading] = useState(false)
   const studentFileInputRef = useRef<HTMLInputElement>(null)
   const replyFileInputRef = useRef<HTMLInputElement>(null)
 
@@ -193,7 +199,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<BusquedaResponse>(BUSQUEDA_VACIA)
 
-  const conversaciones = useMemo(() => agruparConversaciones(messages), [messages])
+  const conversaciones = useMemo(() => agruparConversaciones(messages, esEstudiante), [messages, esEstudiante])
   const conversacionSeleccionada = useMemo(
     () => selectedMessage
       ? conversaciones.find((conversacion) => conversacion.mensajes.some((mensaje) => mensaje.id === selectedMessage.id)) ?? null
@@ -218,6 +224,40 @@ export function Header({ onOpenMobile }: HeaderProps) {
     })()
     return () => { active = false }
   }, [esEstudiante])
+
+  useEffect(() => {
+    if (!esEstudiante || contactQuery.trim().length < 2) {
+      setContactResults([])
+      setContactsLoading(false)
+      return
+    }
+    let active = true
+    setContactsLoading(true)
+    const timer = window.setTimeout(() => {
+      void chatsApi.contactos(contactQuery.trim())
+        .then((data) => { if (active) setContactResults(data) })
+        .catch(() => { if (active) setContactResults([]) })
+        .finally(() => { if (active) setContactsLoading(false) })
+    }, 220)
+    return () => { active = false; window.clearTimeout(timer) }
+  }, [contactQuery, esEstudiante])
+
+  useEffect(() => {
+    if (!directContact || !esEstudiante) return
+    let active = true
+    setDirectLoading(true)
+    setMessageError('')
+    void chatsApi.conversacion(directContact.id)
+      .then((data) => { if (active) setDirectMessages(data) })
+      .catch((error) => {
+        if (active) {
+          setDirectMessages([])
+          setMessageError(error instanceof Error ? error.message : 'No se pudo abrir la conversación.')
+        }
+      })
+      .finally(() => { if (active) setDirectLoading(false) })
+    return () => { active = false }
+  }, [directContact, esEstudiante])
 
   const cargarMensajes = useCallback(async () => {
     setMessagesLoading(true)
@@ -312,9 +352,24 @@ export function Header({ onOpenMobile }: HeaderProps) {
   }
 
   const abrirMensaje = (message: MensajeResponse) => {
+    setDirectContact(null)
+    setDirectMessages([])
+    setStudentAttachments([])
     setSelectedMessage(message)
     setReply(message.respuesta ?? '')
     setReplyAttachments([])
+    setMessageError('')
+    setMessageSheetOpen(true)
+  }
+
+  const abrirChatDirecto = (contacto: ChatContactoResponse) => {
+    setDirectContact(contacto)
+    setDirectMessages([])
+    setSelectedMessage(null)
+    setStudentAttachments([])
+    setStudentBody('')
+    setContactQuery('')
+    setContactResults([])
     setMessageError('')
     setMessageSheetOpen(true)
   }
@@ -357,12 +412,17 @@ export function Header({ onOpenMobile }: HeaderProps) {
   }
 
   const enviarMensajeEstudiante = async () => {
-    if (!studentBody.trim() && studentAttachments.length === 0) return
+    if (directContact ? !studentBody.trim() : (!studentBody.trim() && studentAttachments.length === 0)) return
     setSendingStudentMessage(true); setMessageError('')
     try {
-      const asunto = selectedMessage
-        ? asuntoConversacion(selectedMessage.asunto)
-        : (locale === 'es' ? 'Consulta al equipo de acompañamiento' : 'Question for the support team')
+      if (directContact) {
+        if (!studentBody.trim()) return
+        const nuevo = await chatsApi.enviar(directContact.id, studentBody.trim())
+        setDirectMessages((actual) => [...actual, nuevo])
+        setStudentBody('')
+        return
+      }
+      const asunto = 'CAC Academy'
       const nuevo = await mensajesApi.enviar({ asunto, contenido: studentBody.trim(), archivos: studentAttachments })
       setMessages((actual) => [nuevo, ...actual])
       setSelectedMessage(nuevo); setReply('')
@@ -566,6 +626,32 @@ export function Header({ onOpenMobile }: HeaderProps) {
           </SheetHeader>
           <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.8fr)]">
             <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 lg:max-h-none lg:border-b-0 lg:border-r">
+              {esEstudiante && (
+                <div className="mb-2 border-b border-border/60 pb-2">
+                  <div className="relative">
+                    <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input value={contactQuery} onChange={(event) => setContactQuery(event.target.value)} placeholder={locale === 'es' ? 'Buscar compañeros…' : 'Search classmates…'} className="h-9 rounded-xl bg-background pl-9 text-xs" />
+                  </div>
+                  {contactQuery.trim().length >= 2 && (
+                    <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">
+                      {contactsLoading ? <p className="px-2 py-2 text-xs text-muted-foreground">{locale === 'es' ? 'Buscando compañeros…' : 'Searching classmates…'}</p>
+                        : contactResults.length === 0 ? <p className="px-2 py-2 text-xs text-muted-foreground">{locale === 'es' ? 'No hay compañeros con ese nombre.' : 'No classmates found.'}</p>
+                          : contactResults.map((contacto) => (
+                            <button key={contacto.id} type="button" onClick={() => abrirChatDirecto(contacto)} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-background">
+                              {contacto.fotoUrl ? <img src={contacto.fotoUrl} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{contacto.nombre.slice(0, 2).toUpperCase()}</span>}
+                              <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{contacto.nombre}</span><span className="block text-[10px] text-muted-foreground">{locale === 'es' ? 'Iniciar chat' : 'Start chat'}</span></span>
+                            </button>
+                          ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {directContact && esEstudiante && (
+                <button type="button" onClick={() => abrirChatDirecto(directContact)} className="mb-1 flex w-full items-center gap-2.5 rounded-xl border border-primary/20 bg-background px-3 py-3 text-left shadow-sm">
+                  {directContact.fotoUrl ? <img src={directContact.fotoUrl} alt="" className="size-8 rounded-full object-cover" /> : <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{directContact.nombre.slice(0, 2).toUpperCase()}</span>}
+                  <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{directContact.nombre}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{directMessages[directMessages.length - 1]?.contenido || (locale === 'es' ? 'Conversación nueva' : 'New conversation')}</span></span>
+                </button>
+              )}
               {conversaciones.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : conversaciones.map((conversacion) => (
                 <button key={conversacion.id} type="button" onClick={() => abrirMensaje(conversacion.ultimo)} className={cn('mb-1 w-full rounded-xl border border-transparent px-3 py-3 text-left transition-all hover:border-primary/15 hover:bg-background', conversacionSeleccionada?.id === conversacion.id && 'border-primary/20 bg-background shadow-sm')}>
                   <div className="flex items-start gap-2.5"><span className={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', conversacion.pendiente ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>{(esEstudiante ? 'AC' : conversacion.ultimo.estudianteNombre || 'E').slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? conversacion.asunto : conversacion.ultimo.estudianteNombre}</span>{conversacion.pendiente && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{esEstudiante ? (conversacion.ultimo.respuesta || conversacion.ultimo.contenido || ((conversacion.ultimo.respuestaAdjuntos?.length ?? 0) > 0 || (conversacion.ultimo.adjuntos?.length ?? 0) > 0 ? '📎 Archivo adjunto' : '')) : conversacion.asunto}</span><span className="mt-1 block text-[10px] text-muted-foreground">{formatMessageTime(conversacion.ultimo.createdAt, locale)}</span></span></div>
@@ -574,10 +660,30 @@ export function Header({ onOpenMobile }: HeaderProps) {
             </div>
             <div className="flex min-h-0 min-w-0 flex-col bg-muted/[0.12]">
               <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
-                {!conversacionSeleccionada ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
+                {directContact ? (
+                  <div className="mx-auto flex h-full max-w-2xl flex-col">
+                    <div className="mb-5 shrink-0 border-b border-border/60 pb-4">
+                      <h2 className="text-base font-semibold text-foreground">{directContact.nombre}</h2>
+                      <p className="mt-1 text-xs text-muted-foreground">{locale === 'es' ? 'Chat privado entre compañeros del mismo proyecto.' : 'Private chat between classmates in the same project.'}</p>
+                    </div>
+                    <div className="min-h-0 flex-1 space-y-3">
+                      {directLoading ? <p className="py-10 text-center text-sm text-muted-foreground">{locale === 'es' ? 'Cargando conversación…' : 'Loading conversation…'}</p>
+                        : directMessages.length === 0 ? <p className="py-10 text-center text-sm text-muted-foreground">{locale === 'es' ? ('Aún no hay mensajes con ' + directContact.nombre + '.') : ('There are no messages with ' + directContact.nombre + ' yet.')}</p>
+                          : directMessages.map((mensaje) => (
+                            <div key={mensaje.id} className={cn('flex', mensaje.enviadoPorMi ? 'justify-end' : 'justify-start')}>
+                              <div className={cn('max-w-[88%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap', mensaje.enviadoPorMi ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground')}>
+                                {!mensaje.enviadoPorMi && <p className="mb-1 text-[10px] font-semibold text-muted-foreground">{mensaje.remitenteNombre}</p>}
+                                <p>{mensaje.contenido}</p>
+                                <p className={cn('mt-1 text-[10px]', mensaje.enviadoPorMi ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{formatMessageTime(mensaje.createdAt, locale)}</p>
+                              </div>
+                            </div>
+                          ))}
+                    </div>
+                  </div>
+                ) : !conversacionSeleccionada ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
                   <div className="mx-auto max-w-2xl space-y-5">
                   <div>
-                    <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{conversacionSeleccionada.asunto}</h2><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', conversacionSeleccionada.pendiente ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{conversacionSeleccionada.pendiente ? messageCopy.open : messageCopy.answered}</span></div>
+                    <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{esEstudiante ? 'CAC Academy' : conversacionSeleccionada.asunto}</h2><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', conversacionSeleccionada.pendiente ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{conversacionSeleccionada.pendiente ? messageCopy.open : messageCopy.answered}</span></div>
                     {!esEstudiante && <p className="text-xs text-muted-foreground">{conversacionSeleccionada.ultimo.estudianteNombre} · {conversacionSeleccionada.ultimo.estudianteEmail}</p>}
                     <p className="mt-1 text-xs text-muted-foreground">{formatMessageTime(conversacionSeleccionada.ultimo.createdAt, locale)}</p>
                   </div>
@@ -657,7 +763,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
               {esEstudiante && (
                 <div className="shrink-0 border-t border-border/60 bg-card px-4 py-3 sm:px-5">
                   <div className="mx-auto max-w-2xl">
-                    {studentAttachments.length > 0 && (
+                    {!directContact && studentAttachments.length > 0 && (
                       <div className="mb-2 flex flex-wrap gap-2">
                         {studentAttachments.map((archivo, indice) => (
                           <span key={`${archivo.name}-${archivo.lastModified}-${indice}`} className="inline-flex max-w-full items-center gap-2 rounded-xl border border-border/70 bg-background px-2.5 py-1.5 text-xs text-foreground shadow-sm">
@@ -671,7 +777,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                     )}
                     {messageError && <p className="mb-2 text-xs text-destructive">{messageError}</p>}
                     <div className="flex items-end gap-2">
-                      <input
+                      {!directContact && <><input
                         ref={studentFileInputRef}
                         type="file"
                         multiple
@@ -682,11 +788,12 @@ export function Header({ onOpenMobile }: HeaderProps) {
                           event.target.value = ''
                         }}
                       />
-                      <button type="button" onClick={() => studentFileInputRef.current?.click()} disabled={sendingStudentMessage} aria-label={locale === 'es' ? 'Adjuntar archivo' : 'Attach file'} title={locale === 'es' ? 'Adjuntar archivo o imagen' : 'Attach a file or image'} className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-input bg-background text-muted-foreground transition hover:border-primary/35 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"><Paperclip className="size-5" /></button>
+                      <button type="button" onClick={() => studentFileInputRef.current?.click()} disabled={sendingStudentMessage} aria-label={locale === 'es' ? 'Adjuntar archivo' : 'Attach file'} title={locale === 'es' ? 'Adjuntar archivo o imagen' : 'Attach a file or image'} className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-input bg-background text-muted-foreground transition hover:border-primary/35 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"><Paperclip className="size-5" /></button></>}
                       <textarea
                         value={studentBody}
                         onChange={(event) => setStudentBody(event.target.value)}
                         onPaste={(event) => {
+                          if (directContact) return
                           const imagenes = Array.from(event.clipboardData.files).filter((archivo) => archivo.type.startsWith('image/'))
                           if (imagenes.length > 0) {
                             event.preventDefault()
@@ -701,10 +808,10 @@ export function Header({ onOpenMobile }: HeaderProps) {
                         }}
                         rows={2}
                         maxLength={5000}
-                        placeholder={locale === 'es' ? 'Escribe un mensaje o pega una imagen…' : 'Write a message or paste an image…'}
+                        placeholder={directContact ? (locale === 'es' ? ('Escribe a ' + directContact.nombre + '…') : ('Write to ' + directContact.nombre + '…')) : (locale === 'es' ? 'Escribe un mensaje o pega una imagen…' : 'Write a message or paste an image…')}
                         className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
                       />
-                      <Button className="h-11 shrink-0 rounded-xl" onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || (!studentBody.trim() && studentAttachments.length === 0)}>
+                      <Button className="h-11 shrink-0 rounded-xl" onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || (directContact ? !studentBody.trim() : (!studentBody.trim() && studentAttachments.length === 0))}>
                         {sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}
                         <span className="hidden sm:inline">{locale === 'es' ? 'Enviar' : 'Send'}</span>
                       </Button>

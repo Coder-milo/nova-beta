@@ -420,6 +420,21 @@ export interface MensajeAdjuntoResponse {
   url: string
 }
 
+export interface ChatContactoResponse {
+  id: string
+  nombre: string
+  fotoUrl: string | null
+}
+
+export interface ChatDirectoMensajeResponse {
+  id: string
+  remitenteId: string
+  remitenteNombre: string
+  contenido: string
+  createdAt: string
+  enviadoPorMi: boolean
+}
+
 // ─── Módulos del diseño (proyectos enriquecidos, HV, documentos, etc.) ────────
 
 export interface ProgramaResumenResponse {

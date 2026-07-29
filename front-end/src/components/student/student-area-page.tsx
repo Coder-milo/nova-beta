@@ -68,7 +68,6 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
   const [actividades, setActividades] = useState<ActividadResponse[]>([])
   const [notificaciones, setNotificaciones] = useState<NotificacionResponse[]>([])
   const [mensajes, setMensajes] = useState<MensajeResponse[]>([])
-  const [asuntoMensaje, setAsuntoMensaje] = useState('')
   const [contenidoMensaje, setContenidoMensaje] = useState('')
   const [enviandoMensaje, setEnviandoMensaje] = useState(false)
   const [mensajeExito, setMensajeExito] = useState('')
@@ -124,17 +123,16 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
 
   const enviarMensaje = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!asuntoMensaje.trim() || !contenidoMensaje.trim()) return
+    if (!contenidoMensaje.trim()) return
     setEnviandoMensaje(true)
     setError('')
     setMensajeExito('')
     try {
       const nuevo = await mensajesApi.enviar({
-        asunto: asuntoMensaje.trim(),
+        asunto: 'CAC Academy',
         contenido: contenidoMensaje.trim(),
       })
       setMensajes((items) => [nuevo, ...items])
-      setAsuntoMensaje('')
       setContenidoMensaje('')
       setMensajeExito('Tu mensaje fue enviado al equipo de acompañamiento.')
     } catch (e) {
@@ -388,7 +386,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                 <CardContent className="space-y-3 p-5">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p className="font-semibold">{mensaje.asunto}</p>
+                      <p className="font-semibold">CAC Academy</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Enviado {new Date(mensaje.createdAt).toLocaleString('es-CO')}
                       </p>
@@ -420,14 +418,6 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
             </CardHeader>
             <CardContent>
               <form className="space-y-4" onSubmit={enviarMensaje}>
-                <input
-                  value={asuntoMensaje}
-                  onChange={(event) => setAsuntoMensaje(event.target.value)}
-                  maxLength={160}
-                  required
-                  placeholder="Asunto"
-                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
                 <textarea
                   value={contenidoMensaje}
                   onChange={(event) => setContenidoMensaje(event.target.value)}

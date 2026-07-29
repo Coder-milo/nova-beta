@@ -451,6 +451,19 @@ export const mensajesApi = {
 
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
+import type { ChatContactoResponse, ChatDirectoMensajeResponse } from './types'
+
+export const chatsApi = {
+  contactos: (consulta: string, token?: string) =>
+    apiFetch<ChatContactoResponse[]>(`/api/v1/chats/contactos?q=${encodeURIComponent(consulta)}`, { token }),
+  conversacion: (contactoId: string, token?: string) =>
+    apiFetch<ChatDirectoMensajeResponse[]>(`/api/v1/chats/directos/${contactoId}`, { token }),
+  enviar: (contactoId: string, contenido: string, token?: string) =>
+    apiFetch<ChatDirectoMensajeResponse>(`/api/v1/chats/directos/${contactoId}`, {
+      method: 'POST', data: { contenido }, token,
+    }),
+}
+
 export const adminApi = {
   softDeletePrograma: (programaId: string, token?: string) =>
     apiFetch<{ eliminados: number; tipo: string }>(`/api/v1/admin/programas/${programaId}/estudiantes`, {
