@@ -41,7 +41,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { brandingApi, programasApi, ApiCallError } from '@/lib/api'
 import { paletaDesde, textoSobre } from '@/lib/paleta'
-import { useBranding, guardarProyectoActivo } from '@/lib/branding'
 import type { BrandingResponse, MedidaExigida, ProgramaResponse } from '@/lib/types'
 
 /** Colores de arranque. Ahorran abrir el selector para lo más habitual. */
@@ -261,8 +260,6 @@ function CampoImagen({
 }
 
 export function PanelBranding() {
-  const { refrescar: refrescarTemaGlobal } = useBranding()
-
   const [programas, setProgramas] = useState<ProgramaResponse[]>([])
   const [programaId, setProgramaId] = useState('')
   const [branding, setBranding] = useState<BrandingResponse | null>(null)
@@ -473,11 +470,8 @@ export function PanelBranding() {
       })
       setBranding(b)
       setGuardado(true)
-      // Guardar es elegir: a partir de aqui el panel se viste con este
-      // proyecto. Mientras se edita la gama sigue acotada a la vista previa,
-      // para no perder la referencia con la que se juzgan los colores.
-      guardarProyectoActivo(programaId)
-      refrescarTemaGlobal()
+      // La identidad se publica para los estudiantes de este proyecto. La
+      // vista del administrador conserva deliberadamente la gama global.
     } catch (err) {
       setError(errorDe(err))
     } finally {
@@ -493,9 +487,7 @@ export function PanelBranding() {
     setGuardando(true)
     try {
       await brandingApi.restablecer(programaId)
-      guardarProyectoActivo(null)
       await cargar(programaId)
-      refrescarTemaGlobal()
     } catch (err) {
       setError(errorDe(err))
     } finally {

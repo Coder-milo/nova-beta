@@ -138,6 +138,10 @@ export function ProveedorBranding({ children }: { children: ReactNode }) {
   // gama global hasta que recargara a mano.
   useEffect(() => {
     if (!user) {
+      // El proveedor vive también en las pantallas de administración. Si la
+      // sesión anterior era de un estudiante, quitar la gama de su proyecto
+      // antes de mostrar el panel siguiente evita que se "pegue" al gestor.
+      aplicar(null)
       setBranding(null)
       setCargando(false)
       return
@@ -146,6 +150,7 @@ export function ProveedorBranding({ children }: { children: ReactNode }) {
     // un proyecto, no para repintar su panel de trabajo. Solo el estudiante
     // recibe la marca de su propio programa desde el servidor.
     if (!soloEsEstudiante(user.roles)) {
+      aplicar(null)
       setBranding(null)
       setCargando(false)
       return
@@ -160,9 +165,24 @@ export function ProveedorBranding({ children }: { children: ReactNode }) {
     return () => aplicar(null)
   }, [colorActivo])
 
+  // `refrescar` se expone para que el portal del estudiante pueda recuperar
+  // su identidad al guardar una preferencia. Nunca debe cargar ni aplicar una
+  // identidad mientras se usa un panel de administración: un administrador
+  // puede editar varios proyectos, pero su interfaz conserva siempre la gama
+  // global de Academy CAC.
+  const refrescar = useCallback(() => {
+    if (!user || !soloEsEstudiante(user.roles)) {
+      aplicar(null)
+      setBranding(null)
+      setCargando(false)
+      return
+    }
+    void cargar()
+  }, [user, cargar])
+
   const valor = useMemo<EstadoBranding>(
-    () => ({ branding, cargando, refrescar: cargar }),
-    [branding, cargando, cargar],
+    () => ({ branding, cargando, refrescar }),
+    [branding, cargando, refrescar],
   )
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>
