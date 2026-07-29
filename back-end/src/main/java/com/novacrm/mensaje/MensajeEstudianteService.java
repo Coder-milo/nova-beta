@@ -8,6 +8,7 @@ import com.novacrm.exception.ResourceNotFoundException;
 import com.novacrm.mensaje.dto.MensajeAdjuntoResponse;
 import com.novacrm.mensaje.dto.MensajeRequest;
 import com.novacrm.mensaje.dto.MensajeResponse;
+import com.novacrm.notificacion.NotificacionService;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,17 +40,20 @@ public class MensajeEstudianteService {
     private final EstudianteRepository estudianteRepository;
     private final OwnershipService ownershipService;
     private final StorageService storageService;
+    private final NotificacionService notificacionService;
 
     public MensajeEstudianteService(MensajeEstudianteRepository repository,
                                    MensajeAdjuntoRepository adjuntoRepository,
                                    EstudianteRepository estudianteRepository,
                                    OwnershipService ownershipService,
-                                   StorageService storageService) {
+                                   StorageService storageService,
+                                   NotificacionService notificacionService) {
         this.repository = repository;
         this.adjuntoRepository = adjuntoRepository;
         this.estudianteRepository = estudianteRepository;
         this.ownershipService = ownershipService;
         this.storageService = storageService;
+        this.notificacionService = notificacionService;
     }
 
     public List<MensajeResponse> mios(Authentication auth) {
@@ -126,7 +130,9 @@ public class MensajeEstudianteService {
         for (MultipartFile archivo : adjuntos) {
             mensaje.getAdjuntos().add(crearAdjunto(mensaje, archivo, true));
         }
-        return toResponse(repository.save(mensaje));
+        var guardado = repository.save(mensaje);
+        notificacionService.registrarMensajeDelEquipo(mensaje.getEstudiante(), guardado.getId());
+        return toResponse(guardado);
     }
 
     /** Guarda cada envío del equipo como un mensaje nuevo del mismo hilo. */
@@ -169,7 +175,9 @@ public class MensajeEstudianteService {
         for (MultipartFile archivo : adjuntos) {
             mensaje.getAdjuntos().add(crearAdjunto(mensaje, archivo, true));
         }
-        return toResponse(repository.save(mensaje));
+        var guardado = repository.save(mensaje);
+        notificacionService.registrarMensajeDelEquipo(estudiante, guardado.getId());
+        return toResponse(guardado);
     }
 
     /** Recupera un adjunto solo si el solicitante participa en la conversación. */

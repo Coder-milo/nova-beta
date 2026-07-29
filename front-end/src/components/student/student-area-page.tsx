@@ -116,6 +116,10 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
     if (n.leida) return
     await notificacionesApi.marcarLeida(n.id)
     setNotificaciones((v) => v.map((x) => (x.id === n.id ? { ...x, leida: true } : x)))
+    if (perfil) {
+      const noLeidas = await notificacionesApi.contarNoLeidas(perfil.id)
+      window.dispatchEvent(new CustomEvent('nova:notifications-updated', { detail: noLeidas }))
+    }
   }
 
   const descargar = () =>

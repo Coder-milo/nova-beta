@@ -109,4 +109,16 @@ public class NotificacionService {
             matchRepository.save(match);
         }
     }
+
+    /** Registra en la bandeja del estudiante cada mensaje enviado por el equipo. */
+    @Transactional
+    public void registrarMensajeDelEquipo(Estudiante estudiante, UUID mensajeId) {
+        var notificacion = new Notificacion();
+        notificacion.setEstudiante(estudiante);
+        notificacion.setTitulo("Nuevo mensaje de CAC Academy");
+        notificacion.setMensaje("El equipo de acompañamiento te envió un mensaje. Revísalo en la bandeja de mensajes.");
+        notificacion.setTipo("MENSAJE");
+        notificacion.setReferenciaId(mensajeId.toString());
+        notificacionRepository.save(notificacion);
+    }
 }

@@ -40,7 +40,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { notifications } from '@/lib/mock-data'
 import { busquedaApi, chatsApi, estudiantesApi, mensajesApi, notificacionesApi } from '@/lib/api'
 import type { BusquedaResponse, ChatContactoResponse, ChatDirectoMensajeResponse, EstudianteResponse, MensajeResponse, NotificacionResponse, ResultadoBusqueda } from '@/lib/types'
 import { getNavItemsForRoles, soloEsEstudiante } from '@/lib/navigation'
@@ -51,13 +50,6 @@ import { usePreferences } from '@/lib/preferences'
 
 type HeaderProps = {
   onOpenMobile: () => void
-}
-
-const ADMIN_NOTIFICATION_DESTINATIONS: Record<string, string> = {
-  n1: '/hojas-de-vida',
-  n2: '/importaciones',
-  n3: '/documentos',
-  n4: '/proyectos',
 }
 
 const BUSQUEDA_VACIA: BusquedaResponse = {
@@ -100,6 +92,16 @@ type Conversacion = {
   mensajes: MensajeResponse[]
   ultimo: MensajeResponse
   pendiente: boolean
+}
+
+type HeaderNotification = {
+  id: string
+  titulo: string
+  detalle: string
+  tiempo: string
+  leida: boolean
+  mediaUrl?: string | null
+  mediaTipo?: string | null
 }
 
 /** Los envíos antiguos usaban "Seguimiento:" en cada respuesta. Al quitar
@@ -174,7 +176,6 @@ export function Header({ onOpenMobile }: HeaderProps) {
 
   const [studentNotifications, setStudentNotifications] = useState<NotificacionResponse[]>([])
   const [studentUnreadNotifications, setStudentUnreadNotifications] = useState(0)
-  const [adminNotifications, setAdminNotifications] = useState(notifications)
   const [messages, setMessages] = useState<MensajeResponse[]>([])
   const [messageSheetOpen, setMessageSheetOpen] = useState(false)
   const [selectedMessage, setSelectedMessage] = useState<MensajeResponse | null>(null)
@@ -241,6 +242,16 @@ export function Header({ onOpenMobile }: HeaderProps) {
     void cargarNotificaciones()
     const refreshId = window.setInterval(() => { void cargarNotificaciones() }, 45_000)
     return () => { active = false; window.clearInterval(refreshId) }
+  }, [esEstudiante])
+
+  useEffect(() => {
+    if (!esEstudiante) return
+    const sincronizarContador = (event: Event) => {
+      const total = Number((event as CustomEvent<number>).detail)
+      if (Number.isFinite(total) && total >= 0) setStudentUnreadNotifications(total)
+    }
+    window.addEventListener('nova:notifications-updated', sincronizarContador)
+    return () => window.removeEventListener('nova:notifications-updated', sincronizarContador)
   }, [esEstudiante])
 
   useEffect(() => {
@@ -316,6 +327,13 @@ export function Header({ onOpenMobile }: HeaderProps) {
   useEffect(() => { void cargarMensajes() }, [cargarMensajes])
   useEffect(() => { if (messageSheetOpen) void cargarMensajes() }, [messageSheetOpen, cargarMensajes])
   useEffect(() => {
+    if (esEstudiante) return
+    const refreshId = window.setInterval(() => {
+      void mensajesApi.listar().then(setMessages).catch(() => undefined)
+    }, 45_000)
+    return () => window.clearInterval(refreshId)
+  }, [esEstudiante])
+  useEffect(() => {
     const abrirBandeja = () => setMessageSheetOpen(true)
     window.addEventListener('nova:open-messages', abrirBandeja)
     return () => window.removeEventListener('nova:open-messages', abrirBandeja)
@@ -348,7 +366,20 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const tituloHeader = (esEstudiante ? branding?.tituloHeader : null) || current?.title || 'NOVA CRM'
   const subtituloHeader = (esEstudiante ? branding?.subtituloHeader : null) || 'NOVA · Gestión académica'
 
-  const notificationItems = esEstudiante
+  const adminNotificationItems = useMemo<HeaderNotification[]>(() => messages
+    .filter((message) => message.estado === 'ABIERTO')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 8)
+    .map((message) => ({
+      id: message.id,
+      titulo: locale === 'es'
+        ? `Mensaje de ${message.estudianteNombre || 'un estudiante'}`
+        : `Message from ${message.estudianteNombre || 'a student'}`,
+      detalle: message.contenido || (locale === 'es' ? 'Envió un archivo adjunto.' : 'Sent an attachment.'),
+      tiempo: formatNotificationTime(message.createdAt, locale),
+      leida: false,
+    })), [messages, locale])
+  const notificationItems: HeaderNotification[] = esEstudiante
     ? studentNotifications.map((notification) => ({
         id: notification.id,
         titulo: notification.titulo,
@@ -358,7 +389,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
          mediaUrl: notification.mediaUrl,
          mediaTipo: notification.mediaTipo,
       }))
-    : adminNotifications
+    : adminNotificationItems
   const unreadNotifications = esEstudiante
     ? studentUnreadNotifications
     : notificationItems.filter((notification) => !notification.leida).length
@@ -387,10 +418,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
       router.push('/mis-notificaciones')
       return
     }
-    setAdminNotifications((items) =>
-      items.map((item) => (item.id === id ? { ...item, leida: true } : item)),
-    )
-    router.push(ADMIN_NOTIFICATION_DESTINATIONS[id] || '/')
+    const message = messages.find((item) => item.id === id)
+    if (message) abrirMensaje(message)
   }
 
   const abrirMensaje = (message: MensajeResponse) => {
@@ -462,7 +491,12 @@ export function Header({ onOpenMobile }: HeaderProps) {
     setMessageError('')
     try {
       const actualizado = await mensajesApi.enviarAEstudiante(estudianteId, reply.trim(), replyAttachments)
-      setMessages((items) => [actualizado, ...items])
+      setMessages((items) => [
+        actualizado,
+        ...items.map((item) => item.estudianteId === estudianteId && item.estado === 'ABIERTO'
+          ? { ...item, estado: 'RESPONDIDO' as const }
+          : item),
+      ])
       setSelectedMessage(actualizado)
       setAdminTarget(null)
       setReply('')
