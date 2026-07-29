@@ -1,5 +1,7 @@
 # NOVA CRM
 
+> **Carpeta de trabajo:** ejecuta siempre el proyecto desde la raíz de este repositorio, donde están `front-end/` y `back-end/`. No abras una carpeta `NOVA-CRM` dentro de otra; esa copia antigua fue retirada para que todos usen la misma versión.
+
 **CRM de Empleabilidad** — Sistema integral para la gestión de empleabilidad del programa CAC Eurocentres. Conecta estudiantes, programas, vacantes y empresas mediante un motor de matching inteligente, scraping automatizado de portales de empleo, importación masiva desde Excel, y emisión de certificaciones digitales verificables.
 
 ## Features
@@ -75,6 +77,16 @@ mvn spring-boot:run
 ```
 
 La API arranca en `http://localhost:8080`. Swagger UI en `http://localhost:8080/swagger-ui/index.html`.
+
+En otra terminal inicia el frontend actual (Astro/React) desde la raíz del repositorio:
+
+```bash
+cd front-end
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+El frontend queda disponible en `http://localhost:3000`.
 
 **Credenciales admin por defecto (seed Flyway):**
 - Email: `admin@novacrm.com`

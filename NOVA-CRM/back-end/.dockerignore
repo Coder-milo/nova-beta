@@ -1,9 +1,0 @@
-target/
-**/.classpath
-**/.project
-**/.settings/
-**/.idea/
-**/*.iml
-**/.vscode/
-**/.git/
-**/node_modules/
