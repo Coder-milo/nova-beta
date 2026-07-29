@@ -237,6 +237,21 @@ public class HvService {
         return toHvResponse(hv);
     }
 
+    /** Elimina una versión generada y conserva una versión vigente cuando exista otra. */
+    @Transactional
+    public void eliminarHojaDeVida(UUID hvId) {
+        var hv = obtener(hvId);
+        var estudianteId = hv.getEstudiante().getId();
+        boolean eraActual = hv.isActual();
+        String objectKey = hv.getObjectKey();
+        hvRepository.delete(hv);
+        if (eraActual) {
+            hvRepository.findByEstudianteIdOrderByNumeroVersionDesc(estudianteId).stream()
+                    .findFirst().ifPresent(siguiente -> siguiente.setActual(true));
+        }
+        storageService.eliminar(objectKey);
+    }
+
     /** Descarga en ZIP las HVs vigentes de los estudiantes indicados. */
     public byte[] zipDeEstudiantes(List<UUID> estudianteIds) {
         if (estudianteIds == null || estudianteIds.isEmpty()) {

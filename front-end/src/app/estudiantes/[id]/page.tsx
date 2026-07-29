@@ -35,7 +35,7 @@ import type {
   ExperienciaResponse, ExperienciaRequest, SeguimientoResponse,
   SeguimientoRequest, HojaDeVidaResponse, DocumentoResponse,
   AuditoriaResponse, PipelineEmpleabilidadResponse, PostulacionResponse, ColocacionResponse,
-  PreparacionEstudianteRequest, EstadoHito,
+  PreparacionEstudianteRequest, EstadoHito, EstudianteRequest,
 } from '@/lib/types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -118,6 +118,9 @@ export default function PerfilEstudiantePage() {
   const [error, setError]           = useState<string | null>(null)
   const [tab, setTab]               = useState<TabId>('resumen')
   const [mensaje, setMensaje]       = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
+  const [editandoFicha, setEditandoFicha] = useState(false)
+  const [guardandoFicha, setGuardandoFicha] = useState(false)
+  const [fichaForm, setFichaForm] = useState<EstudianteRequest | null>(null)
 
   // Foto
   const fotoRef = useRef<HTMLInputElement>(null)
@@ -156,6 +159,9 @@ export default function PerfilEstudiantePage() {
   const [loadingSeg, setLoadingSeg]       = useState(true)
   const [nuevoSeguimiento, setNuevoSeguimiento] = useState<SeguimientoRequest>(emptySeguimiento)
   const [guardandoSeguimiento, setGuardandoSeguimiento] = useState(false)
+  const [seguimientoEditando, setSeguimientoEditando] = useState<SeguimientoResponse | null>(null)
+  const [formSeguimientoEdit, setFormSeguimientoEdit] = useState<SeguimientoRequest>(emptySeguimiento)
+  const [guardandoSeguimientoEdit, setGuardandoSeguimientoEdit] = useState(false)
 
   // Empleabilidad: el expediente muestra hechos (postulaciones) y no solo
   // notas manuales. Cada cambio que hace el estudiante queda visible aqui.
@@ -261,6 +267,39 @@ export default function PerfilEstudiantePage() {
     setTimeout(() => setMensaje(null), 5000)
   }
 
+  const abrirEdicionFicha = () => {
+    if (!estudiante) return
+    setFichaForm({
+      nombre: estudiante.nombre, apellido: estudiante.apellido, email: estudiante.email,
+      telefono: estudiante.telefono ?? '', celular: estudiante.celular ?? '', ciudad: estudiante.ciudad ?? '', barrio: estudiante.barrio ?? '',
+      tipoDocumento: estudiante.tipoDocumento ?? '', numeroDocumento: estudiante.numeroDocumento ?? '', fechaNacimiento: estudiante.fechaNacimiento ?? '', genero: estudiante.genero ?? '', nacionalidad: estudiante.nacionalidad ?? '',
+      nivelEducativo: estudiante.nivelEducativo ?? '', titulo: estudiante.titulo ?? '', aniosExperiencia: estudiante.aniosExperiencia ?? undefined,
+      sectorExperiencia: estudiante.sectorExperiencia ?? '', ultimoCargo: estudiante.ultimoCargo ?? '', perfilProfesional: estudiante.perfilProfesional ?? '',
+      sectorObjetivo: estudiante.sectorObjetivo ?? '', cargoObjetivo: estudiante.cargoObjetivo ?? '', disponibilidadMovilidad: estudiante.disponibilidadMovilidad ?? undefined,
+      clasificacionSisben: estudiante.clasificacionSisben ?? '', situacionLaboral: estudiante.situacionLaboral ?? '', ingresoMensual: estudiante.ingresoMensual ?? '',
+      responsableEconomico: estudiante.responsableEconomico ?? undefined, haTrabajado: estudiante.haTrabajado ?? undefined, tieneComputador: estudiante.tieneComputador ?? undefined, tieneInternet: estudiante.tieneInternet ?? undefined,
+      motivacion: estudiante.motivacion ?? '', interesMigratorio: estudiante.interesMigratorio ?? undefined, resultadoPruebaEscrita: estudiante.resultadoPruebaEscrita ?? '', resultadoPruebaOral: estudiante.resultadoPruebaOral ?? '',
+      institucionEducativa: estudiante.institucionEducativa ?? '', programaAcademico: estudiante.programaAcademico ?? '', areaFormacion: estudiante.areaFormacion ?? '', estadoFormacion: estudiante.estadoFormacion ?? '',
+      disponibilidadLaboral: estudiante.disponibilidadLaboral ?? '', estadoBusqueda: estudiante.estadoBusqueda ?? '', postulacionesEnviadas: estudiante.postulacionesEnviadas ?? undefined, empresasContactadas: estudiante.empresasContactadas ?? undefined,
+      estadoAcademico: estudiante.estadoAcademico, estadoEmpleabilidad: estudiante.estadoEmpleabilidad, programaId: estudiante.programaId,
+      direccion: estudiante.direccion ?? '', competencias: estudiante.competencias ?? '', idiomas: estudiante.idiomas ?? '', referencias: estudiante.referencias ?? '', disponibilidad: estudiante.disponibilidad ?? '', linkedinUrl: estudiante.linkedinUrl ?? '',
+    })
+    setEditandoFicha(true)
+  }
+
+  const guardarFicha = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!fichaForm) return
+    setGuardandoFicha(true)
+    try {
+      const actualizada = await estudiantesApi.actualizar(id, fichaForm)
+      setEstudiante(actualizada)
+      setEditandoFicha(false)
+      flash('ok', 'Información del estudiante actualizada.')
+    } catch (err) { flash('error', errorDe(err, 'No se pudo actualizar la información')) }
+    finally { setGuardandoFicha(false) }
+  }
+
   const handleSubirFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = e.target.files?.[0]
     if (!archivo) return
@@ -342,6 +381,15 @@ export default function PerfilEstudiantePage() {
     catch (err) { flash('error', errorDe(err, 'Error al marcar la versión vigente')) }
   }
 
+  const handleEliminarHv = async (hv: HojaDeVidaResponse) => {
+    if (!confirm(`¿Eliminar definitivamente la hoja de vida versión ${hv.numeroVersion}?`)) return
+    try {
+      await hvApi.eliminar(hv.id)
+      loadHvs()
+      flash('ok', `Hoja de vida versión ${hv.numeroVersion} eliminada.`)
+    } catch (err) { flash('error', errorDe(err, 'Error al eliminar la hoja de vida')) }
+  }
+
   const handleSubirDocumento = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!docFile) { flash('error', 'Selecciona un archivo primero.'); return }
@@ -401,6 +449,24 @@ export default function PerfilEstudiantePage() {
     if (!confirm('¿Eliminar este seguimiento?')) return
     try { await seguimientosApi.eliminar(id, sid); loadSeguimientos() }
     catch (err) { flash('error', errorDe(err, 'Error al eliminar el seguimiento')) }
+  }
+
+  const abrirEdicionSeguimiento = (seguimiento: SeguimientoResponse) => {
+    setSeguimientoEditando(seguimiento)
+    setFormSeguimientoEdit({ fecha: seguimiento.fecha ?? '', tipo: seguimiento.tipo, responsable: seguimiento.responsable ?? '', observacion: seguimiento.observacion ?? '', proximaAccion: seguimiento.proximaAccion ?? '', fechaProxima: seguimiento.fechaProxima ?? '', estado: seguimiento.estado })
+  }
+
+  const guardarSeguimientoEdit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!seguimientoEditando) return
+    setGuardandoSeguimientoEdit(true)
+    try {
+      await seguimientosApi.actualizar(id, seguimientoEditando.id, formSeguimientoEdit)
+      setSeguimientoEditando(null)
+      loadSeguimientos()
+      flash('ok', 'Seguimiento actualizado.')
+    } catch (err) { flash('error', errorDe(err, 'No se pudo actualizar el seguimiento')) }
+    finally { setGuardandoSeguimientoEdit(false) }
   }
 
   const abrirEdicionPreparacion = () => {
@@ -526,7 +592,7 @@ export default function PerfilEstudiantePage() {
 
             <div className="flex flex-col gap-3 md:items-end shrink-0">
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" render={<Link href="/estudiantes" />}>
+                <Button variant="outline" size="sm" onClick={abrirEdicionFicha}>
                   <PencilSimple className="size-3.5" /> Editar
                 </Button>
                 <Button size="sm" onClick={() => handleGenerarHv()} disabled={generandoHv}>
@@ -565,6 +631,44 @@ export default function PerfilEstudiantePage() {
       )}
 
       {/* ── Tabs ───────────────────────────────────────────────────────────── */}
+      {editandoFicha && fichaForm && (
+        <Card className="rounded-2xl border-primary/25 shadow-sm">
+          <CardHeader className="border-b border-border/70"><CardTitle className="flex items-center gap-2 text-base"><PencilSimple className="size-4 text-primary" />Editar información del estudiante</CardTitle><CardDescription>Actualiza los datos personales, académicos y de empleabilidad desde un único formulario.</CardDescription></CardHeader>
+          <CardContent className="pt-5">
+            <form onSubmit={guardarFicha} className="space-y-6">
+              <section><p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Datos personales</p><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <label className="space-y-1"><span className="text-xs font-medium">Nombres *</span><Input value={fichaForm.nombre} onChange={(e) => setFichaForm({ ...fichaForm, nombre: e.target.value })} required /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Apellidos *</span><Input value={fichaForm.apellido} onChange={(e) => setFichaForm({ ...fichaForm, apellido: e.target.value })} required /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Correo *</span><Input type="email" value={fichaForm.email} onChange={(e) => setFichaForm({ ...fichaForm, email: e.target.value })} required /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Celular</span><Input value={fichaForm.celular ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, celular: e.target.value })} /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Ciudad</span><Input value={fichaForm.ciudad ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, ciudad: e.target.value })} /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Documento</span><Input value={fichaForm.numeroDocumento ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, numeroDocumento: e.target.value })} /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Tipo de documento</span><Input value={fichaForm.tipoDocumento ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, tipoDocumento: e.target.value })} /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Fecha de nacimiento</span><Input type="date" value={fichaForm.fechaNacimiento ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, fechaNacimiento: e.target.value })} /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Género</span><Input value={fichaForm.genero ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, genero: e.target.value })} /></label>
+              </div></section>
+              <section><p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Formación y experiencia</p><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <label className="space-y-1"><span className="text-xs font-medium">Nivel educativo</span><Input value={fichaForm.nivelEducativo ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, nivelEducativo: e.target.value })} /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Título / carrera</span><Input value={fichaForm.titulo ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, titulo: e.target.value })} /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Institución</span><Input value={fichaForm.institucionEducativa ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, institucionEducativa: e.target.value })} /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Último cargo</span><Input value={fichaForm.ultimoCargo ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, ultimoCargo: e.target.value })} /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Sector de experiencia</span><Input value={fichaForm.sectorExperiencia ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, sectorExperiencia: e.target.value })} /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Años de experiencia</span><Input type="number" min="0" value={fichaForm.aniosExperiencia ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, aniosExperiencia: e.target.value === '' ? undefined : Number(e.target.value) })} /></label>
+              </div></section>
+              <section><p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Empleabilidad</p><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <label className="space-y-1"><span className="text-xs font-medium">Sector objetivo</span><Input value={fichaForm.sectorObjetivo ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, sectorObjetivo: e.target.value })} /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Cargo objetivo</span><Input value={fichaForm.cargoObjetivo ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, cargoObjetivo: e.target.value })} /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">LinkedIn</span><Input type="url" value={fichaForm.linkedinUrl ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, linkedinUrl: e.target.value })} placeholder="https://linkedin.com/in/..." /></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Estado académico</span><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={fichaForm.estadoAcademico ?? 'ACTIVO'} onChange={(e) => setFichaForm({ ...fichaForm, estadoAcademico: e.target.value as EstudianteRequest['estadoAcademico'] })}><option value="ACTIVO">Activo</option><option value="EN_PROCESO">En proceso</option><option value="GRADUADO">Graduado</option><option value="RETIRADO">Retirado</option></select></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Estado de empleabilidad</span><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={fichaForm.estadoEmpleabilidad ?? 'SIN_INFO'} onChange={(e) => setFichaForm({ ...fichaForm, estadoEmpleabilidad: e.target.value as EstudianteRequest['estadoEmpleabilidad'] })}><option value="SIN_INFO">Sin información</option><option value="BUSCANDO">Buscando empleo</option><option value="EMPLEADO">Empleado</option></select></label>
+                <label className="space-y-1"><span className="text-xs font-medium">Disponibilidad laboral</span><Input value={fichaForm.disponibilidadLaboral ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, disponibilidadLaboral: e.target.value })} /></label>
+              </div><label className="mt-3 block space-y-1"><span className="text-xs font-medium">Perfil profesional</span><textarea rows={3} className="w-full rounded-md border border-input bg-background p-2.5 text-sm outline-none focus:ring-1 focus:ring-ring" value={fichaForm.perfilProfesional ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, perfilProfesional: e.target.value })} /></label><label className="mt-3 block space-y-1"><span className="text-xs font-medium">Competencias</span><textarea rows={2} className="w-full rounded-md border border-input bg-background p-2.5 text-sm outline-none focus:ring-1 focus:ring-ring" value={fichaForm.competencias ?? ''} onChange={(e) => setFichaForm({ ...fichaForm, competencias: e.target.value })} /></label></section>
+              <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="outline" onClick={() => setEditandoFicha(false)} disabled={guardandoFicha}>Cancelar</Button><Button type="submit" disabled={guardandoFicha}>{guardandoFicha ? <><CircleNotch className="size-4 animate-spin" />Guardando…</> : <><CheckCircle className="size-4" />Guardar cambios</>}</Button></div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex border-b border-border gap-1 overflow-x-auto">
         {tabs.map(({ id: tid, label, icon: Icon }) => (
           <button key={tid} type="button" onClick={() => setTab(tid)}
@@ -939,6 +1043,10 @@ export default function PerfilEstudiantePage() {
                                 <Star className="size-4" />
                               </button>
                             )}
+                            <button type="button" onClick={() => void handleEliminarHv(hv)} aria-label={`Eliminar versión ${hv.numeroVersion}`} title="Eliminar"
+                              className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+                              <Trash className="size-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1201,6 +1309,8 @@ export default function PerfilEstudiantePage() {
             </CardContent>
           </Card>
 
+          {seguimientoEditando && <Card className="rounded-xl border-primary/25 shadow-none"><CardHeader className="pb-3"><CardTitle className="text-base">Editar seguimiento</CardTitle><CardDescription>Actualiza el detalle, responsable o próximo paso del acompañamiento.</CardDescription></CardHeader><CardContent><form onSubmit={guardarSeguimientoEdit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><label className="space-y-1"><span className="text-xs font-medium">Fecha</span><Input type="date" value={formSeguimientoEdit.fecha ?? ''} onChange={(e) => setFormSeguimientoEdit({ ...formSeguimientoEdit, fecha: e.target.value })} /></label><label className="space-y-1"><span className="text-xs font-medium">Tipo</span><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={formSeguimientoEdit.tipo} onChange={(e) => setFormSeguimientoEdit({ ...formSeguimientoEdit, tipo: e.target.value })}>{tiposSeguimiento.map((tipo) => <option key={tipo} value={tipo}>{tipo.replaceAll('_', ' ')}</option>)}</select></label><label className="space-y-1"><span className="text-xs font-medium">Responsable</span><Input value={formSeguimientoEdit.responsable ?? ''} onChange={(e) => setFormSeguimientoEdit({ ...formSeguimientoEdit, responsable: e.target.value })} /></label><label className="space-y-1 sm:col-span-2"><span className="text-xs font-medium">Próxima acción</span><Input value={formSeguimientoEdit.proximaAccion ?? ''} onChange={(e) => setFormSeguimientoEdit({ ...formSeguimientoEdit, proximaAccion: e.target.value })} /></label><label className="space-y-1"><span className="text-xs font-medium">Fecha próxima</span><Input type="date" value={formSeguimientoEdit.fechaProxima ?? ''} onChange={(e) => setFormSeguimientoEdit({ ...formSeguimientoEdit, fechaProxima: e.target.value })} /></label><label className="space-y-1 lg:col-span-3"><span className="text-xs font-medium">Observación</span><textarea rows={3} className="w-full rounded-md border border-input bg-background p-2.5 text-sm outline-none focus:ring-1 focus:ring-ring" value={formSeguimientoEdit.observacion ?? ''} onChange={(e) => setFormSeguimientoEdit({ ...formSeguimientoEdit, observacion: e.target.value })} /></label><div className="flex justify-end gap-2 sm:col-span-2 lg:col-span-3"><Button type="button" variant="outline" onClick={() => setSeguimientoEditando(null)} disabled={guardandoSeguimientoEdit}>Cancelar</Button><Button type="submit" disabled={guardandoSeguimientoEdit}>{guardandoSeguimientoEdit ? <CircleNotch className="size-4 animate-spin" /> : <CheckCircle className="size-4" />}Guardar seguimiento</Button></div></form></CardContent></Card>}
+
           {loadingSeg ? <SeccionCargando texto="Cargando seguimientos…" /> : seguimientos.length === 0 ? (
             <Card className="rounded-lg border-border shadow-none">
               <CardContent className="flex flex-col items-center gap-2 py-10">
@@ -1237,6 +1347,10 @@ export default function PerfilEstudiantePage() {
                         <option value="PENDIENTE">Pendiente</option>
                         <option value="COMPLETADA">Completada</option>
                       </select>
+                      <button type="button" onClick={() => abrirEdicionSeguimiento(seg)} aria-label="Editar seguimiento"
+                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+                        <PencilSimple className="size-4" />
+                      </button>
                       <button type="button" onClick={() => handleEliminarSeguimiento(seg.id)} aria-label="Eliminar seguimiento"
                         className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
                         <Trash className="size-4" />

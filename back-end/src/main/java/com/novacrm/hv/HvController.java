@@ -119,6 +119,13 @@ public class HvController {
         return hvService.marcarActual(id);
     }
 
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar una versión de hoja de vida")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminar(@PathVariable UUID id) {
+        hvService.eliminarHojaDeVida(id);
+    }
+
     @PostMapping("/descargar-zip")
     @Operation(summary = "Descargar en ZIP las HVs vigentes de varios estudiantes")
     public ResponseEntity<byte[]> zip(@RequestBody List<UUID> estudianteIds) {

@@ -63,6 +63,23 @@ public class MensajeEstudianteController {
         return service.responder(id, respuesta, archivos, auth);
     }
 
+    @PostMapping(value = "/estudiantes/{estudianteId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
+    public MensajeResponse enviarAlEstudiante(@PathVariable UUID estudianteId,
+                                               @RequestBody @Valid RespuestaRequest request,
+                                               Authentication auth) {
+        return service.enviarAlEstudiante(estudianteId, request.respuesta(), List.of(), auth);
+    }
+
+    @PostMapping(value = "/estudiantes/{estudianteId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
+    public MensajeResponse enviarAlEstudianteConAdjuntos(@PathVariable UUID estudianteId,
+                                                           @RequestParam(required = false) String respuesta,
+                                                           @RequestParam(value = "archivos", required = false) List<MultipartFile> archivos,
+                                                           Authentication auth) {
+        return service.enviarAlEstudiante(estudianteId, respuesta, archivos, auth);
+    }
+
     @GetMapping("/adjuntos/{id}/archivo")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<byte[]> descargarAdjunto(@PathVariable UUID id, Authentication auth) {

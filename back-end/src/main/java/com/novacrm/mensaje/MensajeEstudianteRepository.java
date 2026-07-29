@@ -7,5 +7,6 @@ import java.util.UUID;
 
 public interface MensajeEstudianteRepository extends JpaRepository<MensajeEstudiante, UUID> {
     List<MensajeEstudiante> findByEstudianteIdOrderByCreatedAtDesc(UUID estudianteId);
+    List<MensajeEstudiante> findByEstudianteIdAndEstado(UUID estudianteId, EstadoMensaje estado);
     List<MensajeEstudiante> findAllByOrderByCreatedAtDesc();
 }

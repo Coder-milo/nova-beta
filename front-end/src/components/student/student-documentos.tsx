@@ -15,7 +15,7 @@ import {
   WarningCircle,
   XCircle,
 } from '@phosphor-icons/react'
-import { ApiCallError, documentosApi } from '@/lib/api'
+import { ApiCallError, documentosApi, estudiantesApi } from '@/lib/api'
 import type { DocumentoResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -69,6 +69,7 @@ export function StudentDocumentos() {
   const [selectedTipo, setSelectedTipo] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewDoc, setPreviewDoc] = useState<DocumentoResponse | null>(null)
+  const [downloadingCv, setDownloadingCv] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const cargar = async () => {
@@ -152,6 +153,15 @@ export function StudentDocumentos() {
     }
   }
 
+  const handleDownloadCv = async () => {
+    setDownloadingCv(true)
+    try {
+      await estudiantesApi.descargarMiHvPdf()
+    } catch {
+      alert('No se pudo preparar tu hoja de vida.')
+    } finally { setDownloadingCv(false) }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-60 items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -175,6 +185,13 @@ export function StudentDocumentos() {
           </button>
         </div>
       )}
+
+      <Card className="border-primary/20 bg-primary/[0.03] shadow-none">
+        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3"><span className="flex size-11 items-center justify-center rounded-xl bg-primary/10"><FilePdf className="size-5 text-primary" /></span><div><p className="text-sm font-semibold">Hoja de vida CAC</p><p className="mt-0.5 text-xs text-muted-foreground">Tu hoja de vida oficial se genera con la información actualizada de tu perfil.</p></div></div>
+          <Button variant="outline" size="sm" onClick={() => void handleDownloadCv()} disabled={downloadingCv}>{downloadingCv ? <CircleNotch className="size-4 animate-spin" /> : <DownloadSimple className="size-4" />}{downloadingCv ? 'Preparando…' : 'Descargar hoja de vida'}</Button>
+        </CardContent>
+      </Card>
 
       {/* ── Upload zone ────────────────────────────────────── */}
       <Card className="shadow-none">

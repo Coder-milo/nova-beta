@@ -101,6 +101,8 @@ export interface EstudianteResponse {
   nombre: string
   apellido: string
   email: string
+  fechaNacimiento: string | null
+  genero: string | null
   telefono: string | null
   celular: string | null
   ciudad: string | null

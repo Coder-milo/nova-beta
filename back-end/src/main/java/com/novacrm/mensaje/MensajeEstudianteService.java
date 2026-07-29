@@ -2,6 +2,7 @@ package com.novacrm.mensaje;
 
 import com.novacrm.auth.OwnershipService;
 import com.novacrm.documento.StorageService;
+import com.novacrm.estudiante.EstudianteRepository;
 import com.novacrm.exception.BusinessException;
 import com.novacrm.exception.ResourceNotFoundException;
 import com.novacrm.mensaje.dto.MensajeAdjuntoResponse;
@@ -35,15 +36,18 @@ public class MensajeEstudianteService {
 
     private final MensajeEstudianteRepository repository;
     private final MensajeAdjuntoRepository adjuntoRepository;
+    private final EstudianteRepository estudianteRepository;
     private final OwnershipService ownershipService;
     private final StorageService storageService;
 
     public MensajeEstudianteService(MensajeEstudianteRepository repository,
                                    MensajeAdjuntoRepository adjuntoRepository,
+                                   EstudianteRepository estudianteRepository,
                                    OwnershipService ownershipService,
                                    StorageService storageService) {
         this.repository = repository;
         this.adjuntoRepository = adjuntoRepository;
+        this.estudianteRepository = estudianteRepository;
         this.ownershipService = ownershipService;
         this.storageService = storageService;
     }
@@ -118,6 +122,49 @@ public class MensajeEstudianteService {
         mensaje.setRespuesta(respuestaLimpia);
         mensaje.setRespondidoPor(auth.getName());
         mensaje.setRespondidoAt(Instant.now());
+        mensaje.setEstado(EstadoMensaje.RESPONDIDO);
+        for (MultipartFile archivo : adjuntos) {
+            mensaje.getAdjuntos().add(crearAdjunto(mensaje, archivo, true));
+        }
+        return toResponse(repository.save(mensaje));
+    }
+
+    /** Guarda cada envío del equipo como un mensaje nuevo del mismo hilo. */
+    @Transactional
+    public MensajeResponse enviarAlEstudiante(UUID estudianteId, String respuesta,
+                                              List<MultipartFile> archivos, Authentication auth) {
+        var estudiante = estudianteRepository.findById(estudianteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado: " + estudianteId));
+        if (!estudiante.isActivo()) {
+            throw new ResourceNotFoundException("Estudiante no encontrado: " + estudianteId);
+        }
+        String texto = respuesta == null ? "" : respuesta.trim();
+        List<MultipartFile> adjuntos = archivos == null ? List.of()
+                : archivos.stream().filter(archivo -> archivo != null && !archivo.isEmpty()).toList();
+        if (texto.length() > 5000) {
+            throw new BusinessException("El mensaje no puede superar 5000 caracteres.");
+        }
+        if (texto.isBlank() && adjuntos.isEmpty()) {
+            throw new BusinessException("Escribe un mensaje o adjunta un archivo.");
+        }
+        if (adjuntos.size() > MAX_ADJUNTOS) {
+            throw new BusinessException("Puedes adjuntar hasta " + MAX_ADJUNTOS + " archivos por mensaje.");
+        }
+
+        Instant ahora = Instant.now();
+        repository.findByEstudianteIdAndEstado(estudianteId, EstadoMensaje.ABIERTO).forEach(pendiente -> {
+            pendiente.setEstado(EstadoMensaje.RESPONDIDO);
+            pendiente.setRespondidoPor(auth.getName());
+            pendiente.setRespondidoAt(ahora);
+        });
+
+        var mensaje = new MensajeEstudiante();
+        mensaje.setEstudiante(estudiante);
+        mensaje.setAsunto("CAC Academy");
+        mensaje.setContenido("");
+        mensaje.setRespuesta(texto);
+        mensaje.setRespondidoPor(auth.getName());
+        mensaje.setRespondidoAt(ahora);
         mensaje.setEstado(EstadoMensaje.RESPONDIDO);
         for (MultipartFile archivo : adjuntos) {
             mensaje.getAdjuntos().add(crearAdjunto(mensaje, archivo, true));

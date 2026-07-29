@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/sheet'
 import { notifications } from '@/lib/mock-data'
 import { busquedaApi, chatsApi, estudiantesApi, mensajesApi, notificacionesApi } from '@/lib/api'
-import type { BusquedaResponse, ChatContactoResponse, ChatDirectoMensajeResponse, MensajeResponse, NotificacionResponse, ResultadoBusqueda } from '@/lib/types'
+import type { BusquedaResponse, ChatContactoResponse, ChatDirectoMensajeResponse, EstudianteResponse, MensajeResponse, NotificacionResponse, ResultadoBusqueda } from '@/lib/types'
 import { getNavItemsForRoles, soloEsEstudiante } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -115,8 +115,8 @@ function asuntoConversacion(asunto: string): string {
 function agruparConversaciones(mensajes: MensajeResponse[], esChatAcademy = false): Conversacion[] {
   const grupos = new Map<string, { asunto: string; mensajes: MensajeResponse[] }>()
   for (const mensaje of mensajes) {
-    const asunto = esChatAcademy ? 'CAC Academy' : asuntoConversacion(mensaje.asunto)
-    const id = esChatAcademy ? `${mensaje.estudianteId}:cac-academy` : `${mensaje.estudianteId}:${asunto.toLocaleLowerCase()}`
+    const asunto = esChatAcademy ? 'CAC Academy' : (mensaje.estudianteNombre || asuntoConversacion(mensaje.asunto))
+    const id = esChatAcademy ? `${mensaje.estudianteId}:cac-academy` : mensaje.estudianteId
     const grupo = grupos.get(id) ?? { asunto, mensajes: [] }
     grupo.mensajes.push(mensaje)
     grupos.set(id, grupo)
@@ -183,6 +183,10 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [sendingReply, setSendingReply] = useState(false)
   const [messageError, setMessageError] = useState('')
   const [messagesLoading, setMessagesLoading] = useState(false)
+  const [adminStudentQuery, setAdminStudentQuery] = useState('')
+  const [adminStudentResults, setAdminStudentResults] = useState<EstudianteResponse[]>([])
+  const [adminStudentsLoading, setAdminStudentsLoading] = useState(false)
+  const [adminTarget, setAdminTarget] = useState<EstudianteResponse | null>(null)
   const [studentBody, setStudentBody] = useState('')
   const [studentAttachments, setStudentAttachments] = useState<File[]>([])
   const [sendingStudentMessage, setSendingStudentMessage] = useState(false)
@@ -255,6 +259,23 @@ export function Header({ onOpenMobile }: HeaderProps) {
     }, 220)
     return () => { active = false; window.clearTimeout(timer) }
   }, [contactQuery, esEstudiante])
+
+  useEffect(() => {
+    if (esEstudiante || adminStudentQuery.trim().length < 2) {
+      setAdminStudentResults([])
+      setAdminStudentsLoading(false)
+      return
+    }
+    let active = true
+    setAdminStudentsLoading(true)
+    const timer = window.setTimeout(() => {
+      void estudiantesApi.buscarAvanzado({ q: adminStudentQuery.trim(), size: 8 })
+        .then((data) => { if (active) setAdminStudentResults(data.content) })
+        .catch(() => { if (active) setAdminStudentResults([]) })
+        .finally(() => { if (active) setAdminStudentsLoading(false) })
+    }, 220)
+    return () => { active = false; window.clearTimeout(timer) }
+  }, [adminStudentQuery, esEstudiante])
 
   useEffect(() => {
     if (!directContact || !esEstudiante) return
@@ -375,9 +396,10 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const abrirMensaje = (message: MensajeResponse) => {
     setDirectContact(null)
     setDirectMessages([])
+    setAdminTarget(null)
     setStudentAttachments([])
     setSelectedMessage(message)
-    setReply(message.respuesta ?? '')
+    setReply('')
     setReplyAttachments([])
     setMessageError('')
     setMessageSheetOpen(true)
@@ -395,14 +417,32 @@ export function Header({ onOpenMobile }: HeaderProps) {
     setMessageSheetOpen(true)
   }
 
+  const abrirChatConEstudiante = (estudiante: EstudianteResponse) => {
+    const existente = conversaciones.find((conversacion) => conversacion.ultimo.estudianteId === estudiante.id)
+    if (existente) {
+      abrirMensaje(existente.ultimo)
+      return
+    }
+    setDirectContact(null)
+    setDirectMessages([])
+    setSelectedMessage(null)
+    setAdminTarget(estudiante)
+    setReply('')
+    setReplyAttachments([])
+    setAdminStudentQuery('')
+    setAdminStudentResults([])
+    setMessageError('')
+    setMessageSheetOpen(true)
+  }
+
   const messageCopy = locale === 'es'
     ? {
         title: esEstudiante ? 'Mis mensajes' : 'Mensajes de estudiantes',
         subtitle: esEstudiante ? 'Consulta las respuestas del equipo de acompañamiento.' : 'Revisa, prioriza y responde las solicitudes recibidas desde el portal estudiantil.',
         inbox: 'Bandeja', pending: 'pendientes', all: 'Todos', empty: 'No hay mensajes para mostrar.',
         select: 'Selecciona un mensaje para ver la conversación.', sent: 'Mensaje recibido', response: 'Respuesta del equipo',
-        reply: 'Responder al estudiante', replyPlaceholder: 'Escribe una respuesta clara, útil y respetuosa…',
-        send: 'Enviar respuesta', update: 'Actualizar respuesta', sending: 'Enviando…', waiting: 'El equipo está revisando este mensaje.',
+        reply: 'Mensaje para el estudiante', replyPlaceholder: 'Escribe un mensaje claro, útil y respetuoso…',
+        send: 'Enviar', sending: 'Enviando…', waiting: 'El equipo está revisando este mensaje.',
         open: 'Pendiente', answered: 'Respondido', refresh: 'Actualizar bandeja', from: 'De', to: 'Para',
       }
     : {
@@ -410,20 +450,22 @@ export function Header({ onOpenMobile }: HeaderProps) {
         subtitle: esEstudiante ? 'Check the answers from the support team.' : 'Review, prioritize, and respond to requests from the student portal.',
         inbox: 'Inbox', pending: 'pending', all: 'All', empty: 'No messages to show.',
         select: 'Select a message to view the conversation.', sent: 'Message received', response: 'Team response',
-        reply: 'Reply to student', replyPlaceholder: 'Write a clear, helpful, and respectful response…',
-        send: 'Send reply', update: 'Update reply', sending: 'Sending…', waiting: 'The team is reviewing this message.',
+        reply: 'Message to student', replyPlaceholder: 'Write a clear, helpful, and respectful message…',
+        send: 'Send', sending: 'Sending…', waiting: 'The team is reviewing this message.',
         open: 'Open', answered: 'Answered', refresh: 'Refresh inbox', from: 'From', to: 'To',
       }
 
   const responderMensaje = async () => {
-    if (!selectedMessage || (!reply.trim() && replyAttachments.length === 0) || esEstudiante) return
+    const estudianteId = selectedMessage?.estudianteId ?? adminTarget?.id
+    if (!estudianteId || (!reply.trim() && replyAttachments.length === 0) || esEstudiante) return
     setSendingReply(true)
     setMessageError('')
     try {
-      const actualizado = await mensajesApi.responder(selectedMessage.id, reply.trim(), replyAttachments)
-      setMessages((items) => items.map((item) => item.id === actualizado.id ? actualizado : item))
+      const actualizado = await mensajesApi.enviarAEstudiante(estudianteId, reply.trim(), replyAttachments)
+      setMessages((items) => [actualizado, ...items])
       setSelectedMessage(actualizado)
-      setReply(actualizado.respuesta ?? '')
+      setAdminTarget(null)
+      setReply('')
       setReplyAttachments([])
     } catch (error) {
       setMessageError(error instanceof Error ? error.message : 'No se pudo enviar la respuesta.')
@@ -505,6 +547,12 @@ export function Header({ onOpenMobile }: HeaderProps) {
     { titulo: t('projects'), icon: FolderSimple, items: searchResults.programas },
     { titulo: t('documents'), icon: FileText, items: searchResults.documentos },
   ].filter((group) => group.items.length > 0)
+  const nombreChatActivo = esEstudiante
+    ? 'CAC Academy'
+    : (conversacionSeleccionada?.ultimo.estudianteNombre ?? adminTarget?.nombre ?? '')
+  const correoChatActivo = !esEstudiante
+    ? (conversacionSeleccionada?.ultimo.estudianteEmail ?? adminTarget?.email ?? '')
+    : ''
 
   return (
     <>
@@ -640,13 +688,33 @@ export function Header({ onOpenMobile }: HeaderProps) {
       </Sheet>
 
       <Sheet open={messageSheetOpen} onOpenChange={setMessageSheetOpen}>
-        <SheetContent side="right" className="h-dvh w-full max-w-none gap-0 border-l border-border bg-popover p-0 sm:w-[min(92vw,1100px)] sm:!max-w-none">
+        <SheetContent side="right" className="h-dvh w-full max-w-none gap-0 border-l border-border bg-popover p-0 sm:w-[min(90vw,980px)] sm:!max-w-none">
           <SheetHeader className="shrink-0 border-b border-border/60 bg-[linear-gradient(115deg,color-mix(in_srgb,var(--primary)_17%,transparent),transparent_58%)] pr-14">
             <SheetTitle>{messageCopy.title}</SheetTitle>
             <SheetDescription>{messageCopy.subtitle}</SheetDescription>
           </SheetHeader>
-          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.8fr)]">
+          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(220px,0.68fr)_minmax(0,1.9fr)]">
             <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 lg:max-h-none lg:border-b-0 lg:border-r">
+              {!esEstudiante && (
+                <div className="mb-2 border-b border-border/60 pb-2">
+                  <div className="relative">
+                    <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input value={adminStudentQuery} onChange={(event) => setAdminStudentQuery(event.target.value)} placeholder={locale === 'es' ? 'Buscar estudiante…' : 'Search student…'} className="h-9 rounded-xl bg-background pl-9 text-xs" />
+                  </div>
+                  {adminStudentQuery.trim().length >= 2 && (
+                    <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">
+                      {adminStudentsLoading ? <p className="px-2 py-2 text-xs text-muted-foreground">{locale === 'es' ? 'Buscando estudiantes…' : 'Searching students…'}</p>
+                        : adminStudentResults.length === 0 ? <p className="px-2 py-2 text-xs text-muted-foreground">{locale === 'es' ? 'No encontramos estudiantes.' : 'No students found.'}</p>
+                          : adminStudentResults.map((estudiante) => (
+                            <button key={estudiante.id} type="button" onClick={() => abrirChatConEstudiante(estudiante)} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-background">
+                              {estudiante.fotoUrl ? <img src={estudiante.fotoUrl} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{`${estudiante.nombre[0] ?? ''}${estudiante.apellido[0] ?? ''}`.toUpperCase()}</span>}
+                              <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{estudiante.nombre} {estudiante.apellido}</span><span className="block truncate text-[10px] text-muted-foreground">{estudiante.email}</span></span>
+                            </button>
+                          ))}
+                    </div>
+                  )}
+                </div>
+              )}
               {esEstudiante && (
                 <div className="mb-2 border-b border-border/60 pb-2">
                   <div className="relative">
@@ -673,14 +741,20 @@ export function Header({ onOpenMobile }: HeaderProps) {
                   <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{directContact.nombre}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{directMessages[directMessages.length - 1]?.contenido || (locale === 'es' ? 'Conversación nueva' : 'New conversation')}</span></span>
                 </button>
               )}
+              {adminTarget && !esEstudiante && (
+                <button type="button" onClick={() => abrirChatConEstudiante(adminTarget)} className="mb-1 flex w-full items-center gap-2 rounded-xl border border-primary/20 bg-background px-2.5 py-2.5 text-left shadow-sm">
+                  {adminTarget.fotoUrl ? <img src={adminTarget.fotoUrl} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{`${adminTarget.nombre[0] ?? ''}${adminTarget.apellido[0] ?? ''}`.toUpperCase()}</span>}
+                  <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{adminTarget.nombre} {adminTarget.apellido}</span><span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{locale === 'es' ? 'Conversación nueva' : 'New conversation'}</span></span>
+                </button>
+              )}
               {conversaciones.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : conversaciones.map((conversacion) => (
-                <button key={conversacion.id} type="button" onClick={() => abrirMensaje(conversacion.ultimo)} className={cn('mb-1 w-full rounded-xl border border-transparent px-3 py-3 text-left transition-all hover:border-primary/15 hover:bg-background', conversacionSeleccionada?.id === conversacion.id && 'border-primary/20 bg-background shadow-sm')}>
-                  <div className="flex items-start gap-2.5"><span className={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', conversacion.pendiente ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>{(esEstudiante ? 'AC' : conversacion.ultimo.estudianteNombre || 'E').slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? conversacion.asunto : conversacion.ultimo.estudianteNombre}</span>{conversacion.pendiente && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{esEstudiante ? (conversacion.ultimo.respuesta || conversacion.ultimo.contenido || ((conversacion.ultimo.respuestaAdjuntos?.length ?? 0) > 0 || (conversacion.ultimo.adjuntos?.length ?? 0) > 0 ? '📎 Archivo adjunto' : '')) : conversacion.asunto}</span><span className="mt-1 block text-[10px] text-muted-foreground">{formatMessageTime(conversacion.ultimo.createdAt, locale)}</span></span></div>
+                <button key={conversacion.id} type="button" onClick={() => abrirMensaje(conversacion.ultimo)} className={cn('mb-1 w-full rounded-xl border border-transparent px-2.5 py-2.5 text-left transition-all hover:border-primary/15 hover:bg-background', conversacionSeleccionada?.id === conversacion.id && 'border-primary/20 bg-background shadow-sm')}>
+                  <div className="flex items-start gap-2"><span className={cn('mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', conversacion.pendiente ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>{(esEstudiante ? 'AC' : conversacion.ultimo.estudianteNombre || 'E').slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? conversacion.asunto : conversacion.ultimo.estudianteNombre}</span>{conversacion.pendiente && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}</span><span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{esEstudiante ? (conversacion.ultimo.respuesta || conversacion.ultimo.contenido || ((conversacion.ultimo.respuestaAdjuntos?.length ?? 0) > 0 || (conversacion.ultimo.adjuntos?.length ?? 0) > 0 ? '📎 Archivo adjunto' : '')) : (conversacion.ultimo.respuesta || conversacion.ultimo.contenido || 'Sin mensajes')}</span><span className="mt-0.5 block text-[10px] text-muted-foreground">{formatMessageTime(conversacion.ultimo.createdAt, locale)}</span></span></div>
                 </button>
               ))}
             </div>
             <div className="flex min-h-0 min-w-0 flex-col bg-muted/[0.12]">
-              <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
                 {directContact ? (
                   <div className="mx-auto flex h-full max-w-2xl flex-col">
                     <div className="mb-5 shrink-0 border-b border-border/60 pb-4">
@@ -701,17 +775,17 @@ export function Header({ onOpenMobile }: HeaderProps) {
                           ))}
                     </div>
                   </div>
-                ) : !conversacionSeleccionada ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
+                ) : !conversacionSeleccionada && !adminTarget ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
                   <div className="mx-auto max-w-2xl space-y-5">
                   <div>
-                    <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{esEstudiante ? 'CAC Academy' : conversacionSeleccionada.asunto}</h2><span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', conversacionSeleccionada.pendiente ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{conversacionSeleccionada.pendiente ? messageCopy.open : messageCopy.answered}</span></div>
-                    {!esEstudiante && <p className="text-xs text-muted-foreground">{conversacionSeleccionada.ultimo.estudianteNombre} · {conversacionSeleccionada.ultimo.estudianteEmail}</p>}
-                    <p className="mt-1 text-xs text-muted-foreground">{formatMessageTime(conversacionSeleccionada.ultimo.createdAt, locale)}</p>
+                    <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{nombreChatActivo}</h2>{conversacionSeleccionada && <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', conversacionSeleccionada.pendiente ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{conversacionSeleccionada.pendiente ? messageCopy.open : messageCopy.answered}</span>}</div>
+                    {!esEstudiante && <p className="text-xs text-muted-foreground">{correoChatActivo}</p>}
+                    {conversacionSeleccionada && <p className="mt-1 text-xs text-muted-foreground">{formatMessageTime(conversacionSeleccionada.ultimo.createdAt, locale)}</p>}
                   </div>
                   <div className="space-y-4">
-                    {conversacionSeleccionada.mensajes.map((mensaje) => (
+                    {conversacionSeleccionada ? conversacionSeleccionada.mensajes.map((mensaje) => (
                       <div key={mensaje.id} className="space-y-2">
-                        <div className={cn('flex', esEstudiante ? 'justify-end' : 'justify-start')}>
+                        {(mensaje.contenido || (mensaje.adjuntos ?? []).length > 0) && <div className={cn('flex', esEstudiante ? 'justify-end' : 'justify-start')}>
                           <div className={cn('max-w-[74%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap sm:max-w-[70%]', esEstudiante ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground')}>
                             <p className={cn('mb-1 text-[10px] font-semibold', esEstudiante ? 'text-primary-foreground/75' : 'text-muted-foreground')}>{esEstudiante ? (locale === 'es' ? 'Tú' : 'You') : mensaje.estudianteNombre}</p>
                             {mensaje.contenido && <p>{mensaje.contenido}</p>}
@@ -736,7 +810,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                             )}
                             <p className={cn('mt-1 text-[10px]', esEstudiante ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{formatMessageTime(mensaje.createdAt, locale)}</p>
                           </div>
-                        </div>
+                        </div>}
                         {(mensaje.respuesta || (mensaje.respuestaAdjuntos ?? []).length > 0) && (
                           <div className={cn('flex', esEstudiante ? 'justify-start' : 'justify-end')}>
                             <div className={cn('max-w-[74%] break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm whitespace-pre-wrap sm:max-w-[70%]', esEstudiante ? 'rounded-tl-md border border-primary/20 bg-primary/5 text-foreground' : 'rounded-br-md bg-primary text-primary-foreground')}>
@@ -760,9 +834,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
                           </div>
                         )}
                       </div>
-                    ))}
+                    )) : <div className="rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-8 text-center text-sm text-muted-foreground">{locale === 'es' ? 'Escribe el primer mensaje para iniciar la conversación.' : 'Write the first message to start the conversation.'}</div>}
                   </div>
-                  {esEstudiante && !conversacionSeleccionada.mensajes.some((mensaje) => mensaje.respuesta) && <p className="text-sm text-muted-foreground">{messageCopy.waiting}</p>}
+                  {esEstudiante && conversacionSeleccionada && !conversacionSeleccionada.mensajes.some((mensaje) => mensaje.respuesta) && <p className="text-sm text-muted-foreground">{messageCopy.waiting}</p>}
                   {!esEstudiante && (
                     <div className="space-y-2 rounded-2xl border border-border/70 bg-background p-3">
                       <label htmlFor="respuesta-mensaje" className="text-sm font-medium text-foreground">{messageCopy.reply}</label>
@@ -773,7 +847,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                       <div className="flex items-end gap-2">
                         <button type="button" onClick={() => replyFileInputRef.current?.click()} disabled={sendingReply} aria-label={locale === 'es' ? 'Adjuntar archivo' : 'Attach file'} title={locale === 'es' ? 'Adjuntar archivo o imagen' : 'Attach a file or image'} className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-input bg-background text-muted-foreground transition hover:border-primary/35 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"><Paperclip className="size-5" /></button>
                         <textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} onPaste={(event) => { const imagenes = Array.from(event.clipboardData.files).filter((archivo) => archivo.type.startsWith('image/')); if (imagenes.length > 0) { event.preventDefault(); agregarAdjuntosRespuesta(imagenes) } }} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void responderMensaje() } }} rows={3} maxLength={5000} className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" placeholder={messageCopy.replyPlaceholder} />
-                        <Button type="button" className="h-11 shrink-0 rounded-xl" onClick={() => void responderMensaje()} disabled={sendingReply || (!reply.trim() && replyAttachments.length === 0)}>{sendingReply ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}<span className="hidden sm:inline">{sendingReply ? messageCopy.sending : selectedMessage?.estado === 'RESPONDIDO' ? messageCopy.update : messageCopy.send}</span></Button>
+                        <Button type="button" className="h-11 shrink-0 rounded-xl" onClick={() => void responderMensaje()} disabled={sendingReply || (!reply.trim() && replyAttachments.length === 0)}>{sendingReply ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}<span className="hidden sm:inline">{sendingReply ? messageCopy.sending : messageCopy.send}</span></Button>
                       </div>
                       {messageError && <p className="text-xs text-destructive">{messageError}</p>}
                     </div>

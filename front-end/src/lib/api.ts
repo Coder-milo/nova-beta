@@ -447,6 +447,12 @@ export const mensajesApi = {
       : apiFetch<MensajeResponse>(`/api/v1/mensajes/${id}/respuesta`, {
           method: 'PUT', data: { respuesta }, token,
         }),
+  enviarAEstudiante: (estudianteId: string, respuesta: string, archivos?: File[], token?: string) =>
+    archivos?.length
+      ? apiUpload<MensajeResponse>(`/api/v1/mensajes/estudiantes/${estudianteId}`, { respuesta, archivos }, token)
+      : apiFetch<MensajeResponse>(`/api/v1/mensajes/estudiantes/${estudianteId}`, {
+          method: 'POST', data: { respuesta }, token,
+        }),
 }
 
 // ─── Admin ───────────────────────────────────────────────────────────────────
@@ -566,6 +572,8 @@ export const hvApi = {
     apiDownload(`/api/v1/hojas-de-vida/${id}/pdf`, nombre),
   marcarActual: (id: string, token?: string) =>
     apiFetch<HojaDeVidaResponse>(`/api/v1/hojas-de-vida/${id}/actual`, { method: 'PATCH', token }),
+  eliminar: (id: string, token?: string) =>
+    apiFetch<void>(`/api/v1/hojas-de-vida/${id}`, { method: 'DELETE', token }),
   descargarZip: (estudianteIds: string[]) =>
     apiDownload('/api/v1/hojas-de-vida/descargar-zip', 'hojas-de-vida.zip', { method: 'POST', data: estudianteIds }),
   extraer: (archivo: File, token?: string) =>
