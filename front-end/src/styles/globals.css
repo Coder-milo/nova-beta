@@ -475,8 +475,8 @@ input[type="checkbox"]:disabled {
 
 .dark .glass-chrome {
   background:
-    linear-gradient(125deg, rgba(84, 126, 255, 0.12), transparent 28%),
-    linear-gradient(305deg, rgba(229, 18, 45, 0.07), transparent 34%),
+    linear-gradient(125deg, hsl(var(--marca-h) 86% 62% / 0.12), transparent 28%),
+    linear-gradient(305deg, hsl(calc(var(--marca-h) + 26) 82% 58% / 0.07), transparent 34%),
     var(--glass-chrome);
   -webkit-backdrop-filter: blur(38px) saturate(178%);
   backdrop-filter: blur(38px) saturate(178%);
@@ -503,12 +503,12 @@ input[type="checkbox"]:disabled {
 .dark .glass-card,
 .dark .apple-glass {
   background:
-    linear-gradient(135deg, rgba(105, 148, 255, 0.1), transparent 34%),
-    linear-gradient(315deg, rgba(229, 18, 45, 0.045), transparent 38%),
+    linear-gradient(135deg, hsl(var(--marca-h) 82% 66% / 0.10), transparent 34%),
+    linear-gradient(315deg, hsl(calc(var(--marca-h) + 26) 80% 60% / 0.045), transparent 38%),
     var(--glass-surface);
   -webkit-backdrop-filter: blur(32px) saturate(168%);
   backdrop-filter: blur(32px) saturate(168%);
-  border-color: rgba(139, 169, 226, 0.17);
+  border-color: hsl(var(--marca-h) 54% 74% / 0.17);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.13),
     inset 0 -1px 0 rgba(0, 0, 0, 0.24),
@@ -518,16 +518,16 @@ input[type="checkbox"]:disabled {
 
 .dark .glass-card:hover,
 .dark .apple-glass:hover {
-  border-color: rgba(104, 145, 255, 0.35);
+  border-color: hsl(var(--marca-h) 82% 66% / 0.35);
   background:
-    linear-gradient(135deg, rgba(115, 157, 255, 0.15), transparent 38%),
-    linear-gradient(315deg, rgba(229, 18, 45, 0.075), transparent 42%),
+    linear-gradient(135deg, hsl(var(--marca-h) 82% 68% / 0.15), transparent 38%),
+    linear-gradient(315deg, hsl(calc(var(--marca-h) + 26) 80% 62% / 0.075), transparent 42%),
     var(--glass-elevated);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.17),
-    0 0 0 1px rgba(49, 92, 255, 0.12),
+    0 0 0 1px hsl(var(--marca-h) 82% 64% / 0.12),
     0 28px 62px -32px rgba(0, 0, 0, 0.9),
-    0 0 36px -26px rgba(49, 92, 255, 0.72);
+    0 0 36px -26px hsl(var(--marca-h) 82% 62% / 0.72);
 }
 
 /* Selected sidebar item: clean glass without multicolor gradients. */
@@ -733,20 +733,13 @@ textarea {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  /* Capa fija a pantalla completa: es el fondo que se ve detrás de todo el
-     panel. Llevaba dos halos y un velo azules escritos a fuego, y era el
-     motivo principal de que un proyecto en verde siguiera «sintiéndose» azul. */
-  background:
-    radial-gradient(44rem 36rem at 5% 0%,
-      hsl(var(--marca-h) 86% 49% / 0.10), transparent 66%),
-    radial-gradient(38rem 34rem at 96% 8%,
-      hsl(calc(var(--marca-h) + 20) 89% 48% / 0.07), transparent 66%),
-    linear-gradient(160deg,
-      hsl(var(--marca-h) var(--marca-sn) 96.9% / 0.90) 0%,
-      hsl(var(--marca-h) var(--marca-sn) 98.6% / 0.88) 48%,
-      hsl(var(--marca-h) var(--marca-sn) 95.3% / 0.91) 100%),
-    url("/brand/photos/estudiantes-cac.webp") center 42% / cover no-repeat;
+  /* El modo claro es deliberadamente limpio: sin fotografía ni textura detrás
+     del contenido. El color de cada proyecto vive en sus controles, no en una
+     imagen que compita con formularios y tablas. */
+  background: none;
 }
+
+.light .ambient-grid { display: none; }
 
 .light .liquid-glass,
 .light .glass-card,
@@ -773,9 +766,9 @@ textarea {
   /* Fondo institucional propio del panel administrativo. La fotografía queda
      muy atenuada para aportar profundidad sin competir con los datos. */
   background:
-    linear-gradient(115deg, hsl(222 45% 4% / 0.94), hsl(221 42% 7% / 0.87) 55%, hsl(224 38% 6% / 0.93)),
+    linear-gradient(115deg, hsl(var(--marca-h) 45% 4% / 0.94), hsl(var(--marca-h) 42% 7% / 0.87) 55%, hsl(var(--marca-h) 38% 6% / 0.93)),
     radial-gradient(52rem 42rem at 94% -4%, hsl(var(--marca-h) 100% 56% / 0.16), transparent 66%),
-    radial-gradient(45rem 38rem at -2% 88%, rgba(232, 18, 52, 0.10), transparent 68%),
+    radial-gradient(45rem 38rem at -2% 88%, hsl(calc(var(--marca-h) + 26) 88% 58% / 0.10), transparent 68%),
     url("/brand/photos/academy-admin-backdrop.png") center center / cover no-repeat;
 }
 
@@ -784,7 +777,7 @@ textarea {
 .dark .student-project-shell .ambient-mesh {
   background:
     radial-gradient(52rem 42rem at 94% -4%, hsl(var(--marca-h) 100% 56% / 0.22), transparent 66%),
-    radial-gradient(45rem 38rem at -2% 88%, rgba(232, 18, 52, 0.13), transparent 68%),
+    radial-gradient(45rem 38rem at -2% 88%, hsl(calc(var(--marca-h) + 26) 88% 58% / 0.13), transparent 68%),
     linear-gradient(145deg, hsl(var(--marca-h) 67% 2.4%) 0%, hsl(var(--marca-h) 60% 5.5%) 48%, hsl(var(--marca-h) 67% 2.4%) 100%);
 }
 
@@ -797,7 +790,7 @@ textarea {
 }
 
 .dark .ambient-grid {
-  color: rgba(118, 151, 208, 0.055);
+  color: hsl(var(--marca-h) 78% 72% / 0.055);
   background-image:
     linear-gradient(to right, currentColor 1px, transparent 1px),
     linear-gradient(to bottom, currentColor 1px, transparent 1px);
@@ -831,12 +824,12 @@ textarea {
 }
 
 .dark-brand-wave--blue {
-  color: rgba(49, 92, 255, 0.24);
+  color: hsl(var(--marca-h) 92% 64% / 0.24);
   animation: cac-wave-blue-drift 18s ease-in-out infinite alternate;
 }
 
 .dark-brand-wave--red {
-  color: rgba(229, 18, 45, 0.22);
+  color: hsl(calc(var(--marca-h) + 26) 86% 58% / 0.22);
   animation: cac-wave-red-drift 22s ease-in-out infinite alternate;
 }
 
@@ -853,13 +846,13 @@ textarea {
 .dark-brand-orb--blue {
   top: -16rem;
   right: -7rem;
-  background: #2448ff;
+  background: hsl(var(--marca-h) 92% 56%);
 }
 
 .dark-brand-orb--red {
   bottom: -19rem;
   left: 7%;
-  background: #e5122d;
+  background: hsl(calc(var(--marca-h) + 26) 86% 54%);
 }
 
 @keyframes cac-wave-blue-drift {

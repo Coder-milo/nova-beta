@@ -483,7 +483,31 @@ export function Header({ onOpenMobile }: HeaderProps) {
                   </div>
                 )}
               </div>
-              {esEstudiante && <div className="shrink-0 border-t border-border/60 bg-card px-4 py-3 sm:px-5"><div className="mx-auto flex max-w-2xl items-end gap-2"><textarea value={studentBody} onChange={(event) => setStudentBody(event.target.value)} rows={2} maxLength={5000} placeholder={locale === 'es' ? 'Escribe un mensaje al equipo de acompañamiento…' : 'Write a message to the support team…'} className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" />{messageError && <p className="sr-only">{messageError}</p>}<Button className="h-11 shrink-0 rounded-xl" onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || !studentBody.trim()}>{sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}<span className="hidden sm:inline">{locale === 'es' ? 'Enviar' : 'Send'}</span></Button></div></div>}
+              {esEstudiante && (
+                <div className="shrink-0 border-t border-border/60 bg-card px-4 py-3 sm:px-5">
+                  <div className="mx-auto flex max-w-2xl items-end gap-2">
+                    <textarea
+                      value={studentBody}
+                      onChange={(event) => setStudentBody(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.shiftKey) {
+                          event.preventDefault()
+                          void enviarMensajeEstudiante()
+                        }
+                      }}
+                      rows={2}
+                      maxLength={5000}
+                      placeholder={locale === 'es' ? 'Escribe un mensaje al equipo de acompañamiento…' : 'Write a message to the support team…'}
+                      className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
+                    />
+                    {messageError && <p className="sr-only">{messageError}</p>}
+                    <Button className="h-11 shrink-0 rounded-xl" onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || !studentBody.trim()}>
+                      {sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}
+                      <span className="hidden sm:inline">{locale === 'es' ? 'Enviar' : 'Send'}</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </SheetContent>
