@@ -88,6 +88,7 @@ function aplicar(variables: VariablesTema | null): void {
  * servidor porque es una preferencia de su pantalla, no un dato del programa.
  */
 const CLAVE_PROYECTO_ACTIVO = 'nova_tema_proyecto'
+const CLAVE_IDENTIDAD_ACTUALIZADA = 'nova_identidad_proyecto_actualizada'
 
 export function leerProyectoActivo(): string | null {
   if (typeof localStorage === 'undefined') return null
@@ -98,6 +99,16 @@ export function guardarProyectoActivo(programaId: string | null): void {
   if (typeof localStorage === 'undefined') return
   if (programaId) localStorage.setItem(CLAVE_PROYECTO_ACTIVO, programaId)
   else localStorage.removeItem(CLAVE_PROYECTO_ACTIVO)
+}
+
+/**
+ * Avisa a los otros portales abiertos que un administrador acaba de publicar
+ * una identidad. No cambia el tema de quien administra: el proveedor solo
+ * atiende esta señal si la sesión actual es exclusivamente de estudiante.
+ */
+export function notificarIdentidadActualizada(programaId: string): void {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(CLAVE_IDENTIDAD_ACTUALIZADA, JSON.stringify({ programaId, fecha: Date.now() }))
 }
 
 export function ProveedorBranding({ children }: { children: ReactNode }) {
@@ -156,6 +167,30 @@ export function ProveedorBranding({ children }: { children: ReactNode }) {
       return
     }
     cargar()
+  }, [user, cargar])
+
+  // Al volver al portal o cuando otra pestaña publica una identidad, se vuelve
+  // a consultar la marca. Así el banner y los colores nuevos aparecen sin
+  // obligar al estudiante a cerrar sesión o a vaciar la caché del navegador.
+  useEffect(() => {
+    if (!user || !soloEsEstudiante(user.roles)) return
+
+    const sincronizar = () => { void cargar() }
+    const alCambiarAlmacenamiento = (event: StorageEvent) => {
+      if (event.key === CLAVE_IDENTIDAD_ACTUALIZADA) sincronizar()
+    }
+    const alRecuperarFoco = () => {
+      if (document.visibilityState === 'visible') sincronizar()
+    }
+
+    window.addEventListener('storage', alCambiarAlmacenamiento)
+    window.addEventListener('focus', alRecuperarFoco)
+    document.addEventListener('visibilitychange', alRecuperarFoco)
+    return () => {
+      window.removeEventListener('storage', alCambiarAlmacenamiento)
+      window.removeEventListener('focus', alRecuperarFoco)
+      document.removeEventListener('visibilitychange', alRecuperarFoco)
+    }
   }, [user, cargar])
 
   const colorActivo = branding?.colorPrimario ?? null

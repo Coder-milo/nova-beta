@@ -41,6 +41,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { brandingApi, programasApi, ApiCallError } from '@/lib/api'
 import { paletaDesde, textoSobre } from '@/lib/paleta'
+import { notificarIdentidadActualizada } from '@/lib/branding'
 import type { BrandingResponse, MedidaExigida, ProgramaResponse } from '@/lib/types'
 
 /** Colores de arranque. Ahorran abrir el selector para lo más habitual. */
@@ -470,6 +471,7 @@ export function PanelBranding() {
       })
       setBranding(b)
       setGuardado(true)
+      notificarIdentidadActualizada(programaId)
       // La identidad se publica para los estudiantes de este proyecto. La
       // vista del administrador conserva deliberadamente la gama global.
     } catch (err) {
@@ -488,6 +490,7 @@ export function PanelBranding() {
     try {
       await brandingApi.restablecer(programaId)
       await cargar(programaId)
+      notificarIdentidadActualizada(programaId)
     } catch (err) {
       setError(errorDe(err))
     } finally {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BookOpenText, CalendarBlank, ChatCircleDots, CircleNotch, FileText, PaperPlaneTilt, Sparkle, Trash, X } from '@phosphor-icons/react'
+import { BookOpenText, CalendarBlank, CircleNotch, FileText, PaperPlaneTilt, Sparkle, Trash, X } from '@phosphor-icons/react'
 import { useRouter } from '@/compat/next-navigation'
 import { usePreferences } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
@@ -43,11 +43,11 @@ export function StudentHelpChat() {
   const english = locale === 'en'
   const storageKey = `${STORAGE_KEY}_${locale}`
   const labels = useMemo(() => english ? {
-    title: 'Academy assistant', subtitle: 'Portal guide · Online', greeting: 'Hi! I am your Academy CAC assistant. What would you like to do today?',
+    title: 'Alex, virtual assistant', subtitle: 'Your fox guide · Online', greeting: 'Hi! I am Alex, your Academy CAC fox guide. What would you like to do today?',
     placeholder: 'Ask about your portal...', send: 'Send question', clear: 'Clear conversation', contact: 'Contact the team',
     documents: 'Upload a document', process: 'Review my process', calendar: 'Open calendar', suggestions: ['How do I upload a document?', 'Where can I see my process?', 'How do I improve my LinkedIn?'],
   } : {
-    title: 'Asistente Academy', subtitle: 'Guía del portal · En línea', greeting: '¡Hola! Soy tu asistente de Academy CAC. ¿Qué necesitas hacer hoy?',
+    title: 'Alex, asistente virtual', subtitle: 'Tu zorro guía · En línea', greeting: '¡Hola! Soy Alex, tu zorro guía de Academy CAC. ¿Qué necesitas hacer hoy?',
     placeholder: 'Pregunta sobre tu portal...', send: 'Enviar pregunta', clear: 'Limpiar conversación', contact: 'Contactar al equipo',
     documents: 'Subir un documento', process: 'Revisar mi proceso', calendar: 'Abrir calendario', suggestions: ['¿Cómo subo un documento?', '¿Dónde veo mi proceso?', '¿Cómo mejoro mi LinkedIn?'],
   }, [english])
@@ -95,7 +95,7 @@ export function StudentHelpChat() {
 
   return <div className="fixed bottom-5 right-5 z-50 sm:bottom-7 sm:right-7">
     {open && <section aria-label={labels.title} className="mb-3 flex h-[min(72dvh,620px)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-popover shadow-[0_28px_70px_rgba(0,0,0,0.32)]">
-      <header className="relative overflow-hidden border-b border-primary/15 bg-[linear-gradient(125deg,color-mix(in_srgb,var(--primary)_23%,transparent),transparent_62%)] px-4 py-3.5"><div className="absolute -right-5 -top-8 size-28 rounded-full bg-primary/10 blur-2xl" /><div className="relative flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg"><Sparkle className="size-5" weight="fill" /></span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-foreground">{labels.title}</p><p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="size-1.5 rounded-full bg-emerald-500" />{labels.subtitle}</p></div><button type="button" onClick={limpiar} title={labels.clear} aria-label={labels.clear} className="rounded-xl p-2 text-muted-foreground transition hover:bg-background/70 hover:text-foreground"><Trash className="size-4" /></button><button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded-xl p-2 text-muted-foreground transition hover:bg-background/70 hover:text-foreground"><X className="size-4" /></button></div></header>
+      <header className="relative overflow-hidden border-b border-primary/15 bg-[linear-gradient(125deg,color-mix(in_srgb,var(--primary)_23%,transparent),transparent_62%)] px-4 py-3.5"><div className="absolute -right-5 -top-8 size-28 rounded-full bg-primary/10 blur-2xl" /><div className="relative flex items-center gap-3"><span aria-hidden="true" className="flex size-10 items-center justify-center rounded-2xl bg-primary text-xl shadow-lg">🦊</span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-foreground">{labels.title}</p><p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="size-1.5 rounded-full bg-emerald-500" />{labels.subtitle}</p></div><button type="button" onClick={limpiar} title={labels.clear} aria-label={labels.clear} className="rounded-xl p-2 text-muted-foreground transition hover:bg-background/70 hover:text-foreground"><Trash className="size-4" /></button><button type="button" onClick={() => setOpen(false)} aria-label="Close" className="rounded-xl p-2 text-muted-foreground transition hover:bg-background/70 hover:text-foreground"><X className="size-4" /></button></div></header>
       <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,color-mix(in_srgb,var(--primary)_3%,transparent),transparent_34%)] p-4">
         {messages.map((message) => <div key={message.id} className={cn('flex', message.author === 'student' && 'justify-end')}><div className={cn('max-w-[86%] rounded-2xl px-3.5 py-2.5 text-sm leading-5 shadow-sm', message.author === 'bot' ? 'rounded-tl-md border border-border bg-card text-foreground' : 'rounded-tr-md bg-primary text-primary-foreground')}>{message.text}</div></div>)}
         {typing && <div className="flex"><div className="flex items-center gap-2 rounded-2xl rounded-tl-md border border-border bg-card px-3.5 py-2.5 text-xs text-muted-foreground"><CircleNotch className="size-3.5 animate-spin text-primary" />{english ? 'Preparing an answer...' : 'Preparando una respuesta...'}</div></div>}
@@ -104,6 +104,6 @@ export function StudentHelpChat() {
       </div>
       <div className="border-t border-border bg-card p-3"><button type="button" onClick={contactar} className="mb-2 flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"><BookOpenText className="size-3.5" />{labels.contact}</button><form className="flex items-center gap-2" onSubmit={(event) => { event.preventDefault(); enviar() }}><input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={labels.placeholder} maxLength={500} className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" /><button type="submit" disabled={!draft.trim() || typing} aria-label={labels.send} className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition hover:brightness-105 disabled:opacity-45"><PaperPlaneTilt className="size-4" weight="fill" /></button></form></div>
     </section>}
-    <button type="button" onClick={() => setOpen((value) => !value)} aria-label={open ? 'Close assistant' : labels.title} className="group relative flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_16px_34px_-12px_color-mix(in_srgb,var(--primary)_80%,transparent)] transition hover:scale-105 active:scale-95"><span className="absolute inset-0 rounded-2xl bg-primary/45 blur-lg transition group-hover:blur-xl" />{open ? <X className="relative size-6" /> : <ChatCircleDots className="relative size-6" weight="fill" />}</button>
+    <button type="button" onClick={() => setOpen((value) => !value)} aria-label={open ? 'Close Alex' : labels.title} title={open ? 'Close Alex' : labels.title} className="group relative flex size-14 items-center justify-center rounded-2xl bg-primary text-2xl text-primary-foreground shadow-[0_16px_34px_-12px_color-mix(in_srgb,var(--primary)_80%,transparent)] transition hover:scale-105 active:scale-95"><span className="absolute inset-0 rounded-2xl bg-primary/45 blur-lg transition group-hover:blur-xl" /><span aria-hidden="true" className="relative">🦊</span></button>
   </div>
 }
