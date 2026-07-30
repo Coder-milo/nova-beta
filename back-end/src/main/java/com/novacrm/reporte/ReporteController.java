@@ -41,15 +41,23 @@ public class ReporteController {
         if (!TIPOS_VALIDOS.contains(tipo)) {
             throw new BusinessException("Tipo de reporte no valido: " + tipo);
         }
-        if (!"xlsx".equalsIgnoreCase(formato) && !"pdf".equalsIgnoreCase(formato)) {
+        if (!"xlsx".equalsIgnoreCase(formato) && !"pdf".equalsIgnoreCase(formato) && !"csv".equalsIgnoreCase(formato)) {
             throw new BusinessException("Formato de exportacion no soportado: " + formato);
         }
 
         String formatoNormalizado = formato.toLowerCase();
         byte[] contenido = reporteService.exportar(tipo, formatoNormalizado, programaId);
 
-        String contentType = "xlsx".equals(formatoNormalizado) ? XLSX_CONTENT_TYPE : "application/pdf";
-        String filename = "reporte-" + tipo + "." + formatoNormalizado;
+        String contentType = "xlsx".equals(formatoNormalizado)
+            ? XLSX_CONTENT_TYPE
+            : "csv".equals(formatoNormalizado)
+                ? "text/csv; charset=UTF-8"
+                : "application/pdf";
+        // El nombre lleva la fecha: los reportes se guardan uno junto a otro en
+        // la carpeta de descargas y "reporte-estudiantes.xlsx" se sobrescribia
+        // con "(1)", "(2)" sin que nadie supiera cual era cual.
+        String filename = "reporte-" + tipo + "-"
+            + java.time.LocalDate.now(java.time.ZoneId.of("America/Bogota")) + "." + formatoNormalizado;
 
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
