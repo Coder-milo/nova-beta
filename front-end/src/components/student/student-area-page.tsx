@@ -8,7 +8,6 @@ import {
   CalendarBlank,
   ChatCircle,
   CircleNotch,
-  DownloadSimple,
   Globe,
   Info,
   Moon,
@@ -40,7 +39,9 @@ import { Button } from '@/components/ui/button'
 import { StudentPerfil } from './student-perfil'
 import { StudentDocumentos } from './student-documentos'
 import { StudentPostulaciones } from './student-postulaciones'
+import { StudentHojaDeVida } from './student-hoja-de-vida'
 import { usePreferences } from '@/lib/preferences'
+import { Textarea } from '@/components/ui/textarea'
 
 export type StudentArea =
   | 'proceso'
@@ -121,9 +122,6 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
       window.dispatchEvent(new CustomEvent('nova:notifications-updated', { detail: noLeidas }))
     }
   }
-
-  const descargar = () =>
-    estudiantesApi.descargarMiHvPdf(`HV-${perfil?.nombre || 'estudiante'}.pdf`)
 
   const enviarMensaje = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -300,53 +298,8 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
       )}
 
       {/* ── Hoja de vida ───────────────────────────────────────── */}
-      {area === 'hv' && (
-        <Card className="max-w-2xl shadow-none">
-          <CardHeader>
-            <CardTitle>Tu hoja de vida profesional</CardTitle>
-            <CardDescription>
-              La información se genera con los datos actualizados de tu perfil.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="rounded-xl border bg-secondary/40 p-4 text-sm space-y-2">
-              <p>
-                <b>Nombre:</b> {perfil?.nombre} {perfil?.apellido}
-              </p>
-              <p>
-                <b>Cargo objetivo:</b>{' '}
-                {perfil?.cargoObjetivo || (
-                  <span className="italic text-muted-foreground">Pendiente — edita tu perfil</span>
-                )}
-              </p>
-              <p>
-                <b>Perfil profesional:</b>{' '}
-                {perfil?.perfilProfesional || (
-                  <span className="italic text-muted-foreground">Pendiente de completar</span>
-                )}
-              </p>
-              {perfil?.competencias && (
-                <p>
-                  <b>Competencias:</b> {perfil.competencias}
-                </p>
-              )}
-              {perfil?.nivelIngles && (
-                <p>
-                  <b>Inglés:</b> {perfil.nivelIngles}
-                </p>
-              )}
-            </div>
-            {(!perfil?.cargoObjetivo || !perfil?.perfilProfesional) && (
-              <p className="text-xs text-amber-600 flex items-center gap-1.5">
-                <WarningCircle className="size-4" />
-                Completa tu perfil antes de descargar para obtener una mejor HV.
-              </p>
-            )}
-            <Button onClick={descargar}>
-              <DownloadSimple /> Descargar CV en PDF
-            </Button>
-          </CardContent>
-        </Card>
+      {area === 'hv' && perfil && (
+        <StudentHojaDeVida perfil={perfil} onUpdate={setPerfil} />
       )}
 
       {/* ── Postulaciones ──────────────────────────────────────── */}
@@ -357,23 +310,43 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
         <div className="space-y-3">
           {notificaciones.length ? (
             notificaciones.map((n) => (
-              <button
+              // Un `<article>` y no un `<button>`: el cuerpo del anuncio llega
+              // con formato y puede traer enlaces o un adjunto, y anidar un
+              // enlace dentro de un botón es HTML inválido —el teclado deja de
+              // poder alcanzarlo—. Marcar como leída es su propia acción.
+              <article
                 key={n.id}
-                onClick={() => marcarLeida(n)}
-                className="flex w-full gap-4 rounded-xl border border-border bg-card p-4 text-left hover:bg-secondary/40"
+                className="flex w-full gap-4 rounded-xl border border-border bg-card p-4 text-left"
               >
                 <span
                   className={`mt-1 size-2.5 shrink-0 rounded-full ${n.leida ? 'bg-border' : 'bg-primary'}`}
                 />
-                <div>
+                <div className="min-w-0 flex-1">
                   <strong className="text-sm">{n.titulo}</strong>
-                  <p className="mt-1 text-sm text-muted-foreground">{n.mensaje}</p>
-                  {n.mediaUrl && (n.mediaTipo === 'IMAGE' ? <img src={n.mediaUrl} alt={`Material de ${n.titulo}`} className="mt-3 max-h-72 w-full rounded-lg border border-border object-cover" /> : n.mediaTipo === 'VIDEO' ? <video src={n.mediaUrl} controls className="mt-3 max-h-72 w-full rounded-lg border border-border" /> : <a href={n.mediaUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="mt-3 inline-flex text-sm font-medium text-primary hover:underline">Abrir información del anuncio</a>)}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {new Date(n.createdAt).toLocaleString('es-CO')}
-                  </p>
+                  {/* El mensaje se guarda ya saneado en el backend con una lista
+                      blanca; los anuncios antiguos son texto plano y se ven
+                      igual porque no traen marcado. */}
+                  <div
+                    className="contenido-anuncio mt-1 text-sm text-muted-foreground"
+                    dangerouslySetInnerHTML={{ __html: n.mensaje ?? '' }}
+                  />
+                  {n.mediaUrl && (n.mediaTipo === 'IMAGE' ? <img src={n.mediaUrl} alt={`Material de ${n.titulo}`} className="mt-3 max-h-72 w-full rounded-lg border border-border object-cover" /> : n.mediaTipo === 'VIDEO' ? <video src={n.mediaUrl} controls className="mt-3 max-h-72 w-full rounded-lg border border-border" /> : <a href={n.mediaUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm font-medium text-primary hover:underline">{n.mediaTipo === 'FILE' ? 'Descargar el documento adjunto' : 'Abrir información del anuncio'}</a>)}
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(n.createdAt).toLocaleString('es-CO')}
+                    </p>
+                    {!n.leida && (
+                      <button
+                        type="button"
+                        onClick={() => marcarLeida(n)}
+                        className="text-xs font-semibold text-primary hover:underline"
+                      >
+                        Marcar como leída
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </button>
+              </article>
             ))
           ) : (
             <Empty icon={<Bell />} text="No tienes notificaciones." />
@@ -422,12 +395,12 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
             </CardHeader>
             <CardContent>
               <form className="space-y-4" onSubmit={enviarMensaje}>
-                <textarea
+                <Textarea
                   value={contenidoMensaje}
                   onChange={(event) => setContenidoMensaje(event.target.value)}
                   maxLength={5000}
                   required
-                  rows={7}
+                  minRows={7}
                   placeholder="Cuéntanos en qué necesitas ayuda..."
                   className="flex w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />

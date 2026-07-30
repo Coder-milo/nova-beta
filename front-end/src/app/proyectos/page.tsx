@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { programasApi, ApiCallError } from '@/lib/api'
 import type { ProgramaResponse, ProgramaRequest, ProgramaEstado } from '@/lib/types'
+import { Textarea } from '@/components/ui/textarea'
 
 const estadoLabels: Record<ProgramaEstado, { label: string; dot: string; text: string }> = {
   PLANEACION:   { label: 'Planeación',   dot: 'bg-navy-200', text: 'text-navy-400' },
@@ -177,7 +178,7 @@ export default function ProyectosPage() {
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
                 <label htmlFor="p-desc" className="text-xs font-medium">Descripción</label>
-                <textarea id="p-desc" rows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.descripcion ?? ''} onChange={(e) => f('descripcion', e.target.value)} placeholder="Descripción del programa…" disabled={isPending} />
+                <Textarea id="p-desc" minRows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.descripcion ?? ''} onChange={(e) => f('descripcion', e.target.value)} placeholder="Descripción del programa…" disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="p-cliente" className="text-xs font-medium">Cliente</label>
@@ -193,7 +194,7 @@ export default function ProyectosPage() {
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
                 <label htmlFor="p-obs" className="text-xs font-medium">Observaciones</label>
-                <textarea id="p-obs" rows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.observaciones ?? ''} onChange={(e) => f('observaciones', e.target.value)} placeholder="Observaciones internas…" disabled={isPending} />
+                <Textarea id="p-obs" minRows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.observaciones ?? ''} onChange={(e) => f('observaciones', e.target.value)} placeholder="Observaciones internas…" disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="p-duracion" className="text-xs font-medium">Duración (días)</label>

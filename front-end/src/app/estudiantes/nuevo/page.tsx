@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { estudiantesApi, programasApi, ApiCallError } from '@/lib/api'
 import type { ProgramaResponse, EstudianteRequest, EstadoAcademico, EstadoEmpleabilidad } from '@/lib/types'
+import { Textarea } from '@/components/ui/textarea'
 
 const DRAFT_KEY = 'nova_draft_estudiante'
 
@@ -275,7 +276,7 @@ export default function NuevoEstudiantePage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Campo label="Perfil profesional" htmlFor="n-perfil">
-                  <textarea id="n-perfil" rows={3} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.perfilProfesional ?? ''} onChange={(e) => f('perfilProfesional', e.target.value)} placeholder="Descripción del perfil…" disabled={isPending} />
+                  <Textarea id="n-perfil" minRows={3} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.perfilProfesional ?? ''} onChange={(e) => f('perfilProfesional', e.target.value)} placeholder="Descripción del perfil…" disabled={isPending} />
                 </Campo>
               </div>
               <Campo label="Cargo objetivo" htmlFor="n-cargoobj">
@@ -292,7 +293,7 @@ export default function NuevoEstudiantePage() {
               </Campo>
               <div className="sm:col-span-2">
                 <Campo label="Competencias" htmlFor="n-competencias">
-                  <textarea id="n-competencias" rows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.competencias ?? ''} onChange={(e) => f('competencias', e.target.value)} placeholder="Ej: Excel avanzado, atención al cliente…" disabled={isPending} />
+                  <Textarea id="n-competencias" minRows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.competencias ?? ''} onChange={(e) => f('competencias', e.target.value)} placeholder="Ej: Excel avanzado, atención al cliente…" disabled={isPending} />
                 </Campo>
               </div>
               <Campo label="Idiomas" htmlFor="n-idiomas">

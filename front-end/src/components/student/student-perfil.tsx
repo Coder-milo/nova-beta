@@ -1,16 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
+  Briefcase,
   Check,
   CircleNotch,
+  GraduationCap,
   PencilSimple,
   User,
   WarningCircle,
   X,
 } from '@phosphor-icons/react'
-import { ApiCallError, estudiantesApi } from '@/lib/api'
-import type { EstudianteRequest, EstudianteResponse } from '@/lib/types'
+import { ApiCallError, estudiantesApi, perfilApi } from '@/lib/api'
+import type { EstudianteRequest, EstudianteResponse, FormacionResponse, ExperienciaResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,6 +23,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 interface Props {
   perfil: EstudianteResponse
@@ -58,6 +61,15 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<EditableFields>(buildEditableFields(perfil))
+  const [formaciones, setFormaciones] = useState<FormacionResponse[]>([])
+  const [experiencias, setExperiencias] = useState<ExperienciaResponse[]>([])
+
+  useEffect(() => {
+    if (perfil.id) {
+      perfilApi.formaciones(perfil.id).then(setFormaciones).catch(() => {})
+      perfilApi.experiencias(perfil.id).then(setExperiencias).catch(() => {})
+    }
+  }, [perfil.id])
 
   const cancelar = () => {
     setForm(buildEditableFields(perfil))
@@ -262,8 +274,8 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                 <label className="text-xs font-medium text-muted-foreground">
                   Perfil profesional
                 </label>
-                <textarea
-                  className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                <Textarea
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                   placeholder="Describe tu experiencia, habilidades y objetivos profesionales..."
                   value={form.perfilProfesional}
                   onChange={(e) => setForm({ ...form, perfilProfesional: e.target.value })}
@@ -283,8 +295,8 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
 
               <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <label className="text-xs font-medium text-muted-foreground">Competencias</label>
-                <textarea
-                  className="min-h-16 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                <Textarea
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                   placeholder="Trabajo en equipo, liderazgo, comunicación asertiva..."
                   value={form.competencias}
                   onChange={(e) => setForm({ ...form, competencias: e.target.value })}
@@ -366,6 +378,76 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                   <p className="mt-1 text-sm">{perfil.competencias}</p>
                 </div>
               )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Experiencia Profesional ──────────────────────────── */}
+      <Card className="shadow-none">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div className="flex items-center gap-2">
+            <Briefcase className="size-4 text-primary" />
+            <CardTitle className="text-base">Experiencia profesional</CardTitle>
+          </div>
+          <a href="/mi-hoja-de-vida" className="text-xs font-medium text-primary hover:underline">
+            Gestionar en Hoja de Vida ↗
+          </a>
+        </CardHeader>
+        <CardContent>
+          {experiencias.length === 0 ? (
+            <p className="text-sm italic text-muted-foreground/70">
+              No has registrado cargos o experiencias laborales anteriores.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {experiencias.map((exp) => (
+                <div key={exp.id} className="rounded-lg border bg-muted/20 p-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-1 font-semibold">
+                    <span>{exp.cargo}</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {exp.fechaInicio ?? 'Sin fecha'} — {exp.actual ? 'Actualidad' : exp.fechaFin ?? 'Presente'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{exp.empresa}</p>
+                  {exp.funciones && <p className="mt-2 text-xs leading-relaxed text-foreground/90">{exp.funciones}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Formación Académica y Certificaciones ────────────── */}
+      <Card className="shadow-none">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="size-4 text-primary" />
+            <CardTitle className="text-base">Formación académica y certificaciones</CardTitle>
+          </div>
+          <a href="/mi-hoja-de-vida" className="text-xs font-medium text-primary hover:underline">
+            Gestionar en Hoja de Vida ↗
+          </a>
+        </CardHeader>
+        <CardContent>
+          {formaciones.length === 0 ? (
+            <p className="text-sm italic text-muted-foreground/70">
+              No has registrado títulos académicos o certificaciones adicionales.
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {formaciones.map((f) => (
+                <div key={f.id} className="rounded-lg border bg-muted/20 p-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge variant="outline" className="text-[10px] uppercase">
+                      {f.tipo === 'CERTIFICACION' ? 'Certificación' : f.tipo === 'CURSO' ? 'Curso' : 'Educación'}
+                    </Badge>
+                    <span className="text-[11px] text-muted-foreground">{f.fechaFin ?? f.fechaInicio ?? ''}</span>
+                  </div>
+                  <p className="mt-1.5 font-medium">{f.programa}</p>
+                  <p className="text-xs text-muted-foreground">{f.institucion}</p>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>

@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { EstadoDot } from '@/components/ui/estado-dot'
+import { VistaPreviaPdf } from '@/components/ui/vista-previa-pdf'
 import { hvApi, programasApi, estudiantesApi, perfilApi, ApiCallError } from '@/lib/api'
 import type {
   ProgramaResponse, PlantillaResponse, GeneracionMasivaResponse,
@@ -33,6 +34,7 @@ import type {
   AnalisisCompletitudResponse, SeccionCompletitud,
   DatosHvDto, ExperienciaDto, FormacionDto,
 } from '@/lib/types'
+import { Textarea } from '@/components/ui/textarea'
 
 type TabId = 'generacion' | 'plantillas' | 'extraccion' | 'edicion'
 
@@ -164,6 +166,17 @@ export default function HojasDeVidaPage() {
   const [editIdioma, setEditIdioma] = useState<'es' | 'en'>('es')
   const [seccionesExcluidas, setSeccionesExcluidas] = useState<string[]>([])
   const [camposExcluidos, setCamposExcluidos] = useState<string[]>([])
+
+  // Vista previa de la HV del estudiante seleccionado. El contador se
+  // incrementa al pulsar «volver a generar»; sin esa dependencia, cambiar los
+  // datos del estudiante en otra pestaña dejaba el visor mostrando el PDF
+  // anterior.
+  const [revisionPreview, setRevisionPreview] = useState(0)
+  const cargarPreviewEstudiante = useCallback(
+    () => hvApi.vistaPreviaEstudiante(editEstudianteId, { idioma: editIdioma }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editEstudianteId, editIdioma, revisionPreview],
+  )
 
   const toggleSeccion = (secKey: string) => {
     setSeccionesExcluidas((prev) =>
@@ -828,20 +841,20 @@ export default function HojasDeVidaPage() {
                   <CardContent className="flex flex-col gap-3">
                     <div>
                       <label className="text-[10px] uppercase text-muted-foreground font-semibold">Resumen del Perfil</label>
-                      <textarea
+                      <Textarea
                         value={datosExt.perfilProfesional ?? ''}
                         onChange={(e) => setDatosExt({ ...datosExt, perfilProfesional: e.target.value })}
-                        rows={6}
+                        minRows={6}
                         className="w-full rounded-md border border-input bg-background p-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                         placeholder="Descripción sintética del perfil laboral y competencias clave..."
                       />
                     </div>
                     <div>
                       <label className="text-[10px] uppercase text-muted-foreground font-semibold">Habilidades Técnicas / Competencias</label>
-                      <textarea
+                      <Textarea
                         value={datosExt.competencias ?? ''}
                         onChange={(e) => setDatosExt({ ...datosExt, competencias: e.target.value })}
-                        rows={3}
+                        minRows={3}
                         className="w-full rounded-md border border-input bg-background p-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                         placeholder="Tools: Excel, Python&#10;Soft skills: Liderazgo..."
                       />
@@ -922,14 +935,14 @@ export default function HojasDeVidaPage() {
                         </div>
                         <div>
                           <label className="text-[10px] uppercase text-muted-foreground font-semibold">Logros / Funciones (una por línea)</label>
-                          <textarea
+                          <Textarea
                             value={exp.funciones ?? ''}
                             onChange={(e) => {
                               const exps = [...datosExt.experiencias]
                               exps[idx] = { ...exps[idx], funciones: e.target.value }
                               setDatosExt({ ...datosExt, experiencias: exps })
                             }}
-                            rows={3}
+                            minRows={3}
                             className="w-full rounded-md border border-input bg-background p-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                           />
                         </div>
@@ -1121,6 +1134,25 @@ export default function HojasDeVidaPage() {
                       <><FileText className="size-4" /> Generar y descargar PDF ({editIdioma === 'es' ? 'Español' : 'Inglés'})</>
                     )}
                   </Button>
+                </CardContent>
+              </Card>
+
+              {/* Vista previa: lo que se va a descargar, antes de descargarlo.
+                  No registra una versión, así que se puede consultar tantas
+                  veces como haga falta mientras se ajustan las secciones. */}
+              <Card className="rounded-lg border-border shadow-none">
+                <CardContent className="pt-5">
+                  <VistaPreviaPdf
+                    cargar={cargarPreviewEstudiante}
+                    titulo="Vista previa de la hoja de vida"
+                    descripcion="Refleja los datos guardados del estudiante. Las secciones que retires abajo se aplican al generar el PDF definitivo."
+                    altura="38rem"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <Button variant="ghost" size="sm" onClick={() => setRevisionPreview((n) => n + 1)}>
+                      <ArrowsClockwise className="size-3.5" /> Volver a generar la vista previa
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1321,7 +1353,7 @@ export default function HojasDeVidaPage() {
                             </div>
                             <div className="flex flex-col gap-1">
                               <label className="text-xs font-medium text-muted-foreground">Funciones / Logros</label>
-                              <textarea
+                              <Textarea
                                 value={nuevasFunciones}
                                 onChange={(e) => setNuevasFunciones(e.target.value)}
                                 placeholder="Describe tus responsabilidades y logros medibles"

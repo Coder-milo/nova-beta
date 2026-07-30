@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Textarea } from '@/components/ui/textarea'
 
 export default function PortalEstudiantePage() {
   const { user } = useAuth()
@@ -445,8 +446,8 @@ export default function PortalEstudiantePage() {
 
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-foreground">Resumen del Perfil Profesional</label>
-                    <textarea
-                      rows={4}
+                    <Textarea
+                      minRows={4}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       value={perfilProfesional}
                       onChange={(e) => setPerfilProfesional(e.target.value)}

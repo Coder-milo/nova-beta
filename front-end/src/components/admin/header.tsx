@@ -47,6 +47,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { useBranding } from '@/lib/branding'
 import { usePreferences } from '@/lib/preferences'
+import { Textarea } from '@/components/ui/textarea'
 
 type HeaderProps = {
   onOpenMobile: () => void
@@ -880,7 +881,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                       <input ref={replyFileInputRef} type="file" multiple accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx" className="sr-only" onChange={(event) => { agregarAdjuntosRespuesta(Array.from(event.target.files ?? [])); event.target.value = '' }} />
                       <div className="flex items-end gap-2">
                         <button type="button" onClick={() => replyFileInputRef.current?.click()} disabled={sendingReply} aria-label={locale === 'es' ? 'Adjuntar archivo' : 'Attach file'} title={locale === 'es' ? 'Adjuntar archivo o imagen' : 'Attach a file or image'} className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-input bg-background text-muted-foreground transition hover:border-primary/35 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"><Paperclip className="size-5" /></button>
-                        <textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} onPaste={(event) => { const imagenes = Array.from(event.clipboardData.files).filter((archivo) => archivo.type.startsWith('image/')); if (imagenes.length > 0) { event.preventDefault(); agregarAdjuntosRespuesta(imagenes) } }} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void responderMensaje() } }} rows={3} maxLength={5000} className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" placeholder={messageCopy.replyPlaceholder} />
+                        <Textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} onPaste={(event) => { const imagenes = Array.from(event.clipboardData.files).filter((archivo) => archivo.type.startsWith('image/')); if (imagenes.length > 0) { event.preventDefault(); agregarAdjuntosRespuesta(imagenes) } }} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void responderMensaje() } }} minRows={3} maxLength={5000} className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" placeholder={messageCopy.replyPlaceholder} />
                         <Button type="button" className="h-11 shrink-0 rounded-xl" onClick={() => void responderMensaje()} disabled={sendingReply || (!reply.trim() && replyAttachments.length === 0)}>{sendingReply ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}<span className="hidden sm:inline">{sendingReply ? messageCopy.sending : messageCopy.send}</span></Button>
                       </div>
                       {messageError && <p className="text-xs text-destructive">{messageError}</p>}
@@ -918,7 +919,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                         }}
                       />
                       <button type="button" onClick={() => studentFileInputRef.current?.click()} disabled={sendingStudentMessage} aria-label={locale === 'es' ? 'Adjuntar archivo' : 'Attach file'} title={locale === 'es' ? 'Adjuntar archivo o imagen' : 'Attach a file or image'} className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-input bg-background text-muted-foreground transition hover:border-primary/35 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"><Paperclip className="size-5" /></button></>}
-                      <textarea
+                      <Textarea
                         value={studentBody}
                         onChange={(event) => setStudentBody(event.target.value)}
                         onPaste={(event) => {
@@ -935,7 +936,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                             void enviarMensajeEstudiante()
                           }
                         }}
-                        rows={2}
+                        minRows={2}
                         maxLength={5000}
                         placeholder={directContact ? (locale === 'es' ? ('Escribe a ' + directContact.nombre + '…') : ('Write to ' + directContact.nombre + '…')) : (locale === 'es' ? 'Escribe un mensaje o pega una imagen…' : 'Write a message or paste an image…')}
                         className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"

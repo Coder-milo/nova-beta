@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { actividadesApi, programasApi, ApiCallError } from '@/lib/api'
 import type { ActividadRequest, ActividadResponse, ProgramaResponse } from '@/lib/types'
+import { Textarea } from '@/components/ui/textarea'
 
 const categoryStyles: Record<string, string> = {
   REUNION: 'bg-blue-500/12 text-blue-700 dark:text-blue-300',
@@ -304,7 +305,7 @@ export function ActivitiesCard() {
                 </div>
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
                   <label htmlFor="agenda-description" className="text-xs font-medium text-muted-foreground">Notas</label>
-                  <textarea id="agenda-description" value={form.descripcion ?? ''} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} placeholder="Detalles, pendientes o información útil…" className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30" />
+                  <Textarea id="agenda-description" value={form.descripcion ?? ''} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} placeholder="Detalles, pendientes o información útil…" className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
                   <label htmlFor="agenda-owner" className="text-xs font-medium text-muted-foreground">Responsable</label>
