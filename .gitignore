@@ -15,3 +15,11 @@ back-end/target/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Herramientas de agentes. Sembraban un .claude-flow/ dentro de cada carpeta
+# de src/ que tocaban, y aparecian once directorios sin seguimiento mezclados
+# con el codigo cada vez que alguien miraba el estado del repo.
+.claude-flow/
+.swarm/
+.agents/
+.marcador-tmp
