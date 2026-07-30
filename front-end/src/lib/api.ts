@@ -319,13 +319,32 @@ export const estudiantesApi = {
     apiFetch<EstudianteResponse>('/api/v1/estudiantes/mi-perfil', { token }),
   actualizarMiPerfil: (body: EstudianteRequest, token?: string) =>
     apiFetch<EstudianteResponse>('/api/v1/estudiantes/mi-perfil', { method: 'PUT', data: body, token }),
+  vistaPreviaMiHv: (idioma?: 'es' | 'en') =>
+    apiBlob(`/api/v1/estudiantes/mi-perfil/hv-vista-previa${idioma ? `?idioma=${idioma}` : ''}`),
   descargarMiHvPdf: (nombreArchivo = 'Mi-Hoja-de-Vida-CAC.pdf') =>
     apiDownload('/api/v1/estudiantes/mi-perfil/hv-pdf', nombreArchivo),
 }
 
 // ─── Importación Excel ───────────────────────────────────────────────────────
 
-import type { ImportarResponse } from './types'
+import type { ImportarResponse, ResultadoImportacionCrm } from './types'
+
+export const importarCrmApi = {
+  empresas: (archivo: File, simular = false, token?: string) =>
+    apiUpload<ResultadoImportacionCrm>(`/api/v1/importar/empresas?simular=${simular}`, { archivo }, token),
+  colocaciones: (archivo: File, simular = false, token?: string) =>
+    apiUpload<ResultadoImportacionCrm>(`/api/v1/importar/colocaciones?simular=${simular}`, { archivo }, token),
+}
+
+export const reportesApi = {
+  exportar: (tipo: string, formato: 'xlsx' | 'pdf' | 'csv', programaId?: string) =>
+    apiDownload(
+      `/api/v1/reportes/${tipo}/export?formato=${formato}${programaId ? `&programaId=${programaId}` : ''}`,
+      // La fecha en el nombre evita el «reporte-estudiantes (3).xlsx» de la
+      // carpeta de descargas cuando se saca el mismo informe varias veces.
+      `reporte-${tipo}-${new Date().toISOString().slice(0, 10)}.${formato}`,
+    ),
+}
 
 export const importarApi = {
   /**
@@ -376,6 +395,14 @@ export const vacantesApi = {
     apiFetch<VacanteResponse>(`/api/v1/vacantes/${id}`, { token }),
   crear: (datos: VacanteRequest, token?: string) =>
     apiFetch<VacanteResponse>('/api/v1/vacantes', { method: 'POST', data: datos, token }),
+  actualizar: (id: string, datos: VacanteRequest, token?: string) =>
+    apiFetch<VacanteResponse>(`/api/v1/vacantes/${id}`, { method: 'PUT', data: datos, token }),
+  /**
+   * Registra una oferta que encontró un estudiante. Queda pendiente de que el
+   * equipo la valide, así que no entra al listado general.
+   */
+  sugerir: (datos: VacanteRequest, token?: string) =>
+    apiFetch<VacanteResponse>('/api/v1/vacantes/sugeridas', { method: 'POST', data: datos, token }),
   /** Escanea los portales de empleo bajo demanda (COORDINADOR/ADMIN). */
   escanear: (token?: string) =>
     apiFetch<{ vacantesNuevas: number }>('/api/v1/vacantes/scraping', { method: 'POST', token }),
@@ -560,6 +587,16 @@ export const hvApi = {
     apiFetch<void>(`/api/v1/hojas-de-vida/plantillas/${id}`, { method: 'DELETE', token }),
   vistaPreviaPlantilla: (id: string) =>
     apiBlob(`/api/v1/hojas-de-vida/plantillas/${id}/vista-previa`),
+  /**
+   * Hoja de vida de un estudiante tal como saldría hoy, sin registrar una
+   * versión. Es lo que se enseña antes de generar o descargar.
+   */
+  vistaPreviaEstudiante: (estudianteId: string, opciones?: { plantillaId?: string; idioma?: 'es' | 'en' }) => {
+    const params = new URLSearchParams()
+    if (opciones?.plantillaId) params.set('plantillaId', opciones.plantillaId)
+    params.set('idioma', opciones?.idioma ?? 'es')
+    return apiBlob(`/api/v1/hojas-de-vida/vista-previa/${estudianteId}?${params}`)
+  },
   generar: (estudianteId: string, opciones?: GenerarHvOpcionesRequest, token?: string) =>
     apiFetch<HojaDeVidaResponse>(
       `/api/v1/hojas-de-vida/generar/${estudianteId}`,
@@ -696,14 +733,7 @@ export const auditoriaApi = {
     apiFetch<AuditoriaResponse>(`/api/v1/auditoria/${id}`, { token }),
 }
 
-// ─── Reportes (exportación) ──────────────────────────────────────────────────
 
-export const reportesApi = {
-  exportar: (tipo: 'estudiantes' | 'empleabilidad' | 'academico' | 'proyectos', formato: 'xlsx' | 'pdf', programaId?: string) =>
-    apiDownload(
-      `/api/v1/reportes/${tipo}/export?formato=${formato}${programaId ? `&programaId=${programaId}` : ''}`,
-      `reporte-${tipo}.${formato}`),
-}
 
 // ─── Buscador global ─────────────────────────────────────────────────────────
 
@@ -732,10 +762,16 @@ export const usuariosApi = {
 
 import type { BrandingRequest, BrandingResponse, Padron, ResumenAltaCuentas } from './types'
 
+/**
+ * Recurso que acompaña a un anuncio. `FILE` cubre los documentos que se
+ * adjuntan desde el editor (PDF, Word, Excel).
+ */
+export type TipoMediaAnuncio = 'IMAGE' | 'VIDEO' | 'LINK' | 'FILE'
+
 export const comunicacionesApi = {
   /** Publica un anuncio que llega a los estudiantes como notificación. */
   publicarAnuncio: (
-    body: { titulo: string; mensaje: string; programaId?: string; mediaUrl?: string; mediaTipo?: 'IMAGE' | 'VIDEO' | 'LINK' },
+    body: { titulo: string; mensaje: string; programaId?: string; mediaUrl?: string; mediaTipo?: TipoMediaAnuncio },
     token?: string,
   ) =>
     apiFetch<{
@@ -748,7 +784,11 @@ export const comunicacionesApi = {
       { method: 'POST', data: body, token },
     ),
   subirAdjuntoAnuncio: (archivo: File, token?: string) =>
-    apiUpload<{ url: string; tipo: 'IMAGE' | 'VIDEO' }>('/api/v1/notificaciones/anuncio/adjunto', { archivo }, token),
+    apiUpload<{ url: string; tipo: TipoMediaAnuncio; nombre: string }>(
+      '/api/v1/notificaciones/anuncio/adjunto',
+      { archivo },
+      token,
+    ),
 
   /**
    * Quién tiene cuenta y quién no. Es un GET: abrir la pantalla no debe hacer
@@ -827,9 +867,13 @@ export const postulacionesApi = {
     apiFetch<PostulacionResponse[]>('/api/v1/postulaciones/mias', { token }),
   deEstudiante: (estudianteId: string, token?: string) =>
     apiFetch<PostulacionResponse[]>(`/api/v1/postulaciones?estudianteId=${estudianteId}`, { token }),
-  resumenMias: (token?: string) =>
+  // Los nombres siguen a los del controller (`miResumen`, `registrarPropia`).
+  // Las dos ramas habian creado un alias cada una para la misma llamada, y con
+  // dos nombres por operacion el siguiente que toque esto no sabe cual es el
+  // vivo.
+  miResumen: (token?: string) =>
     apiFetch<ResumenPostulaciones>('/api/v1/postulaciones/mias/resumen', { token }),
-  crearPropia: (
+  registrarPropia: (
     body: {
       vacanteId?: string | null
       empresaNombre: string
@@ -847,6 +891,9 @@ export const postulacionesApi = {
     body: { estado?: string; fechaRespuesta?: string | null; resultado?: string | null; observaciones?: string | null },
     token?: string,
   ) => apiFetch<PostulacionResponse>(`/api/v1/postulaciones/${id}`, { method: 'PATCH', data: body, token }),
+  /** El controller responde con un mensaje, no con 204. */
+  eliminar: (id: string, token?: string) =>
+    apiFetch<{ mensaje?: string }>(`/api/v1/postulaciones/${id}`, { method: 'DELETE', token }),
   estados: (token?: string) =>
     apiFetch<Array<{ valor: string; etiqueta: string; esFinal: boolean }>>('/api/v1/postulaciones/estados', { token }),
 }

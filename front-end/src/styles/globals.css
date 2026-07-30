@@ -894,3 +894,48 @@ textarea {
   .cac-loader__label,
   .cac-loader--fullscreen { animation: none; }
 }
+
+/* ── Contenido enriquecido de los anuncios ─────────────────────────────────
+   El cuerpo de un anuncio se escribe con el editor y se pinta con
+   `dangerouslySetInnerHTML`, así que no pasa por ninguna clase de Tailwind.
+   El preflight deja las listas sin viñeta y los encabezados con el tamaño del
+   párrafo, de modo que un aviso maquetado con esmero llegaba al estudiante
+   como un bloque plano. Estas reglas devuelven lo mínimo legible. */
+.contenido-anuncio > :first-child { margin-top: 0; }
+.contenido-anuncio p { margin: 0.5rem 0; }
+.contenido-anuncio strong, .contenido-anuncio b { font-weight: 600; color: var(--foreground); }
+.contenido-anuncio em, .contenido-anuncio i { font-style: italic; }
+.contenido-anuncio u { text-decoration: underline; }
+.contenido-anuncio s { text-decoration: line-through; }
+.contenido-anuncio h1, .contenido-anuncio h2, .contenido-anuncio h3 {
+  margin: 0.75rem 0 0.35rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.contenido-anuncio h1 { font-size: 1.15rem; }
+.contenido-anuncio h2 { font-size: 1.05rem; }
+.contenido-anuncio h3 { font-size: 1rem; }
+.contenido-anuncio ul { list-style: disc; margin: 0.5rem 0; padding-left: 1.35rem; }
+.contenido-anuncio ol { list-style: decimal; margin: 0.5rem 0; padding-left: 1.35rem; }
+.contenido-anuncio li { margin: 0.15rem 0; }
+.contenido-anuncio a { color: var(--primary); text-decoration: underline; overflow-wrap: anywhere; }
+.contenido-anuncio blockquote {
+  margin: 0.5rem 0;
+  border-left: 3px solid var(--primary);
+  padding-left: 0.75rem;
+  color: var(--muted-foreground);
+}
+.contenido-anuncio pre {
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: var(--secondary);
+  padding: 0.65rem 0.85rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+}
+.contenido-anuncio img { max-width: 100%; height: auto; border-radius: 0.5rem; }
+.contenido-anuncio iframe { max-width: 100%; aspect-ratio: 16 / 9; width: 100%; border: 0; border-radius: 0.5rem; }
+.contenido-anuncio .ql-align-center { text-align: center; }
+.contenido-anuncio .ql-align-right { text-align: right; }
+.contenido-anuncio .ql-align-justify { text-align: justify; }

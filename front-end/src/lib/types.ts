@@ -323,6 +323,8 @@ export interface VacanteResponse {
   descripcion: string | null
   requisitos: string | null
   ubicacion: string | null
+  ciudad?: string | null
+  jornada?: string | null
   rangoSalarial: string | null
   tipoContrato: string | null
   modalidadTrabajo: string | null
@@ -392,7 +394,8 @@ export interface NotificacionResponse {
   tipo: string
   referenciaId: string | null
   mediaUrl: string | null
-  mediaTipo: 'IMAGE' | 'VIDEO' | 'LINK' | null
+  /** `FILE` son los documentos adjuntos del anuncio (PDF, Word, Excel). */
+  mediaTipo: 'IMAGE' | 'VIDEO' | 'LINK' | 'FILE' | null
   leida: boolean
   createdAt: string
 }
@@ -689,6 +692,50 @@ export interface ImportPreviewResponse {
   errores: string[]
   advertencias: string[]
 }
+
+export interface ResultadoImportacionCrm {
+  totalFilas: number
+  validos: number
+  nuevos: number
+  actualizados: number
+  conErrores: number
+  creados?: number
+  filasLeidas?: number
+  omitidos?: number
+  columnasReconocidas: { columnaOrigen: string; campoDestino: string }[]
+  errores: { fila: number; error: string }[]
+  simulacion: boolean
+}
+
+export type CrearVacante = VacanteRequest
+
+export type PreparacionRequest = PreparacionEstudianteRequest
+
+export const HITOS = ['hojaDeVida', 'linkedin', 'simulacro'] as const
+export const APORTE_EN_PROCESO = 33.3
+
+export interface CrearPostulacion {
+  vacanteId?: string
+  empresaNombre: string
+  cargo: string
+  canal?: string
+  fechaPostulacion?: string
+  estado?: string
+  urlOferta?: string
+  observaciones?: string
+}
+
+export type EstadoPostulacion =
+  | 'ENVIADA'
+  | 'POSTULADO'
+  | 'EN_PROCESO'
+  | 'ENTREVISTA'
+  | 'ENTREVISTA_AGENDADA'
+  | 'ENTREVISTA_REALIZADA'
+  | 'OFERTA'
+  | 'RECHAZADO'
+  | 'CONTRATADO'
+  | 'SIN_RESPUESTA'
 
 export interface ImportacionHistorialResponse {
   id: string

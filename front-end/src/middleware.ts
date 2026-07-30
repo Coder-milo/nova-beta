@@ -21,14 +21,27 @@ const CABECERAS_DE_TRANSPORTE = [
   'connection',
 ]
 
+function aplicarCabecerasDeSeguridad(response: Response): Response {
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+  response.headers.set('X-Frame-Options', 'SAMEORIGIN')
+  response.headers.set('X-XSS-Protection', '1; mode=block')
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  response.headers.set(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; frame-src 'self' data: blob:; worker-src 'self' blob:; object-src 'self' data: blob:; connect-src 'self' ws: wss: https:; frame-ancestors 'self';",
+  )
+  return response
+}
+
 function respuestaReenviada(backendResponse: Response, cuerpo: BodyInit | null): Response {
   const headers = new Headers(backendResponse.headers)
   CABECERAS_DE_TRANSPORTE.forEach((h) => headers.delete(h))
-  return new Response(cuerpo, {
+  const res = new Response(cuerpo, {
     status: backendResponse.status,
     statusText: backendResponse.statusText,
     headers,
   })
+  return aplicarCabecerasDeSeguridad(res)
 }
 
 export const onRequest = defineMiddleware(
@@ -140,7 +153,7 @@ export const onRequest = defineMiddleware(
     // sin sesion: son justamente las que la abren y la cierran. Redirigirlas
     // a /login dejaria al usuario sin poder autenticarse.
     if (url.pathname.startsWith('/auth/')) {
-      return next()
+      return aplicarCabecerasDeSeguridad(await next())
     }
 
     const token = cookies.get(ACCESS_COOKIE)?.value
@@ -156,6 +169,6 @@ export const onRequest = defineMiddleware(
       return redirect('/')
     }
 
-    return next()
+    return aplicarCabecerasDeSeguridad(await next())
   },
 )

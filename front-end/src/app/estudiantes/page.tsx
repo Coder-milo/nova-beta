@@ -33,6 +33,7 @@ import type {
   EstadoAcademico,
   EstadoEmpleabilidad,
 } from '@/lib/types'
+import { Textarea } from '@/components/ui/textarea'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -563,7 +564,7 @@ export default function EstudiantesPage() {
                   </div>
                   <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
                     <label htmlFor="f-perfil" className="text-xs font-medium">Perfil profesional</label>
-                    <textarea id="f-perfil" rows={3} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.perfilProfesional ?? ''} onChange={(e) => f('perfilProfesional', e.target.value)} placeholder="Descripción del perfil..." disabled={isPending} />
+                    <Textarea id="f-perfil" minRows={3} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.perfilProfesional ?? ''} onChange={(e) => f('perfilProfesional', e.target.value)} placeholder="Descripción del perfil..." disabled={isPending} />
                   </div>
                 </div>
               )}
@@ -631,7 +632,7 @@ export default function EstudiantesPage() {
                   </div>
                   <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
                     <label htmlFor="f-motivacion" className="text-xs font-medium">Motivación</label>
-                    <textarea id="f-motivacion" rows={3} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.motivacion ?? ''} onChange={(e) => f('motivacion', e.target.value)} placeholder="Motivación del estudiante..." disabled={isPending} />
+                    <Textarea id="f-motivacion" minRows={3} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.motivacion ?? ''} onChange={(e) => f('motivacion', e.target.value)} placeholder="Motivación del estudiante..." disabled={isPending} />
                   </div>
                 </div>
               )}

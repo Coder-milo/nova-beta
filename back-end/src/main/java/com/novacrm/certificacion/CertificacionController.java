@@ -3,6 +3,7 @@ package com.novacrm.certificacion;
 import com.novacrm.certificacion.dto.CertificacionResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,12 +22,14 @@ public class CertificacionController {
 
     @GetMapping
     @Operation(summary = "Listar certificaciones por programa")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE')")
     public List<CertificacionResponse> listar(@RequestParam UUID programaId) {
         return certificacionService.listarPorPrograma(programaId);
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Obtener certificacion por ID")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE')")
     public CertificacionResponse obtener(@PathVariable UUID id) {
         return certificacionService.obtener(id);
     }

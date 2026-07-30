@@ -18,20 +18,24 @@
     </tr>
   </table>
 
-  <!-- Header azul: nombre/título a la izquierda, logo blanco a la derecha — tabla en vez de flexbox -->
+  <!-- Header azul sin logo: el nombre y el cargo ocupan todo el ancho.
+       La marca ya la lleva la barra bicolor de arriba; repetirla con el
+       logotipo robaba 80pt a la línea del nombre y obligaba a partirlo en dos
+       renglones en cuanto el estudiante tenía dos apellidos largos. -->
   <table style="width:100%;background:#1F4E79;page-break-inside:avoid;border-bottom-left-radius:8pt;border-bottom-right-radius:8pt;" cellpadding="0" cellspacing="0">
     <tr>
-      <td style="padding:16pt 0 16pt 20pt;vertical-align:middle;">
+      <td style="padding:16pt 20pt;vertical-align:middle;">
         <h1 style="margin:0;font-size:20pt;font-weight:700;color:#ffffff;line-height:22pt;letter-spacing:.2pt;">{{FULL_NAME}}</h1>
         <div style="margin-top:7pt;font-size:13pt;font-weight:700;color:#9DB8D8;text-transform:uppercase;line-height:14pt;letter-spacing:.6pt;">{{PROFESSIONAL_TITLE}}</div>
-      </td>
-      <td style="padding:16pt 20pt 16pt 16pt;vertical-align:middle;text-align:right;width:80pt;">
-        <img src="{{LOGO_PATH}}" alt="Logo" style="height:34pt;" />
       </td>
     </tr>
   </table>
 
-  <div style="margin-top:9pt;font-size:11pt;color:#000000;line-height:14pt;text-align:center;">{{CITY_COUNTRY}}&#160;&#160;<span style="color:#E1251B;">|</span>&#160;&#160;{{PHONE}}&#160;&#160;<span style="color:#E1251B;">|</span>&#160;&#160;<a href="{{LINKEDIN_URL}}" style="color:#1F4E79;text-decoration:none;">LinkedIn</a>&#160;&#160;<span style="color:#E1251B;">|</span>&#160;&#160;<a href="{{PORTFOLIO_URL}}" style="color:#1F4E79;text-decoration:none;">Portfolio</a>&#160;&#160;<span style="color:#E1251B;">|</span>&#160;&#160;{{EMAIL}}</div>
+  <!-- La línea de contacto se arma en Java. Cuando se montaba aquí con un
+       marcador por dato, un estudiante sin teléfono dejaba dos barras rojas
+       seguidas, y el enlace «Portfolio» apuntaba siempre a "#" porque no había
+       ningún campo detrás. Ahora solo se pinta lo que existe. -->
+  <div style="margin-top:9pt;font-size:11pt;color:#000000;line-height:14pt;text-align:center;">{{CONTACT_LINE}}</div>
 
   <!-- SECTION:SUMMARY --><!-- /SECTION:SUMMARY -->
   <!-- SECTION:EXPERIENCE --><!-- /SECTION:EXPERIENCE -->

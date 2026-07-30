@@ -44,6 +44,7 @@ public class DocumentoController {
 
     @GetMapping("/tipos")
     @Operation(summary = "Tipos de documento soportados")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE')")
     public List<String> tipos() {
         return DocumentoService.TIPOS;
     }
@@ -71,8 +72,12 @@ public class DocumentoController {
     public ResponseEntity<byte[]> descargar(@PathVariable UUID id) {
         var doc = documentoService.obtenerEntidad(id);
         byte[] contenido = documentoService.contenido(id);
+        String headerCd = org.springframework.http.ContentDisposition.builder("attachment")
+                .filename(doc.getNombre() != null ? doc.getNombre() : "documento", java.nio.charset.StandardCharsets.UTF_8)
+                .build()
+                .toString();
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + doc.getNombre() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, headerCd)
                 .contentType(doc.getContentType() != null
                         ? MediaType.parseMediaType(doc.getContentType())
                         : MediaType.APPLICATION_OCTET_STREAM)

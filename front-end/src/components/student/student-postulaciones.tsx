@@ -99,7 +99,7 @@ export function StudentPostulaciones() {
     if (!empresaManual.trim() || !cargoManual.trim() || registrando) return
     setRegistrando(true)
     try {
-      const nueva = await postulacionesApi.crearPropia({
+      const nueva = await postulacionesApi.registrarPropia({
         empresaNombre: empresaManual.trim(),
         cargo: cargoManual.trim(),
         fechaPostulacion: new Date().toISOString().slice(0, 10),

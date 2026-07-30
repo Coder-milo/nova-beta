@@ -17,7 +17,8 @@ import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { dashboardApi, ApiCallError } from '@/lib/api'
+import { dashboardApi, reportesApi, ApiCallError } from '@/lib/api'
+import { descargarCsv } from '@/lib/csv'
 import type { DashboardSummaryResponse, DashboardChartsResponse, PuntoDato } from '@/lib/types'
 
 function MetricCard({ label, value, icon: Icon, color }: { label: string; value: string | number; icon: typeof Users; color: string }) {
@@ -75,21 +76,42 @@ export default function ReportesPage() {
   const maxProyectos = charts ? Math.max(...charts.estudiantesPorProyecto.map((d) => d.value), 1) : 1
   const maxEmpleabilidad = charts ? Math.max(...charts.empleabilidad.map((d) => d.value), 1) : 1
 
-  // Export CSV helper
+  // El detalle de un gráfico, tal cual se ve, para pegarlo en una hoja. El CSV
+  // se arma con `descargarCsv`, que pone la marca UTF-8 y el punto y coma que
+  // Excel espera en español; con comas y sin BOM, cada fila caía entera en la
+  // columna A y los acentos salían rotos.
   const exportCSV = (rows: PuntoDato[], filename: string) => {
-    const csv = ['Categoría,Cantidad,Porcentaje', ...rows.map((r) => `"${r.label}",${r.value},${r.pct ?? ''}`)].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${filename}.csv`
-    a.click()
-    URL.revokeObjectURL(a.href)
+    const fecha = new Date().toISOString().slice(0, 10)
+    descargarCsv(
+      `${filename}-${fecha}.csv`,
+      ['Categoría', 'Cantidad', 'Porcentaje'],
+      // El porcentaje va con coma decimal: con punto, Excel en español lo lee
+      // como texto y no deja ni sumarlo ni graficarlo.
+      rows.map((r) => [r.label, r.value, r.pct != null ? r.pct.toFixed(1).replace('.', ',') : '']),
+    )
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-end gap-4">
-        <Button variant="outline" size="sm" onClick={load}><ArrowsClockwise className="size-3.5" /> Refrescar</Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Reportes y Analítica</h2>
+          <p className="text-xs text-muted-foreground">Estadísticas institucionales y descargas en Excel, PDF y CSV.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => reportesApi.exportar('estudiantes', 'xlsx')}>
+            <DownloadSimple className="size-3.5 text-emerald-600" /> Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => reportesApi.exportar('estudiantes', 'pdf')}>
+            <DownloadSimple className="size-3.5 text-rose-600" /> PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => reportesApi.exportar('estudiantes', 'csv')}>
+            <DownloadSimple className="size-3.5 text-sky-600" /> CSV (UTF-8)
+          </Button>
+          <Button variant="outline" size="sm" onClick={load}>
+            <ArrowsClockwise className="size-3.5" /> Refrescar
+          </Button>
+        </div>
       </div>
 
       {loading && (

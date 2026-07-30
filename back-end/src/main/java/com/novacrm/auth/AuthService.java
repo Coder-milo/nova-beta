@@ -60,7 +60,7 @@ public class AuthService {
         }
 
         if (!usuario.isActivo()) {
-            throw new BusinessException("Usuario inactivo");
+            throw new BusinessException("Credenciales invalidas");
         }
 
         return respuestaConTokens(usuario);

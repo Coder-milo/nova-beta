@@ -34,6 +34,7 @@ import type {
   EstudianteResponse, DocumentoResponse, GeneracionMasivaResponse,
   ActividadResponse, AuditoriaResponse, Page,
 } from '@/lib/types'
+import { Textarea } from '@/components/ui/textarea'
 
 // ─── Etiquetas de estado ──────────────────────────────────────────────────────
 
@@ -901,12 +902,12 @@ export default function ProyectoDetallePage() {
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
                 <label htmlFor="pe-desc" className="text-xs font-medium">Descripción</label>
-                <textarea id="pe-desc" rows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                <Textarea id="pe-desc" minRows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   value={form.descripcion ?? ''} onChange={(e) => setF('descripcion', e.target.value)} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
                 <label htmlFor="pe-obs" className="text-xs font-medium">Observaciones</label>
-                <textarea id="pe-obs" rows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                <Textarea id="pe-obs" minRows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   value={form.observaciones ?? ''} onChange={(e) => setF('observaciones', e.target.value)} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5">

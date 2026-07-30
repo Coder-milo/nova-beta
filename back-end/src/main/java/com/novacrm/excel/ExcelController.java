@@ -2,10 +2,12 @@ package com.novacrm.excel;
 
 import com.novacrm.excel.dto.ImportPreviewResponse;
 import com.novacrm.excel.dto.ImportacionHistorialResponse;
+import com.novacrm.excel.dto.ResultadoImportacionCrm;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,9 +21,11 @@ import java.util.UUID;
 public class ExcelController {
 
     private final ExcelService excelService;
+    private final ImportacionCrmService importacionCrmService;
 
-    public ExcelController(ExcelService excelService) {
+    public ExcelController(ExcelService excelService, ImportacionCrmService importacionCrmService) {
         this.excelService = excelService;
+        this.importacionCrmService = importacionCrmService;
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -45,5 +49,29 @@ public class ExcelController {
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public List<ImportacionHistorialResponse> historial() {
         return excelService.obtenerHistorial();
+    }
+
+    // ── Empresas y colocaciones ──────────────────────────────────────────────
+    //
+    // Van por su propia ruta y no por la de estudiantes porque la hoja, la
+    // deduplicacion y las validaciones son otras. El parametro `simular` corre
+    // la misma pasada sin escribir: es lo que alimenta la vista previa.
+
+    @PostMapping(value = "/empresas", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Importar empresas desde Excel (.xlsx o .xls)")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public ResultadoImportacionCrm importarEmpresas(@RequestParam MultipartFile archivo,
+                                                    @RequestParam(defaultValue = "false") boolean simular) {
+        return importacionCrmService.importarEmpresas(archivo, simular);
+    }
+
+    @PostMapping(value = "/colocaciones", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Importar colocaciones desde Excel (.xlsx o .xls)")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public ResultadoImportacionCrm importarColocaciones(@RequestParam MultipartFile archivo,
+                                                        @RequestParam(defaultValue = "false") boolean simular,
+                                                        Authentication auth) {
+        return importacionCrmService.importarColocaciones(archivo, simular,
+                auth != null ? auth.getName() : "sistema");
     }
 }

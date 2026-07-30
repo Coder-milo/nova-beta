@@ -19,7 +19,10 @@ import java.util.*;
 public class HvTemplateService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("MM/yyyy");
-    private static final String LOGO_BASE64;
+
+    /** Separador rojo entre los datos de contacto de la cabecera. */
+    private static final String SEP = "&#160;&#160;<span style=\"color:#E1251B;\">|</span>&#160;&#160;";
+    private static final String ENLACE = "color:#1F4E79;text-decoration:none;";
 
     private static final String SEC_TITLE = "margin:18pt 0 0 0;font-size:14pt;font-weight:700;color:#1F4E79;text-transform:uppercase;line-height:14pt;letter-spacing:.4pt;border-bottom:1.5pt solid #1F4E79;border-left:4pt solid #E1251B;padding:0 0 3pt 8pt;";
     private static final String SEC_TITLE_FIRST = "margin:20pt 0 0 0;font-size:14pt;font-weight:700;color:#1F4E79;text-transform:uppercase;line-height:14pt;letter-spacing:.4pt;border-bottom:1.5pt solid #1F4E79;border-left:4pt solid #E1251B;padding:0 0 3pt 8pt;";
@@ -33,16 +36,6 @@ public class HvTemplateService {
     private static final String UL_WIDE = "margin:8pt 0 0 0;padding-left:18pt;font-size:11pt;line-height:13.9pt;";
     private static final String LI_FIRST = "margin:0;";
     private static final String LI_REST = "margin:2pt 0 0 0;";
-
-    static {
-        try {
-            var logoBytes = new ClassPathResource("templates/hv/assets/cac-logo-white.png")
-                    .getInputStream().readAllBytes();
-            LOGO_BASE64 = "data:image/png;base64," + Base64.getEncoder().encodeToString(logoBytes);
-        } catch (IOException e) {
-            throw new RuntimeException("No se pudo cargar el logo CAC", e);
-        }
-    }
 
     private final String plantillaHtml;
 
@@ -69,22 +62,22 @@ public class HvTemplateService {
         Set<String> fldEx = camposExcluidos != null ? new HashSet<>(camposExcluidos) : Collections.emptySet();
 
         String nombreComp = (nvl(d.nombre(), "") + " " + nvl(d.apellido(), "")).trim();
-        reemplazar(html, "{{FULL_NAME}}", valor(nombreComp));
-        reemplazar(html, "{{PROFESSIONAL_TITLE}}", fldEx.contains("TITLE") ? "" : valor(nvl(d.cargoObjetivo(), "")));
-        reemplazar(html, "{{LOGO_PATH}}", LOGO_BASE64);
-        reemplazar(html, "{{CITY_COUNTRY}}", fldEx.contains("CITY") ? "" : (isBlank(d.ciudad()) ? "" : valor(d.ciudad() + ", Colombia")));
-        reemplazar(html, "{{PHONE}}", fldEx.contains("PHONE") ? "" : valor(nvl(d.celular(), "")));
-        reemplazar(html, "{{LINKEDIN_URL}}", fldEx.contains("LINKEDIN") ? "" : valor(nvl(d.linkedinUserId(), "#")));
-        reemplazar(html, "{{PORTFOLIO_URL}}", "#");
-        reemplazar(html, "{{EMAIL}}", fldEx.contains("EMAIL") ? "" : valor(nvl(d.email(), "")));
+        reemplazar(html, "{{FULL_NAME}}", esc(nombreComp));
+        reemplazar(html, "{{PROFESSIONAL_TITLE}}", fldEx.contains("TITLE") ? "" : esc(nvl(d.cargoObjetivo(), "")));
+        reemplazar(html, "{{CONTACT_LINE}}", lineaContacto(
+                fldEx.contains("CITY") ? null : ciudadPais(d.ciudad(), d.nacionalidad()),
+                fldEx.contains("PHONE") ? null : nvl(d.celular(), d.telefono()),
+                fldEx.contains("EMAIL") ? null : d.email(),
+                fldEx.contains("LINKEDIN") ? null : d.linkedinUrl(),
+                fldEx.contains("PORTFOLIO") ? null : d.portafolioUrl()));
 
         injectarSummary(html, d.perfilProfesional(), isEn, secEx.contains("SUMMARY"));
         injectarExperienciasDto(html, d.experiencias(), isEn, secEx.contains("EXPERIENCE"));
         injectarEducacionDto(html, d, d.formaciones(), isEn, secEx.contains("EDUCATION"));
         injectarCertificacionesDto(html, d.formaciones(), isEn, secEx.contains("CERTIFICATIONS"));
-        injectarAchievements(html);
+        injectarAchievements(html, d.logros(), isEn, secEx.contains("ACHIEVEMENTS"));
         injectarSkills(html, d.competencias(), isEn, secEx.contains("SKILLS"));
-        injectarLanguages(html, d.idiomas(), isEn, secEx.contains("LANGUAGES"));
+        injectarLanguages(html, d.idiomas(), d.nivelIngles(), isEn, secEx.contains("LANGUAGES"));
 
         limpiarMarcadores(html);
         return html.toString();
@@ -102,22 +95,24 @@ public class HvTemplateService {
         Set<String> secEx = seccionesExcluidas != null ? new HashSet<>(seccionesExcluidas) : Collections.emptySet();
         Set<String> fldEx = camposExcluidos != null ? new HashSet<>(camposExcluidos) : Collections.emptySet();
 
-        reemplazar(html, "{{FULL_NAME}}", valor(nombreCompleto(e)));
-        reemplazar(html, "{{PROFESSIONAL_TITLE}}", fldEx.contains("TITLE") ? "" : valor(nvl(e.getCargoObjetivo(), "")));
-        reemplazar(html, "{{LOGO_PATH}}", LOGO_BASE64);
-        reemplazar(html, "{{CITY_COUNTRY}}", fldEx.contains("CITY") ? "" : (isBlank(e.getCiudad()) ? "" : valor(e.getCiudad() + ", Colombia")));
-        reemplazar(html, "{{PHONE}}", fldEx.contains("PHONE") ? "" : valor(nvl(e.getCelular(), nvl(e.getTelefono(), ""))));
-        reemplazar(html, "{{LINKEDIN_URL}}", fldEx.contains("LINKEDIN") ? "" : valor(nvl(e.getLinkedinUserId(), "#")));
-        reemplazar(html, "{{PORTFOLIO_URL}}", "#");
-        reemplazar(html, "{{EMAIL}}", fldEx.contains("EMAIL") ? "" : valor(nvl(e.getEmail(), "")));
+        reemplazar(html, "{{FULL_NAME}}", esc(nombreCompleto(e)));
+        reemplazar(html, "{{PROFESSIONAL_TITLE}}", fldEx.contains("TITLE") ? "" : esc(nvl(e.getCargoObjetivo(), "")));
+        reemplazar(html, "{{CONTACT_LINE}}", lineaContacto(
+                fldEx.contains("CITY") ? null : ciudadPais(e.getCiudad(), e.getNacionalidad()),
+                fldEx.contains("PHONE") ? null : nvl(e.getCelular(), e.getTelefono()),
+                fldEx.contains("EMAIL") ? null : e.getEmail(),
+                fldEx.contains("LINKEDIN") ? null : e.getLinkedinUrl(),
+                fldEx.contains("PORTFOLIO") ? null : e.getCarpetaUrl()));
 
         injectarSummary(html, e.getPerfilProfesional(), isEn, secEx.contains("SUMMARY"));
         injectarExperiencias(html, experiencias, isEn, secEx.contains("EXPERIENCE"));
         injectarEducacion(html, e, formaciones, isEn, secEx.contains("EDUCATION"));
         injectarCertificaciones(html, formaciones, isEn, secEx.contains("CERTIFICATIONS"));
-        injectarAchievements(html);
+        injectarAchievements(html, null, isEn, secEx.contains("ACHIEVEMENTS"));
         injectarSkills(html, e.getCompetencias(), isEn, secEx.contains("SKILLS"));
-        injectarLanguages(html, e.getIdiomas(), isEn, secEx.contains("LANGUAGES"));
+        injectarLanguages(html, e.getIdiomas(),
+                e.getNivelIngles() != null ? e.getNivelIngles().getNombre() : null,
+                isEn, secEx.contains("LANGUAGES"));
 
         limpiarMarcadores(html);
         return html.toString();
@@ -160,12 +155,19 @@ public class HvTemplateService {
     private void injectarEducacion(StringBuilder html, Estudiante e, List<FormacionAdicional> formaciones, boolean isEn, boolean excluir) {
         if (excluir) { removeSection(html, "EDUCATION"); return; }
         var items = new ArrayList<String>();
-        if (!isBlank(e.getTitulo()) || !isBlank(e.getInstitucionEducativa())) {
+        // El título académico se registra en tres campos distintos según por
+        // dónde entró el estudiante: el formulario guarda `titulo`, la
+        // importación de Excel suele traer `programaAcademico`, y las fichas
+        // antiguas solo tienen `areaFormacion`. Antes se leía únicamente
+        // `titulo` y media base salía con "Formación académica" de titular.
+        String tituloAcademico = primero(e.getTitulo(), e.getProgramaAcademico(), e.getAreaFormacion());
+        if (!isBlank(tituloAcademico) || !isBlank(e.getInstitucionEducativa())) {
             var sb = new StringBuilder();
             sb.append("<div style=\"").append(BLOCK).append("\">");
-            sb.append("<div style=\"").append(TITLE).append("\">").append(esc(nvl(e.getTitulo(), isEn ? "Academic Education" : "Formación académica"))).append("</div>");
+            sb.append("<div style=\"").append(TITLE).append("\">").append(esc(nvl(tituloAcademico, isEn ? "Academic Education" : "Formación académica"))).append("</div>");
             sb.append("<div style=\"").append(SUB_ITALIC).append("\">").append(esc(nvl(e.getInstitucionEducativa(), "")))
                     .append(!isBlank(e.getNivelEducativo()) ? " — " + esc(e.getNivelEducativo()) : "")
+                    .append(!isBlank(e.getEstadoFormacion()) ? " (" + esc(e.getEstadoFormacion()) + ")" : "")
                     .append("</div>");
             sb.append("</div>");
             items.add(sb.toString());
@@ -213,21 +215,33 @@ public class HvTemplateService {
         replaceSection(html, "CERTIFICATIONS", sb.toString());
     }
 
-    private void injectarAchievements(StringBuilder html) {
-        removeSection(html, "ACHIEVEMENTS");
+    private void injectarAchievements(StringBuilder html, List<String> logros, boolean isEn, boolean excluir) {
+        var items = logros == null ? List.<String>of()
+                : logros.stream().filter(l -> !isBlank(l)).map(String::trim).toList();
+        if (excluir || items.isEmpty()) { removeSection(html, "ACHIEVEMENTS"); return; }
+        var sb = new StringBuilder();
+        String tituloSec = isEn ? "Key Achievements" : "Logros Destacados";
+        sb.append("<h2 style=\"").append(SEC_TITLE).append("\">").append(esc(tituloSec)).append("</h2>");
+        sb.append("<ul style=\"").append(UL_WIDE).append("\">");
+        for (int i = 0; i < items.size(); i++) {
+            sb.append("<li style=\"").append(i == 0 ? LI_FIRST : LI_REST).append("\">")
+                    .append(esc(items.get(i))).append("</li>");
+        }
+        sb.append("</ul>");
+        replaceSection(html, "ACHIEVEMENTS", sb.toString());
     }
 
     private void injectarSkills(StringBuilder html, String competencias, boolean isEn, boolean excluir) {
         if (excluir || isBlank(competencias)) { removeSection(html, "SKILLS"); return; }
+        var lineas = separarCompetencias(competencias);
+        if (lineas.isEmpty()) { removeSection(html, "SKILLS"); return; }
         var sb = new StringBuilder();
         String tituloSec = isEn ? "Technical Skills" : "Habilidades Técnicas";
         sb.append("<h2 style=\"").append(SEC_TITLE).append("\">").append(esc(tituloSec)).append("</h2>");
         sb.append("<ul style=\"").append(UL_WIDE).append("\">");
-        var lineas = competencias.split("\n");
-        for (int i = 0; i < lineas.length; i++) {
-            var t = lineas[i].trim();
-            if (t.isEmpty()) continue;
-            sb.append("<li style=\"").append(LI_FIRST).append("\">");
+        for (int i = 0; i < lineas.size(); i++) {
+            var t = lineas.get(i);
+            sb.append("<li style=\"").append(i == 0 ? LI_FIRST : LI_REST).append("\">");
             if (t.contains(":")) {
                 var p = t.split(":", 2);
                 sb.append("<strong>").append(esc(p[0].trim())).append(":</strong> ").append(esc(p[1].trim()));
@@ -240,12 +254,96 @@ public class HvTemplateService {
         replaceSection(html, "SKILLS", sb.toString());
     }
 
-    private void injectarLanguages(StringBuilder html, String idiomas, boolean isEn, boolean excluir) {
-        if (excluir || isBlank(idiomas)) { removeSection(html, "LANGUAGES"); return; }
+    /**
+     * Una competencia por línea; si no hay saltos, se parte por comas o puntos
+     * y coma.
+     *
+     * <p>El formulario del estudiante y las importaciones de Excel entregan este
+     * campo de las dos formas. Partir solo por {@code \n} dejaba "Excel
+     * avanzado, Power BI, SQL" como una única viñeta larguísima, que es justo lo
+     * contrario de lo que un ATS espera encontrar.
+     *
+     * <p>Las líneas con dos puntos se respetan enteras: "Ofimática: Excel, Word"
+     * es una agrupación deliberada y partirla por la coma la destrozaría.
+     */
+    private static List<String> separarCompetencias(String competencias) {
+        var salida = new ArrayList<String>();
+        for (var linea : competencias.split("\\r?\\n")) {
+            var t = linea.trim();
+            if (t.isEmpty()) continue;
+            if (t.contains(":")) { salida.add(t); continue; }
+            for (var pieza : t.split("[;,]")) {
+                var p = pieza.trim();
+                if (!p.isEmpty()) salida.add(p);
+            }
+        }
+        return salida;
+    }
+
+    /**
+     * Idiomas declarados más el nivel de inglés del catálogo.
+     *
+     * <p>El nivel de inglés es el dato que más consulta un reclutador de este
+     * programa y vivía solo en la ficha: si el estudiante no lo repetía a mano
+     * en el campo libre de idiomas, no aparecía en el PDF. Se añade solo cuando
+     * el texto libre no lo menciona ya, para no imprimir "Inglés B2 · Inglés B2".
+     */
+    private void injectarLanguages(StringBuilder html, String idiomas, String nivelIngles, boolean isEn, boolean excluir) {
+        if (excluir) { removeSection(html, "LANGUAGES"); return; }
+        var partes = new ArrayList<String>();
+        if (!isBlank(idiomas)) partes.add(idiomas.trim());
+        if (!isBlank(nivelIngles)
+                && (isBlank(idiomas) || !idiomas.toLowerCase(Locale.ROOT).contains("ingl"))) {
+            partes.add((isEn ? "English: " : "Inglés: ") + nivelIngles.trim());
+        }
+        if (partes.isEmpty()) { removeSection(html, "LANGUAGES"); return; }
         String tituloSec = isEn ? "Languages" : "Idiomas";
         replaceSection(html, "LANGUAGES",
                 "<h2 style=\"" + SEC_TITLE + "\">" + esc(tituloSec) + "</h2>"
-                + "<p style=\"" + PAR + "\">" + esc(idiomas) + "</p>");
+                + "<p style=\"" + PAR + "\">" + esc(String.join(" · ", partes)) + "</p>");
+    }
+
+    // ── Cabecera de contacto ─────────────────────────────────────────────────
+
+    /**
+     * Monta la línea de contacto con los datos que existen.
+     *
+     * <p>Antes vivía en la plantilla con un marcador por dato y separadores
+     * fijos entre ellos: un estudiante sin teléfono ni LinkedIn salía con
+     * "Medellín | | | | correo@…". Aquí se une solo lo que tiene valor.
+     */
+    private static String lineaContacto(String ciudadPais, String telefono, String email,
+                                        String linkedinUrl, String portafolioUrl) {
+        var partes = new ArrayList<String>();
+        if (!isBlank(ciudadPais)) partes.add(esc(ciudadPais));
+        if (!isBlank(telefono)) partes.add(esc(telefono));
+        if (!isBlank(linkedinUrl)) partes.add(enlace(linkedinUrl, "LinkedIn"));
+        if (!isBlank(portafolioUrl)) partes.add(enlace(portafolioUrl, "Portafolio"));
+        if (!isBlank(email)) partes.add(esc(email));
+        return String.join(SEP, partes);
+    }
+
+    /** Un enlace del PDF. Sin esquema el visor lo trata como ruta relativa. */
+    private static String enlace(String url, String texto) {
+        String limpia = url.trim();
+        if (!limpia.startsWith("http://") && !limpia.startsWith("https://")) {
+            limpia = "https://" + limpia;
+        }
+        return "<a href=\"" + esc(limpia) + "\" style=\"" + ENLACE + "\">" + esc(texto) + "</a>";
+    }
+
+    /**
+     * "Medellín, Colombia".
+     *
+     * <p>El país estaba escrito a fuego como "Colombia" y el programa ya atiende
+     * estudiantes con otra nacionalidad. Si no hay nacionalidad registrada se
+     * imprime solo la ciudad: inventar el país en una hoja de vida es peor que
+     * omitirlo.
+     */
+    private static String ciudadPais(String ciudad, String nacionalidad) {
+        if (isBlank(ciudad)) return isBlank(nacionalidad) ? "" : nacionalidad.trim();
+        if (isBlank(nacionalidad)) return ciudad.trim();
+        return ciudad.trim() + ", " + nacionalidad.trim();
     }
 
     private void replaceSection(StringBuilder html, String name, String content) {
@@ -382,7 +480,12 @@ public class HvTemplateService {
 
     private static boolean isBlank(String s) { return s == null || s.isBlank(); }
     private static String nvl(String s, String def) { return isBlank(s) ? def : s; }
-    private static String valor(String s) { return s != null ? s : ""; }
+
+    /** El primero de los candidatos que traiga algo. */
+    private static String primero(String... candidatos) {
+        for (var c : candidatos) if (!isBlank(c)) return c.trim();
+        return null;
+    }
 
     private static String esc(String s) {
         if (s == null) return "";

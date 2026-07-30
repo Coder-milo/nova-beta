@@ -62,8 +62,15 @@ public class NotificacionController {
     public java.util.Map<String, Object> publicarAnuncio(
             @jakarta.validation.Valid @RequestBody AnuncioRequest request) {
         String mediaUrl = urlSegura(request.mediaUrl());
+        // El mensaje llega como HTML del editor enriquecido. Se limpia aqui, al
+        // entrar, y no al pintarlo: si se guardara sucio, cada consumidor futuro
+        // (correo, exportacion) tendria que acordarse de sanearlo.
+        String mensaje = com.novacrm.shared.HtmlEnriquecido.limpiar(request.mensaje());
+        if (mensaje.isBlank()) {
+            throw new com.novacrm.exception.BusinessException("El mensaje es obligatorio");
+        }
         int destinatarios = notificacionService.publicarAnuncio(
-                request.titulo(), request.mensaje(), request.programaId(), mediaUrl, normalizarTipoMedia(request.mediaTipo(), mediaUrl));
+                request.titulo(), mensaje, request.programaId(), mediaUrl, normalizarTipoMedia(request.mediaTipo(), mediaUrl));
         return java.util.Map.of(
                 "destinatarios", destinatarios,
                 "mensaje", destinatarios == 0
@@ -98,10 +105,21 @@ public class NotificacionController {
             case "gif" -> "image/gif";
             case "webm" -> "video/webm";
             case "mov" -> "video/quicktime";
+            case "pdf" -> "application/pdf";
+            case "doc" -> "application/msword";
+            case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "xls" -> "application/vnd.ms-excel";
+            case "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
             default -> "video/mp4";
         };
+        // Los documentos se descargan; el navegador no debe intentar
+        // interpretarlos en la propia pestana del portal.
+        boolean esDocumento = contentType.startsWith("application/");
+        String nombre = key.substring(key.lastIndexOf('/') + 1);
         return org.springframework.http.ResponseEntity.ok()
                 .header("Content-Type", contentType)
+                .header("Content-Disposition",
+                        (esDocumento ? "attachment" : "inline") + "; filename=\"" + nombre + "\"")
                 .header("Cache-Control", "public, max-age=86400")
                 .body(anuncioMediaService.contenido(key));
     }
@@ -136,7 +154,9 @@ public class NotificacionController {
 
     private String normalizarTipoMedia(String tipo, String url) {
         if (url == null) return null;
-        if ("IMAGE".equalsIgnoreCase(tipo) || "VIDEO".equalsIgnoreCase(tipo)) return tipo.toUpperCase(java.util.Locale.ROOT);
+        if ("IMAGE".equalsIgnoreCase(tipo) || "VIDEO".equalsIgnoreCase(tipo) || "FILE".equalsIgnoreCase(tipo)) {
+            return tipo.toUpperCase(java.util.Locale.ROOT);
+        }
         return "LINK";
     }
 }

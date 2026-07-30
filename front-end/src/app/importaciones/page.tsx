@@ -17,6 +17,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { ImportadorCrm } from '@/components/admin/importador-crm'
 import { importarApi, importarExtApi, programasApi, ApiCallError } from '@/lib/api'
 import type {
   ProgramaResponse, ImportarResponse, ImportPreviewResponse,
@@ -35,6 +36,7 @@ function errorDe(err: unknown): string {
 }
 
 export default function ImportacionesPage() {
+  const [seccion, setSeccion]       = useState<'estudiantes' | 'empresas' | 'colocaciones'>('estudiantes')
   const [paso, setPaso]             = useState(1)
   const [programas, setProgramas]   = useState<ProgramaResponse[]>([])
   const [programaId, setProgramaId] = useState('')
@@ -129,7 +131,43 @@ export default function ImportacionesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ── Stepper ────────────────────────────────────────────────────────── */}
+      {/* ── Selector de Entidad ────────────────────────────────────────────── */}
+      <div className="inline-flex max-w-fit rounded-xl border border-border bg-muted/40 p-1">
+        <button
+          type="button"
+          onClick={() => setSeccion('estudiantes')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            seccion === 'estudiantes' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Importar Estudiantes
+        </button>
+        <button
+          type="button"
+          onClick={() => setSeccion('empresas')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            seccion === 'empresas' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Importar Empresas
+        </button>
+        <button
+          type="button"
+          onClick={() => setSeccion('colocaciones')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            seccion === 'colocaciones' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Importar Colocaciones
+        </button>
+      </div>
+
+      {seccion === 'empresas' && <ImportadorCrm entidad="empresas" />}
+      {seccion === 'colocaciones' && <ImportadorCrm entidad="colocaciones" />}
+
+      {seccion === 'estudiantes' && (
+        <>
+          {/* ── Stepper ────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 overflow-x-auto">
         {pasos.map((label, i) => {
           const n = i + 1
@@ -499,6 +537,8 @@ export default function ImportacionesPage() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   )
 }

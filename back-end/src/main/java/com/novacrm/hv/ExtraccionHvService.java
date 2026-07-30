@@ -174,7 +174,15 @@ public class ExtraccionHvService {
                 institucionVal,
                 "Profesional",
                 experiencias,
-                formaciones
+                formaciones,
+                null,
+                null,
+                // Lo que se extrae del PDF es la direccion del perfil, no el id
+                // de la integracion OAuth: alimenta el enlace de la cabecera.
+                linkedinVal,
+                null,
+                null,
+                null
         );
 
         return new ResultadoExtraccion(campos, texto.length() > 8000 ? texto.substring(0, 8000) : texto, datosEstructurados);

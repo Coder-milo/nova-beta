@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { vacantesApi, matchesApi, ApiCallError } from '@/lib/api'
 import type { VacanteRequest, VacanteResponse, Page } from '@/lib/types'
+import { Textarea } from '@/components/ui/textarea'
 
 type VacanteForm = {
   titulo: string
@@ -341,8 +342,8 @@ export default function VacantesPage() {
 
             <section className="space-y-4">
               <div><p className="text-sm font-semibold">Descripción y publicación</p><p className="text-xs text-muted-foreground">Añade detalles para que el estudiante entienda el perfil solicitado.</p></div>
-              <label className="block space-y-1.5"><span className="text-xs font-medium">Descripción</span><textarea rows={4} value={formVacante.descripcion} onChange={(e) => actualizarFormulario('descripcion', e.target.value)} placeholder="Responsabilidades, objetivo del cargo y contexto de la oportunidad…" disabled={guardando} className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15" /></label>
-              <label className="block space-y-1.5"><span className="text-xs font-medium">Requisitos</span><textarea rows={3} value={formVacante.requisitos} onChange={(e) => actualizarFormulario('requisitos', e.target.value)} placeholder="Conocimientos, herramientas, estudios o certificaciones requeridas…" disabled={guardando} className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15" /></label>
+              <label className="block space-y-1.5"><span className="text-xs font-medium">Descripción</span><Textarea minRows={4} value={formVacante.descripcion} onChange={(e) => actualizarFormulario('descripcion', e.target.value)} placeholder="Responsabilidades, objetivo del cargo y contexto de la oportunidad…" disabled={guardando} className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15" /></label>
+              <label className="block space-y-1.5"><span className="text-xs font-medium">Requisitos</span><Textarea minRows={3} value={formVacante.requisitos} onChange={(e) => actualizarFormulario('requisitos', e.target.value)} placeholder="Conocimientos, herramientas, estudios o certificaciones requeridas…" disabled={guardando} className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15" /></label>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="space-y-1.5"><span className="flex items-center gap-1 text-xs font-medium"><LinkSimple className="size-3" /> Enlace para postularse</span><Input type="url" value={formVacante.urlAplicar} onChange={(e) => actualizarFormulario('urlAplicar', e.target.value)} placeholder="https://…" disabled={guardando} /></label>
                 <label className="space-y-1.5"><span className="text-xs font-medium">Fecha de cierre</span><Input type="datetime-local" value={formVacante.fechaExpiracion} onChange={(e) => actualizarFormulario('fechaExpiracion', e.target.value)} disabled={guardando} /></label>
