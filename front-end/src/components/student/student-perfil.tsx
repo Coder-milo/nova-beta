@@ -120,7 +120,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
           <CardContent className="flex flex-col items-center p-6 text-center">
             {perfil.fotoUrl ? (
               <img
-                src={perfil.fotoUrl}
+                src={perfil.fotoUrl.startsWith('http') ? perfil.fotoUrl : `/api/v1/estudiantes/${perfil.id}/foto`}
                 alt={perfil.nombre}
                 className="size-24 rounded-full object-cover ring-2 ring-primary/20"
               />
@@ -129,6 +129,31 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                 <User className="size-10" />
               </span>
             )}
+            <input
+              type="file"
+              id="foto-upload-input"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                try {
+                  const res = await estudiantesApi.subirFoto(perfil.id, file)
+                  onUpdate(res)
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : 'Error al subir la foto')
+                }
+              }}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => document.getElementById('foto-upload-input')?.click()}
+            >
+              Cambiar foto
+            </Button>
             <h2 className="mt-4 text-lg font-semibold">
               {perfil.nombre} {perfil.apellido}
             </h2>

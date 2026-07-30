@@ -1,0 +1,1 @@
+ALTER TABLE experiencia_laboral ADD COLUMN IF NOT EXISTS ciudad VARCHAR(255);

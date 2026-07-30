@@ -105,6 +105,10 @@ public class Estudiante extends BaseEntity {
     @Column(name = "foto_url", columnDefinition = "TEXT")
     private String fotoUrl;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "plantilla_preferida_id")
+    private com.novacrm.hv.PlantillaHv plantillaPreferida;
+
     @Column(columnDefinition = "TEXT")
     private String competencias;
 
@@ -343,4 +347,6 @@ public class Estudiante extends BaseEntity {
     public void setPostulacionesEnviadas(Integer postulacionesEnviadas) { this.postulacionesEnviadas = postulacionesEnviadas; }
     public Integer getEmpresasContactadas() { return empresasContactadas; }
     public void setEmpresasContactadas(Integer empresasContactadas) { this.empresasContactadas = empresasContactadas; }
+    public com.novacrm.hv.PlantillaHv getPlantillaPreferida() { return plantillaPreferida; }
+    public void setPlantillaPreferida(com.novacrm.hv.PlantillaHv plantillaPreferida) { this.plantillaPreferida = plantillaPreferida; }
 }

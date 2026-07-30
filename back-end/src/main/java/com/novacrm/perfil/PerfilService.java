@@ -124,6 +124,7 @@ public class PerfilService {
     private void aplicar(ExperienciaLaboral experiencia, ExperienciaRequest request) {
         experiencia.setEmpresa(request.empresa());
         experiencia.setCargo(request.cargo());
+        experiencia.setCiudad(request.ciudad());
         experiencia.setFechaInicio(request.fechaInicio());
         experiencia.setFechaFin(request.fechaFin());
         experiencia.setRelacionada(request.relacionada());
@@ -140,7 +141,7 @@ public class PerfilService {
 
     private ExperienciaResponse toResponse(ExperienciaLaboral e) {
         return new ExperienciaResponse(
-                e.getId(), e.getEmpresa(), e.getCargo(), e.getFechaInicio(), e.getFechaFin(),
+                e.getId(), e.getEmpresa(), e.getCargo(), e.getCiudad(), e.getFechaInicio(), e.getFechaFin(),
                 e.isRelacionada(), e.getFunciones(), e.isActual(), e.getCreatedAt()
         );
     }
