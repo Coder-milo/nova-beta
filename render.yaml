@@ -15,20 +15,20 @@ services:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
       # Render genera un secreto aleatorio y seguro automaticamente.
-      - key: JWT_SECRET
+      - key: NOVA_JWT_SECRET
         generateValue: true
-      # Datos de la base Neon (pegar en el panel de Render — no se versionan).
+      # Datos de la base PostgreSQL / Supabase (pegar en el panel de Render — no se versionan).
       - key: DB_HOST
         sync: false
       - key: DB_PORT
         value: "5432"
-      - key: DB_NAME
+      - key: NOVA_DB_NAME
         sync: false
-      - key: DB_USER
+      - key: NOVA_DB_USER
         sync: false
-      - key: DB_PASSWORD
+      - key: NOVA_DB_PASSWORD
         sync: false
-      # Neon exige TLS.
+      # Supabase exige TLS.
       - key: DB_PARAMS
         value: "?sslmode=require"
       # Origenes permitidos del frontend (coma-separados). Ajustar al desplegar el front.
