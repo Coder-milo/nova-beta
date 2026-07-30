@@ -22,8 +22,33 @@ const ACCESS_MAX_AGE = 60 * 60 * 8
 /** 7 dias: la misma vigencia que el refresh token del backend. */
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 7
 
+/**
+ * A dónde se reenvían las llamadas de `/api/**`.
+ *
+ * <p>Se mira `process.env` antes que `import.meta.env` porque Vite sustituye
+ * `import.meta.env.BACKEND_URL` **en tiempo de compilación**: si el valor no
+ * estaba puesto al construir, queda congelado como `undefined` en el bundle y
+ * la función desplegada se pone a llamar a `localhost:8080`, que en un entorno
+ * serverless no es nadie. Leyendo `process.env` primero, cambiar la URL del
+ * backend en el panel del proveedor surte efecto sin volver a compilar.
+ */
 export function backendBase(): string {
-  return import.meta.env.BACKEND_URL ?? 'http://localhost:8080'
+  const desdeEntorno =
+    (typeof process !== 'undefined' ? process.env?.BACKEND_URL : undefined) ??
+    import.meta.env.BACKEND_URL
+
+  if (!desdeEntorno) {
+    // En producción no hay valor por defecto razonable: fallar aquí con un
+    // mensaje claro es mejor que reenviar a localhost y devolver 503 sin
+    // explicar por qué.
+    if (import.meta.env.PROD) {
+      throw new Error(
+        'Falta la variable de entorno BACKEND_URL: es la URL publica del backend Spring Boot.',
+      )
+    }
+    return 'http://localhost:8080'
+  }
+  return desdeEntorno.endsWith('/') ? desdeEntorno.slice(0, -1) : desdeEntorno
 }
 
 /**

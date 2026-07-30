@@ -3,8 +3,23 @@ back-end/target/
 *.class
 *.jar
 
+# Build y dependencias (Node / Astro)
+node_modules/
+front-end/dist/
+front-end/.astro/
+front-end/.vite-cache/
+.vercel/
+
+# Archivos subidos por los usuarios. NO son codigo: son fotos, documentos y
+# hojas de vida con datos personales de los participantes —los nombres de
+# fichero llevan el numero de documento—. En produccion viven en el
+# almacenamiento de objetos, no en el repositorio.
+back-end/storage/
+
 # Secretos y entorno
 .env
+.env.*
+!.env.example
 
 # Logs
 *.log
