@@ -23,15 +23,6 @@
           "source": "estudiante",
           "entityField": "cargoObjetivo",
           "maxLength": 100
-        },
-        {
-          "placeholder": "LOGO_PATH",
-          "label": "Ruta del Logo",
-          "type": "image",
-          "required": false,
-          "source": "template",
-          "entityField": null,
-          "maxLength": 500
         }
       ]
     },
@@ -45,7 +36,7 @@
           "type": "text",
           "required": true,
           "source": "estudiante",
-          "entityField": "ciudad",
+          "entityField": "ciudad + nacionalidad",
           "maxLength": 100
         },
         {
@@ -54,7 +45,7 @@
           "type": "tel",
           "required": true,
           "source": "estudiante",
-          "entityField": "celular",
+          "entityField": "celular | telefono",
           "maxLength": 20
         },
         {
@@ -63,7 +54,7 @@
           "type": "url",
           "required": false,
           "source": "estudiante",
-          "entityField": null,
+          "entityField": "linkedinUrl",
           "maxLength": 500
         },
         {
@@ -72,7 +63,7 @@
           "type": "url",
           "required": false,
           "source": "estudiante",
-          "entityField": null,
+          "entityField": "carpetaUrl",
           "maxLength": 500
         },
         {
@@ -249,7 +240,7 @@
           "type": "text",
           "required": false,
           "source": "estudiante",
-          "entityField": "idiomas",
+          "entityField": "idiomas + nivelIngles",
           "maxLength": 300
         }
       ]

@@ -107,7 +107,17 @@ public class HvCustomTemplateService {
             Map.entry("REFERENCES", "REFERENCES"),
             Map.entry("REFERENCIAS", "REFERENCES"),
             Map.entry("PROGRAM_NAME", "PROGRAM_NAME"),
-            Map.entry("PROGRAMA", "PROGRAM_NAME")
+            Map.entry("PROGRAMA", "PROGRAM_NAME"),
+            Map.entry("LINKEDIN_URL", "LINKEDIN_URL"),
+            Map.entry("LINKEDIN", "LINKEDIN_URL"),
+            Map.entry("PORTFOLIO_URL", "PORTFOLIO_URL"),
+            Map.entry("PORTAFOLIO", "PORTFOLIO_URL"),
+            Map.entry("ENGLISH_LEVEL", "ENGLISH_LEVEL"),
+            Map.entry("NIVEL_INGLES", "ENGLISH_LEVEL"),
+            Map.entry("OBJECTIVE_ROLE", "OBJECTIVE_ROLE"),
+            Map.entry("CARGO_OBJETIVO", "OBJECTIVE_ROLE"),
+            Map.entry("AVAILABILITY", "AVAILABILITY"),
+            Map.entry("DISPONIBILIDAD", "AVAILABILITY")
     );
 
     private final StorageService storageService;
@@ -210,7 +220,13 @@ public class HvCustomTemplateService {
                             "Construccion de tableros e indicadores para apoyar la toma de decisiones.")),
                     List.of(new FormacionDto(
                             "CERTIFICACION", "Power BI para analisis empresarial",
-                            "Academia CAC", "2025"))
+                            "Academia CAC", "2025")),
+                    "+57 605 300 1234",
+                    "Colombia",
+                    "https://www.linkedin.com/in/andrea-martinez",
+                    "https://portafolio.ejemplo.com/andrea",
+                    "B2",
+                    List.of("Redujo en 30% el tiempo de cierre mensual automatizando el reporte de indicadores.")
             );
             return pdfService.generar(datos, plantilla.getColorPrimario(), "es", null, null);
         }
@@ -965,6 +981,14 @@ public class HvCustomTemplateService {
         values.put("EXPERIENCE", experience(experiencias));
         values.put("REFERENCES", nvl(e.getReferencias()));
         values.put("PROGRAM_NAME", e.getPrograma() != null ? nvl(e.getPrograma().getNombre()) : "");
+        // Datos que ya estaban en la ficha pero no llegaban a las plantillas que
+        // sube el equipo: una plantilla con {{LINKEDIN}} salia con el marcador
+        // crudo impreso en el PDF.
+        values.put("LINKEDIN_URL", nvl(e.getLinkedinUrl()));
+        values.put("PORTFOLIO_URL", nvl(e.getCarpetaUrl()));
+        values.put("ENGLISH_LEVEL", e.getNivelIngles() != null ? nvl(e.getNivelIngles().getNombre()) : "");
+        values.put("OBJECTIVE_ROLE", nvl(e.getCargoObjetivo()));
+        values.put("AVAILABILITY", first(e.getDisponibilidadLaboral(), e.getDisponibilidad()));
         return values;
     }
 
@@ -988,6 +1012,11 @@ public class HvCustomTemplateService {
                 "Analista de datos - Empresa Ejemplo - 01/2024 - Actual\nConstruccion de tableros e indicadores.");
         values.put("REFERENCES", "Disponibles a solicitud");
         values.put("PROGRAM_NAME", "Programa de Empleabilidad CAC");
+        values.put("LINKEDIN_URL", "https://www.linkedin.com/in/andrea-martinez");
+        values.put("PORTFOLIO_URL", "https://portafolio.ejemplo.com/andrea");
+        values.put("ENGLISH_LEVEL", "B2");
+        values.put("OBJECTIVE_ROLE", "Analista de datos");
+        values.put("AVAILABILITY", "Inmediata");
         return values;
     }
 
