@@ -3,6 +3,7 @@ package com.novacrm.linkedin;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -23,6 +24,7 @@ public class LinkedinController {
 
     @GetMapping("/auth-url")
     @Operation(summary = "Obtener URL de autorizacion de LinkedIn")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE')")
     public String obtenerAuthUrl(@RequestParam UUID estudianteId) {
         var scopes = "w_member_social";
         return "https://www.linkedin.com/oauth/v2/authorization?"
@@ -34,6 +36,7 @@ public class LinkedinController {
 
     @PostMapping("/callback")
     @Operation(summary = "Callback de autorizacion de LinkedIn")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE')")
     public String callback(@RequestParam String code,
                            @RequestParam UUID estudianteId) {
         return "Implementar intercambio de code por token";
@@ -41,6 +44,7 @@ public class LinkedinController {
 
     @PostMapping("/compartir")
     @Operation(summary = "Compartir credencial en LinkedIn")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE')")
     public void compartir(@RequestParam UUID estudianteId,
                           @RequestParam UUID credencialId) {
         // Implementacion con LinkedIn API v2 /ugcPosts

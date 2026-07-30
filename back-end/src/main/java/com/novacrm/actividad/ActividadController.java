@@ -26,18 +26,21 @@ public class ActividadController {
 
     @GetMapping("/programas/{programaId}/actividades")
     @Operation(summary = "Listar actividades de un programa")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE')")
     public List<ActividadResponse> listar(@PathVariable UUID programaId) {
         return actividadService.listar(programaId);
     }
 
     @GetMapping("/actividades/proximas")
     @Operation(summary = "Próximas 10 actividades desde hoy en todos los programas")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE')")
     public List<ActividadResponse> proximas() {
         return actividadService.proximas();
     }
 
     @GetMapping("/actividades")
     @Operation(summary = "Listar agenda completa")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE')")
     public List<ActividadResponse> agenda() {
         return actividadService.listarAgenda();
     }

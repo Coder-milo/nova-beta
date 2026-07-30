@@ -84,8 +84,11 @@ public class PostulacionService {
         postulacion.setEmpresaNombre(datos.empresaNombre().trim());
         postulacion.setCargo(datos.cargo().trim());
         postulacion.setCanal(vacio(datos.canal()) ? null : datos.canal().trim());
-        postulacion.setFechaPostulacion(
-                datos.fechaPostulacion() == null ? LocalDate.now() : datos.fechaPostulacion());
+        LocalDate fecha = datos.fechaPostulacion() == null ? LocalDate.now() : datos.fechaPostulacion();
+        if (fecha.isAfter(LocalDate.now())) {
+            fecha = LocalDate.now();
+        }
+        postulacion.setFechaPostulacion(fecha);
         postulacion.setEstado(datos.estado() == null ? EstadoPostulacion.ENVIADA : datos.estado());
         postulacion.setObservaciones(datos.observaciones());
         postulacion.setUrlOferta(vacio(datos.urlOferta()) ? null : datos.urlOferta().trim());
