@@ -52,6 +52,23 @@ public class EstudianteController {
         return estudianteService.actualizar(est.getId(), request);
     }
 
+    @GetMapping("/mi-perfil/hv-vista-previa")
+    @Operation(summary = "Previsualizar la Hoja de Vida del estudiante autenticado sin registrar version")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public org.springframework.http.ResponseEntity<byte[]> vistaPreviaMiHv(
+            @RequestParam(required = false, defaultValue = "es") String idioma,
+            Authentication auth) {
+        var estEntity = ownershipService.obtenerEstudianteAutenticado(auth);
+        byte[] pdfBytes = hvService.vistaPreviaDeEstudiante(estEntity.getId(),
+                new com.novacrm.hv.dto.GenerarHvOpcionesRequest(null, idioma, null, null));
+        // `inline`, para que el visor lo pinte en el iframe en vez de
+        // descargarlo: previsualizar es mirar, no guardar.
+        return org.springframework.http.ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"vista-previa-hv.pdf\"")
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .body(pdfBytes);
+    }
+
     @GetMapping("/mi-perfil/hv-pdf")
     @Operation(summary = "Descargar Hoja de Vida CAC ATS oficial del estudiante autenticado")
     @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")

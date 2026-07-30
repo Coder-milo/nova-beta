@@ -100,6 +100,18 @@ public class HvController {
         return hvService.versionesDeEstudiante(estudianteId);
     }
 
+    @GetMapping("/vista-previa/{estudianteId}")
+    @Operation(summary = "Previsualizar la hoja de vida de un estudiante sin registrar una versión nueva")
+    public ResponseEntity<byte[]> vistaPreviaEstudiante(@PathVariable UUID estudianteId,
+                                                        @RequestParam(required = false) UUID plantillaId,
+                                                        @RequestParam(required = false, defaultValue = "es") String idioma) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"vista-previa-hv.pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(hvService.vistaPreviaDeEstudiante(estudianteId,
+                        new GenerarHvOpcionesRequest(plantillaId, idioma, null, null)));
+    }
+
     @GetMapping("/{id}/pdf")
     @Operation(summary = "Descargar el PDF de una hoja de vida")
     public ResponseEntity<byte[]> pdf(@PathVariable UUID id) {

@@ -162,28 +162,52 @@ public class HvService {
                 estudiantes.size() - generadas, resultados);
     }
 
-    private HojaDeVida generarInterno(Estudiante estudiante, PlantillaHv plantilla, GenerarHvOpcionesRequest opciones) {
-        var formaciones = entityManager.createQuery(
-                        "SELECT f FROM FormacionAdicional f WHERE f.estudiante.id = :id ORDER BY f.fechaInicio DESC",
-                        FormacionAdicional.class)
-                .setParameter("id", estudiante.getId()).getResultList();
-        var experiencias = entityManager.createQuery(
-                        "SELECT x FROM ExperienciaLaboral x WHERE x.estudiante.id = :id ORDER BY x.fechaInicio DESC",
-                        ExperienciaLaboral.class)
-                .setParameter("id", estudiante.getId()).getResultList();
+    /**
+     * PDF de la hoja de vida sin registrar una versión nueva.
+     *
+     * <p>La previsualización se pide cada vez que el estudiante retoca el
+     * formulario. Si reutilizara {@link #generarIndividual}, cada vistazo
+     * dejaría un fichero en el almacén y una fila más en el histórico, y la
+     * versión «vigente» acabaría siendo un borrador que nadie decidió publicar.
+     */
+    public byte[] vistaPreviaDeEstudiante(UUID estudianteId, GenerarHvOpcionesRequest opciones) {
+        var estudiante = estudianteRepository.findById(estudianteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado: " + estudianteId));
+        return renderizar(estudiante, resolverPlantilla(opciones != null ? opciones.plantillaId() : null), opciones);
+    }
+
+    private byte[] renderizar(Estudiante estudiante, PlantillaHv plantilla, GenerarHvOpcionesRequest opciones) {
+        var formaciones = formacionesDe(estudiante.getId());
+        var experiencias = experienciasDe(estudiante.getId());
 
         String idioma = opciones != null && opciones.idioma() != null ? opciones.idioma() : "es";
         List<String> secEx = opciones != null ? opciones.seccionesExcluidas() : null;
         List<String> fldEx = opciones != null ? opciones.camposExcluidos() : null;
 
-        byte[] pdf;
         if (plantilla != null && plantilla.getObjectKey() != null) {
-            pdf = customTemplateService.generar(plantilla, estudiante, formaciones, experiencias);
-        } else {
-            pdf = pdfService.generar(estudiante, formaciones, experiencias,
-                    plantilla != null ? plantilla.getColorPrimario() : null,
-                    idioma, secEx, fldEx);
+            return customTemplateService.generar(plantilla, estudiante, formaciones, experiencias);
         }
+        return pdfService.generar(estudiante, formaciones, experiencias,
+                plantilla != null ? plantilla.getColorPrimario() : null,
+                idioma, secEx, fldEx);
+    }
+
+    private List<FormacionAdicional> formacionesDe(UUID estudianteId) {
+        return entityManager.createQuery(
+                        "SELECT f FROM FormacionAdicional f WHERE f.estudiante.id = :id ORDER BY f.fechaInicio DESC",
+                        FormacionAdicional.class)
+                .setParameter("id", estudianteId).getResultList();
+    }
+
+    private List<ExperienciaLaboral> experienciasDe(UUID estudianteId) {
+        return entityManager.createQuery(
+                        "SELECT x FROM ExperienciaLaboral x WHERE x.estudiante.id = :id ORDER BY x.fechaInicio DESC",
+                        ExperienciaLaboral.class)
+                .setParameter("id", estudianteId).getResultList();
+    }
+
+    private HojaDeVida generarInterno(Estudiante estudiante, PlantillaHv plantilla, GenerarHvOpcionesRequest opciones) {
+        byte[] pdf = renderizar(estudiante, plantilla, opciones);
 
         String key = storageService.subir("hojas-de-vida",
                 "hv-" + estudiante.getNumeroDocumento() + ".pdf", pdf, "application/pdf");
