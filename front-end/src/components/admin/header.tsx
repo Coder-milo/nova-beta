@@ -520,7 +520,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
         setStudentBody('')
         return
       }
-      const asunto = 'CAC Academy'
+      const asunto = 'CAC Academic'
       const nuevo = await mensajesApi.enviar({ asunto, contenido: studentBody.trim(), archivos: studentAttachments })
       setMessages((actual) => [nuevo, ...actual])
       setSelectedMessage(nuevo); setReply('')

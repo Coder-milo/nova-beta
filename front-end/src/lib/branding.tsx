@@ -204,7 +204,7 @@ export function ProveedorBranding({ children }: { children: ReactNode }) {
   // su identidad al guardar una preferencia. Nunca debe cargar ni aplicar una
   // identidad mientras se usa un panel de administración: un administrador
   // puede editar varios proyectos, pero su interfaz conserva siempre la gama
-  // global de Academy CAC.
+  // global de CAC Academic.
   const refrescar = useCallback(() => {
     if (!user || !soloEsEstudiante(user.roles)) {
       aplicar(null)

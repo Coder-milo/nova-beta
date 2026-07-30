@@ -163,6 +163,7 @@ export interface EstudianteResponse {
   colocado: boolean
   carpetaUrl: string | null
   linkedinUrl: string | null
+  plantillaPreferidaId: string | null
 }
 
 /** POST /api/v1/estudiantes — campos mínimos requeridos: nombre, apellido, email */
@@ -216,6 +217,13 @@ export interface EstudianteRequest {
   referencias?: string
   disponibilidad?: string
   linkedinUrl?: string
+  carpetaUrl?: string
+  edadAlRegistrar?: number
+  hitoCvListo?: EstadoHito | null
+  hitoCvIngles?: EstadoHito | null
+  hitoLinkedinCreado?: EstadoHito | null
+  hitoLinkedinOptimizado?: EstadoHito | null
+  hitoPerfilOcupacional?: EstadoHito | null
 }
 
 /** Campos que el equipo actualiza durante el acompañamiento de empleabilidad. */
@@ -516,6 +524,7 @@ export interface ExperienciaResponse {
   id: string
   empresa: string
   cargo: string
+  ciudad?: string | null
   fechaInicio: string | null
   fechaFin: string | null
   relacionada: boolean
@@ -527,6 +536,7 @@ export interface ExperienciaResponse {
 export interface ExperienciaRequest {
   empresa: string
   cargo: string
+  ciudad?: string
   fechaInicio?: string
   fechaFin?: string
   relacionada?: boolean
@@ -574,6 +584,7 @@ export interface AuditoriaResponse {
 
 export interface PlantillaResponse {
   id: string
+  codigo?: string | null
   nombre: string
   colorPrimario: string
   predeterminada: boolean

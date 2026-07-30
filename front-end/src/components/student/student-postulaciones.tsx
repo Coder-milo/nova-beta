@@ -9,6 +9,7 @@ import {
   CircleNotch,
   MapPin,
   Sparkle,
+  Trash,
   WarningCircle,
 } from '@phosphor-icons/react'
 import { ApiCallError, matchesApi, postulacionesApi } from '@/lib/api'
@@ -47,6 +48,9 @@ export function StudentPostulaciones() {
   const [registrando, setRegistrando] = useState(false)
   const [empresaManual, setEmpresaManual] = useState('')
   const [cargoManual, setCargoManual] = useState('')
+  const [canalManual, setCanalManual] = useState('')
+  const [urlOfertaManual, setUrlOfertaManual] = useState('')
+  const [observacionesManual, setObservacionesManual] = useState('')
 
   useEffect(() => {
     ;(async () => {
@@ -72,7 +76,13 @@ export function StudentPostulaciones() {
     })()
   }, [])
 
-  const refrescarHistorial = async () => setHistorial(await postulacionesApi.mias())
+  const refrescarHistorial = async () => {
+    try {
+      setHistorial(await postulacionesApi.mias())
+    } catch {
+      // Ignorar
+    }
+  }
 
   const postular = async (match: MatchResponse) => {
     if (match.postulado || postulando) return
@@ -102,16 +112,32 @@ export function StudentPostulaciones() {
       const nueva = await postulacionesApi.registrarPropia({
         empresaNombre: empresaManual.trim(),
         cargo: cargoManual.trim(),
+        canal: canalManual.trim() || undefined,
+        urlOferta: urlOfertaManual.trim() || undefined,
+        observaciones: observacionesManual.trim() || undefined,
         fechaPostulacion: new Date().toISOString().slice(0, 10),
         estado: 'ENVIADA',
       })
       setHistorial((items) => [nueva, ...items])
       setEmpresaManual('')
       setCargoManual('')
+      setCanalManual('')
+      setUrlOfertaManual('')
+      setObservacionesManual('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo registrar la postulación.')
     } finally {
       setRegistrando(false)
+    }
+  }
+
+  const eliminarPostulacion = async (id: string) => {
+    if (!confirm('¿Deseas eliminar esta postulación?')) return
+    try {
+      await postulacionesApi.eliminar(id)
+      setHistorial((items) => items.filter((item) => item.id !== id))
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo eliminar la postulación.')
     }
   }
 
@@ -159,7 +185,23 @@ export function StudentPostulaciones() {
               <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="font-semibold">{postulacion.cargo}</p>
-                  <p className="text-sm text-muted-foreground">{postulacion.empresaNombre} · {postulacion.fechaPostulacion}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {postulacion.empresaNombre} · {postulacion.fechaPostulacion}
+                    {postulacion.canal ? ` · ${postulacion.canal}` : ''}
+                  </p>
+                  {postulacion.urlOferta && (
+                    <a
+                      href={postulacion.urlOferta.startsWith('http') ? postulacion.urlOferta : `https://${postulacion.urlOferta}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-0.5 inline-block text-xs text-primary underline truncate max-w-xs"
+                    >
+                      Ver oferta
+                    </a>
+                  )}
+                  {postulacion.observaciones && (
+                    <p className="mt-1 text-xs text-muted-foreground italic">{postulacion.observaciones}</p>
+                  )}
                   {postulacion.diasEsperando != null && <p className="mt-1 text-xs text-muted-foreground">{postulacion.diasEsperando} días esperando respuesta</p>}
                 </div>
                 <div className="flex items-center gap-2">
@@ -177,6 +219,16 @@ export function StudentPostulaciones() {
                     <option value="RECHAZADO">No continuó</option>
                     <option value="CONTRATADO">Contratado</option>
                   </select>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => void eliminarPostulacion(postulacion.id)}
+                    title="Eliminar postulación"
+                  >
+                    <Trash className="size-4" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -186,8 +238,11 @@ export function StudentPostulaciones() {
           <CardHeader><CardTitle className="text-base">Registrar postulación</CardTitle><CardDescription>Incluye procesos que no salieron del portal.</CardDescription></CardHeader>
           <CardContent>
             <form className="space-y-3" onSubmit={registrarManual}>
-              <Input required placeholder="Empresa" value={empresaManual} onChange={(event) => setEmpresaManual(event.target.value)} />
-              <Input required placeholder="Cargo al que aplicaste" value={cargoManual} onChange={(event) => setCargoManual(event.target.value)} />
+              <Input required placeholder="Empresa *" value={empresaManual} onChange={(event) => setEmpresaManual(event.target.value)} />
+              <Input required placeholder="Cargo al que aplicaste *" value={cargoManual} onChange={(event) => setCargoManual(event.target.value)} />
+              <Input placeholder="Canal (LinkedIn, Computrabajo...)" value={canalManual} onChange={(event) => setCanalManual(event.target.value)} />
+              <Input placeholder="URL de la oferta (opcional)" value={urlOfertaManual} onChange={(event) => setUrlOfertaManual(event.target.value)} />
+              <Input placeholder="Observaciones o notas" value={observacionesManual} onChange={(event) => setObservacionesManual(event.target.value)} />
               <Button type="submit" className="w-full" disabled={registrando}>{registrando ? 'Registrando…' : 'Registrar proceso'}</Button>
             </form>
           </CardContent>
