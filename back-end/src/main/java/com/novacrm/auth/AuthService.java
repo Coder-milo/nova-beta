@@ -43,11 +43,22 @@ public class AuthService {
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
 
+    /**
+     * Vigencia del enlace de restablecimiento. La constante existe para que el
+     * correo diga el mismo número que aplica el código: cuando estaban por
+     * separado, el texto podía prometer una vigencia que ya no era la real.
+     */
+    private static final int MINUTOS_VIGENCIA_RESET = 30;
+
+    private final com.novacrm.correo.MarcaCorreoService marcaCorreoService;
+
     public AuthService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
-                       EmailService emailService) {
+                       EmailService emailService,
+                       com.novacrm.correo.MarcaCorreoService marcaCorreoService) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        this.marcaCorreoService = marcaCorreoService;
     }
 
     @Transactional
@@ -93,16 +104,19 @@ public class AuthService {
             RANDOM.nextBytes(bytes);
             String token = HexFormat.of().formatHex(bytes);
             usuario.setResetToken(token);
-            usuario.setResetTokenExpira(LocalDateTime.now().plusMinutes(30));
+            usuario.setResetTokenExpira(LocalDateTime.now().plusMinutes(MINUTOS_VIGENCIA_RESET));
 
             String enlace = frontendUrl + "/recuperar-contrasena?token=" + token;
             try {
+                // Pasa por la plantilla de marca, igual que el de activación. Antes
+                // se concatenaba aquí a mano y salía sin cabecera, sin pie y sin
+                // color: el mismo usuario recibía dos correos que no parecían del
+                // mismo sistema, y el de recuperación tenía toda la pinta de
+                // suplantación.
                 emailService.enviar(usuario.getEmail(), "Recupera tu contraseña — NOVA CRM",
-                        "<p>Hola " + usuario.getNombre() + ",</p>"
-                        + "<p>Recibimos una solicitud para restablecer tu contraseña. "
-                        + "El enlace es válido por 30 minutos:</p>"
-                        + "<p><a href=\"" + enlace + "\">Restablecer contraseña</a></p>"
-                        + "<p>Si no fuiste tú, ignora este correo.</p>");
+                        com.novacrm.correo.CorreosDelSistema.recuperacion(
+                                usuario.getNombre(), enlace, MINUTOS_VIGENCIA_RESET,
+                                marcaCorreoService.global()));
             } catch (Exception e) {
                 // No propagar: en desarrollo (sin SES) el token queda en el log.
                 log.warn("No se pudo enviar el correo de recuperación a {}: {}. Enlace: {}",
