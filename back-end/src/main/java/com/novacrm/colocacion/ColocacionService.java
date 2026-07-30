@@ -53,18 +53,21 @@ public class ColocacionService {
     private final PostulacionRepository postulacionRepository;
     private final EmpresaRepository empresaRepository;
     private final SeguimientoRepository seguimientoRepository;
+    private final com.novacrm.auditoria.AuditoriaService auditoriaService;
 
     public ColocacionService(ColocacionRepository colocacionRepository,
                              EstudianteRepository estudianteRepository,
                              PostulacionRepository postulacionRepository,
                              EmpresaRepository empresaRepository,
                              SeguimientoRepository seguimientoRepository,
+                             com.novacrm.auditoria.AuditoriaService auditoriaService,
                              @Value("${app.colocacion.meta-salarial:2276176}") BigDecimal metaSalarial) {
         this.colocacionRepository = colocacionRepository;
         this.estudianteRepository = estudianteRepository;
         this.postulacionRepository = postulacionRepository;
         this.empresaRepository = empresaRepository;
         this.seguimientoRepository = seguimientoRepository;
+        this.auditoriaService = auditoriaService;
         this.metaSalarial = metaSalarial;
     }
 
@@ -128,6 +131,15 @@ public class ColocacionService {
         colocacionRepository.save(colocacion);
         anotar(colocacion, autor, "Colocacion cerrada en " + colocacion.nombreEmpresa()
                 + (motivo == null || motivo.isBlank() ? "." : ": " + motivo.trim()));
+    }
+
+    @Transactional
+    public void eliminar(UUID id, String autor) {
+        var colocacion = obtener(id);
+        colocacionRepository.delete(colocacion);
+        String nombreEstudiante = colocacion.getEstudiante() != null ? (colocacion.getEstudiante().getNombre() + " " + colocacion.getEstudiante().getApellido()) : "Estudiante";
+        auditoriaService.registrar("Colocaciones", "Eliminación", "Colocacion",
+                id.toString(), nombreEstudiante + " - " + colocacion.nombreEmpresa(), null, null);
     }
 
     private void aplicar(Colocacion colocacion, GuardarColocacion d) {

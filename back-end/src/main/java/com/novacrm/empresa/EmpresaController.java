@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -92,6 +93,14 @@ public class EmpresaController {
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public EmpresaResponse actualizar(@PathVariable UUID id, @Valid @RequestBody GuardarEmpresa datos) {
         return empresaService.actualizar(id, datos);
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar una empresa")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public void eliminar(@PathVariable UUID id) {
+        empresaService.eliminar(id);
     }
 
     @PostMapping("/{id}/contacto")

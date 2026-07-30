@@ -137,4 +137,12 @@ public class VacanteController {
     public VacanteResponse reabrir(@PathVariable UUID id) {
         return vacanteService.reabrir(id);
     }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar una vacante")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public void eliminar(@PathVariable UUID id) {
+        vacanteService.eliminar(id);
+    }
 }

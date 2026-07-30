@@ -55,6 +55,21 @@ public class NotificacionController {
         notificacionService.marcarLeida(id, auth);
     }
 
+    @PutMapping("/marcar-todas-leidas")
+    @Operation(summary = "Marcar todas las notificaciones como leídas")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
+    public void marcarTodasLeidas(@RequestParam UUID estudianteId, Authentication auth) {
+        notificacionService.marcarTodasLeidas(estudianteId, auth);
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar notificación")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
+    public void eliminar(@PathVariable UUID id, Authentication auth) {
+        notificacionService.eliminar(id, auth);
+    }
+
     @PostMapping("/anuncio")
     @Operation(summary = "Publicar un anuncio para los estudiantes (feria de empleo, convocatoria)")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
