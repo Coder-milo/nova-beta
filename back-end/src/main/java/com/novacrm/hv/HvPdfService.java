@@ -29,21 +29,36 @@ public class HvPdfService {
 
     public byte[] generar(Estudiante e, List<FormacionAdicional> formaciones,
                           List<ExperienciaLaboral> experiencias, String colorPrimario) {
-        return generar(e, formaciones, experiencias, colorPrimario, "es", null, null);
+        return generar(e, formaciones, experiencias, colorPrimario, "es", null, null, null, null);
     }
 
     public byte[] generar(Estudiante e, List<FormacionAdicional> formaciones,
                           List<ExperienciaLaboral> experiencias, String colorPrimario,
                           String idioma, java.util.Collection<String> seccionesExcluidas,
                           java.util.Collection<String> camposExcluidos) {
-        String html = templateService.renderizar(e, formaciones, experiencias, idioma, seccionesExcluidas, camposExcluidos);
+        return generar(e, formaciones, experiencias, colorPrimario, idioma, seccionesExcluidas, camposExcluidos, null, null);
+    }
+
+    public byte[] generar(Estudiante e, List<FormacionAdicional> formaciones,
+                          List<ExperienciaLaboral> experiencias, String colorPrimario,
+                          String idioma, java.util.Collection<String> seccionesExcluidas,
+                          java.util.Collection<String> camposExcluidos,
+                          String fotoBase64, String codigoPlantilla) {
+        String html = templateService.renderizar(e, formaciones, experiencias, idioma, seccionesExcluidas, camposExcluidos, fotoBase64, codigoPlantilla);
         return renderizarHtmlAPdf(html);
     }
 
     public byte[] generar(com.novacrm.hv.dto.DatosHvDto datos, String colorPrimario,
                           String idioma, java.util.Collection<String> seccionesExcluidas,
                           java.util.Collection<String> camposExcluidos) {
-        String html = templateService.renderizar(datos, idioma, seccionesExcluidas, camposExcluidos);
+        return generar(datos, colorPrimario, idioma, seccionesExcluidas, camposExcluidos, null, null);
+    }
+
+    public byte[] generar(com.novacrm.hv.dto.DatosHvDto datos, String colorPrimario,
+                          String idioma, java.util.Collection<String> seccionesExcluidas,
+                          java.util.Collection<String> camposExcluidos,
+                          String fotoBase64, String codigoPlantilla) {
+        String html = templateService.renderizar(datos, idioma, seccionesExcluidas, camposExcluidos, fotoBase64, codigoPlantilla);
         return renderizarHtmlAPdf(html);
     }
 

@@ -32,6 +32,9 @@ public class ExperienciaLaboral extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String funciones;
 
+    @Column
+    private String ciudad;
+
     @Column(nullable = false)
     private boolean actual = false;
 
@@ -41,6 +44,8 @@ public class ExperienciaLaboral extends BaseEntity {
     public void setEmpresa(String empresa) { this.empresa = empresa; }
     public String getCargo() { return cargo; }
     public void setCargo(String cargo) { this.cargo = cargo; }
+    public String getCiudad() { return ciudad; }
+    public void setCiudad(String ciudad) { this.ciudad = ciudad; }
     public LocalDate getFechaInicio() { return fechaInicio; }
     public void setFechaInicio(LocalDate fechaInicio) { this.fechaInicio = fechaInicio; }
     public LocalDate getFechaFin() { return fechaFin; }

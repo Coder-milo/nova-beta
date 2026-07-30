@@ -7,6 +7,7 @@ import com.novacrm.colocacion.dto.ColocacionDtos.ResumenColocaciones;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -91,6 +92,14 @@ public class ColocacionController {
         String motivo = cuerpo == null ? null : cuerpo.get("motivo");
         colocacionService.cerrar(id, motivo, auth.getName());
         return Map.of("mensaje", "Colocacion cerrada");
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar una colocación registrada por error")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public void eliminar(@PathVariable UUID id, Authentication auth) {
+        colocacionService.eliminar(id, auth.getName());
     }
 
     /** Catalogos para los desplegables del formulario. */

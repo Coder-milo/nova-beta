@@ -95,7 +95,7 @@ export default function LoginPage() {
         <Image
           src={LOGIN_BACKGROUNDS[backgroundIndex]}
           onError={handleBackgroundError}
-          alt="Sede Academy CAC"
+          alt="Sede CAC Academic"
           fill
           priority
           sizes="100vw"
@@ -114,7 +114,7 @@ export default function LoginPage() {
         {/* IZQUIERDA · marca sobre la foto (solo escritorio) */}
         <div className="hidden w-1/2 flex-col justify-end gap-5 p-12 xl:p-16 lg:flex">
           <div className="flex size-14 items-center justify-center rounded-2xl border border-white/25 bg-white/10 p-2.5 backdrop-blur-md">
-            <Image src="/brand/cac-logo-white.png" alt="CAC" width={44} height={44} priority className="h-full w-full object-contain" />
+            <Image src="/brand/cac-logo-white.png" alt="CAC Academic" width={44} height={44} priority className="h-full w-full object-contain" />
           </div>
           <h2 className="max-w-lg text-[2.1rem] font-bold leading-[1.12] tracking-tight text-white xl:text-[2.5rem]">
             Empleabilidad inteligente para tu institución.
@@ -139,7 +139,7 @@ export default function LoginPage() {
               <div className="mb-4 flex size-12 items-center justify-center rounded-2xl border border-white/25 bg-white/15 p-2 backdrop-blur-md">
                 <Image
                   src="/brand/cac-logo-white.png"
-                  alt="Logo Academy CAC"
+                  alt="Logo CAC Academic"
                   width={38}
                   height={38}
                   priority

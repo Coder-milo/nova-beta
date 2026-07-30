@@ -7,6 +7,7 @@ import java.time.LocalDate;
 public record ExperienciaRequest(
         @NotBlank String empresa,
         @NotBlank String cargo,
+        String ciudad,
         LocalDate fechaInicio,
         LocalDate fechaFin,
         boolean relacionada,

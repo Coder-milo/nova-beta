@@ -59,6 +59,13 @@ public class MatchingService {
                 .map(this::toResponse);
     }
 
+    @Transactional
+    public void descartarMatch(UUID matchId) {
+        var match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new com.novacrm.exception.ResourceNotFoundException("Match no encontrado: " + matchId));
+        matchRepository.delete(match);
+    }
+
     private MatchResponse toResponse(Match m) {
         var v = m.getVacante();
         return new MatchResponse(

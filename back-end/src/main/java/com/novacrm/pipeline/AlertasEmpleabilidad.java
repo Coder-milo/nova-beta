@@ -55,7 +55,7 @@ public final class AlertasEmpleabilidad {
                 "Seguimiento vencido: " + nombre,
                 "«" + accion + "» vencio hace " + dias + " dia(s) (" + s.getFechaProxima() + ").",
                 s.getEstudiante() == null ? null : s.getEstudiante().getId().toString(),
-                s.getEstudiante() == null ? "/seguimiento"
+                s.getEstudiante() == null ? "/estudiantes"
                         : "/estudiantes/" + s.getEstudiante().getId());
     }
 

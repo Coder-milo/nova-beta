@@ -132,7 +132,7 @@ public class HvService {
         var estudiante = estudianteRepository.findById(estudianteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado: " + estudianteId));
         UUID plantillaId = opciones != null ? opciones.plantillaId() : null;
-        return toHvResponse(generarInterno(estudiante, resolverPlantilla(plantillaId), opciones));
+        return toHvResponse(generarInterno(estudiante, resolverPlantilla(estudiante, plantillaId), opciones));
     }
 
     @Transactional
@@ -173,7 +173,7 @@ public class HvService {
     public byte[] vistaPreviaDeEstudiante(UUID estudianteId, GenerarHvOpcionesRequest opciones) {
         var estudiante = estudianteRepository.findById(estudianteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado: " + estudianteId));
-        return renderizar(estudiante, resolverPlantilla(opciones != null ? opciones.plantillaId() : null), opciones);
+        return renderizar(estudiante, resolverPlantilla(estudiante, opciones != null ? opciones.plantillaId() : null), opciones);
     }
 
     private byte[] renderizar(Estudiante estudiante, PlantillaHv plantilla, GenerarHvOpcionesRequest opciones) {
@@ -187,9 +187,13 @@ public class HvService {
         if (plantilla != null && plantilla.getObjectKey() != null) {
             return customTemplateService.generar(plantilla, estudiante, formaciones, experiencias);
         }
+
+        String fotoBase64 = obtenerFotoBase64(estudiante);
+        String codigo = plantilla != null && plantilla.getCodigo() != null ? plantilla.getCodigo() : "CAC_ATS";
+
         return pdfService.generar(estudiante, formaciones, experiencias,
                 plantilla != null ? plantilla.getColorPrimario() : null,
-                idioma, secEx, fldEx);
+                idioma, secEx, fldEx, fotoBase64, codigo);
     }
 
     private List<FormacionAdicional> formacionesDe(UUID estudianteId) {
@@ -209,8 +213,11 @@ public class HvService {
     private HojaDeVida generarInterno(Estudiante estudiante, PlantillaHv plantilla, GenerarHvOpcionesRequest opciones) {
         byte[] pdf = renderizar(estudiante, plantilla, opciones);
 
+        String docId = (estudiante.getNumeroDocumento() != null && !estudiante.getNumeroDocumento().isBlank())
+                ? estudiante.getNumeroDocumento()
+                : estudiante.getId().toString();
         String key = storageService.subir("hojas-de-vida",
-                "hv-" + estudiante.getNumeroDocumento() + ".pdf", pdf, "application/pdf");
+                "hv-" + docId + ".pdf", pdf, "application/pdf");
 
         int siguienteVersion = hvRepository.findByEstudianteIdOrderByNumeroVersionDesc(estudiante.getId())
                 .stream().findFirst().map(h -> h.getNumeroVersion() + 1).orElse(1);
@@ -320,11 +327,29 @@ public class HvService {
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private PlantillaHv resolverPlantilla(UUID plantillaId) {
+        return resolverPlantilla(null, plantillaId);
+    }
+
+    private PlantillaHv resolverPlantilla(Estudiante e, UUID plantillaId) {
         if (plantillaId != null) {
             return plantillaRepository.findById(plantillaId)
                     .orElseThrow(() -> new ResourceNotFoundException("Plantilla no encontrada: " + plantillaId));
         }
+        if (e != null && e.getPlantillaPreferida() != null) {
+            return e.getPlantillaPreferida();
+        }
         return plantillaRepository.findFirstByPredeterminadaTrueAndActivoTrue().orElse(null);
+    }
+
+    private String obtenerFotoBase64(Estudiante e) {
+        if (e == null || e.getFotoUrl() == null || e.getFotoUrl().isBlank()) return null;
+        try {
+            byte[] bytes = storageService.descargar(e.getFotoUrl());
+            if (bytes != null && bytes.length > 0) {
+                return java.util.Base64.getEncoder().encodeToString(bytes);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     private List<Estudiante> resolverEstudiantes(GeneracionMasivaRequest request) {
@@ -352,7 +377,7 @@ public class HvService {
     }
 
     private PlantillaResponse toPlantillaResponse(PlantillaHv p) {
-        return new PlantillaResponse(p.getId(), p.getNombre(), p.getColorPrimario(),
+        return new PlantillaResponse(p.getId(), p.getCodigo(), p.getNombre(), p.getColorPrimario(),
                 p.isPredeterminada(), p.getObjectKey() != null,
                 p.getContenidoHtml() != null, customTemplateService.tipoArchivo(p),
                 customTemplateService.contarCampos(p.getFieldManifest()),

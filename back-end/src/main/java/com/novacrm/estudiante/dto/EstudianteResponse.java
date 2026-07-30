@@ -94,5 +94,6 @@ public record EstudianteResponse(
 
         // ── Enlaces de trabajo ──────────────────────────────────────────────
         String carpetaUrl,
-        String linkedinUrl
+        String linkedinUrl,
+        UUID plantillaPreferidaId
 ) {}

@@ -26,6 +26,8 @@ public class EstudianteService {
     private final NivelInglesRepository nivelInglesRepository;
     private final com.novacrm.auditoria.AuditoriaService auditoriaService;
     private final com.novacrm.colocacion.ColocacionRepository colocacionRepository;
+    private final com.novacrm.documento.StorageService storageService;
+    private final com.novacrm.hv.PlantillaHvRepository plantillaHvRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -34,12 +36,16 @@ public class EstudianteService {
                              ProgramaRepository programaRepository,
                              NivelInglesRepository nivelInglesRepository,
                              com.novacrm.auditoria.AuditoriaService auditoriaService,
-                             com.novacrm.colocacion.ColocacionRepository colocacionRepository) {
+                             com.novacrm.colocacion.ColocacionRepository colocacionRepository,
+                             com.novacrm.documento.StorageService storageService,
+                             com.novacrm.hv.PlantillaHvRepository plantillaHvRepository) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
         this.nivelInglesRepository = nivelInglesRepository;
         this.auditoriaService = auditoriaService;
         this.colocacionRepository = colocacionRepository;
+        this.storageService = storageService;
+        this.plantillaHvRepository = plantillaHvRepository;
     }
 
     public Page<EstudianteResponse> listarPorPrograma(UUID programaId, Pageable pageable) {
@@ -78,7 +84,40 @@ public class EstudianteService {
     @Transactional
     public EstudianteResponse actualizarFoto(UUID id, String fotoUrl) {
         var estudiante = buscar(id);
+        if (estudiante.getFotoUrl() != null && !estudiante.getFotoUrl().isBlank()) {
+            try {
+                storageService.eliminar(estudiante.getFotoUrl());
+            } catch (Exception ignored) {
+                // Si la foto anterior no existía en storage, continuar sin fallar
+            }
+        }
         estudiante.setFotoUrl(fotoUrl);
+        return toResponse(estudianteRepository.save(estudiante));
+    }
+
+    @Transactional
+    public EstudianteResponse eliminarFoto(UUID id) {
+        var estudiante = buscar(id);
+        if (estudiante.getFotoUrl() != null && !estudiante.getFotoUrl().isBlank()) {
+            try {
+                storageService.eliminar(estudiante.getFotoUrl());
+            } catch (Exception ignored) {
+            }
+            estudiante.setFotoUrl(null);
+        }
+        return toResponse(estudianteRepository.save(estudiante));
+    }
+
+    @Transactional
+    public EstudianteResponse actualizarPlantillaPreferida(UUID id, UUID plantillaId) {
+        var estudiante = buscar(id);
+        if (plantillaId == null) {
+            estudiante.setPlantillaPreferida(null);
+        } else {
+            var plantilla = plantillaHvRepository.findById(plantillaId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Plantilla no encontrada: " + plantillaId));
+            estudiante.setPlantillaPreferida(plantilla);
+        }
         return toResponse(estudianteRepository.save(estudiante));
     }
 
@@ -150,52 +189,52 @@ public class EstudianteService {
     }
 
     private void aplicarRequest(Estudiante e, EstudianteRequest r) {
-        e.setNombre(r.nombre());
-        e.setApellido(r.apellido());
-        e.setEmail(r.email());
-        e.setTelefono(r.telefono());
-        e.setCelular(r.celular());
-        e.setCiudad(r.ciudad());
-        e.setBarrio(r.barrio());
-        e.setTipoDocumento(r.tipoDocumento());
-        e.setNumeroDocumento(r.numeroDocumento());
-        e.setGenero(r.genero());
-        e.setNacionalidad(r.nacionalidad());
-        e.setNivelEducativo(r.nivelEducativo());
-        e.setTitulo(r.titulo());
-        e.setAniosExperiencia(r.aniosExperiencia());
-        e.setSectorExperiencia(r.sectorExperiencia());
-        e.setUltimoCargo(r.ultimoCargo());
-        e.setPerfilProfesional(r.perfilProfesional());
-        e.setSectorObjetivo(r.sectorObjetivo());
-        e.setCargoObjetivo(r.cargoObjetivo());
-        e.setDisponibilidadMovilidad(r.disponibilidadMovilidad());
-        e.setClasificacionSisben(r.clasificacionSisben());
-        e.setSituacionLaboral(r.situacionLaboral());
-        e.setIngresoMensual(r.ingresoMensual());
-        e.setResponsableEconomico(r.responsableEconomico());
-        e.setHaTrabajado(r.haTrabajado());
-        e.setTieneComputador(r.tieneComputador());
-        e.setTieneInternet(r.tieneInternet());
-        e.setMotivacion(r.motivacion());
-        e.setInteresMigratorio(r.interesMigratorio());
-        e.setResultadoPruebaEscrita(r.resultadoPruebaEscrita());
-        e.setResultadoPruebaOral(r.resultadoPruebaOral());
-        e.setInstitucionEducativa(r.institucionEducativa());
-        e.setProgramaAcademico(r.programaAcademico());
-        e.setAreaFormacion(r.areaFormacion());
-        e.setEstadoFormacion(r.estadoFormacion());
-        e.setDisponibilidadLaboral(r.disponibilidadLaboral());
-        e.setEstadoBusqueda(r.estadoBusqueda());
-        e.setPostulacionesEnviadas(r.postulacionesEnviadas());
-        e.setEmpresasContactadas(r.empresasContactadas());
+        if (r.nombre() != null) e.setNombre(r.nombre());
+        if (r.apellido() != null) e.setApellido(r.apellido());
+        if (r.email() != null) e.setEmail(r.email());
+        if (r.telefono() != null) e.setTelefono(r.telefono());
+        if (r.celular() != null) e.setCelular(r.celular());
+        if (r.ciudad() != null) e.setCiudad(r.ciudad());
+        if (r.barrio() != null) e.setBarrio(r.barrio());
+        if (r.tipoDocumento() != null) e.setTipoDocumento(r.tipoDocumento());
+        if (r.numeroDocumento() != null) e.setNumeroDocumento(r.numeroDocumento());
+        if (r.genero() != null) e.setGenero(r.genero());
+        if (r.nacionalidad() != null) e.setNacionalidad(r.nacionalidad());
+        if (r.nivelEducativo() != null) e.setNivelEducativo(r.nivelEducativo());
+        if (r.titulo() != null) e.setTitulo(r.titulo());
+        if (r.aniosExperiencia() != null) e.setAniosExperiencia(r.aniosExperiencia());
+        if (r.sectorExperiencia() != null) e.setSectorExperiencia(r.sectorExperiencia());
+        if (r.ultimoCargo() != null) e.setUltimoCargo(r.ultimoCargo());
+        if (r.perfilProfesional() != null) e.setPerfilProfesional(r.perfilProfesional());
+        if (r.sectorObjetivo() != null) e.setSectorObjetivo(r.sectorObjetivo());
+        if (r.cargoObjetivo() != null) e.setCargoObjetivo(r.cargoObjetivo());
+        if (r.disponibilidadMovilidad() != null) e.setDisponibilidadMovilidad(r.disponibilidadMovilidad());
+        if (r.clasificacionSisben() != null) e.setClasificacionSisben(r.clasificacionSisben());
+        if (r.situacionLaboral() != null) e.setSituacionLaboral(r.situacionLaboral());
+        if (r.ingresoMensual() != null) e.setIngresoMensual(r.ingresoMensual());
+        if (r.responsableEconomico() != null) e.setResponsableEconomico(r.responsableEconomico());
+        if (r.haTrabajado() != null) e.setHaTrabajado(r.haTrabajado());
+        if (r.tieneComputador() != null) e.setTieneComputador(r.tieneComputador());
+        if (r.tieneInternet() != null) e.setTieneInternet(r.tieneInternet());
+        if (r.motivacion() != null) e.setMotivacion(r.motivacion());
+        if (r.interesMigratorio() != null) e.setInteresMigratorio(r.interesMigratorio());
+        if (r.resultadoPruebaEscrita() != null) e.setResultadoPruebaEscrita(r.resultadoPruebaEscrita());
+        if (r.resultadoPruebaOral() != null) e.setResultadoPruebaOral(r.resultadoPruebaOral());
+        if (r.institucionEducativa() != null) e.setInstitucionEducativa(r.institucionEducativa());
+        if (r.programaAcademico() != null) e.setProgramaAcademico(r.programaAcademico());
+        if (r.areaFormacion() != null) e.setAreaFormacion(r.areaFormacion());
+        if (r.estadoFormacion() != null) e.setEstadoFormacion(r.estadoFormacion());
+        if (r.disponibilidadLaboral() != null) e.setDisponibilidadLaboral(r.disponibilidadLaboral());
+        if (r.estadoBusqueda() != null) e.setEstadoBusqueda(r.estadoBusqueda());
+        if (r.postulacionesEnviadas() != null) e.setPostulacionesEnviadas(r.postulacionesEnviadas());
+        if (r.empresasContactadas() != null) e.setEmpresasContactadas(r.empresasContactadas());
         if (r.estadoAcademico() != null) e.setEstadoAcademico(r.estadoAcademico());
         if (r.estadoEmpleabilidad() != null) e.setEstadoEmpleabilidad(r.estadoEmpleabilidad());
-        e.setDireccion(r.direccion());
-        e.setCompetencias(r.competencias());
-        e.setIdiomas(r.idiomas());
-        e.setReferencias(r.referencias());
-        e.setDisponibilidad(r.disponibilidad());
+        if (r.direccion() != null) e.setDireccion(r.direccion());
+        if (r.competencias() != null) e.setCompetencias(r.competencias());
+        if (r.idiomas() != null) e.setIdiomas(r.idiomas());
+        if (r.referencias() != null) e.setReferencias(r.referencias());
+        if (r.disponibilidad() != null) e.setDisponibilidad(r.disponibilidad());
         aplicarPreparacion(e, r);
     }
 
@@ -368,7 +407,8 @@ public class EstudianteService {
                 e.getFechaCapturaEdad(),
                 e.edad(LocalDate.now()),
                 e.getCarpetaUrl(),
-                e.getLinkedinUrl()
+                e.getLinkedinUrl(),
+                e.getPlantillaPreferida() != null ? e.getPlantillaPreferida().getId() : null
         );
     }
 

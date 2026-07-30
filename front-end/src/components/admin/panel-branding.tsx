@@ -70,9 +70,25 @@ function errorDe(err: unknown): string {
     return msg ?? `Error del servidor (HTTP ${err.status}).`
   }
   if (err instanceof Error && err.message) {
+    if (err.message.includes('Failed to fetch')) {
+      return 'No se pudo conectar con el servidor. Verifica que el backend Java (Spring Boot) esté iniciado.'
+    }
     return err.message
   }
   return 'No se pudo guardar la identidad. Comprueba la conexión o la imagen cargada.'
+}
+
+function dataUrlABlob(dataUrl: string): Blob {
+  const arr = dataUrl.split(',')
+  const mimeMatch = arr[0].match(/:(.*?);/)
+  const mime = mimeMatch ? mimeMatch[1] : 'image/png'
+  const bstr = atob(arr[1])
+  let n = bstr.length
+  const u8arr = new Uint8Array(n)
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n)
+  }
+  return new Blob([u8arr], { type: mime })
 }
 
 /** Lee el tamaño real del archivo. Es lo que se compara con lo exigido. */
@@ -437,7 +453,7 @@ export function PanelBranding() {
         continue
       }
 
-      const blob = await fetch(imagen.url).then((respuesta) => respuesta.blob())
+      const blob = dataUrlABlob(imagen.url)
       const archivo = new File([blob], `${medida.clave}.png`, {
         type: blob.type || 'image/png',
       })

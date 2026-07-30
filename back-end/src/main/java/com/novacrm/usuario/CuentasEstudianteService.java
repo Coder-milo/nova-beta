@@ -346,36 +346,15 @@ public class CuentasEstudianteService {
         return correoDeActivacion(nombre, email, token, MarcaCorreo.global(logoUrl, bannerPieUrl));
     }
 
+    /**
+     * El cuerpo vive en {@link com.novacrm.correo.CorreosDelSistema} para que la
+     * previsualización del panel enseñe este mismo HTML y no una copia que se
+     * desactualice.
+     */
     String correoDeActivacion(String nombre, String email, String token, MarcaCorreo marca) {
         String enlace = frontendUrl + "/recuperar-contrasena?token=" + token;
-
-        String cuerpo = """
-                <p style="margin:0 0 14px 0;">
-                  Te creamos un acceso al panel del programa. Desde ahi vas a poder
-                  consultar tu perfil, tu hoja de vida y las vacantes que se ajustan a ti.
-                </p>
-                <p style="margin:0 0 4px 0;">
-                  Para entrar, primero <strong>define tu contrasena</strong>:
-                </p>
-                %s
-                <p style="margin:0 0 14px 0;font-size:14px;">
-                  El enlace es personal y caduca en %d dias. Si se te vence, puedes pedir
-                  uno nuevo desde <em>&laquo;Olvide mi contrasena&raquo;</em> en la pantalla de acceso.
-                </p>
-                %s
-                <p style="margin:16px 0 0 0;font-size:14px;">
-                  Si tienes problemas para entrar, responde a este correo y te ayudamos.
-                </p>
-                """.formatted(
-                PlantillaCorreo.boton("Crear mi contrasena", enlace, marca.colorPrimario()),
-                DIAS_VIGENCIA_ACTIVACION,
-                PlantillaCorreo.recuadroDato("Tu usuario sera", email));
-
-        return PlantillaCorreo.construir(
-                "Activa tu acceso al panel",
-                "Hola " + nombre + ",",
-                cuerpo,
-                marca);
+        return com.novacrm.correo.CorreosDelSistema.activacion(
+                nombre, email, enlace, DIAS_VIGENCIA_ACTIVACION, marca);
     }
 
     private static int contar(List<ResultadoCuenta> resultados, Estado estado) {

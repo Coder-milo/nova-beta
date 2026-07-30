@@ -57,10 +57,11 @@ public class EstudianteController {
     @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
     public org.springframework.http.ResponseEntity<byte[]> vistaPreviaMiHv(
             @RequestParam(required = false, defaultValue = "es") String idioma,
+            @RequestParam(required = false) UUID plantillaId,
             Authentication auth) {
         var estEntity = ownershipService.obtenerEstudianteAutenticado(auth);
         byte[] pdfBytes = hvService.vistaPreviaDeEstudiante(estEntity.getId(),
-                new com.novacrm.hv.dto.GenerarHvOpcionesRequest(null, idioma, null, null));
+                new com.novacrm.hv.dto.GenerarHvOpcionesRequest(plantillaId, idioma, null, null));
         // `inline`, para que el visor lo pinte en el iframe en vez de
         // descargarlo: previsualizar es mirar, no guardar.
         return org.springframework.http.ResponseEntity.ok()
@@ -74,10 +75,11 @@ public class EstudianteController {
     @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
     public org.springframework.http.ResponseEntity<byte[]> descargarMiHvPdf(
             @RequestParam(required = false, defaultValue = "es") String idioma,
+            @RequestParam(required = false) UUID plantillaId,
             Authentication auth) {
         var estEntity = ownershipService.obtenerEstudianteAutenticado(auth);
         var hv = hvService.generarIndividual(estEntity.getId(),
-                new com.novacrm.hv.dto.GenerarHvOpcionesRequest(null, idioma, null, null));
+                new com.novacrm.hv.dto.GenerarHvOpcionesRequest(plantillaId, idioma, null, null));
         byte[] pdfBytes = hvService.pdf(hv.id());
 
         String filename = ("HV-CAC-" + estEntity.getNombre() + "-" + estEntity.getApellido() + ".pdf")
@@ -129,34 +131,140 @@ public class EstudianteController {
 
     public record VincularProgramaRequest(UUID programaId) {}
 
+    @PostMapping(value = "/mi-perfil/foto", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Subir o reemplazar la fotografía del estudiante autenticado")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public EstudianteResponse subirMiFoto(@RequestParam("archivo") org.springframework.web.multipart.MultipartFile archivo,
+                                          Authentication auth) {
+        var est = ownershipService.obtenerEstudianteAutenticado(auth);
+        return subirFotoInterno(est.getId(), archivo);
+    }
+
+    @GetMapping("/mi-perfil/foto")
+    @Operation(summary = "Obtener la fotografía del estudiante autenticado")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public org.springframework.http.ResponseEntity<byte[]> miFoto(Authentication auth) {
+        var est = ownershipService.obtenerEstudianteAutenticado(auth);
+        return descargarFotoInterno(est.getId());
+    }
+
     @PostMapping(value = "/{id}/foto", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Subir o reemplazar la fotografía del estudiante")
-    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public EstudianteResponse subirFoto(@PathVariable UUID id,
-                                        @RequestParam("archivo") org.springframework.web.multipart.MultipartFile archivo) {
+                                        @RequestParam("archivo") org.springframework.web.multipart.MultipartFile archivo,
+                                        Authentication auth) {
+        ownershipService.verificarAccesoEstudiante(auth, id);
+        return subirFotoInterno(id, archivo);
+    }
+
+    @GetMapping("/{id}/foto")
+    @Operation(summary = "Descargar la fotografía del estudiante")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
+    public org.springframework.http.ResponseEntity<byte[]> foto(@PathVariable UUID id, Authentication auth) {
+        ownershipService.verificarAccesoEstudiante(auth, id);
+        return descargarFotoInterno(id);
+    }
+
+    @DeleteMapping("/mi-perfil/foto")
+    @Operation(summary = "Eliminar la fotografía del estudiante autenticado")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public EstudianteResponse eliminarMiFoto(Authentication auth) {
+        var est = ownershipService.obtenerEstudianteAutenticado(auth);
+        return estudianteService.eliminarFoto(est.getId());
+    }
+
+    @DeleteMapping("/{id}/foto")
+    @Operation(summary = "Eliminar la fotografía del estudiante")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
+    public EstudianteResponse eliminarFoto(@PathVariable UUID id, Authentication auth) {
+        ownershipService.verificarAccesoEstudiante(auth, id);
+        return estudianteService.eliminarFoto(id);
+    }
+
+    @PutMapping("/mi-perfil/plantilla-preferida")
+    @Operation(summary = "Guardar la plantilla preferida de Hoja de Vida del estudiante autenticado")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public EstudianteResponse guardarPlantillaPreferida(@RequestBody GuardarPlantillaPreferidaRequest request, Authentication auth) {
+        var est = ownershipService.obtenerEstudianteAutenticado(auth);
+        return estudianteService.actualizarPlantillaPreferida(est.getId(), request.plantillaId());
+    }
+
+    public record GuardarPlantillaPreferidaRequest(UUID plantillaId) {}
+
+    private EstudianteResponse subirFotoInterno(UUID id, org.springframework.web.multipart.MultipartFile archivo) {
         if (archivo == null || archivo.isEmpty()
                 || archivo.getContentType() == null || !archivo.getContentType().startsWith("image/")) {
             throw new com.novacrm.exception.BusinessException("Sube una imagen válida (JPG/PNG/WebP)");
         }
         try {
-            String key = storageService.subir("fotos", archivo.getOriginalFilename(),
-                    archivo.getBytes(), archivo.getContentType());
+            byte[] bytesProcesados = redimensionarImagen(archivo.getBytes(), archivo.getContentType());
+            // El nombre pierde la extensión original a propósito: el contenido
+            // sale siempre como JPEG del reescalado, y conservar un ".png" en la
+            // clave hacía que la descarga respondiera `Content-Type: image/png`
+            // con bytes JPEG. Con `nosniff` puesto, el navegador no lo corrige y
+            // la foto no se ve.
+            String key = storageService.subir("fotos", nombreJpg(archivo.getOriginalFilename()),
+                    bytesProcesados, "image/jpeg");
             return estudianteService.actualizarFoto(id, key);
         } catch (java.io.IOException e) {
             throw new com.novacrm.exception.BusinessException("No se pudo leer la imagen: " + e.getMessage());
         }
     }
 
-    @GetMapping("/{id}/foto")
-    @Operation(summary = "Descargar la fotografía del estudiante")
-    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
-    public org.springframework.http.ResponseEntity<byte[]> foto(@PathVariable UUID id) {
+    /** El nombre original con extensión `.jpg`, que es lo que de verdad se guarda. */
+    private static String nombreJpg(String original) {
+        String base = original == null || original.isBlank() ? "foto" : original;
+        int punto = base.lastIndexOf('.');
+        if (punto > 0) base = base.substring(0, punto);
+        return base + ".jpg";
+    }
+
+    private byte[] redimensionarImagen(byte[] bytesOriginales, String contentType) {
+        try {
+            java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(bytesOriginales);
+            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bais);
+            if (img == null) return bytesOriginales;
+
+            int w = img.getWidth();
+            int h = img.getHeight();
+            int minSquare = Math.min(w, h);
+            int cropX = (w - minSquare) / 2;
+            int cropY = (h - minSquare) / 2;
+
+            java.awt.image.BufferedImage cropped = img.getSubimage(cropX, cropY, minSquare, minSquare);
+            int targetSize = Math.min(minSquare, 250);
+
+            java.awt.image.BufferedImage resized = new java.awt.image.BufferedImage(targetSize, targetSize, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D g = resized.createGraphics();
+            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.drawImage(cropped, 0, 0, targetSize, targetSize, null);
+            g.dispose();
+
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(resized, "jpg", baos);
+            return baos.toByteArray();
+        } catch (Exception e) {
+            return bytesOriginales;
+        }
+    }
+
+    private org.springframework.http.ResponseEntity<byte[]> descargarFotoInterno(UUID id) {
         var est = estudianteService.obtener(id);
         if (est.fotoUrl() == null) {
             return org.springframework.http.ResponseEntity.notFound().build();
         }
+        org.springframework.http.MediaType mediaType = org.springframework.http.MediaType.IMAGE_JPEG;
+        String keyLower = est.fotoUrl().toLowerCase();
+        if (keyLower.endsWith(".png")) {
+            mediaType = org.springframework.http.MediaType.IMAGE_PNG;
+        } else if (keyLower.endsWith(".webp")) {
+            mediaType = org.springframework.http.MediaType.parseMediaType("image/webp");
+        } else if (keyLower.endsWith(".gif")) {
+            mediaType = org.springframework.http.MediaType.IMAGE_GIF;
+        }
         return org.springframework.http.ResponseEntity.ok()
-                .contentType(org.springframework.http.MediaType.IMAGE_JPEG)
+                .contentType(mediaType)
                 .body(storageService.descargar(est.fotoUrl()));
     }
 

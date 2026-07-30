@@ -43,8 +43,8 @@ export function SidebarNav({
         {collapsed ? (
           <div className="relative flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-white p-1.5 shadow-xs backdrop-blur-md">
             <Image
-              src="/cac-logo.png"
-              alt="Logo Academy CAC"
+              src="/brand/cac-logo.png"
+              alt="Logo CAC Academic"
               width={32}
               height={32}
               priority
@@ -55,8 +55,8 @@ export function SidebarNav({
           <>
             <div className="relative flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-white p-1.5 shadow-xs backdrop-blur-md transition-transform duration-200 hover:scale-105">
               <Image
-                src="/cac-logo.png"
-                alt="Logo Academy CAC"
+                src="/brand/cac-logo.png"
+                alt="Logo CAC Academic"
                 width={32}
                 height={32}
                 priority
@@ -65,7 +65,7 @@ export function SidebarNav({
             </div>
             <div className="flex min-w-0 flex-1 flex-col leading-snug">
               <span className="truncate text-sm font-semibold tracking-tight text-foreground">
-                Academy CAC
+                CAC Academic
               </span>
               <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
                 <span className="size-1.5 rounded-full bg-primary" />

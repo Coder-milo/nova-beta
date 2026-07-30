@@ -130,7 +130,7 @@ export default function InicioEstudiantePage() {
           ['Oportunidades', vacantes, <Briefcase />, '/mis-postulaciones'],
           ['Postulaciones', postulaciones, <UserCheck />, '/mis-postulaciones'],
           ['Documentos', documentos, <FileText />, '/mis-documentos'],
-          ['Notificaciones nuevas', noLeidas, <Bell />, '/portal-estudiante'],
+          ['Notificaciones nuevas', noLeidas, <Bell />, '/mis-notificaciones'],
         ].map(([label, value, icon, href]) => (
           <Link href={String(href)} key={String(label)}><Card className="h-full shadow-none transition-colors hover:border-primary/50"><CardContent className="flex items-center gap-4 p-5"><span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">{icon}</span><div><p className="text-2xl font-semibold">{value}</p><p className="text-xs text-muted-foreground">{label}</p></div></CardContent></Card></Link>
         ))}

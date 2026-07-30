@@ -24,13 +24,16 @@ public class VacanteService {
     private final VacanteRepository vacanteRepository;
     private final EmpresaRepository empresaRepository;
     private final LectorDeOferta lectorDeOferta;
+    private final com.novacrm.auditoria.AuditoriaService auditoriaService;
 
     public VacanteService(VacanteRepository vacanteRepository,
                           EmpresaRepository empresaRepository,
-                          LectorDeOferta lectorDeOferta) {
+                          LectorDeOferta lectorDeOferta,
+                          com.novacrm.auditoria.AuditoriaService auditoriaService) {
         this.vacanteRepository = vacanteRepository;
         this.empresaRepository = empresaRepository;
         this.lectorDeOferta = lectorDeOferta;
+        this.auditoriaService = auditoriaService;
     }
 
     /** Ofertas que se pueden mostrar hoy: abiertas y sin vencer. */
@@ -177,6 +180,15 @@ public class VacanteService {
         var vacante = buscar(id);
         vacante.setRevisada(true);
         return toResponse(vacanteRepository.save(vacante));
+    }
+
+    @Transactional
+    public void eliminar(UUID id) {
+        var vacante = buscar(id);
+        vacanteRepository.delete(vacante);
+        String nombreEmpresa = vacante.getEmpresa() != null ? vacante.getEmpresa().getNombre() : "Sin empresa";
+        auditoriaService.registrar("Vacantes", "Eliminación", "Vacante",
+                id.toString(), vacante.getTitulo() + " (" + nombreEmpresa + ")", null, null);
     }
 
     /** Ofertas registradas por estudiantes y aun sin validar. */

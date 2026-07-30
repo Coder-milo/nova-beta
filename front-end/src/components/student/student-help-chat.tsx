@@ -10,7 +10,7 @@ type Author = 'bot' | 'student'
 type Message = { id: string; author: Author; text: string; createdAt: number }
 type Topic = { id: string; icon: typeof FileText; label: string; route: string; question: string }
 
-const STORAGE_KEY = 'academy_cac_help_chat'
+const STORAGE_KEY = 'cac_academic_help_chat'
 
 function responder(question: string, english: boolean) {
   const text = question.toLocaleLowerCase()
@@ -27,8 +27,8 @@ function responder(question: string, english: boolean) {
     ? 'My process shows your employability milestones and follow-up. Job applications contains opportunities matched to your profile and their current status.'
     : 'Mi proceso muestra tus hitos de empleabilidad y seguimiento. En Postulaciones encuentras oportunidades compatibles con tu perfil y el estado de cada aplicación.'
   if (text.includes('cv') || text.includes('resume') || text.includes('hoja de vida')) return english
-    ? 'Keep your profile up to date in Settings, then visit Resume to download your updated CV in the Academy CAC format.'
-    : 'Mantén actualizado tu perfil en Configuración y luego entra a Hoja de vida para descargar tu CV actualizado en el formato Academy CAC.'
+    ? 'Keep your profile up to date in Settings, then visit Resume to download your updated CV in the CAC Academic format.'
+    : 'Mantén actualizado tu perfil en Configuración y luego entra a Hoja de vida para descargar tu CV actualizado en el formato CAC Academic.'
   if (text.includes('message') || text.includes('help') || text.includes('mensaje') || text.includes('ayuda')) return english
     ? 'Use the Messages icon in the top bar to contact the support team. You can come back there to read their reply.'
     : 'Usa el icono de Mensajes de la barra superior para contactar al equipo de acompañamiento. Allí mismo podrás leer su respuesta.'
@@ -43,11 +43,11 @@ export function StudentHelpChat() {
   const english = locale === 'en'
   const storageKey = `${STORAGE_KEY}_${locale}`
   const labels = useMemo(() => english ? {
-    title: 'Alex, virtual assistant', subtitle: 'Your fox guide · Online', greeting: 'Hi! I am Alex, your Academy CAC fox guide. What would you like to do today?',
+    title: 'Alex, virtual assistant', subtitle: 'Your fox guide · Online', greeting: 'Hi! I am Alex, your CAC Academic fox guide. What would you like to do today?',
     placeholder: 'Ask about your portal...', send: 'Send question', clear: 'Clear conversation', contact: 'Contact the team',
     documents: 'Upload a document', process: 'Review my process', calendar: 'Open calendar', suggestions: ['How do I upload a document?', 'Where can I see my process?', 'How do I improve my LinkedIn?'],
   } : {
-    title: 'Alex, asistente virtual', subtitle: 'Tu zorro guía · En línea', greeting: '¡Hola! Soy Alex, tu zorro guía de Academy CAC. ¿Qué necesitas hacer hoy?',
+    title: 'Alex, asistente virtual', subtitle: 'Tu zorro guía · En línea', greeting: '¡Hola! Soy Alex, tu zorro guía de CAC Academic. ¿Qué necesitas hacer hoy?',
     placeholder: 'Pregunta sobre tu portal...', send: 'Enviar pregunta', clear: 'Limpiar conversación', contact: 'Contactar al equipo',
     documents: 'Subir un documento', process: 'Revisar mi proceso', calendar: 'Abrir calendario', suggestions: ['¿Cómo subo un documento?', '¿Dónde veo mi proceso?', '¿Cómo mejoro mi LinkedIn?'],
   }, [english])

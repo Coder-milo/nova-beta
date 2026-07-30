@@ -39,7 +39,7 @@ class JwtTipoTokenTest {
     void configurar() {
         authService = new AuthService(
                 mock(UsuarioRepository.class), mock(org.springframework.security.crypto.password.PasswordEncoder.class),
-                mock(EmailService.class));
+                mock(EmailService.class), mock(com.novacrm.correo.MarcaCorreoService.class));
         ReflectionTestUtils.setField(authService, "jwtSecret", SECRETO);
         ReflectionTestUtils.setField(authService, "jwtExpiration", 28_800_000L);
         ReflectionTestUtils.setField(authService, "refreshExpiration", 604_800_000L);

@@ -8,6 +8,7 @@ public record ExperienciaResponse(
         UUID id,
         String empresa,
         String cargo,
+        String ciudad,
         LocalDate fechaInicio,
         LocalDate fechaFin,
         boolean relacionada,

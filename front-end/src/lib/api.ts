@@ -186,6 +186,20 @@ export async function apiBlob(path: string): Promise<Blob> {
   return res.blob()
 }
 
+/** Obtiene una respuesta HTML o de texto plano autenticada (vistas previas). */
+export async function apiText(path: string): Promise<string> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    let body: ApiError = { status: res.status }
+    try { body = await res.json() } catch { /* noop */ }
+    throw new ApiCallError(res.status, body)
+  }
+  return res.text()
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 /** Usuario de la sesión. No incluye tokens: quedan en cookies HttpOnly. */
@@ -319,10 +333,28 @@ export const estudiantesApi = {
     apiFetch<EstudianteResponse>('/api/v1/estudiantes/mi-perfil', { token }),
   actualizarMiPerfil: (body: EstudianteRequest, token?: string) =>
     apiFetch<EstudianteResponse>('/api/v1/estudiantes/mi-perfil', { method: 'PUT', data: body, token }),
-  vistaPreviaMiHv: (idioma?: 'es' | 'en') =>
-    apiBlob(`/api/v1/estudiantes/mi-perfil/hv-vista-previa${idioma ? `?idioma=${idioma}` : ''}`),
-  descargarMiHvPdf: (nombreArchivo = 'Mi-Hoja-de-Vida-CAC.pdf') =>
-    apiDownload('/api/v1/estudiantes/mi-perfil/hv-pdf', nombreArchivo),
+  guardarPlantillaPreferida: (plantillaId: string | null, token?: string) =>
+    apiFetch<EstudianteResponse>('/api/v1/estudiantes/mi-perfil/plantilla-preferida', {
+      method: 'PUT',
+      data: { plantillaId },
+      token,
+    }),
+  subirMiFoto: (archivo: File, token?: string) =>
+    apiUpload<EstudianteResponse>('/api/v1/estudiantes/mi-perfil/foto', { archivo }, token),
+  vistaPreviaMiHv: (idioma?: 'es' | 'en', plantillaId?: string) => {
+    const params = new URLSearchParams()
+    if (idioma) params.set('idioma', idioma)
+    if (plantillaId) params.set('plantillaId', plantillaId)
+    const qs = params.toString()
+    return apiBlob(`/api/v1/estudiantes/mi-perfil/hv-vista-previa${qs ? `?${qs}` : ''}`)
+  },
+  descargarMiHvPdf: (idioma?: 'es' | 'en', plantillaId?: string, nombreArchivo = 'Mi-Hoja-de-Vida-CAC.pdf') => {
+    const params = new URLSearchParams()
+    if (idioma) params.set('idioma', idioma)
+    if (plantillaId) params.set('plantillaId', plantillaId)
+    const qs = params.toString()
+    return apiDownload(`/api/v1/estudiantes/mi-perfil/hv-pdf${qs ? `?${qs}` : ''}`, nombreArchivo)
+  },
 }
 
 // ─── Importación Excel ───────────────────────────────────────────────────────
@@ -334,6 +366,24 @@ export const importarCrmApi = {
     apiUpload<ResultadoImportacionCrm>(`/api/v1/importar/empresas?simular=${simular}`, { archivo }, token),
   colocaciones: (archivo: File, simular = false, token?: string) =>
     apiUpload<ResultadoImportacionCrm>(`/api/v1/importar/colocaciones?simular=${simular}`, { archivo }, token),
+}
+
+/** Un correo automático del sistema, tal como lo describe el backend. */
+export interface TipoCorreo {
+  id: string
+  etiqueta: string
+  /** En qué momento lo manda el sistema. */
+  cuando: string
+}
+
+export const correosApi = {
+  tipos: () => apiFetch<TipoCorreo[]>('/api/v1/correos/tipos'),
+  /**
+   * HTML del correo con datos de ejemplo. Sale del mismo código que el envío
+   * real, así que lo que se ve aquí es lo que le llega al estudiante.
+   */
+  vistaPrevia: (tipo: string, programaId?: string) =>
+    apiText(`/api/v1/correos/vista-previa/${tipo}${programaId ? `?programaId=${programaId}` : ''}`),
 }
 
 export const reportesApi = {
@@ -397,6 +447,8 @@ export const vacantesApi = {
     apiFetch<VacanteResponse>('/api/v1/vacantes', { method: 'POST', data: datos, token }),
   actualizar: (id: string, datos: VacanteRequest, token?: string) =>
     apiFetch<VacanteResponse>(`/api/v1/vacantes/${id}`, { method: 'PUT', data: datos, token }),
+  eliminar: (id: string, token?: string) =>
+    apiFetch<void>(`/api/v1/vacantes/${id}`, { method: 'DELETE', token }),
   /**
    * Registra una oferta que encontró un estudiante. Queda pendiente de que el
    * equipo la valide, así que no entra al listado general.
@@ -424,6 +476,8 @@ export const matchesApi = {
     apiFetch<number>(`/api/v1/matches/pendientes?estudianteId=${estudianteId}`, { token }),
   marcarPostulado: (matchId: string, token?: string) =>
     apiFetch<void>(`/api/v1/matches/${matchId}/postular`, { method: 'PATCH', token }),
+  descartar: (matchId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/matches/${matchId}`, { method: 'DELETE', token }),
   ejecutarMatching: (token?: string) =>
     apiFetch<{ matchesCreados: number }>('/api/v1/matches/ejecutar', { method: 'POST', token }),
 }
@@ -451,6 +505,10 @@ export const notificacionesApi = {
     apiFetch<number>(`/api/v1/notificaciones/no-leidas?estudianteId=${estudianteId}`, { token }),
   marcarLeida: (id: string, token?: string) =>
     apiFetch<void>(`/api/v1/notificaciones/${id}/leer`, { method: 'PUT', token }),
+  marcarTodasLeidas: (estudianteId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/notificaciones/marcar-todas-leidas?estudianteId=${estudianteId}`, { method: 'PUT', token }),
+  eliminar: (id: string, token?: string) =>
+    apiFetch<void>(`/api/v1/notificaciones/${id}`, { method: 'DELETE', token }),
 }
 
 export const mensajesApi = {
@@ -480,6 +538,8 @@ export const mensajesApi = {
       : apiFetch<MensajeResponse>(`/api/v1/mensajes/estudiantes/${estudianteId}`, {
           method: 'POST', data: { respuesta }, token,
         }),
+  eliminar: (id: string, token?: string) =>
+    apiFetch<void>(`/api/v1/mensajes/${id}`, { method: 'DELETE', token }),
 }
 
 // ─── Admin ───────────────────────────────────────────────────────────────────
@@ -563,6 +623,8 @@ export const documentosApi = {
     apiDownload(`/api/v1/documentos/${id}/descargar`, nombre),
   descargarMio: (id: string, nombre: string) =>
     apiDownload(`/api/v1/documentos/${id}/mi-descarga`, nombre),
+  actualizar: (id: string, archivo: File, token?: string) =>
+    apiUpload<DocumentoResponse>(`/api/v1/documentos/${id}`, { archivo }, token, 'PUT'),
   eliminar: (id: string, token?: string) =>
     apiFetch<void>(`/api/v1/documentos/${id}`, { method: 'DELETE', token }),
   eliminarMio: (id: string, token?: string) =>
@@ -682,6 +744,8 @@ export const empresasApi = {
   resumen: () => apiFetch<{ total: number; sinContactar: number; contactadas: number; enConversacion: number; aliadas: number; descartadas: number }>('/api/v1/empresas/resumen'),
   sectores: () => apiFetch<string[]>('/api/v1/empresas/sectores'),
   estadosRelacion: () => apiFetch<Array<{ valor: EstadoRelacionEmpresa; etiqueta: string; viva: boolean }>>('/api/v1/empresas/estados-relacion'),
+  obtener: (id: string, token?: string) => apiFetch<EmpresaResponse>(`/api/v1/empresas/${id}`, { token }),
+  eliminar: (id: string, token?: string) => apiFetch<void>(`/api/v1/empresas/${id}`, { method: 'DELETE', token }),
   registrarContacto: (id: string, data: { estado?: EstadoRelacionEmpresa; proximoPaso?: string; nota?: string }) =>
     apiFetch<EmpresaResponse>(`/api/v1/empresas/${id}/contacto`, { method: 'POST', data }),
 }
@@ -911,4 +975,6 @@ export const colocacionesApi = {
     apiFetch<ColocacionResponse>(`/api/v1/colocaciones/${id}`, { method: 'PUT', data: body, token }),
   cerrar: (id: string, motivo?: string, token?: string) =>
     apiFetch<{ mensaje: string }>(`/api/v1/colocaciones/${id}/cerrar`, { method: 'POST', data: { motivo }, token }),
+  eliminar: (id: string, token?: string) =>
+    apiFetch<void>(`/api/v1/colocaciones/${id}`, { method: 'DELETE', token }),
 }

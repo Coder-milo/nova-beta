@@ -43,7 +43,7 @@ class PlantillaSinLogoTest {
                 "Técnica en Sistemas",
                 "SENA",
                 "Técnico",
-                List.of(new ExperienciaDto("Analista", "Empresa", "01/2024", "", true, "Construcción de tableros.")),
+                List.of(new ExperienciaDto("Empresa", "Analista", "Barranquilla", "01/2024", "", true, true, "Construcción de tableros.")),
                 List.of(new FormacionDto("CERTIFICACION", "Power BI", "Academia CAC", "2025")),
                 telefono,
                 nacionalidad,

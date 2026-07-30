@@ -102,6 +102,13 @@ public class MensajeEstudianteService {
     }
 
     @Transactional
+    public void eliminar(UUID id) {
+        var mensaje = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Mensaje no encontrado: " + id));
+        repository.delete(mensaje);
+    }
+
+    @Transactional
     public MensajeResponse responder(UUID id, String respuesta, Authentication auth) {
         return responder(id, respuesta, List.of(), auth);
     }
@@ -166,7 +173,7 @@ public class MensajeEstudianteService {
 
         var mensaje = new MensajeEstudiante();
         mensaje.setEstudiante(estudiante);
-        mensaje.setAsunto("CAC Academy");
+        mensaje.setAsunto("CAC Academic");
         mensaje.setContenido("");
         mensaje.setRespuesta(texto);
         mensaje.setRespondidoPor(auth.getName());

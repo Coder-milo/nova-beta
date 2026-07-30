@@ -96,6 +96,24 @@ public class NotificacionService {
     }
 
     @Transactional
+    public void marcarTodasLeidas(UUID estudianteId, Authentication auth) {
+        ownershipService.verificarAccesoEstudiante(auth, estudianteId);
+        var notificaciones = notificacionRepository.findByEstudianteIdAndLeidaFalse(estudianteId);
+        for (var n : notificaciones) {
+            n.setLeida(true);
+        }
+        notificacionRepository.saveAll(notificaciones);
+    }
+
+    @Transactional
+    public void eliminar(UUID id, Authentication auth) {
+        var notificacion = notificacionRepository.findById(id)
+                .orElseThrow(() -> new com.novacrm.exception.ResourceNotFoundException("Notificacion no encontrada: " + id));
+        ownershipService.verificarAccesoEstudiante(auth, notificacion.getEstudiante().getId());
+        notificacionRepository.delete(notificacion);
+    }
+
+    @Transactional
     public void generarNotificacionesMatch(List<Match> matches) {
         for (Match match : matches) {
             var notificacion = new Notificacion();
@@ -115,7 +133,7 @@ public class NotificacionService {
     public void registrarMensajeDelEquipo(Estudiante estudiante, UUID mensajeId) {
         var notificacion = new Notificacion();
         notificacion.setEstudiante(estudiante);
-        notificacion.setTitulo("Nuevo mensaje de CAC Academy");
+        notificacion.setTitulo("Nuevo mensaje de CAC Academic");
         notificacion.setMensaje("El equipo de acompañamiento te envió un mensaje. Revísalo en la bandeja de mensajes.");
         notificacion.setTipo("MENSAJE");
         notificacion.setReferenciaId(mensajeId.toString());

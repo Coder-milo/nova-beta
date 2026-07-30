@@ -12,6 +12,9 @@ public class PlantillaHv extends BaseEntity {
     @Column(nullable = false)
     private String nombre;
 
+    @Column(name = "codigo", length = 50, unique = true)
+    private String codigo;
+
     /** Archivo de referencia subido por el usuario (opcional). */
     @Column(name = "object_key", columnDefinition = "TEXT")
     private String objectKey;
@@ -39,6 +42,8 @@ public class PlantillaHv extends BaseEntity {
 
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
+    public String getCodigo() { return codigo; }
+    public void setCodigo(String codigo) { this.codigo = codigo; }
     public String getObjectKey() { return objectKey; }
     public void setObjectKey(String objectKey) { this.objectKey = objectKey; }
     public String getContentType() { return contentType; }

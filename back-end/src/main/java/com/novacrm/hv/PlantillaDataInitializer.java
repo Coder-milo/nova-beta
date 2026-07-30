@@ -23,25 +23,35 @@ public class PlantillaDataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) throws Exception {
-        if (repo.findFirstByPredeterminadaTrueAndActivoTrue().isPresent()) {
+        // Desactivar o migrar plantillas legadas sin código de sistema
+        repo.findAll().forEach(p -> {
+            if (p.getCodigo() == null && p.getObjectKey() == null) {
+                if ("CAC ATS".equalsIgnoreCase(p.getNombre())) {
+                    p.setCodigo("CAC_ATS");
+                    p.setNombre("CAC ATS Tradicional (Sin foto)");
+                    repo.save(p);
+                } else {
+                    p.setActivo(false);
+                    repo.save(p);
+                }
+            }
+        });
+
+        crearSiNoExiste("CAC_ATS", "CAC ATS Tradicional (Sin foto)", "#1F4E79", true);
+        crearSiNoExiste("CLASICO_FOTO", "Clásico Profesional (Con foto)", "#2A5C8A", false);
+        crearSiNoExiste("MODERNO", "Moderno Compacto (Dos columnas)", "#0F4C81", false);
+    }
+
+    private void crearSiNoExiste(String codigo, String nombre, String color, boolean predeterminada) {
+        if (repo.findAll().stream().anyMatch(p -> codigo.equals(p.getCodigo()))) {
             return;
         }
-        var existentes = repo.findByActivoTrueOrderByCreatedAtDesc();
-        if (existentes.stream().anyMatch(p -> p.getContenidoHtml() != null)) {
-            return;
-        }
-
-        var html = new ClassPathResource("templates/hv/resume-ats-cac-flat.html")
-                .getContentAsString(StandardCharsets.UTF_8);
-        var manifest = new ClassPathResource("templates/hv/resume-ats-cac-manifest.json")
-                .getContentAsString(StandardCharsets.UTF_8);
-
         var p = new PlantillaHv();
-        p.setNombre("CAC ATS");
-        p.setColorPrimario("#1F4E79");
-        p.setContenidoHtml(html);
-        p.setFieldManifest(manifest);
-        p.setPredeterminada(true);
+        p.setCodigo(codigo);
+        p.setNombre(nombre);
+        p.setColorPrimario(color);
+        p.setPredeterminada(predeterminada && repo.findFirstByPredeterminadaTrueAndActivoTrue().isEmpty());
+        p.setActivo(true);
         repo.save(p);
     }
 }

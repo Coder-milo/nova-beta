@@ -32,15 +32,18 @@ public class EmpresaService {
     private final PostulacionRepository postulacionRepository;
     private final ColocacionRepository colocacionRepository;
     private final VacanteRepository vacanteRepository;
+    private final com.novacrm.auditoria.AuditoriaService auditoriaService;
 
     public EmpresaService(EmpresaRepository empresaRepository,
                           PostulacionRepository postulacionRepository,
                           ColocacionRepository colocacionRepository,
-                          VacanteRepository vacanteRepository) {
+                          VacanteRepository vacanteRepository,
+                          com.novacrm.auditoria.AuditoriaService auditoriaService) {
         this.empresaRepository = empresaRepository;
         this.postulacionRepository = postulacionRepository;
         this.colocacionRepository = colocacionRepository;
         this.vacanteRepository = vacanteRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     @Transactional(readOnly = true)
@@ -96,6 +99,15 @@ public class EmpresaService {
         }
         aplicar(empresa, datos);
         return aResponse(empresaRepository.save(empresa));
+    }
+
+    @Transactional
+    public void eliminar(UUID id) {
+        var empresa = empresaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada"));
+        empresaRepository.delete(empresa);
+        auditoriaService.registrar("Empresas", "Eliminación", "Empresa",
+                id.toString(), empresa.getNombre(), null, null);
     }
 
     /**

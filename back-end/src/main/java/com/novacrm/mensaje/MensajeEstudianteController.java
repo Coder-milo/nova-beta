@@ -80,6 +80,13 @@ public class MensajeEstudianteController {
         return service.enviarAlEstudiante(estudianteId, respuesta, archivos, auth);
     }
 
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void eliminar(@PathVariable UUID id) {
+        service.eliminar(id);
+    }
+
     @GetMapping("/adjuntos/{id}/archivo")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<byte[]> descargarAdjunto(@PathVariable UUID id, Authentication auth) {
