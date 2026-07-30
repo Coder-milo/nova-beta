@@ -31,7 +31,7 @@ import {
   WarningCircle,
   X,
 } from '@phosphor-icons/react'
-import { ApiCallError, estudiantesApi, perfilApi } from '@/lib/api'
+import { ApiCallError, estudiantesApi, hvApi, perfilApi } from '@/lib/api'
 import type {
   EstudianteRequest,
   EstudianteResponse,
@@ -39,6 +39,7 @@ import type {
   ExperienciaResponse,
   FormacionRequest,
   FormacionResponse,
+  PlantillaResponse,
 } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -311,6 +312,7 @@ function DatosHv({
 const EXPERIENCIA_VACIA: ExperienciaRequest = {
   empresa: '',
   cargo: '',
+  ciudad: '',
   fechaInicio: '',
   fechaFin: '',
   funciones: '',
@@ -359,6 +361,7 @@ function Experiencias({
     setForm({
       empresa: item.empresa,
       cargo: item.cargo,
+      ciudad: item.ciudad ?? '',
       fechaInicio: item.fechaInicio ?? '',
       fechaFin: item.fechaFin ?? '',
       funciones: item.funciones ?? '',
@@ -440,6 +443,9 @@ function Experiencias({
             <Campo etiqueta="Cargo" requerido>
               <Input value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
             </Campo>
+            <Campo etiqueta="Ciudad">
+              <Input value={form.ciudad ?? ''} onChange={(e) => setForm({ ...form, ciudad: e.target.value })} placeholder="Ej: Bogotá" />
+            </Campo>
             <Campo etiqueta="Fecha de inicio">
               <Input
                 type="date"
@@ -455,15 +461,26 @@ function Experiencias({
                 onChange={(e) => setForm({ ...form, fechaFin: e.target.value })}
               />
             </Campo>
-            <label className="flex items-center gap-2 text-sm sm:col-span-2">
-              <input
-                type="checkbox"
-                className="size-4 rounded border-border"
-                checked={form.actual ?? false}
-                onChange={(e) => setForm({ ...form, actual: e.target.checked })}
-              />
-              Sigo trabajando aquí
-            </label>
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded border-border"
+                  checked={form.actual ?? false}
+                  onChange={(e) => setForm({ ...form, actual: e.target.checked })}
+                />
+                Sigo trabajando aquí
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded border-border"
+                  checked={form.relacionada ?? false}
+                  onChange={(e) => setForm({ ...form, relacionada: e.target.checked })}
+                />
+                Experiencia relacionada con mi perfil / carrera
+              </label>
+            </div>
             <Campo
               etiqueta="Funciones y logros"
               ancho
@@ -741,20 +758,39 @@ export function StudentHojaDeVida({
   perfil: EstudianteResponse
   onUpdate: (p: EstudianteResponse) => void
 }) {
-  // Cada guardado incrementa el contador y con él cambia la identidad de
-  // `cargar`, que es lo que hace que el visor vuelva a pedir el PDF. Sin esta
-  // dependencia el estudiante guardaba y seguía viendo la versión anterior.
   const [revision, setRevision] = useState(0)
   const [idioma, setIdioma] = useState<'es' | 'en'>('es')
+  const [plantillas, setPlantillas] = useState<PlantillaResponse[]>([])
+  const [plantillaId, setPlantillaId] = useState<string | undefined>(perfil.plantillaPreferidaId ?? undefined)
+
+  useEffect(() => {
+    hvApi.plantillas().then((res) => {
+      setPlantillas(res)
+      if (!plantillaId && res.length > 0) {
+        const pred = res.find((p) => p.predeterminada) ?? res[0]
+        setPlantillaId(pred.id)
+      }
+    }).catch(() => {})
+  }, [plantillaId])
+
+  const seleccionarPlantilla = async (id: string) => {
+    setPlantillaId(id)
+    try {
+      const nov = await estudiantesApi.guardarPlantillaPreferida(id)
+      onUpdate(nov)
+    } catch {}
+  }
 
   const cargar = useCallback(
-    () => estudiantesApi.vistaPreviaMiHv(idioma),
+    () => estudiantesApi.vistaPreviaMiHv(idioma, plantillaId),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [idioma, revision],
+    [idioma, plantillaId, revision],
   )
 
   const descargar = () =>
     estudiantesApi.descargarMiHvPdf(
+      idioma,
+      plantillaId,
       `HV-${perfil.nombre}-${perfil.apellido}.pdf`.replace(/[^\w.\-]/g, '_'),
     )
 
@@ -778,38 +814,71 @@ export function StudentHojaDeVida({
         <CardHeader>
           <CardTitle>Cómo va a quedar</CardTitle>
           <CardDescription>
-            Así se verá tu hoja de vida con la información que tienes guardada ahora mismo.
+            Elige el diseño y el idioma de tu hoja de vida. Tu selección se guardará automáticamente.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex gap-2">
-            {(
-              [
-                ['es', 'Español'],
-                ['en', 'English'],
-              ] as const
-            ).map(([valor, etiqueta]) => (
-              <button
-                key={valor}
-                type="button"
-                onClick={() => setIdioma(valor)}
-                aria-pressed={idioma === valor}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  idioma === valor
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border hover:bg-secondary'
-                }`}
-              >
-                {etiqueta}
-              </button>
-            ))}
+        <CardContent className="space-y-4">
+          {plantillas.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Diseño de plantilla
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {plantillas.map((p) => {
+                  const sel = (plantillaId ?? perfil.plantillaPreferidaId) === p.id
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => seleccionarPlantilla(p.id)}
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                        sel
+                          ? 'border-primary bg-primary text-primary-foreground font-semibold shadow-sm'
+                          : 'border-border bg-background hover:bg-secondary text-foreground'
+                      }`}
+                    >
+                      {p.nombre}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Idioma del PDF
+            </label>
+            <div className="flex gap-2">
+              {(
+                [
+                  ['es', 'Español'],
+                  ['en', 'English'],
+                ] as const
+              ).map(([valor, etiqueta]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  onClick={() => setIdioma(valor)}
+                  aria-pressed={idioma === valor}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    idioma === valor
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border hover:bg-secondary'
+                  }`}
+                >
+                  {etiqueta}
+                </button>
+              ))}
+            </div>
           </div>
+
           <VistaPreviaPdf
             cargar={cargar}
             onDescargar={descargar}
             titulo="Vista previa de tu hoja de vida"
             descripcion="Descargar guarda una versión nueva en tu historial."
-            altura="34rem"
+            altura="32rem"
           />
         </CardContent>
       </Card>

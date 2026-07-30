@@ -342,7 +342,7 @@ public class ExtraccionHvService {
 
             if (tieneAnio && !esViñeta) {
                 if (cargo != null && empresa != null) {
-                    result.add(new ExperienciaDto(cargo, empresa, fechaInicio != null ? fechaInicio : "2022", fechaFin, actual, String.join("\n", funciones)));
+                    result.add(new ExperienciaDto(cargo, empresa, null, fechaInicio != null ? fechaInicio : "2022", fechaFin, false, actual, String.join("\n", funciones)));
                     cargo = null;
                     empresa = null;
                     fechaInicio = null;
@@ -372,8 +372,10 @@ public class ExtraccionHvService {
             result.add(new ExperienciaDto(
                     cargo != null ? cargo : "Cargo Desempeñado",
                     empresa != null ? empresa : "Empresa / Organización",
+                    null,
                     fechaInicio != null ? fechaInicio : "2022",
                     fechaFin,
+                    false,
                     actual,
                     String.join("\n", funciones)
             ));

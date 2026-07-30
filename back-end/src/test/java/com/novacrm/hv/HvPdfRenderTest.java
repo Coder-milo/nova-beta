@@ -109,6 +109,48 @@ class HvPdfRenderTest {
     }
 
     @Test
+    void generaPdfConPlantillaClasicoFotoYModerno() {
+        var e = new Estudiante();
+        e.setNombre("Andrea");
+        e.setApellido("Martinez");
+        e.setCargoObjetivo("Analista de Datos");
+        e.setCiudad("Barranquilla");
+        e.setNacionalidad("Colombia");
+        e.setCelular("+57 300 123 4567");
+        e.setEmail("andrea.martinez@ejemplo.com");
+        e.setLinkedinUrl("https://www.linkedin.com/in/andrea-martinez");
+        e.setCarpetaUrl("https://portafolio.ejemplo.com/andrea");
+        e.setPerfilProfesional("Profesional orientada a resultados.");
+        e.setCompetencias("Excel avanzado, Power BI, SQL");
+        e.setIdiomas("Español, Inglés B2");
+        e.setTitulo("Administración de Empresas");
+        e.setInstitucionEducativa("Universidad del Atlántico");
+        e.setNivelEducativo("Profesional");
+
+        var f1 = new FormacionAdicional();
+        f1.setTipo("CERTIFICACION");
+        f1.setPrograma("Power BI Data Analyst");
+        f1.setInstitucion("Microsoft");
+        f1.setFechaFin(LocalDate.of(2025, 1, 15));
+
+        var exp1 = new ExperienciaLaboral();
+        exp1.setCargo("Analista de Datos");
+        exp1.setEmpresa("Empresa Ejemplo");
+        exp1.setFechaInicio(LocalDate.of(2024, 1, 1));
+        exp1.setActual(true);
+        exp1.setFunciones("Construcción de tableros e indicadores.");
+
+        var templateService = new HvTemplateService();
+        var pdfService = new HvPdfService(templateService);
+
+        byte[] pdfClasico = pdfService.generar(e, List.of(f1), List.of(exp1), "#1C315E", "es", null, null, null, "CLASICO_FOTO");
+        assertTrue(pdfClasico.length > 2000, "El PDF Clásico Profesional debería generarse");
+
+        byte[] pdfModerno = pdfService.generar(e, List.of(f1), List.of(exp1), "#1C315E", "es", null, null, null, "MODERNO");
+        assertTrue(pdfModerno.length > 2000, "El PDF Moderno Compacto debería generarse");
+    }
+
+    @Test
     void aceptaEntidadesHtmlComunesEnPlantillasWord() {
         var pdfService = new HvPdfService(new HvTemplateService());
         byte[] pdf = pdfService.renderizarHtmlAPdf("""

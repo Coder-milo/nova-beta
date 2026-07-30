@@ -1,24 +1,8 @@
 'use client'
 
-import { ArrowSquareOut, ArrowsClockwise, CheckCircle, CircleNotch, DownloadSimple, Eye, FileMagnifyingGlass, FileText, Globe, ListChecks, Minus, PencilSimpleLine, Plus, ReadCvLogo, Stack, Star, Trash, UploadSimple, WarningCircle, X, XCircle } from '@phosphor-icons/react'
-/**
- * Módulo de Hojas de Vida.
- *
- * Tres pestañas:
- *   - Generación: generación masiva de HV por programa (+descarga ZIP).
- *   - Plantillas: administración de plantillas de HV.
- *   - Extracción desde PDF: extraer campos de una HV en PDF y crear el estudiante.
- *
- * Consume:
- *   GET  /api/v1/hojas-de-vida/plantillas (+POST/PATCH/DELETE)
- *   POST /api/v1/hojas-de-vida/generar-masiva
- *   POST /api/v1/hojas-de-vida/descargar-zip
- *   POST /api/v1/hojas-de-vida/extraer
- *   POST /api/v1/estudiantes
- */
-
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { ArrowSquareOut, ArrowsClockwise, CheckCircle, CircleNotch, DownloadSimple, Eye, FileMagnifyingGlass, FileText, Globe, ListChecks, Minus, PencilSimpleLine, Plus, ReadCvLogo, Stack, Star, Trash, UploadSimple, WarningCircle, X, XCircle } from '@phosphor-icons/react'
 import Link from '@/compat/next-link'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -38,6 +22,14 @@ import { Textarea } from '@/components/ui/textarea'
 
 type TabId = 'generacion' | 'plantillas' | 'extraccion' | 'edicion'
 
+/**
+ * El manifiesto de la plantilla viene con los nombres en inglés, porque son los
+ * marcadores del HTML. Quien ajusta una hoja de vida desde coordinación no tiene
+ * por qué leer «Continuing Education & Certifications» para entender qué está
+ * quitando, así que aquí se traducen. Se indexa por título y por id (y por
+ * etiqueta y por marcador, más abajo) porque el analizador devuelve unos u otros
+ * según de dónde salga la plantilla.
+ */
 const TITULOS_SECCIONES_ES: Record<string, string> = {
   Header: 'Cabecera / Encabezado',
   header: 'Cabecera / Encabezado',
@@ -65,8 +57,6 @@ const ETIQUETAS_CAMPOS_ES: Record<string, string> = {
   FULL_NAME: 'Nombre Completo',
   'Professional Title': 'Cargo / Título Profesional',
   PROFESSIONAL_TITLE: 'Cargo / Título Profesional',
-  'Logo Path': 'Logo de Plantilla',
-  LOGO_PATH: 'Logo de Plantilla',
   'City, Country': 'Ciudad y País',
   CITY_COUNTRY: 'Ciudad y País',
   Phone: 'Teléfono / Celular',

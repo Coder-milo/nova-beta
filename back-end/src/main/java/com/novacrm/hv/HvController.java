@@ -18,7 +18,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/hojas-de-vida")
 @Tag(name = "Hojas de vida", description = "Plantillas, generación y extracción de hojas de vida")
-@PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
 public class HvController {
 
     private final HvService hvService;
@@ -35,6 +34,7 @@ public class HvController {
 
     @GetMapping("/plantillas")
     @Operation(summary = "Listar plantillas activas")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public List<PlantillaResponse> plantillas() {
         return hvService.listarPlantillas();
     }
@@ -42,6 +42,7 @@ public class HvController {
     @PostMapping(value = "/plantillas", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Crear plantilla combinable desde Word o PDF")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public PlantillaResponse crearPlantilla(@RequestParam String nombre,
                                             @RequestParam(required = false) String colorPrimario,
                                             @RequestParam(required = false) MultipartFile archivo) {
@@ -50,6 +51,7 @@ public class HvController {
 
     @GetMapping("/plantillas/{id}/vista-previa")
     @Operation(summary = "Vista previa PDF de una plantilla con datos de ejemplo")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public ResponseEntity<byte[]> vistaPrevia(@PathVariable UUID id) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"vista-previa-plantilla.pdf\"")
@@ -59,6 +61,7 @@ public class HvController {
 
     @PatchMapping("/plantillas/{id}/predeterminada")
     @Operation(summary = "Marcar plantilla como predeterminada")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public PlantillaResponse predeterminada(@PathVariable UUID id) {
         return hvService.marcarPredeterminada(id);
     }
@@ -66,6 +69,7 @@ public class HvController {
     @DeleteMapping("/plantillas/{id}")
     @Operation(summary = "Eliminar plantilla (soft)")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public void eliminarPlantilla(@PathVariable UUID id) {
         hvService.eliminarPlantilla(id);
     }
@@ -75,6 +79,7 @@ public class HvController {
     @PostMapping("/generar/{estudianteId}")
     @Operation(summary = "Generar hoja de vida de un estudiante")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public HojaDeVidaResponse generar(@PathVariable UUID estudianteId,
                                       @RequestParam(required = false) UUID plantillaId,
                                       @RequestBody(required = false) GenerarHvOpcionesRequest request) {
@@ -88,6 +93,7 @@ public class HvController {
 
     @PostMapping("/generar-masiva")
     @Operation(summary = "Generar hojas de vida masivamente (por programa o lista de estudiantes)")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public GeneracionMasivaResponse generarMasiva(@RequestBody GeneracionMasivaRequest request) {
         return hvService.generarMasiva(request);
     }
@@ -96,12 +102,14 @@ public class HvController {
 
     @GetMapping("/estudiante/{estudianteId}")
     @Operation(summary = "Versiones de la hoja de vida de un estudiante")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public List<HojaDeVidaResponse> deEstudiante(@PathVariable UUID estudianteId) {
         return hvService.versionesDeEstudiante(estudianteId);
     }
 
     @GetMapping("/vista-previa/{estudianteId}")
     @Operation(summary = "Previsualizar la hoja de vida de un estudiante sin registrar una versión nueva")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public ResponseEntity<byte[]> vistaPreviaEstudiante(@PathVariable UUID estudianteId,
                                                         @RequestParam(required = false) UUID plantillaId,
                                                         @RequestParam(required = false, defaultValue = "es") String idioma) {
@@ -114,6 +122,7 @@ public class HvController {
 
     @GetMapping("/{id}/pdf")
     @Operation(summary = "Descargar el PDF de una hoja de vida")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public ResponseEntity<byte[]> pdf(@PathVariable UUID id) {
         var hv = hvService.obtener(id);
         String nombre = "HV-" + hv.getEstudiante().getNombre() + "-" + hv.getEstudiante().getApellido()
@@ -127,6 +136,7 @@ public class HvController {
 
     @PatchMapping("/{id}/actual")
     @Operation(summary = "Marcar una versión como la vigente")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public HojaDeVidaResponse marcarActual(@PathVariable UUID id) {
         return hvService.marcarActual(id);
     }
@@ -134,12 +144,14 @@ public class HvController {
     @DeleteMapping("/{id}")
     @Operation(summary = "Eliminar una versión de hoja de vida")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public void eliminar(@PathVariable UUID id) {
         hvService.eliminarHojaDeVida(id);
     }
 
     @PostMapping("/descargar-zip")
     @Operation(summary = "Descargar en ZIP las HVs vigentes de varios estudiantes")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public ResponseEntity<byte[]> zip(@RequestBody List<UUID> estudianteIds) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"hojas-de-vida.zip\"")
@@ -151,6 +163,7 @@ public class HvController {
 
     @GetMapping("/analizar/{estudianteId}")
     @Operation(summary = "Analizar completitud del perfil para la plantilla CAC ATS")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public AnalisisCompletitudResponse analizar(@PathVariable UUID estudianteId) {
         return hvService.analizarCompletitud(estudianteId);
     }
@@ -159,6 +172,7 @@ public class HvController {
 
     @PostMapping(value = "/extraer", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Extraer campos de una hoja de vida en PDF (con confianza y DTO estructurado)")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public ExtraccionResponse extraer(@RequestParam("archivo") MultipartFile archivo) {
         var resultado = extraccionService.extraer(archivo);
         return new ExtraccionResponse(
@@ -171,6 +185,7 @@ public class HvController {
 
     @PostMapping("/convertir-pdf")
     @Operation(summary = "Generar PDF en formato CAC ATS directamente desde DatosHvDto sin guardar estudiante")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public ResponseEntity<byte[]> convertirPdf(@RequestBody ConvertirHvRequest request) {
         var datos = request.datos();
         String idioma = request.idioma() != null ? request.idioma() : "es";

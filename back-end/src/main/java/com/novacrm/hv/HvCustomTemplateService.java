@@ -68,6 +68,7 @@ import java.util.regex.Pattern;
 public class HvCustomTemplateService {
 
     public static final long MAX_TEMPLATE_BYTES = 10L * 1024L * 1024L;
+    private static final String FOTO_MUESTRA_BASE64 = "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
 
     private static final Pattern PLACEHOLDER =
             Pattern.compile("\\{\\{\\s*([\\p{L}0-9_]+)\\s*}}", Pattern.CASE_INSENSITIVE);
@@ -215,8 +216,8 @@ public class HvCustomTemplateService {
                     "Universidad del Atlantico",
                     "Profesional",
                     List.of(new ExperienciaDto(
-                            "Analista de datos", "Empresa Ejemplo",
-                            "01/2024", "", true,
+                            "Analista de datos", "Empresa Ejemplo", "Barranquilla",
+                            "01/2024", "", false, true,
                             "Construccion de tableros e indicadores para apoyar la toma de decisiones.")),
                     List.of(new FormacionDto(
                             "CERTIFICACION", "Power BI para analisis empresarial",
@@ -228,7 +229,8 @@ public class HvCustomTemplateService {
                     "B2",
                     List.of("Redujo en 30% el tiempo de cierre mensual automatizando el reporte de indicadores.")
             );
-            return pdfService.generar(datos, plantilla.getColorPrimario(), "es", null, null);
+            String fotoMuestra = "CLASICO_FOTO".equalsIgnoreCase(plantilla.getCodigo()) ? FOTO_MUESTRA_BASE64 : null;
+            return pdfService.generar(datos, plantilla.getColorPrimario(), "es", null, null, fotoMuestra, plantilla.getCodigo());
         }
 
         byte[] source = storageService.descargar(plantilla.getObjectKey());

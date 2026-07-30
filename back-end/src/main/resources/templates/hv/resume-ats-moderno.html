@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<style>
+  @page { size: A4; margin: 0.4in; }
+  body { margin: 0; padding: 0; font-family: 'Carlito', sans-serif; color: #0F172A; }
+  table { border-collapse: collapse; }
+</style>
+</head>
+<body>
+
+  <!-- Header Moderno -->
+  <table style="width:100%;background:#0F172A;page-break-inside:avoid;border-radius:4pt;" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="padding:16pt 20pt;vertical-align:middle;">
+        <h1 style="margin:0;font-size:22pt;font-weight:700;color:#ffffff;line-height:24pt;letter-spacing:.3pt;">{{FULL_NAME}}</h1>
+        <div style="margin-top:5pt;font-size:12pt;font-weight:700;color:#38BDF8;text-transform:uppercase;letter-spacing:1pt;">{{PROFESSIONAL_TITLE}}</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Estructura de 2 Columnas -->
+  <table style="width:100%;margin-top:10pt;" cellpadding="0" cellspacing="0">
+    <tr>
+      <!-- Columna Izquierda (32% de ancho): Contacto, Habilidades, Idiomas, Educación Continua -->
+      <td style="width:32%;vertical-align:top;padding-right:12pt;border-right:1.5pt solid #E2E8F0;">
+        
+        <div style="font-size:10pt;color:#334155;line-height:14pt;margin-bottom:10pt;">
+          {{CONTACT_LINE}}
+        </div>
+
+        <!-- SECTION:SKILLS --><!-- /SECTION:SKILLS -->
+        <!-- SECTION:LANGUAGES --><!-- /SECTION:LANGUAGES -->
+        <!-- SECTION:CERTIFICATIONS --><!-- /SECTION:CERTIFICATIONS -->
+
+      </td>
+
+      <!-- Columna Derecha (68% de ancho): Perfil, Experiencia, Educación Formal, Logros -->
+      <td style="width:68%;vertical-align:top;padding-left:14pt;">
+
+        <!-- SECTION:SUMMARY --><!-- /SECTION:SUMMARY -->
+        <!-- SECTION:EXPERIENCE --><!-- /SECTION:EXPERIENCE -->
+        <!-- SECTION:EDUCATION --><!-- /SECTION:EDUCATION -->
+        <!-- SECTION:ACHIEVEMENTS --><!-- /SECTION:ACHIEVEMENTS -->
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
