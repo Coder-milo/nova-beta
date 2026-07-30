@@ -90,6 +90,12 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())
+            .headers(headers -> headers
+                .httpStrictTransportSecurity(hsts -> hsts
+                    .includeSubDomains(true)
+                    .maxAgeInSeconds(31536000)
+                )
+            )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/**").permitAll()
@@ -97,17 +103,28 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/usuarios/**").hasRole("ADMIN")
                 .requestMatchers("/credencial/**").permitAll()
-                .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").hasAnyRole("ADMIN", "COORDINADOR")
                 .requestMatchers("/actuator/health").permitAll()
                 // Solo las imagenes de marca, no todo /branding: las abre el
                 // cliente de correo del destinatario, que no tiene sesion ni la
                 // puede tener. La clave se valida por lista blanca antes de
                 // tocar el disco (ImagenBrandingService.claveSegura).
                 .requestMatchers(HttpMethod.GET, "/api/v1/branding/imagen/**").permitAll()
+                // Los adjuntos de un anuncio si son publicos: los abre el
+                // cliente de correo o la etiqueta img de la notificacion, que no
+                // pueden adjuntar un JWT. La clave se valida por lista blanca
+                // (AnuncioMediaService.claveSegura) antes de tocar el disco.
                 .requestMatchers(HttpMethod.GET, "/api/v1/notificaciones/adjunto/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/programas/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/vacantes/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/certificaciones/**").permitAll()
+                // Programas, vacantes y certificaciones estaban en permitAll, y
+                // no deben estarlo: exponian el catalogo de proyectos, sus
+                // clientes y las credenciales emitidas a cualquiera que supiera
+                // la ruta. Los controllers ya exigian rol con @PreAuthorize, asi
+                // que el permitAll solo servia para que la primera barrera no
+                // coincidiera con la segunda. La verificacion publica de una
+                // credencial no pasa por aqui: vive en /credencial/**.
+                .requestMatchers(HttpMethod.GET, "/api/v1/programas/**").hasAnyRole("ADMIN", "COORDINADOR", "ESTUDIANTE")
+                .requestMatchers(HttpMethod.GET, "/api/v1/vacantes/**").hasAnyRole("ADMIN", "COORDINADOR", "ESTUDIANTE")
+                .requestMatchers(HttpMethod.GET, "/api/v1/certificaciones/**").hasAnyRole("ADMIN", "COORDINADOR", "ESTUDIANTE")
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .anyRequest().authenticated()
             )
