@@ -1,2 +1,0 @@
-// @ts-nocheck
-'use client'

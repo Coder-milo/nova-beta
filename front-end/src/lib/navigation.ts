@@ -1,4 +1,4 @@
-import { Bell, Briefcase, Buildings, CalendarBlank, ChartBar, ChartPie, ChatCircle, FileText, Gear, GraduationCap, Kanban, Megaphone, ReadCvLogo, ShieldCheck, Sparkle, SquaresFour, UploadSimple } from '@phosphor-icons/react/ssr'
+import { Briefcase, Buildings, CalendarBlank, ChartBar, ChartPie, FileText, Gear, GraduationCap, Kanban, Megaphone, ReadCvLogo, ShieldCheck, Sparkle, SquaresFour, Trophy, UploadSimple } from '@phosphor-icons/react/ssr'
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
 import { translate, type Locale, type TranslationKey } from '@/lib/preferences'
 export type NavItem = {
@@ -13,7 +13,7 @@ export const navItemsAdmin: NavItem[] = [
   { title: 'Estudiantes', href: '/estudiantes', icon: GraduationCap },
   { title: 'Hojas de vida', href: '/hojas-de-vida', icon: ReadCvLogo },
   { title: 'Vacantes', href: '/vacantes', icon: Briefcase },
-  { title: 'Colocaciones', href: '/colocaciones', icon: Briefcase },
+  { title: 'Colocaciones', href: '/colocaciones', icon: Trophy },
   { title: 'Empresas', href: '/empresas', icon: Buildings },
   { title: 'Importaciones', href: '/importaciones', icon: UploadSimple },
   { title: 'Documentos', href: '/documentos', icon: FileText },
@@ -65,6 +65,10 @@ const RUTAS_DE_ESTUDIANTE = new Set([
   RUTA_INICIO_ESTUDIANTE,
   ...navItemsEstudiante.map((item) => item.href),
   '/mi-perfil',
+  '/mis-actividades',
+  '/mis-mensajes',
+  '/mis-notificaciones',
+  '/ayuda-estudiante',
   '/login',
   '/recuperar-contrasena',
 ])

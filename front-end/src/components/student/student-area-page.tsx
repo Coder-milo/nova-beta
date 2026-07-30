@@ -11,6 +11,7 @@ import {
   Globe,
   Info,
   Moon,
+  Paperclip,
   PaperPlaneTilt,
   Sun,
   WarningCircle,
@@ -72,6 +73,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
   const [contenidoMensaje, setContenidoMensaje] = useState('')
   const [enviandoMensaje, setEnviandoMensaje] = useState(false)
   const [mensajeExito, setMensajeExito] = useState('')
+  const [archivosMensaje, setArchivosMensaje] = useState<File[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -125,17 +127,19 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
 
   const enviarMensaje = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!contenidoMensaje.trim()) return
+    if (!contenidoMensaje.trim() && !archivosMensaje.length) return
     setEnviandoMensaje(true)
     setError('')
     setMensajeExito('')
     try {
       const nuevo = await mensajesApi.enviar({
-        asunto: 'CAC Academy',
+        asunto: 'CAC Academic',
         contenido: contenidoMensaje.trim(),
+        archivos: archivosMensaje.length ? archivosMensaje : undefined,
       })
       setMensajes((items) => [nuevo, ...items])
       setContenidoMensaje('')
+      setArchivosMensaje([])
       setMensajeExito('Tu mensaje fue enviado al equipo de acompañamiento.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No fue posible enviar el mensaje.')
@@ -290,7 +294,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
       )}
 
       {/* ── Actividades / Calendario ───────────────────────────── */}
-      {area === 'calendario' && <CalendarioEstudiante actividades={actividades} />}
+      {(area === 'actividades' || area === 'calendario') && <CalendarioEstudiante actividades={actividades} />}
 
       {/* ── Documentos ─────────────────────────────────────────── */}
       {area === 'documentos' && (
@@ -373,6 +377,22 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                     </Badge>
                   </div>
                   <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{mensaje.contenido}</p>
+                  {mensaje.adjuntos && mensaje.adjuntos.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {mensaje.adjuntos.map((adj) => (
+                        <a
+                          key={adj.id}
+                          href={`/api/v1/mensajes/adjuntos/${adj.id}/archivo`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-2.5 py-1 text-xs hover:bg-muted"
+                        >
+                          <Paperclip className="size-3.5" />
+                          {adj.nombre}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                   {mensaje.respuesta && (
                     <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
                       <p className="text-sm font-semibold text-primary">
@@ -404,6 +424,17 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                   placeholder="Cuéntanos en qué necesitas ayuda..."
                   className="flex w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Adjuntar archivos (opcional)
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={(e) => setArchivosMensaje(Array.from(e.target.files ?? []))}
+                    className="w-full text-xs text-muted-foreground file:mr-2 file:rounded-md file:border-0 file:bg-muted file:px-2.5 file:py-1 file:text-xs file:font-medium hover:file:bg-muted/80"
+                  />
+                </div>
                 {mensajeExito && <p className="text-sm text-emerald-600">{mensajeExito}</p>}
                 <Button className="w-full" type="submit" disabled={enviandoMensaje}>
                   {enviandoMensaje ? <CircleNotch className="animate-spin" /> : <PaperPlaneTilt />}
