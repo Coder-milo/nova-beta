@@ -34,8 +34,11 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { FilePreview } from '@/components/ui/file-preview'
+import { EditorTexto } from '@/components/ui/editor-texto'
 import { actividadesApi, comunicacionesApi, programasApi, ApiCallError } from '@/lib/api'
+import type { TipoMediaAnuncio } from '@/lib/api'
 import type { ActividadRequest, ProgramaResponse } from '@/lib/types'
+import { Textarea } from '@/components/ui/textarea'
 
 function errorDe(err: unknown): string {
   if (err instanceof ApiCallError) {
@@ -66,7 +69,10 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
     setResultado(null)
     try {
       let mediaUrl = enlace.trim() || undefined
-      let mediaTipo: 'LINK' | 'IMAGE' | 'VIDEO' | undefined = mediaUrl ? tipoEnlace : undefined
+      // `TipoMediaAnuncio` y no la union del selector: al subir un archivo el
+      // backend puede devolver `FILE`, que el selector de enlaces externos no
+      // ofrece porque un documento se adjunta, no se enlaza.
+      let mediaTipo: TipoMediaAnuncio | undefined = mediaUrl ? tipoEnlace : undefined
       if (archivo) {
         const adjunto = await comunicacionesApi.subirAdjuntoAnuncio(archivo)
         mediaUrl = adjunto.url
@@ -132,12 +138,15 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
           <label className="text-sm font-medium" htmlFor="anuncio-mensaje">
             Mensaje
           </label>
-          <textarea
+          <EditorTexto
             id="anuncio-mensaje"
-            className="min-h-32 w-full rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
-            placeholder="Cuéntales de qué se trata, dónde y a qué hora."
             value={mensaje}
-            onChange={(e) => setMensaje(e.target.value)}
+            onChange={setMensaje}
+            placeholder="Cuéntales de qué se trata, dónde y a qué hora."
+            onSubirArchivo={async (f) => {
+              const adjunto = await comunicacionesApi.subirAdjuntoAnuncio(f)
+              return { url: adjunto.url, nombre: f.name, tipo: adjunto.tipo }
+            }}
           />
         </div>
 
@@ -232,7 +241,7 @@ function PanelEvento({ programas }: { programas: ProgramaResponse[] }) {
           <label className="space-y-1.5"><span className="text-sm font-medium">Fecha</span><input required type="date" value={form.fecha} onChange={(event) => setForm((current) => ({ ...current, fecha: event.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
           <label className="space-y-1.5"><span className="text-sm font-medium">Hora</span><input type="time" value={form.hora ?? ''} onChange={(event) => setForm((current) => ({ ...current, hora: event.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
           <label className="space-y-1.5 md:col-span-2"><span className="text-sm font-medium">Destinatarios</span><select value={form.programaId ?? ''} onChange={(event) => setForm((current) => ({ ...current, programaId: event.target.value }))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"><option value="">Todos los estudiantes activos</option>{programas.map((programa) => <option key={programa.id} value={programa.id}>{programa.nombre}</option>)}</select></label>
-          <label className="space-y-1.5 md:col-span-2"><span className="text-sm font-medium">Detalle (opcional)</span><textarea rows={3} value={form.descripcion ?? ''} onChange={(event) => setForm((current) => ({ ...current, descripcion: event.target.value }))} placeholder="Lugar, enlace de conexión o recomendaciones para el evento." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
+          <label className="space-y-1.5 md:col-span-2"><span className="text-sm font-medium">Detalle (opcional)</span><Textarea minRows={3} value={form.descripcion ?? ''} onChange={(event) => setForm((current) => ({ ...current, descripcion: event.target.value }))} placeholder="Lugar, enlace de conexión o recomendaciones para el evento." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
           <div className="flex flex-wrap items-center justify-between gap-3 md:col-span-2"><div>{error && <p className="text-sm text-destructive">{error}</p>}{result && <p className="text-sm text-emerald-700 dark:text-emerald-400">{result}</p>}</div><Button type="submit" disabled={saving}>{saving ? <><CircleNotch className="size-4 animate-spin" />Guardando…</> : <><CalendarBlank className="size-4" />Programar evento</>}</Button></div>
         </form>
       </CardContent>
