@@ -162,6 +162,7 @@ export type FalloRenovacion = 'sin-refresh' | 'refresh-invalido' | 'temporal'
 
 export interface ResultadoRenovacion {
   token: string | null
+  refreshToken?: string
   fallo?: FalloRenovacion
 }
 

@@ -19,6 +19,7 @@ import {
   WarningCircle,
 } from '@phosphor-icons/react'
 import { empresasApi } from '@/lib/api'
+import { errorDe } from '@/lib/errores'
 import type { EmpresaRequest, EmpresaResponse, EstadoRelacionEmpresa, Page } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
