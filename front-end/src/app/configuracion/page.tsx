@@ -36,11 +36,15 @@ import {
   Users,
   WarningCircle,
   WhatsappLogo,
+  X,
   type Icon,
 } from '@phosphor-icons/react'
+import { Dialog } from '@base-ui/react/dialog'
 import type { ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 
 import { PageSpinner } from '@/components/ui/page-spinner'
+import { Confirmar } from '@/components/ui/confirmar'
 import { PanelCuentasEstudiante } from '@/components/admin/panel-cuentas-estudiante'
 import { PanelBranding } from '@/components/admin/panel-branding'
 import { VistaPreviaCorreos } from '@/components/admin/vista-previa-correos'
@@ -121,7 +125,6 @@ export default function ConfiguracionPage() {
     linkedinUrl: 'https://linkedin.com/company/academia-cac',
     instagramUrl: 'https://instagram.com/academiacac',
   })
-  const [savingInst, setSavingInst] = useState(false)
   const [instSuccess, setInstSuccess] = useState(false)
 
   // ── 2. Parámetros Académicos & Empleabilidad (Persistente) ─────────────────
@@ -134,7 +137,6 @@ export default function ConfiguracionPage() {
     alertaNuevoEstudiante: true,
     requerirLinkedInObligatorio: false,
   })
-  const [savingAcademic, setSavingAcademic] = useState(false)
   const [academicSuccess, setAcademicSuccess] = useState(false)
 
   // ── 3. Integraciones & APIs (Persistente) ──────────────────────────────────
@@ -148,7 +150,6 @@ export default function ConfiguracionPage() {
     linkedInClientId: '78cac_linkedin_api_key_v2',
     cloudStorageBucket: 'cac-documentos-hojas-de-vida-s3',
   })
-  const [savingIntegration, setSavingIntegration] = useState(false)
   const [integrationSuccess, setIntegrationSuccess] = useState(false)
 
   // ── 4. Usuarios & Programas ──────────────────────────────────────────────
@@ -171,6 +172,39 @@ export default function ConfiguracionPage() {
   const [usuarioFormError, setUsuarioFormError] = useState<string | null>(null)
   const [usuarioBusy, setUsuarioBusy] = useState<string | null>(null)
 
+  const [modalPasswordUser, setModalPasswordUser] = useState<UsuarioResponse | null>(null)
+  const [nuevaPasswordAdmin, setNuevaPasswordAdmin] = useState('')
+  const [cambiandoPassword, setCambiandoPassword] = useState(false)
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+
+  const handleAdminCambiarPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!modalPasswordUser) return
+    setPasswordError(null)
+    setPasswordSuccess(null)
+    if (nuevaPasswordAdmin.length < 8) {
+      setPasswordError('La contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+    setCambiandoPassword(true)
+    try {
+      await usuariosApi.actualizar(modalPasswordUser.id, { password: nuevaPasswordAdmin })
+      setPasswordSuccess(`Contraseña actualizada para ${modalPasswordUser.nombre}.`)
+      setTimeout(() => {
+        setModalPasswordUser(null)
+        setNuevaPasswordAdmin('')
+        setPasswordSuccess(null)
+      }, 1400)
+    } catch (err) {
+      setPasswordError(
+        err instanceof ApiCallError ? err.body.message ?? 'Error al actualizar contraseña.' : 'No se pudo conectar.',
+      )
+    } finally {
+      setCambiandoPassword(false)
+    }
+  }
+
   // Cargar configuración guardada en localStorage
   useEffect(() => {
     try {
@@ -190,37 +224,25 @@ export default function ConfiguracionPage() {
   // Guardar datos institucionales
   const handleSaveInst = (e: React.FormEvent) => {
     e.preventDefault()
-    setSavingInst(true)
-    setTimeout(() => {
-      localStorage.setItem('nova_inst_config', JSON.stringify(instData))
-      setSavingInst(false)
-      setInstSuccess(true)
-      setTimeout(() => setInstSuccess(false), 3000)
-    }, 400)
+    localStorage.setItem('nova_inst_config', JSON.stringify(instData))
+    setInstSuccess(true)
+    setTimeout(() => setInstSuccess(false), 3000)
   }
 
   // Guardar datos académicos
   const handleSaveAcademic = (e: React.FormEvent) => {
     e.preventDefault()
-    setSavingAcademic(true)
-    setTimeout(() => {
-      localStorage.setItem('nova_acad_config', JSON.stringify(academicData))
-      setSavingAcademic(false)
-      setAcademicSuccess(true)
-      setTimeout(() => setAcademicSuccess(false), 3000)
-    }, 400)
+    localStorage.setItem('nova_acad_config', JSON.stringify(academicData))
+    setAcademicSuccess(true)
+    setTimeout(() => setAcademicSuccess(false), 3000)
   }
 
   // Guardar datos de integraciones
   const handleSaveIntegration = (e: React.FormEvent) => {
     e.preventDefault()
-    setSavingIntegration(true)
-    setTimeout(() => {
-      localStorage.setItem('nova_integ_config', JSON.stringify(integrationData))
-      setSavingIntegration(false)
-      setIntegrationSuccess(true)
-      setTimeout(() => setIntegrationSuccess(false), 3000)
-    }, 400)
+    localStorage.setItem('nova_integ_config', JSON.stringify(integrationData))
+    setIntegrationSuccess(true)
+    setTimeout(() => setIntegrationSuccess(false), 3000)
   }
 
   const loadUsuarios = useCallback(async () => {
@@ -329,102 +351,141 @@ export default function ConfiguracionPage() {
     }
   }, [user])
 
-  const handleSoftDeletePrograma = async () => {
+  const [confirmConfigState, setConfirmConfigState] = useState<{
+    open: boolean
+    titulo: string
+    descripcion: React.ReactNode
+    destructivo?: boolean
+    textoConfirmar?: string
+    onConfirmar: () => void | Promise<void>
+  }>({
+    open: false,
+    titulo: '',
+    descripcion: '',
+    onConfirmar: () => {},
+  })
+  const [adminFeedback, setAdminFeedback] = useState<{ tipo: 'exito' | 'error'; texto: string } | null>(null)
+
+  const handleSoftDeletePrograma = () => {
     if (!selectedPgm) return
     const pgm = programas.find((p) => p.id === selectedPgm)
-    if (
-      !confirm(
-        `¿Estás seguro de que deseas desactivar todos los estudiantes del programa "${pgm?.nombre}"? Pasarán a la papelera.`,
-      )
-    )
-      return
-    setBusyAction('soft-delete')
-    try {
-      const res = await adminApi.softDeletePrograma(selectedPgm)
-      alert(`Éxito: Se enviaron ${res.eliminados} estudiantes a la papelera.`)
-    } catch {
-      alert('Error al realizar la desactivación masiva.')
-    } finally {
-      setBusyAction(null)
-    }
+    setConfirmConfigState({
+      open: true,
+      titulo: 'Desactivar estudiantes del programa',
+      descripcion: `¿Estás seguro de que deseas desactivar todos los estudiantes del programa "${pgm?.nombre}"? Pasarán a la papelera.`,
+      destructivo: true,
+      textoConfirmar: 'Desactivar',
+      onConfirmar: async () => {
+        setBusyAction('soft-delete')
+        setAdminFeedback(null)
+        try {
+          const res = await adminApi.softDeletePrograma(selectedPgm)
+          setAdminFeedback({ tipo: 'exito', texto: `Éxito: Se enviaron ${res.eliminados} estudiantes a la papelera.` })
+        } catch {
+          setAdminFeedback({ tipo: 'error', texto: 'Error al realizar la desactivación masiva.' })
+        } finally {
+          setBusyAction(null)
+        }
+      },
+    })
   }
 
-  const handleResetPrograma = async () => {
+  const handleResetPrograma = () => {
     if (!selectedPgm) return
     const pgm = programas.find((p) => p.id === selectedPgm)
-    if (
-      !confirm(
-        `¡ADVERTENCIA CRÍTICA! ¿Estás seguro de resetear el programa "${pgm?.nombre}"?\nSe eliminarán físicamente todos los estudiantes, matches, notificaciones, certificaciones y configuraciones de LinkedIn vinculados a este programa. Esta acción es irreversible.`,
-      )
-    )
-      return
-    setBusyAction('reset')
-    try {
-      const res = await adminApi.resetPrograma(selectedPgm)
-      alert(
-        `Éxito: Se eliminaron permanentemente ${res.estudiantesEliminados} estudiantes y todos sus registros asociados.`,
-      )
-    } catch {
-      alert('Error al resetear el programa.')
-    } finally {
-      setBusyAction(null)
-    }
+    setConfirmConfigState({
+      open: true,
+      titulo: 'Resetear programa',
+      descripcion: `ADVERTENCIA CRÍTICA: ¿Estás seguro de resetear el programa "${pgm?.nombre}"? Se eliminarán físicamente todos los estudiantes, matches, notificaciones y configuraciones vinculadas. Esta acción es irreversible.`,
+      destructivo: true,
+      textoConfirmar: 'Resetear programa',
+      onConfirmar: async () => {
+        setBusyAction('reset')
+        setAdminFeedback(null)
+        try {
+          const res = await adminApi.resetPrograma(selectedPgm)
+          setAdminFeedback({
+            tipo: 'exito',
+            texto: `Éxito: Se eliminaron permanentemente ${res.estudiantesEliminados} estudiantes.`,
+          })
+        } catch {
+          setAdminFeedback({ tipo: 'error', texto: 'Error al resetear el programa.' })
+        } finally {
+          setBusyAction(null)
+        }
+      },
+    })
   }
 
-  const handleRestaurarPrograma = async () => {
+  const handleRestaurarPrograma = () => {
     if (!selectedPgm) return
     const pgm = programas.find((p) => p.id === selectedPgm)
-    if (
-      !confirm(
-        `¿Deseas restaurar todos los estudiantes de la papelera del programa "${pgm?.nombre}"?`,
-      )
-    )
-      return
-    setBusyAction('restore')
-    try {
-      const res = await adminApi.restaurarProgramaEstudiantes(selectedPgm)
-      alert(`Éxito: ${res.mensaje}`)
-    } catch {
-      alert('Error al restaurar los estudiantes del programa.')
-    } finally {
-      setBusyAction(null)
-    }
+    setConfirmConfigState({
+      open: true,
+      titulo: 'Restaurar estudiantes',
+      descripcion: `¿Deseas restaurar todos los estudiantes de la papelera del programa "${pgm?.nombre}"?`,
+      destructivo: false,
+      textoConfirmar: 'Restaurar',
+      onConfirmar: async () => {
+        setBusyAction('restore')
+        setAdminFeedback(null)
+        try {
+          const res = await adminApi.restaurarProgramaEstudiantes(selectedPgm)
+          setAdminFeedback({ tipo: 'exito', texto: `Éxito: ${res.mensaje}` })
+        } catch {
+          setAdminFeedback({ tipo: 'error', texto: 'Error al restaurar los estudiantes del programa.' })
+        } finally {
+          setBusyAction(null)
+        }
+      },
+    })
   }
 
-  const handlePurgarPapelera = async () => {
-    if (
-      !confirm(
-        '¿Deseas purgar de manera permanente todos los estudiantes que lleven más de 30 días en la papelera?',
-      )
-    )
-      return
-    setBusyAction('purge')
-    try {
-      const res = await adminApi.purgarPapelera()
-      alert(`Éxito: Se eliminaron físicamente ${res.eliminados} estudiantes antiguos de la papelera.`)
-    } catch {
-      alert('Error al purgar la papelera.')
-    } finally {
-      setBusyAction(null)
-    }
+  const handlePurgarPapelera = () => {
+    setConfirmConfigState({
+      open: true,
+      titulo: 'Purgar papelera',
+      descripcion: '¿Deseas purgar de manera permanente todos los estudiantes que lleven más de 30 días en la papelera?',
+      destructivo: true,
+      textoConfirmar: 'Purgar papelera',
+      onConfirmar: async () => {
+        setBusyAction('purge')
+        setAdminFeedback(null)
+        try {
+          const res = await adminApi.purgarPapelera()
+          setAdminFeedback({
+            tipo: 'exito',
+            texto: `Éxito: Se eliminaron físicamente ${res.eliminados} estudiantes antiguos.`,
+          })
+        } catch {
+          setAdminFeedback({ tipo: 'error', texto: 'Error al purgar la papelera.' })
+        } finally {
+          setBusyAction(null)
+        }
+      },
+    })
   }
 
-  const handleCleanupSystem = async () => {
-    if (
-      !confirm(
-        '¡PELIGRO EXTREMO! ¿Estás seguro de que deseas vaciar por completo todo el sistema transaccional?\nSe eliminarán físicamente TODOS los estudiantes del sistema, vacantes, matches, habilidades y certificaciones. Sólo se conservarán los programas vacíos, empresas y usuarios administradores. Esta acción es irreversible.',
-      )
-    )
-      return
-    setBusyAction('cleanup')
-    try {
-      const res = await adminApi.cleanupSystem()
-      alert(`Éxito: ${res.mensaje}`)
-    } catch {
-      alert('Error al limpiar el sistema transaccional.')
-    } finally {
-      setBusyAction(null)
-    }
+  const handleCleanupSystem = () => {
+    setConfirmConfigState({
+      open: true,
+      titulo: 'PELIGRO EXTREMO: Vaciar sistema',
+      descripcion: '¿Estás seguro de que deseas vaciar por completo todo el sistema transaccional? Se eliminarán físicamente TODOS los estudiantes, vacantes, matches, habilidades y certificaciones. Esta acción es irreversible.',
+      destructivo: true,
+      textoConfirmar: 'Vaciar sistema completo',
+      onConfirmar: async () => {
+        setBusyAction('cleanup')
+        setAdminFeedback(null)
+        try {
+          const res = await adminApi.cleanupSystem()
+          setAdminFeedback({ tipo: 'exito', texto: `Éxito: ${res.mensaje}` })
+        } catch {
+          setAdminFeedback({ tipo: 'error', texto: 'Error al limpiar el sistema transaccional.' })
+        } finally {
+          setBusyAction(null)
+        }
+      },
+    })
   }
 
   const themeOptions = [
@@ -483,12 +544,8 @@ export default function ConfiguracionPage() {
                     </CardDescription>
                   </div>
                 </div>
-                <Button type="submit" disabled={savingInst} size="lg" className="self-start">
-                  {savingInst ? (
-                    <CircleNotch className="size-4 animate-spin" />
-                  ) : (
-                    <FloppyDisk className="size-4" />
-                  )}
+                <Button type="submit" size="lg" className="self-start">
+                  <FloppyDisk className="size-4" />
                   Guardar cambios
                 </Button>
               </div>
@@ -500,7 +557,7 @@ export default function ConfiguracionPage() {
                   <span className="flex size-8 items-center justify-center rounded-full bg-green-500/15">
                     <CheckCircle className="size-4 shrink-0" weight="fill" />
                   </span>
-                  <span>Datos institucionales actualizados y guardados con éxito.</span>
+                  <span>Datos institucionales guardados en este navegador (no sincronizados con el servidor).</span>
                 </div>
               )}
 
@@ -678,13 +735,8 @@ export default function ConfiguracionPage() {
                     Parámetros de cálculo del motor de matching, ciclo académico y alertas a empresas.
                   </CardDescription>
                 </div>
-                <Button type="submit" disabled={savingAcademic} size="sm">
-                  {savingAcademic ? (
-                    <CircleNotch className="size-4 animate-spin mr-1" />
-                  ) : (
-                    <FloppyDisk className="size-4 mr-1" />
-                  )}
-                  Guardar Reglas
+                <Button type="submit" size="sm">
+                  Guardar cambios
                 </Button>
               </div>
             </CardHeader>
@@ -692,7 +744,7 @@ export default function ConfiguracionPage() {
               {academicSuccess && (
                 <div role="status" className="flex items-center gap-2 rounded-xl bg-green-500/10 border border-green-500/30 p-3 text-xs font-medium text-green-600 dark:text-green-400">
                   <CheckCircle className="size-4 shrink-0" />
-                  <span>Reglas académicas y de empleabilidad guardadas correctamente.</span>
+                  <span>Reglas académicas y de empleabilidad guardadas en este navegador (no sincronizadas con el servidor).</span>
                 </div>
               )}
 
@@ -789,12 +841,8 @@ export default function ConfiguracionPage() {
                     Parámetros de conexión con SendGrid (emails), Power BI, LinkedIn Jobs y almacenamiento en nube.
                   </CardDescription>
                 </div>
-                <Button type="submit" disabled={savingIntegration} size="sm">
-                  {savingIntegration ? (
-                    <CircleNotch className="size-4 animate-spin mr-1" />
-                  ) : (
-                    <FloppyDisk className="size-4 mr-1" />
-                  )}
+                <Button type="submit" size="sm">
+                  <FloppyDisk className="size-4 mr-1" />
                   Guardar Conexiones
                 </Button>
               </div>
@@ -803,7 +851,7 @@ export default function ConfiguracionPage() {
               {integrationSuccess && (
                 <div role="status" className="flex items-center gap-2 rounded-xl bg-green-500/10 border border-green-500/30 p-3 text-xs font-medium text-green-600 dark:text-green-400">
                   <CheckCircle className="size-4 shrink-0" />
-                  <span>Parámetros de conexión de integraciones guardados correctamente.</span>
+                  <span>Parámetros de conexión de integraciones guardados en este navegador (no sincronizados con el servidor).</span>
                 </div>
               )}
 
@@ -1050,8 +1098,20 @@ export default function ConfiguracionPage() {
                                   text={u.activo ? 'text-[#0F6E56]' : 'text-muted-foreground'}
                                 />
                               </td>
-                              <td className="px-4 py-3 text-right">
+                               <td className="px-4 py-3 text-right">
                                 <div className="inline-flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="xs"
+                                    onClick={() => {
+                                      setModalPasswordUser(u)
+                                      setNuevaPasswordAdmin('')
+                                      setPasswordError(null)
+                                      setPasswordSuccess(null)
+                                    }}
+                                  >
+                                    <Key className="size-3 mr-1" /> Cambiar clave
+                                  </Button>
                                   <Button
                                     variant="outline"
                                     size="xs"
@@ -1072,6 +1132,64 @@ export default function ConfiguracionPage() {
               )}
             </CardContent>
           </Card>
+
+          {modalPasswordUser && (
+            <Dialog.Root open={!!modalPasswordUser} onOpenChange={(open) => !open && setModalPasswordUser(null)}>
+              <Dialog.Portal>
+                <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs" />
+                <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex flex-col gap-4 rounded-2xl border border-border bg-card p-6 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-border pb-3">
+                    <Dialog.Title className="text-base font-bold text-foreground flex items-center gap-2">
+                      <Key className="size-5 text-primary" /> Cambiar contraseña de usuario
+                    </Dialog.Title>
+                    <button type="button" onClick={() => setModalPasswordUser(null)} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary">
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Estás estableciendo una nueva contraseña para <strong>{modalPasswordUser.nombre}</strong> ({modalPasswordUser.email}).
+                  </p>
+                  <form onSubmit={handleAdminCambiarPassword} className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-foreground">Nueva contraseña (mínimo 8 caracteres)</label>
+                      <Input
+                        type="password"
+                        required
+                        minLength={8}
+                        placeholder="••••••••"
+                        value={nuevaPasswordAdmin}
+                        onChange={(e) => setNuevaPasswordAdmin(e.target.value)}
+                        disabled={cambiandoPassword}
+                      />
+                    </div>
+
+                    {passwordError && (
+                      <div role="alert" className="flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
+                        <WarningCircle className="size-4 shrink-0" />
+                        <span>{passwordError}</span>
+                      </div>
+                    )}
+
+                    {passwordSuccess && (
+                      <div role="status" className="flex items-center gap-2 rounded-xl bg-green-500/10 p-3 text-xs text-green-600 dark:text-green-400">
+                        <CheckCircle className="size-4 shrink-0" />
+                        <span>{passwordSuccess}</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setModalPasswordUser(null)} disabled={cambiandoPassword}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" size="sm" disabled={cambiandoPassword}>
+                        {cambiandoPassword ? <><CircleNotch className="size-4 animate-spin mr-1" /> Guardando…</> : 'Actualizar contraseña'}
+                      </Button>
+                    </div>
+                  </form>
+                </Dialog.Popup>
+              </Dialog.Portal>
+            </Dialog.Root>
+          )}
 
           {/* Cuentas de los estudiantes. Aparte de la tabla de arriba porque
               son otro tipo de cuenta —rol ESTUDIANTE, alta masiva, sin
@@ -1257,6 +1375,38 @@ export default function ConfiguracionPage() {
           )}
         </div>
       )}
+
+      {adminFeedback && (
+        <div
+          role={adminFeedback.tipo === 'exito' ? 'status' : 'alert'}
+          className={cn(
+            'fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm shadow-xl backdrop-blur-md transition-all',
+            adminFeedback.tipo === 'exito'
+              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+              : 'bg-destructive/15 text-destructive border border-destructive/30',
+          )}
+        >
+          {adminFeedback.tipo === 'exito' ? (
+            <CheckCircle className="size-5 shrink-0" />
+          ) : (
+            <WarningCircle className="size-5 shrink-0" />
+          )}
+          <span>{adminFeedback.texto}</span>
+          <button type="button" onClick={() => setAdminFeedback(null)} className="ml-2 rounded-md p-1 hover:bg-black/10">
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
+
+      <Confirmar
+        open={confirmConfigState.open}
+        onOpenChange={(open) => setConfirmConfigState((prev) => ({ ...prev, open }))}
+        titulo={confirmConfigState.titulo}
+        descripcion={confirmConfigState.descripcion}
+        destructivo={confirmConfigState.destructivo}
+        textoConfirmar={confirmConfigState.textoConfirmar}
+        onConfirmar={confirmConfigState.onConfirmar}
+      />
     </div>
   )
 }

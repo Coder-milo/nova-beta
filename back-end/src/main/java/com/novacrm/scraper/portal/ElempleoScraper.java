@@ -104,7 +104,7 @@ public class ElempleoScraper implements PortalScraper {
 
                     String empresaNombre = oferta.path("company").asText("");
                     if (!empresaNombre.isBlank()) {
-                        vacante.setEmpresa(empresaRepository.findByNombre(empresaNombre).orElse(null));
+                        vacante.setEmpresa(empresaRepository.findByNombreIgnoreCaseActiva(empresaNombre).orElse(null));
                     }
 
                     vacante.setActivo(true);

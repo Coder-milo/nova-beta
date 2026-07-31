@@ -118,6 +118,10 @@ public class HvService {
                 .orElseThrow(() -> new ResourceNotFoundException("Plantilla no encontrada: " + id));
         plantilla.setActivo(false);
         plantilla.setPredeterminada(false);
+        // Dejar la preferida apuntando a una plantilla borrada hace que la
+        // generacion caiga a la predeterminada (resolverPlantilla), pero el
+        // estudiante la seguiria viendo como opcion. Se desvincula aqui.
+        estudianteRepository.desvincularPlantillaPreferida(id);
     }
 
     // ── Generación ───────────────────────────────────────────────────────────
@@ -219,6 +223,13 @@ public class HvService {
         String key = storageService.subir("hojas-de-vida",
                 "hv-" + docId + ".pdf", pdf, "application/pdf");
 
+        // La consulta de la version siguiente lleva PESSIMISTIC_WRITE: dos
+        // generaciones concurrentes se serializan y la segunda relee la
+        // version real. El unique parcial (V24) es la red de seguridad.
+        return guardarVersion(estudiante, plantilla, key);
+    }
+
+    private HojaDeVida guardarVersion(Estudiante estudiante, PlantillaHv plantilla, String key) {
         int siguienteVersion = hvRepository.findByEstudianteIdOrderByNumeroVersionDesc(estudiante.getId())
                 .stream().findFirst().map(h -> h.getNumeroVersion() + 1).orElse(1);
         hvRepository.findFirstByEstudianteIdAndActualTrue(estudiante.getId())
@@ -332,11 +343,19 @@ public class HvService {
 
     private PlantillaHv resolverPlantilla(Estudiante e, UUID plantillaId) {
         if (plantillaId != null) {
-            return plantillaRepository.findById(plantillaId)
+            var plantilla = plantillaRepository.findById(plantillaId)
                     .orElseThrow(() -> new ResourceNotFoundException("Plantilla no encontrada: " + plantillaId));
+            if (!plantilla.isActivo()) {
+                throw new ResourceNotFoundException("Plantilla no encontrada: " + plantillaId);
+            }
+            return plantilla;
         }
         if (e != null && e.getPlantillaPreferida() != null) {
-            return e.getPlantillaPreferida();
+            // La preferida puede apuntar a una plantilla borrada despues.
+            // En ese caso se cae a la predeterminada en lugar de fallar.
+            if (e.getPlantillaPreferida().isActivo()) {
+                return e.getPlantillaPreferida();
+            }
         }
         return plantillaRepository.findFirstByPredeterminadaTrueAndActivoTrue().orElse(null);
     }

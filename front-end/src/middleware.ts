@@ -28,7 +28,11 @@ function aplicarCabecerasDeSeguridad(response: Response): Response {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; frame-src 'self' data: blob:; worker-src 'self' blob:; object-src 'self' data: blob:; connect-src 'self' ws: wss: https:; frame-ancestors 'self';",
+    // script-src sin unsafe-eval ni unsafe-inline: el unico script inline del
+    // sitio (theme anti-FOUC en base-layout.astro) va por hash. Si cambia ese
+    // script, el hash deja de coincidir y el tema no aplica: regenerar con:
+    //   sha256 del contenido exacto entre <script>...</script> emitido por Astro
+    "default-src 'self'; script-src 'self' 'sha256-A3qaRkzKE8OlrJFPYRoreyAgD6F2N3m8FCg4LgpRhZs='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; frame-src 'self' data: blob:; worker-src 'self' blob:; object-src 'self' data: blob:; connect-src 'self' ws: wss: https:; frame-ancestors 'self';",
   )
   return response
 }

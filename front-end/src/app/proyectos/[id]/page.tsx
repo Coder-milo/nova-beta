@@ -1,6 +1,7 @@
 'use client'
 
-import { ArrowLeft, ArrowsClockwise, CaretLeft, CaretRight, CheckCircle, CircleNotch, ClipboardText, ClockCounterClockwise, DownloadSimple, FileText, Flag, Kanban, PencilSimple, Plus, ReadCvLogo, Rows, Trash, UploadSimple, Users, WarningCircle, X } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowsClockwise, CaretLeft, CaretRight, CheckCircle, CircleNotch, ClipboardText, ClockCounterClockwise, DownloadSimple, FileText, Flag, Kanban, Palette, PencilSimple, Plus, ReadCvLogo, Rows, Trash, UploadSimple, Users, WarningCircle, X } from '@phosphor-icons/react'
+import { PanelBranding } from '@/components/admin/panel-branding'
 /**
  * Detalle de proyecto / programa — expediente completo con pestañas.
  *
@@ -707,7 +708,7 @@ function TabHistorial({ programaId }: { programaId: string }) {
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
-type TabId = 'resumen' | 'estudiantes' | 'documentos' | 'hv' | 'actividades' | 'historial'
+type TabId = 'resumen' | 'estudiantes' | 'documentos' | 'hv' | 'actividades' | 'identidad' | 'historial'
 
 const tabs: { id: TabId; label: string; icon: typeof Users }[] = [
   { id: 'resumen',     label: 'Resumen',       icon: Rows },
@@ -715,6 +716,7 @@ const tabs: { id: TabId; label: string; icon: typeof Users }[] = [
   { id: 'documentos',  label: 'Documentos',    icon: FileText },
   { id: 'hv',          label: 'Hojas de vida', icon: ReadCvLogo },
   { id: 'actividades', label: 'Actividades',   icon: ClipboardText },
+  { id: 'identidad',   label: 'Identidad visual', icon: Palette },
   { id: 'historial',   label: 'Historial',     icon: ClockCounterClockwise },
 ]
 
@@ -955,6 +957,7 @@ export default function ProyectoDetallePage() {
       {tab === 'documentos'  && <TabDocumentos programaId={id} />}
       {tab === 'hv'          && <TabHojasDeVida programaId={id} />}
       {tab === 'actividades' && <TabActividades programaId={id} />}
+      {tab === 'identidad'   && <PanelBranding programaIdInicial={id} />}
       {tab === 'historial'   && <TabHistorial programaId={id} />}
     </div>
   )

@@ -18,6 +18,7 @@ import com.novacrm.seguimiento.SeguimientoRepository;
 import com.novacrm.vacante.VacanteRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,7 +74,11 @@ public class PostulacionService {
 
     // ── Alta ────────────────────────────────────────────────────────────────
 
-    @Transactional
+    // noRollbackFor: el duplicado es un fallo esperado en una carrera de doble
+    // clic, no un estado sucio. Sin esto, el catch de MatchingService traga la
+    // excepcion pero la transaccion queda rollback-only y el commit revienta
+    // con UnexpectedRollbackException (500) en lugar del no-op buscado.
+    @Transactional(noRollbackFor = BusinessException.class)
     public PostulacionResponse crear(UUID estudianteId, CrearPostulacion datos,
                                      String autor, boolean laRegistraElEstudiante) {
         Estudiante estudiante = estudianteRepository.findById(estudianteId)
@@ -112,11 +117,19 @@ public class PostulacionService {
             }
         }
         if (postulacion.getEmpresa() == null) {
-            empresaRepository.findByNombreIgnoreCase(postulacion.getEmpresaNombre())
+            empresaRepository.findByNombreIgnoreCaseActiva(postulacion.getEmpresaNombre())
                     .ifPresent(postulacion::setEmpresa);
         }
 
-        var guardada = postulacionRepository.save(postulacion);
+        // El check de duplicado de arriba es check-then-act: dos clics a la vez
+        // pasan la revision y el segundo revienta aqui con un 500 crudo por el
+        // unique index. Se traduce al mismo error de negocio que el caso normal.
+        final Postulacion guardada;
+        try {
+            guardada = postulacionRepository.save(postulacion);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException("Ya hay una postulacion registrada a esta vacante");
+        }
 
         registrarEnSeguimiento(guardada, autor,
                 "Postulacion registrada en " + guardada.nombreEmpresa()

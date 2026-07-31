@@ -330,8 +330,13 @@ public class HvCustomTemplateService {
             if (document.isEncrypted()) {
                 throw new BusinessException("La plantilla PDF esta protegida con contrasena.");
             }
-            while (document.getNumberOfPages() > 1) {
-                document.removePage(document.getNumberOfPages() - 1);
+            if (document.getNumberOfPages() > 1) {
+                // Antes se descartaban las paginas extra en silencio, perdiendo
+                // contenido del usuario sin avisar. El generador automatico
+                // soporta una sola pagina; mejor error claro que datos perdidos.
+                throw new BusinessException(
+                        "El generador automatico soporta una sola pagina y esta plantilla tiene "
+                                + document.getNumberOfPages() + ".");
             }
 
             PDPage page = document.getPage(0);

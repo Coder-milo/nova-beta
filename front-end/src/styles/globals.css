@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+@import 'quill/dist/quill.snow.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -939,3 +940,46 @@ textarea {
 .contenido-anuncio .ql-align-center { text-align: center; }
 .contenido-anuncio .ql-align-right { text-align: right; }
 .contenido-anuncio .ql-align-justify { text-align: justify; }
+
+/* Quill Rich Text Editor styling */
+.editor-texto .ql-toolbar.ql-snow {
+  border-top-left-radius: 0.75rem;
+  border-top-right-radius: 0.75rem;
+  border-color: var(--border);
+  background-color: var(--card);
+}
+.editor-texto .ql-container.ql-snow {
+  border-bottom-left-radius: 0.75rem;
+  border-bottom-right-radius: 0.75rem;
+  border-color: var(--border);
+  background-color: var(--background);
+  font-family: inherit;
+}
+.editor-texto .ql-editor {
+  min-height: 12rem;
+  font-size: 0.875rem;
+  color: var(--foreground);
+}
+.editor-texto .ql-editor.ql-blank::before {
+  color: var(--muted-foreground);
+  font-style: normal;
+}
+.editor-texto .ql-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 0.5rem 0;
+}
+.dark .editor-texto .ql-snow .ql-stroke {
+  stroke: var(--foreground);
+}
+.dark .editor-texto .ql-snow .ql-fill {
+  fill: var(--foreground);
+}
+.dark .editor-texto .ql-snow .ql-picker {
+  color: var(--foreground);
+}
+.dark .editor-texto .ql-snow .ql-picker-options {
+  background-color: var(--card);
+  border-color: var(--border);
+}

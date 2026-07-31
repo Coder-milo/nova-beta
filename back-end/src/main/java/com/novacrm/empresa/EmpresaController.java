@@ -3,6 +3,7 @@ package com.novacrm.empresa;
 import com.novacrm.empresa.dto.EmpresaDtos.EmpresaResponse;
 import com.novacrm.empresa.dto.EmpresaDtos.GuardarEmpresa;
 import com.novacrm.empresa.dto.EmpresaDtos.ResumenCrm;
+import com.novacrm.exception.BusinessException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -111,7 +112,11 @@ public class EmpresaController {
         EstadoRelacion estado = null;
         String valor = cuerpo.get("estado");
         if (valor != null && !valor.isBlank()) {
-            estado = EstadoRelacion.valueOf(valor.trim().toUpperCase());
+            try {
+                estado = EstadoRelacion.valueOf(valor.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException("Estado de relacion invalido: " + valor);
+            }
         }
         return empresaService.registrarContacto(id, estado,
                 cuerpo.get("proximoPaso"), cuerpo.get("nota"));

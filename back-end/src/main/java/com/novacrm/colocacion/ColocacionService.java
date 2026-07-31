@@ -136,6 +136,14 @@ public class ColocacionService {
     @Transactional
     public void eliminar(UUID id, String autor) {
         var colocacion = obtener(id);
+        // Si la colocacion salio de una postulacion, esa postulacion quedo
+        // marcada CONTRATADO al crearla. Borrarla sin tocar el estado dejaba
+        // un CONTRATADO huerfano en el historial del estudiante.
+        if (colocacion.getPostulacion() != null
+                && colocacion.getPostulacion().getEstado() == EstadoPostulacion.CONTRATADO) {
+            colocacion.getPostulacion().moverA(EstadoPostulacion.EN_PROCESO, LocalDate.now());
+            postulacionRepository.save(colocacion.getPostulacion());
+        }
         colocacionRepository.delete(colocacion);
         String nombreEstudiante = colocacion.getEstudiante() != null ? (colocacion.getEstudiante().getNombre() + " " + colocacion.getEstudiante().getApellido()) : "Estudiante";
         auditoriaService.registrar("Colocaciones", "Eliminación", "Colocacion",
@@ -144,7 +152,7 @@ public class ColocacionService {
 
     private void aplicar(Colocacion colocacion, GuardarColocacion d) {
         colocacion.setEmpresaNombre(d.empresaNombre().trim());
-        empresaRepository.findByNombreIgnoreCase(colocacion.getEmpresaNombre())
+        empresaRepository.findByNombreIgnoreCaseActiva(colocacion.getEmpresaNombre())
                 .ifPresent(colocacion::setEmpresa);
         colocacion.setCargo(d.cargo());
         colocacion.setTipoVinculacion(

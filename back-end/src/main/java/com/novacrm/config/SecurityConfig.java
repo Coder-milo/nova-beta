@@ -40,7 +40,8 @@ public class SecurityConfig {
     private static final int LONGITUD_MINIMA_SECRETO = 32;
     private static final java.util.Set<String> SECRETOS_COMPROMETIDOS = java.util.Set.of(
             "TlfnNVy2SjMmDUao7a6XpWTBRG4iLr3ZGdveIrsy/o0=",
-            "super_secret_jwt_key_nova_crm_2026_default_secret_key_32bytes");
+            "super_secret_jwt_key_nova_crm_2026_default_secret_key_32bytes",
+            "dev_jwt_secret_key_nova_crm_min_32_bytes_long_for_security_2026");
 
     /** Clave validada que permite compartir un secreto efimero local. */
     private static volatile String jwtSecretActivo;

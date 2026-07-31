@@ -36,6 +36,7 @@ import { Button } from '@/components/ui/button'
 import { FilePreview } from '@/components/ui/file-preview'
 import { EditorTexto } from '@/components/ui/editor-texto'
 import { actividadesApi, comunicacionesApi, programasApi, ApiCallError } from '@/lib/api'
+import { hoyLocal } from '@/lib/utils'
 import type { TipoMediaAnuncio } from '@/lib/api'
 import type { ActividadRequest, ProgramaResponse } from '@/lib/types'
 import { Textarea } from '@/components/ui/textarea'
@@ -199,7 +200,7 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
 function PanelEvento({ programas }: { programas: ProgramaResponse[] }) {
   const [form, setForm] = useState<ActividadRequest>({
     nombre: '',
-    fecha: new Date().toISOString().slice(0, 10),
+    fecha: hoyLocal(),
     hora: '09:00',
     descripcion: '',
     categoria: 'GENERAL',

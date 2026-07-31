@@ -184,12 +184,20 @@ export default function LoginPage() {
 
             {/* Contraseña */}
             <div className="space-y-1.5">
-              <label
-                htmlFor="login-password"
-                className="ml-1 text-xs font-semibold uppercase tracking-wider text-white/70"
-              >
-                Contraseña
-              </label>
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="login-password"
+                  className="ml-1 text-xs font-semibold uppercase tracking-wider text-white/70"
+                >
+                  Contraseña
+                </label>
+                <a
+                  href="/recuperar-contrasena"
+                  className="text-xs font-medium text-white/80 hover:text-white hover:underline"
+                >
+                  ¿Olvidaste tu contraseña?
+                </a>
+              </div>
               <div className="group relative">
                 <LockKey className="pointer-events-none absolute left-4 top-1/2 z-10 size-4 -translate-y-1/2 text-[#86868B] transition-colors group-focus-within:text-[#0071E3]" />
                 <Input

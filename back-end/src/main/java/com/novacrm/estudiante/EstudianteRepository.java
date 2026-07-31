@@ -75,6 +75,11 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     @Query("UPDATE Estudiante e SET e.activo = false, e.deletedAt = CURRENT_TIMESTAMP WHERE e.programa.id = :programaId AND e.activo = true")
     int softDeleteByProgramaId(@Param("programaId") UUID programaId);
 
+    /** Al borrar una plantilla: nadie queda apuntando a ella como preferida. */
+    @Modifying
+    @Query("UPDATE Estudiante e SET e.plantillaPreferida = null WHERE e.plantillaPreferida.id = :plantillaId")
+    int desvincularPlantillaPreferida(@Param("plantillaId") UUID plantillaId);
+
     interface ConteoPorProgramaProjection {
         UUID getProgramaId();
         String getNombre();

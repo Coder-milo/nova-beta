@@ -146,11 +146,12 @@ async function apiUpload<T>(
 }
 
 /** Descarga un binario autenticado y dispara el guardado en el navegador. */
-export async function apiDownload(path: string, nombreArchivo: string, opciones?: { method?: string; data?: unknown }): Promise<void> {
+export async function apiDownload(path: string, nombreArchivo: string, opciones?: { method?: string; data?: unknown; token?: string }): Promise<void> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: opciones?.method ?? 'GET',
     headers: {
       ...(opciones?.data !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...cabeceraAuth(opciones?.token),
     },
     body: opciones?.data !== undefined ? JSON.stringify(opciones.data) : undefined,
     credentials: 'same-origin',
@@ -169,14 +170,17 @@ export async function apiDownload(path: string, nombreArchivo: string, opciones?
   document.body.appendChild(a)
   a.click()
   a.remove()
-  URL.revokeObjectURL(url)
+  // Sin el delay, algunos navegadores revocan antes de haber leido el blob y
+  // la descarga cae con error de red.
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 /** Obtiene un binario autenticado sin descargarlo (previsualizaciones, visor PDF). */
-export async function apiBlob(path: string): Promise<Blob> {
+export async function apiBlob(path: string, token?: string): Promise<Blob> {
   const res = await fetch(`${BASE_URL}${path}`, {
     credentials: 'same-origin',
     cache: 'no-store',
+    headers: cabeceraAuth(token),
   })
   if (!res.ok) {
     let body: ApiError = { status: res.status }

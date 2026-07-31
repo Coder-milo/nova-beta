@@ -167,6 +167,9 @@ public class AuthService {
     }
 
     private String secretJwt() {
-        return jwtSecret != null && !jwtSecret.isBlank() ? jwtSecret : SecurityConfig.jwtSecretActivo();
+        if (jwtSecret != null && !jwtSecret.isBlank() && jwtSecret.getBytes(StandardCharsets.UTF_8).length >= 32) {
+            return jwtSecret;
+        }
+        return SecurityConfig.jwtSecretActivo();
     }
 }

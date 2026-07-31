@@ -13,6 +13,7 @@ import {
   WarningCircle,
 } from '@phosphor-icons/react'
 import { ApiCallError, matchesApi, postulacionesApi } from '@/lib/api'
+import { hoyLocal } from '@/lib/utils'
 import type { MatchResponse, PostulacionResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -115,7 +116,7 @@ export function StudentPostulaciones() {
         canal: canalManual.trim() || undefined,
         urlOferta: urlOfertaManual.trim() || undefined,
         observaciones: observacionesManual.trim() || undefined,
-        fechaPostulacion: new Date().toISOString().slice(0, 10),
+        fechaPostulacion: hoyLocal(),
         estado: 'ENVIADA',
       })
       setHistorial((items) => [nueva, ...items])

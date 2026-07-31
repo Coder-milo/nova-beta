@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Confirmar } from '@/components/ui/confirmar'
 import { brandingApi, programasApi, ApiCallError } from '@/lib/api'
 import { paletaDesde, textoSobre } from '@/lib/paleta'
 import { notificarIdentidadActualizada } from '@/lib/branding'
@@ -276,9 +277,9 @@ function CampoImagen({
   )
 }
 
-export function PanelBranding() {
+export function PanelBranding({ programaIdInicial }: { programaIdInicial?: string } = {}) {
   const [programas, setProgramas] = useState<ProgramaResponse[]>([])
-  const [programaId, setProgramaId] = useState('')
+  const [programaId, setProgramaId] = useState(programaIdInicial ?? '')
   const [branding, setBranding] = useState<BrandingResponse | null>(null)
 
   const [color, setColor] = useState('')
@@ -297,10 +298,10 @@ export function PanelBranding() {
       .listar()
       .then((lista) => {
         setProgramas(lista)
-        if (lista.length > 0) setProgramaId((actual) => actual || lista[0].id)
+        if (lista.length > 0) setProgramaId((actual) => actual || programaIdInicial || lista[0].id)
       })
       .catch(() => setProgramas([]))
-  }, [])
+  }, [programaIdInicial])
 
   const cargar = useCallback(async (id: string) => {
     if (!id) return
@@ -497,11 +498,10 @@ export function PanelBranding() {
     }
   }
 
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false)
+
   const volverAGamaGlobal = async () => {
     if (!programaId) return
-    if (!confirm('El proyecto volverá a usar la gama de colores global del panel. ¿Continuar?')) {
-      return
-    }
     setGuardando(true)
     try {
       await brandingApi.restablecer(programaId)
@@ -811,7 +811,7 @@ export function PanelBranding() {
                 Guardar y publicar identidad
               </Button>
               {branding.personalizado && (
-                <Button variant="outline" onClick={volverAGamaGlobal} disabled={guardando}>
+                <Button variant="outline" onClick={() => setShowResetConfirmModal(true)} disabled={guardando}>
                   Volver a la gama global
                 </Button>
               )}
@@ -821,6 +821,16 @@ export function PanelBranding() {
                 </span>
               )}
             </div>
+
+            <Confirmar
+              open={showResetConfirmModal}
+              onOpenChange={setShowResetConfirmModal}
+              titulo="Restablecer gama global"
+              descripcion="El proyecto volverá a usar la gama de colores global del panel en lugar de una personalizada."
+              textoConfirmar="Restablecer"
+              destructivo={true}
+              onConfirmar={volverAGamaGlobal}
+            />
           </>
         )}
       </CardContent>

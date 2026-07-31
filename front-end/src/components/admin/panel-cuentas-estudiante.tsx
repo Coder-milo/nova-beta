@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Confirmar } from '@/components/ui/confirmar'
 import { comunicacionesApi, ApiCallError } from '@/lib/api'
 import type { FilaPadron, Padron, ResumenAltaCuentas, ResultadoCuenta } from '@/lib/types'
 
@@ -222,18 +223,9 @@ export function PanelCuentasEstudiante() {
 
   const destinatarios = alcance === 'todos' ? (padron?.total ?? 0) : seleccion.size
 
-  const ejecutar = async (simulacion: boolean) => {
-    // La confirmación solo estorba en la simulación, que no hace nada.
-    if (!simulacion) {
-      const a = alcance === 'todos' ? `los ${destinatarios} estudiantes activos` : `${destinatarios} estudiante${destinatarios === 1 ? '' : 's'}`
-      const conCorreo = enviarCorreo
-        ? '\n\nSe les enviará su enlace de activación por correo.'
-        : '\n\nNo se enviará ningún correo.'
-      if (!confirm(`Se van a crear las cuentas que falten para ${a}.${conCorreo}\n\n¿Continuar?`)) {
-        return
-      }
-    }
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
 
+  const ejecutar = async (simulacion: boolean) => {
     setProcesando(true)
     setError(null)
     setResumen(null)
@@ -475,7 +467,7 @@ export function PanelCuentasEstudiante() {
                   'Simular (no crea nada)'
                 )}
               </Button>
-              <Button onClick={() => ejecutar(false)} disabled={procesando || nadaQueHacer}>
+              <Button onClick={() => setShowConfirmModal(true)} disabled={procesando || nadaQueHacer}>
                 <Envelope className="size-4" />
                 {alcance === 'todos'
                   ? `Crear cuentas para los ${destinatarios}`
@@ -487,6 +479,29 @@ export function PanelCuentasEstudiante() {
                 </span>
               )}
             </div>
+
+            <Confirmar
+              open={showConfirmModal}
+              onOpenChange={setShowConfirmModal}
+              titulo="Crear cuentas de acceso"
+              descripcion={
+                <>
+                  Se van a crear las cuentas que falten para{' '}
+                  <strong>
+                    {alcance === 'todos'
+                      ? `los ${destinatarios} estudiantes activos`
+                      : `${destinatarios} estudiante${destinatarios === 1 ? '' : 's'}`}
+                  </strong>
+                  .
+                  {enviarCorreo
+                    ? ' Se les enviará su enlace de activación por correo.'
+                    : ' No se enviará ningún correo.'}
+                </>
+              }
+              textoConfirmar="Crear cuentas"
+              destructivo={false}
+              onConfirmar={() => ejecutar(false)}
+            />
           </>
         )}
 

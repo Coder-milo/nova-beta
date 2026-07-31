@@ -163,7 +163,7 @@ public class ImportacionCrmService {
                 continue;
             }
             String clave = nombre.trim().toLowerCase(Locale.ROOT);
-            var existente = empresaRepository.findByNombreIgnoreCase(nombre.trim());
+            var existente = empresaRepository.findByNombreIgnoreCaseActiva(nombre.trim());
             boolean yaExiste = existente.isPresent() || vistas.contains(clave);
 
             try {
