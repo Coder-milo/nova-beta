@@ -2,6 +2,7 @@
 
 import { ArrowLeft, ArrowsClockwise, CaretLeft, CaretRight, CheckCircle, CircleNotch, ClipboardText, ClockCounterClockwise, DownloadSimple, FileText, Flag, Kanban, Palette, PencilSimple, Plus, ReadCvLogo, Rows, Trash, UploadSimple, Users, WarningCircle, X } from '@phosphor-icons/react'
 import { PanelBranding } from '@/components/admin/panel-branding'
+import { PanelWhatsapp } from '@/components/admin/panel-whatsapp'
 /**
  * Detalle de proyecto / programa — expediente completo con pestañas.
  *
@@ -957,7 +958,12 @@ export default function ProyectoDetallePage() {
       {tab === 'documentos'  && <TabDocumentos programaId={id} />}
       {tab === 'hv'          && <TabHojasDeVida programaId={id} />}
       {tab === 'actividades' && <TabActividades programaId={id} />}
-      {tab === 'identidad'   && <PanelBranding programaIdInicial={id} />}
+      {tab === 'identidad'   && (
+        <>
+          <PanelBranding programaIdInicial={id} />
+          <PanelWhatsapp programaIdInicial={id} />
+        </>
+      )}
       {tab === 'historial'   && <TabHistorial programaId={id} />}
     </div>
   )

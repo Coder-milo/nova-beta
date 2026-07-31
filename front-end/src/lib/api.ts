@@ -830,11 +830,41 @@ export const brandingApi = {
 import type {
   ColocacionRequest,
   ColocacionResponse,
+  MensajeWhatsappResponse,
   PipelineEmpleabilidadResponse,
   PostulacionResponse,
   ResumenColocaciones,
   ResumenPostulaciones,
+  ResultadoEnvio,
+  WhatsappRequest,
+  WhatsappResponse,
 } from './types'
+
+export const whatsappApi = {
+  /** El canal del programa del propio usuario. Lo usa el portal del estudiante. */
+  mio: (token?: string) => apiFetch<WhatsappResponse>('/api/v1/whatsapp/mio', { token }),
+
+  consultar: (programaId: string, token?: string) =>
+    apiFetch<WhatsappResponse>(`/api/v1/whatsapp/${programaId}`, { token }),
+
+  guardar: (programaId: string, body: WhatsappRequest, token?: string) =>
+    apiFetch<WhatsappResponse>(`/api/v1/whatsapp/${programaId}`, {
+      method: 'PUT',
+      data: body,
+      token,
+    }),
+
+  /** Mensaje de texto al propio número del negocio; única prueba sin plantilla. */
+  probar: (programaId: string, token?: string) =>
+    apiFetch<ResultadoEnvio>(`/api/v1/whatsapp/${programaId}/probar`, {
+      method: 'POST',
+      token,
+    }),
+
+  /** Bandeja del programa, de más nueva a más vieja. */
+  bandeja: (programaId: string, token?: string) =>
+    apiFetch<MensajeWhatsappResponse[]>(`/api/v1/whatsapp/${programaId}/mensajes`, { token }),
+}
 
 export const pipelineApi = {
   mio: (token?: string) =>

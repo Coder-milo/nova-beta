@@ -76,6 +76,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return false;
     }
 
+    /** El webhook de Meta se excluye del limite general: Meta reintenta
+     *  agresivamente cuando ve un 429, y su autenticacion ya es la firma. */
+    private static boolean esWebhookWhatsapp(String uri) {
+        return uri.startsWith("/api/v1/whatsapp/webhook");
+    }
+
     private final int loginMax;
     private final int loginWindowMinutes;
     private final int apiMax;
@@ -133,7 +139,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             registro = loginBuckets;
             max = loginMax;
             ventanaMinutos = loginWindowMinutes;
-        } else if (uri.startsWith("/api/")) {
+        } else if (uri.startsWith("/api/") && !esWebhookWhatsapp(uri)) {
             registro = apiBuckets;
             max = apiMax;
             ventanaMinutos = apiWindowMinutes;

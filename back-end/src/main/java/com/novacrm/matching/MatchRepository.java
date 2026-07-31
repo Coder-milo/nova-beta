@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface MatchRepository extends JpaRepository<Match, UUID> {
@@ -14,6 +15,13 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
     List<Match> findByEstudianteIdAndNotificadoFalse(UUID estudianteId);
     long countByEstudianteIdAndNotificadoFalse(UUID estudianteId);
     boolean existsByEstudianteIdAndVacanteId(UUID estudianteId, UUID vacanteId);
+
+    /**
+     * El match sin postular más reciente del estudiante. Es el que responde el
+     * estudiante cuando escribe "sí me interesa" en lugar de usar los botones
+     * de la plantilla, que traen el id exacto.
+     */
+    Optional<Match> findFirstByEstudianteIdAndPostuladoFalseOrderByCreatedAtDesc(UUID estudianteId);
 
     /** Postulaciones efectivamente enviadas por el estudiante. */
     long countByEstudianteIdAndPostuladoTrue(UUID estudianteId);

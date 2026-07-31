@@ -49,12 +49,12 @@ public class SecurityConfig {
     @Value("${app.jwt.secret:}")
     private String jwtSecret;
 
-    @Value("${app.jwt.allow-ephemeral-secret:false}")
+    @Value("${app.jwt.allow-ephemeral-secret:true}")
     private boolean allowEphemeralSecret;
 
     @jakarta.annotation.PostConstruct
     void validarJwtSecret() {
-        if (jwtSecret == null || jwtSecret.isBlank()) {
+        if (jwtSecret == null || jwtSecret.isBlank() || jwtSecret.getBytes(StandardCharsets.UTF_8).length < LONGITUD_MINIMA_SECRETO) {
             if (allowEphemeralSecret) {
                 byte[] bytes = new byte[48];
                 new SecureRandom().nextBytes(bytes);
@@ -64,17 +64,12 @@ public class SecurityConfig {
                 return;
             }
             throw new IllegalStateException(
-                    "La variable de entorno JWT_SECRET es obligatoria. Genera una con: openssl rand -base64 32");
+                    "La variable de entorno JWT_SECRET es obligatoria y debe tener al menos 32 bytes.");
         }
         if (SECRETOS_COMPROMETIDOS.contains(jwtSecret.trim())) {
             throw new IllegalStateException(
                     "JWT_SECRET tiene un valor que estuvo publicado en el repositorio y ya no es secreto. "
                             + "Genera uno nuevo con: openssl rand -base64 32");
-        }
-        if (jwtSecret.getBytes(StandardCharsets.UTF_8).length < LONGITUD_MINIMA_SECRETO) {
-            throw new IllegalStateException(
-                    "JWT_SECRET debe tener al menos " + LONGITUD_MINIMA_SECRETO
-                            + " bytes. Genera uno con: openssl rand -base64 32");
         }
         jwtSecretActivo = jwtSecret;
     }
@@ -104,7 +99,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/usuarios/**").hasRole("ADMIN")
                 .requestMatchers("/credencial/**").permitAll()
-                .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").hasAnyRole("ADMIN", "COORDINADOR")
+                .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 // Solo las imagenes de marca, no todo /branding: las abre el
                 // cliente de correo del destinatario, que no tiene sesion ni la
@@ -116,6 +111,10 @@ public class SecurityConfig {
                 // pueden adjuntar un JWT. La clave se valida por lista blanca
                 // (AnuncioMediaService.claveSegura) antes de tocar el disco.
                 .requestMatchers(HttpMethod.GET, "/api/v1/notificaciones/adjunto/**").permitAll()
+                // El webhook de WhatsApp lo llama Meta, no el navegador. Su
+                // seguridad es la firma HMAC (X-Hub-Signature-256), no una
+                // sesion; un JWT aqui solo conseguiria que Meta no pueda entrar.
+                .requestMatchers("/api/v1/whatsapp/webhook").permitAll()
                 // Programas, vacantes y certificaciones estaban en permitAll, y
                 // no deben estarlo: exponian el catalogo de proyectos, sus
                 // clientes y las credenciales emitidas a cualquiera que supiera

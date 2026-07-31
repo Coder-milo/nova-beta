@@ -26,15 +26,18 @@ public class NotificacionService {
     private final MatchRepository matchRepository;
     private final OwnershipService ownershipService;
     private final com.novacrm.estudiante.EstudianteRepository estudianteRepository;
+    private final com.novacrm.whatsapp.WhatsappAvisosService whatsappAvisosService;
 
     public NotificacionService(NotificacionRepository notificacionRepository,
                                MatchRepository matchRepository,
                                OwnershipService ownershipService,
-                               com.novacrm.estudiante.EstudianteRepository estudianteRepository) {
+                               com.novacrm.estudiante.EstudianteRepository estudianteRepository,
+                               com.novacrm.whatsapp.WhatsappAvisosService whatsappAvisosService) {
         this.notificacionRepository = notificacionRepository;
         this.matchRepository = matchRepository;
         this.ownershipService = ownershipService;
         this.estudianteRepository = estudianteRepository;
+        this.whatsappAvisosService = whatsappAvisosService;
     }
 
     /**
@@ -44,10 +47,13 @@ public class NotificacionService {
      * porque cada uno la marca como leida por separado; con un unico registro
      * compartido no habria forma de saber quien la vio.
      *
+     * @param porWhatsapp si ademas se avisa por WhatsApp; solo cuando el canal
+     *                    del programa esta activo y la plantilla aprobada
      * @return cuantos destinatarios recibieron el anuncio
      */
     @Transactional
-    public int publicarAnuncio(String titulo, String mensaje, UUID programaId, String mediaUrl, String mediaTipo) {
+    public int publicarAnuncio(String titulo, String mensaje, UUID programaId,
+                               String mediaUrl, String mediaTipo, boolean porWhatsapp) {
         var destinatarios = programaId == null
                 ? estudianteRepository.findAllByActivoTrue()
                 : estudianteRepository.findAllByProgramaIdAndActivoTrue(programaId);
@@ -68,6 +74,16 @@ public class NotificacionService {
         }).toList();
 
         notificacionRepository.saveAll(notificaciones);
+
+        // Opt-in por anuncio: el coordinador decide en cada publicacion si
+        // ademas del panel quiere llegar al celular de la gente.
+        if (porWhatsapp) {
+            for (var estudiante : destinatarios) {
+                whatsappAvisosService.avisarAnuncio(estudiante, titulo,
+                        com.novacrm.config.TextoPlano.deHtml(mensaje));
+            }
+        }
+
         return notificaciones.size();
     }
 
@@ -126,6 +142,10 @@ public class NotificacionService {
             match.setNotificado(true);
             matchRepository.save(match);
         }
+        // El aviso por WhatsApp (si el programa tiene canal) va con la misma
+        // decisión: el match ya es notificable, así que también se le avisa al
+        // celular con sus botones de sí/no.
+        whatsappAvisosService.avisarMatches(matches);
     }
 
     /** Registra en la bandeja del estudiante cada mensaje enviado por el equipo. */

@@ -47,6 +47,7 @@ import { PageSpinner } from '@/components/ui/page-spinner'
 import { Confirmar } from '@/components/ui/confirmar'
 import { PanelCuentasEstudiante } from '@/components/admin/panel-cuentas-estudiante'
 import { PanelBranding } from '@/components/admin/panel-branding'
+import { PanelWhatsapp } from '@/components/admin/panel-whatsapp'
 import { VistaPreviaCorreos } from '@/components/admin/vista-previa-correos'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -1209,6 +1210,10 @@ export default function ConfiguracionPage() {
           {/* Identidad de cada proyecto. Va antes que el tema claro/oscuro
               porque es lo que ve el cliente; el tema es preferencia personal. */}
           <PanelBranding />
+
+          {/* Canal de WhatsApp: comparte el mismo selector de proyecto que la
+              identidad; los avisos automáticos dependen de él. */}
+          <PanelWhatsapp />
 
           {/* Apariencia */}
           <Card className="rounded-2xl shadow-sm">
