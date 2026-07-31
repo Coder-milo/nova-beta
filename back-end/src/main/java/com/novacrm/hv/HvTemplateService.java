@@ -448,11 +448,65 @@ public class HvTemplateService {
 
     private void injectarFoto(StringBuilder html, String fotoBase64) {
         if (fotoBase64 != null && !fotoBase64.isBlank()) {
-            String fotoHtml = "<td style=\"width:75pt;padding:12pt 0 12pt 16pt;vertical-align:middle;text-align:center;\"><img src=\"data:image/jpeg;base64,"
-                    + fotoBase64 + "\" style=\"width:65pt;height:65pt;border-radius:50%;object-fit:cover;border:2pt solid #ffffff;\" alt=\"Foto\" /></td>";
+            String circularPngBase64 = convertirACirculoPngBase64(fotoBase64);
+            String srcData = circularPngBase64 != null ? "data:image/png;base64," + circularPngBase64 : "data:image/jpeg;base64," + fotoBase64;
+            String fotoHtml = "<td style=\"width:75pt;padding:12pt 0 12pt 16pt;vertical-align:middle;text-align:center;\"><img src=\""
+                    + srcData + "\" style=\"width:65pt;height:65pt;display:block;margin:0 auto;\" alt=\"Foto\" /></td>";
             reemplazar(html, "{{PHOTO_CONTAINER}}", fotoHtml);
         } else {
             reemplazar(html, "{{PHOTO_CONTAINER}}", "");
+        }
+    }
+
+    private String convertirACirculoPngBase64(String base64) {
+        try {
+            byte[] bytes = java.util.Base64.getDecoder().decode(base64);
+            java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(bytes);
+            java.awt.image.BufferedImage src = javax.imageio.ImageIO.read(bais);
+            if (src == null) return null;
+
+            // La foto se muestra a 65pt (~87px). Sin downscale, una foto de
+            // 6000x6000 creaba dos BufferedImage ARGB de ~144MB por request y
+            // la generacion masiva de 500 estudiantes podia agotar el heap.
+            final int MAX = 300;
+            if (src.getWidth() > MAX || src.getHeight() > MAX) {
+                double escala = Math.min((double) MAX / src.getWidth(), (double) MAX / src.getHeight());
+                int ancho = Math.max(1, (int) (src.getWidth() * escala));
+                int alto = Math.max(1, (int) (src.getHeight() * escala));
+                var reducida = new java.awt.image.BufferedImage(ancho, alto, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                var g0 = reducida.createGraphics();
+                g0.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g0.drawImage(src, 0, 0, ancho, alto, null);
+                g0.dispose();
+                src = reducida;
+            }
+
+            int size = Math.min(src.getWidth(), src.getHeight());
+            java.awt.image.BufferedImage circleImg = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            java.awt.Graphics2D g2 = circleImg.createGraphics();
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+
+            // Clip to circle
+            g2.setClip(new java.awt.geom.Ellipse2D.Float(0, 0, size, size));
+            int offsetX = (src.getWidth() - size) / 2;
+            int offsetY = (src.getHeight() - size) / 2;
+            g2.drawImage(src, -offsetX, -offsetY, null);
+            g2.setClip(null);
+
+            // Draw smooth white circular border ring
+            float strokeWidth = Math.max(4.0f, size / 25.0f);
+            g2.setStroke(new java.awt.BasicStroke(strokeWidth));
+            g2.setColor(java.awt.Color.WHITE);
+            g2.draw(new java.awt.geom.Ellipse2D.Float(strokeWidth / 2.0f, strokeWidth / 2.0f, size - strokeWidth, size - strokeWidth));
+
+            g2.dispose();
+
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(circleImg, "png", baos);
+            return java.util.Base64.getEncoder().encodeToString(baos.toByteArray());
+        } catch (Exception e) {
+            return null;
         }
     }
 

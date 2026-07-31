@@ -103,5 +103,3 @@ export function getNavItemsForRoles(roles?: string[], locale: Locale = 'es'): Na
       : item.title,
   }))
 }
-
-export const navItems: NavItem[] = navItemsAdmin

@@ -1,5 +1,6 @@
 package com.novacrm.config;
 
+import com.novacrm.estudiante.BorradoEstudiante;
 import com.novacrm.estudiante.EstudianteRepository;
 import com.novacrm.estudiante.Estudiante;
 import jakarta.persistence.EntityManager;
@@ -42,36 +43,7 @@ public class PurgeScheduler {
             return;
         }
 
-        entityManager.createQuery(
-                "DELETE FROM Credencial c WHERE c.estudianteCertificacion.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-        entityManager.createQuery(
-                "DELETE FROM Match m WHERE m.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-        entityManager.createQuery(
-                "DELETE FROM Notificacion n WHERE n.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-        entityManager.createQuery(
-                "DELETE FROM EstudianteHabilidad eh WHERE eh.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-        entityManager.createQuery(
-                "DELETE FROM EstudianteCertificacion ec WHERE ec.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-        entityManager.createQuery(
-                "DELETE FROM LinkedinConfiguracion lc WHERE lc.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        int eliminados = entityManager.createQuery(
-                "DELETE FROM Estudiante e WHERE e.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
+        int eliminados = BorradoEstudiante.borrarEnCadena(entityManager, ids);
         log.info("Purga semanal: {} estudiantes eliminados físicamente (más de 30 días en papelera)", eliminados);
     }
 }

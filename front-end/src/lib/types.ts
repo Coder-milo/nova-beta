@@ -11,15 +11,6 @@ export interface LoginRequest {
   password: string
 }
 
-export interface LoginResponse {
-  token: string
-  refreshToken: string
-  usuarioId: string
-  email: string
-  nombre: string
-  roles: string[]
-}
-
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
 /** GET /api/v1/dashboard/summary */
@@ -889,6 +880,42 @@ export interface BrandingResponse {
   correoPieAlto: number | null
   correoTextoPie: string | null
   medidasExigidas: MedidaExigida[]
+}
+
+// ─── Canal de WhatsApp por proyecto ──────────────────────────────────────────
+
+export interface WhatsappRequest {
+  numeroWhatsapp?: string | null
+  phoneId?: string | null
+  /** Solo viaja de ida: null = conservar el token guardado. */
+  token?: string | null
+  activo?: boolean | null
+}
+
+export interface WhatsappResponse {
+  programaId: string
+  programaNombre: string
+  /** false = el proyecto no tiene canal de WhatsApp. */
+  configurado: boolean
+  tokenConfigurado: boolean
+  numeroWhatsapp: string | null
+  phoneId: string | null
+  activo: boolean
+}
+
+export interface MensajeWhatsappResponse {
+  id: string
+  tipo: string
+  remitente: string
+  texto: string
+  /** Nombre del estudiante del remitente, o cadena vacía si no se identificó. */
+  estudiante: string
+  fecha: string
+}
+
+export interface ResultadoEnvio {
+  enviado: boolean
+  motivoFallo: string
 }
 
 export interface PipelineEmpleabilidadResponse {

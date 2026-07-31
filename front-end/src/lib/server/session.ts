@@ -162,15 +162,28 @@ export type FalloRenovacion = 'sin-refresh' | 'refresh-invalido' | 'temporal'
 
 export interface ResultadoRenovacion {
   token: string | null
+  refreshToken?: string
   fallo?: FalloRenovacion
 }
+
+/**
+ * Refrescos en vuelo, uno por refresh token.
+ *
+ * <p>Una pagina que carga con el access token vencido dispara varias llamadas
+ * al proxy a la vez, y cada una veia un 401 y llamaba a renovarSesion con el
+ * mismo refresh token. El backend rota el token en cada refresh: ganaba uno y
+ * los demas recibian 400, borraban la sesion que aquel acababa de renovar y el
+ * usuario salia expulsado al azar. Compartiendo la peticion de red, un solo
+ * refresh por token y todas las llamadas esperan el mismo resultado.
+ */
+const refrescosEnVuelo = new Map<string, Promise<ResultadoRenovacion>>()
 
 /**
  * Canjea el refresh token por uno nuevo.
  *
  * <p>Distingue dos fracasos que antes se trataban igual y no lo son:
  *
- * - **El refresh ya no vale** (401/403): la sesion se acabo, se borra.
+ * - **El refresh ya no vale** (400/401/403): la sesion se acabo, se borra.
  * - **Algo temporal** (429, 5xx, red caida): el refresh sigue siendo bueno.
  *   Borrar la sesion aqui era el nucleo del bucle: un 429 por rate limit
  *   destruia una sesion valida de siete dias, mandaba al usuario a /login, y
@@ -184,6 +197,28 @@ export async function renovarSesion(
   const refreshToken = cookies.get(REFRESH_COOKIE)?.value
   if (!refreshToken) return { token: null, fallo: 'sin-refresh' }
 
+  let enVuelo = refrescosEnVuelo.get(refreshToken)
+  if (!enVuelo) {
+    enVuelo = ejecutarRefresh(refreshToken, clientAddress)
+      .finally(() => refrescosEnVuelo.delete(refreshToken))
+    refrescosEnVuelo.set(refreshToken, enVuelo)
+  }
+
+  const resultado = await enVuelo
+  // Las cookies son por peticion: cada llamada aplica el resultado a las suyas.
+  if (resultado.fallo === 'refresh-invalido') {
+    borrarSesion(cookies)
+  } else if (resultado.token && resultado.refreshToken) {
+    guardarSesion(cookies, resultado.token, resultado.refreshToken)
+  }
+  return resultado
+}
+
+/** La llamada de red al backend, sin tocar cookies: la comparten varias peticiones. */
+async function ejecutarRefresh(
+  refreshToken: string,
+  clientAddress?: string,
+): Promise<ResultadoRenovacion> {
   let respuesta: Response
   try {
     respuesta = await fetch(new URL('/api/v1/auth/refresh', backendBase()), {
@@ -201,7 +236,6 @@ export async function renovarSesion(
   // como error temporal. Se incluyen 401 y 403 por si algun dia se corrige a un
   // codigo mas apropiado: la clasificacion seguiria siendo correcta.
   if (respuesta.status === 400 || respuesta.status === 401 || respuesta.status === 403) {
-    borrarSesion(cookies)
     return { token: null, fallo: 'refresh-invalido' }
   }
 
@@ -211,6 +245,5 @@ export async function renovarSesion(
   }
 
   const renovado = (await respuesta.json()) as RespuestaLogin
-  guardarSesion(cookies, renovado.token, renovado.refreshToken)
-  return { token: renovado.token }
+  return { token: renovado.token, refreshToken: renovado.refreshToken }
 }

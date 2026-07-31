@@ -38,21 +38,13 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { comunicacionesApi, ApiCallError } from '@/lib/api'
+import { Confirmar } from '@/components/ui/confirmar'
+import { comunicacionesApi } from '@/lib/api'
 import type { FilaPadron, Padron, ResumenAltaCuentas, ResultadoCuenta } from '@/lib/types'
+import { errorDe } from '@/lib/errores'
 
 type Alcance = 'todos' | 'seleccion'
 type Filtro = 'todos' | 'sin-cuenta' | 'con-cuenta'
-
-function errorDe(err: unknown): string {
-  if (err instanceof ApiCallError) {
-    if (err.status === 401 || err.status === 403) {
-      return 'Sin permisos. Inicia sesión como ADMIN o COORDINADOR.'
-    }
-    return err.body.message ?? `Error del servidor (HTTP ${err.status}).`
-  }
-  return 'No se pudo conectar con el servidor.'
-}
 
 /** Sin tildes ni mayúsculas, para que buscar "hector" encuentre "Héctor". */
 function normalizar(texto: string): string {
@@ -222,18 +214,9 @@ export function PanelCuentasEstudiante() {
 
   const destinatarios = alcance === 'todos' ? (padron?.total ?? 0) : seleccion.size
 
-  const ejecutar = async (simulacion: boolean) => {
-    // La confirmación solo estorba en la simulación, que no hace nada.
-    if (!simulacion) {
-      const a = alcance === 'todos' ? `los ${destinatarios} estudiantes activos` : `${destinatarios} estudiante${destinatarios === 1 ? '' : 's'}`
-      const conCorreo = enviarCorreo
-        ? '\n\nSe les enviará su enlace de activación por correo.'
-        : '\n\nNo se enviará ningún correo.'
-      if (!confirm(`Se van a crear las cuentas que falten para ${a}.${conCorreo}\n\n¿Continuar?`)) {
-        return
-      }
-    }
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
 
+  const ejecutar = async (simulacion: boolean) => {
     setProcesando(true)
     setError(null)
     setResumen(null)
@@ -475,7 +458,7 @@ export function PanelCuentasEstudiante() {
                   'Simular (no crea nada)'
                 )}
               </Button>
-              <Button onClick={() => ejecutar(false)} disabled={procesando || nadaQueHacer}>
+              <Button onClick={() => setShowConfirmModal(true)} disabled={procesando || nadaQueHacer}>
                 <Envelope className="size-4" />
                 {alcance === 'todos'
                   ? `Crear cuentas para los ${destinatarios}`
@@ -487,6 +470,29 @@ export function PanelCuentasEstudiante() {
                 </span>
               )}
             </div>
+
+            <Confirmar
+              open={showConfirmModal}
+              onOpenChange={setShowConfirmModal}
+              titulo="Crear cuentas de acceso"
+              descripcion={
+                <>
+                  Se van a crear las cuentas que falten para{' '}
+                  <strong>
+                    {alcance === 'todos'
+                      ? `los ${destinatarios} estudiantes activos`
+                      : `${destinatarios} estudiante${destinatarios === 1 ? '' : 's'}`}
+                  </strong>
+                  .
+                  {enviarCorreo
+                    ? ' Se les enviará su enlace de activación por correo.'
+                    : ' No se enviará ningún correo.'}
+                </>
+              }
+              textoConfirmar="Crear cuentas"
+              destructivo={false}
+              onConfirmar={() => ejecutar(false)}
+            />
           </>
         )}
 

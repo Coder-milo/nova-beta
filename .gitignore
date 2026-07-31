@@ -38,3 +38,9 @@ Thumbs.db
 .swarm/
 .agents/
 .marcador-tmp
+
+# Base vectorial local de ruflo: binario que cambia en cada ejecucion. No es
+# codigo, no debe versionarse.
+ruvector.db
+stash-dump.txt
+revisada

@@ -113,6 +113,15 @@ function cabeceraAuth(token?: string): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+/** Arma el query string omitiendo claves vacias o nulas. */
+function aQueryParams(p: Record<string, string | number | boolean | undefined | null>): string {
+  const sp = new URLSearchParams()
+  for (const [k, v] of Object.entries(p)) {
+    if (v !== undefined && v !== null && v !== '') sp.set(k, String(v))
+  }
+  return sp.toString()
+}
+
 /** Sube archivos como multipart/form-data (valores string o File). */
 async function apiUpload<T>(
   path: string,
@@ -146,11 +155,12 @@ async function apiUpload<T>(
 }
 
 /** Descarga un binario autenticado y dispara el guardado en el navegador. */
-export async function apiDownload(path: string, nombreArchivo: string, opciones?: { method?: string; data?: unknown }): Promise<void> {
+export async function apiDownload(path: string, nombreArchivo: string, opciones?: { method?: string; data?: unknown; token?: string }): Promise<void> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: opciones?.method ?? 'GET',
     headers: {
       ...(opciones?.data !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...cabeceraAuth(opciones?.token),
     },
     body: opciones?.data !== undefined ? JSON.stringify(opciones.data) : undefined,
     credentials: 'same-origin',
@@ -169,14 +179,17 @@ export async function apiDownload(path: string, nombreArchivo: string, opciones?
   document.body.appendChild(a)
   a.click()
   a.remove()
-  URL.revokeObjectURL(url)
+  // Sin el delay, algunos navegadores revocan antes de haber leido el blob y
+  // la descarga cae con error de red.
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 /** Obtiene un binario autenticado sin descargarlo (previsualizaciones, visor PDF). */
-export async function apiBlob(path: string): Promise<Blob> {
+export async function apiBlob(path: string, token?: string): Promise<Blob> {
   const res = await fetch(`${BASE_URL}${path}`, {
     credentials: 'same-origin',
     cache: 'no-store',
+    headers: cabeceraAuth(token),
   })
   if (!res.ok) {
     let body: ApiError = { status: res.status }
@@ -315,18 +328,8 @@ export const estudiantesApi = {
       data: { ids, permanente },
       token,
     }),
-  buscarAvanzado: (params: { q?: string; programaId?: string; ciudad?: string; estadoAcademico?: string; estadoEmpleabilidad?: string; page?: number; size?: number }, token?: string) => {
-    const sp = new URLSearchParams()
-    if (params.q) sp.set('q', params.q)
-    if (params.programaId) sp.set('programaId', params.programaId)
-    if (params.ciudad) sp.set('ciudad', params.ciudad)
-    if (params.estadoAcademico) sp.set('estadoAcademico', params.estadoAcademico)
-    if (params.estadoEmpleabilidad) sp.set('estadoEmpleabilidad', params.estadoEmpleabilidad)
-    sp.set('page', String(params.page ?? 0)); sp.set('size', String(params.size ?? 20))
-    return apiFetch<Page<EstudianteResponse>>(`/api/v1/estudiantes/buscar?${sp}`, { token })
-  },
-  vincularPrograma: (id: string, programaId: string, token?: string) =>
-    apiFetch<EstudianteResponse>(`/api/v1/estudiantes/${id}/programa`, { method: 'PATCH', data: { programaId }, token }),
+  buscarAvanzado: (params: { q?: string; programaId?: string; ciudad?: string; estadoAcademico?: string; estadoEmpleabilidad?: string; page?: number; size?: number }, token?: string) =>
+    apiFetch<Page<EstudianteResponse>>(`/api/v1/estudiantes/buscar?${aQueryParams({ ...params, page: params.page ?? 0, size: params.size ?? 20 })}`, { token }),
   subirFoto: (id: string, archivo: File, token?: string) =>
     apiUpload<EstudianteResponse>(`/api/v1/estudiantes/${id}/foto`, { archivo }, token),
   obtenerMiPerfil: (token?: string) =>
@@ -339,20 +342,12 @@ export const estudiantesApi = {
       data: { plantillaId },
       token,
     }),
-  subirMiFoto: (archivo: File, token?: string) =>
-    apiUpload<EstudianteResponse>('/api/v1/estudiantes/mi-perfil/foto', { archivo }, token),
   vistaPreviaMiHv: (idioma?: 'es' | 'en', plantillaId?: string) => {
-    const params = new URLSearchParams()
-    if (idioma) params.set('idioma', idioma)
-    if (plantillaId) params.set('plantillaId', plantillaId)
-    const qs = params.toString()
+    const qs = aQueryParams({ idioma, plantillaId })
     return apiBlob(`/api/v1/estudiantes/mi-perfil/hv-vista-previa${qs ? `?${qs}` : ''}`)
   },
   descargarMiHvPdf: (idioma?: 'es' | 'en', plantillaId?: string, nombreArchivo = 'Mi-Hoja-de-Vida-CAC.pdf') => {
-    const params = new URLSearchParams()
-    if (idioma) params.set('idioma', idioma)
-    if (plantillaId) params.set('plantillaId', plantillaId)
-    const qs = params.toString()
+    const qs = aQueryParams({ idioma, plantillaId })
     return apiDownload(`/api/v1/estudiantes/mi-perfil/hv-pdf${qs ? `?${qs}` : ''}`, nombreArchivo)
   },
 }
@@ -397,30 +392,9 @@ export const reportesApi = {
 }
 
 export const importarApi = {
-  /**
-   * Envía un archivo .xlsx al backend.
-   * Usa FormData (multipart/form-data); NO poner Content-Type manualmente.
-   */
-  importar: (archivo: File, programaId: string, token?: string): Promise<ImportarResponse> => {
-    const form = new FormData()
-    form.append('archivo', archivo)
-    form.append('programaId', programaId)
-
-    return fetch(`${BASE_URL}/api/v1/importar`, {
-      method: 'POST',
-      body: form,
-      headers: cabeceraAuth(token),
-      credentials: 'same-origin',
-      cache: 'no-store',
-    }).then(async (res) => {
-      if (!res.ok) {
-        let body: ApiError = { status: res.status }
-        try { body = await res.json() } catch { /* noop */ }
-        throw new ApiCallError(res.status, body)
-      }
-      return res.json()
-    })
-  },
+  /** Envía un archivo .xlsx al backend (multipart/form-data). */
+  importar: (archivo: File, programaId: string, token?: string): Promise<ImportarResponse> =>
+    apiUpload<ImportarResponse>(`/api/v1/importar?programaId=${programaId}`, { archivo }, token),
 }
 
 // ─── Importaciones: preview e historial ──────────────────────────────────────
@@ -476,19 +450,8 @@ export const matchesApi = {
     apiFetch<number>(`/api/v1/matches/pendientes?estudianteId=${estudianteId}`, { token }),
   marcarPostulado: (matchId: string, token?: string) =>
     apiFetch<void>(`/api/v1/matches/${matchId}/postular`, { method: 'PATCH', token }),
-  descartar: (matchId: string, token?: string) =>
-    apiFetch<void>(`/api/v1/matches/${matchId}`, { method: 'DELETE', token }),
   ejecutarMatching: (token?: string) =>
     apiFetch<{ matchesCreados: number }>('/api/v1/matches/ejecutar', { method: 'POST', token }),
-}
-
-// ─── Certificaciones ─────────────────────────────────────────────────────────
-
-import type { CertificacionResponse } from './types'
-
-export const certificacionesApi = {
-  listarPorPrograma: (programaId: string, token?: string) =>
-    apiFetch<CertificacionResponse[]>(`/api/v1/certificaciones?programaId=${programaId}`, { token }),
 }
 
 // ─── Notificaciones ──────────────────────────────────────────────────────────
@@ -505,8 +468,6 @@ export const notificacionesApi = {
     apiFetch<number>(`/api/v1/notificaciones/no-leidas?estudianteId=${estudianteId}`, { token }),
   marcarLeida: (id: string, token?: string) =>
     apiFetch<void>(`/api/v1/notificaciones/${id}/leer`, { method: 'PUT', token }),
-  marcarTodasLeidas: (estudianteId: string, token?: string) =>
-    apiFetch<void>(`/api/v1/notificaciones/marcar-todas-leidas?estudianteId=${estudianteId}`, { method: 'PUT', token }),
   eliminar: (id: string, token?: string) =>
     apiFetch<void>(`/api/v1/notificaciones/${id}`, { method: 'DELETE', token }),
 }
@@ -525,12 +486,6 @@ export const mensajesApi = {
         }, token)
       : apiFetch<MensajeResponse>('/api/v1/mensajes/mios', {
           method: 'POST', data: body, token,
-        }),
-  responder: (id: string, respuesta: string, archivos?: File[], token?: string) =>
-    archivos?.length
-      ? apiUpload<MensajeResponse>(`/api/v1/mensajes/${id}/respuesta`, { respuesta, archivos }, token, 'PUT')
-      : apiFetch<MensajeResponse>(`/api/v1/mensajes/${id}/respuesta`, {
-          method: 'PUT', data: { respuesta }, token,
         }),
   enviarAEstudiante: (estudianteId: string, respuesta: string, archivos?: File[], token?: string) =>
     archivos?.length
@@ -587,38 +542,17 @@ export const adminApi = {
 import type { DocumentoResponse } from './types'
 
 export const documentosApi = {
-  buscar: (params: { estudianteId?: string; programaId?: string; soloAdministrativos?: boolean; tipo?: string; q?: string; page?: number; size?: number }, token?: string) => {
-    const sp = new URLSearchParams()
-    if (params.estudianteId) sp.set('estudianteId', params.estudianteId)
-    if (params.programaId) sp.set('programaId', params.programaId)
-    if (params.soloAdministrativos) sp.set('soloAdministrativos', 'true')
-    if (params.tipo) sp.set('tipo', params.tipo)
-    if (params.q) sp.set('q', params.q)
-    sp.set('page', String(params.page ?? 0)); sp.set('size', String(params.size ?? 20))
-    return apiFetch<Page<DocumentoResponse>>(`/api/v1/documentos?${sp}`, { token })
-  },
+  buscar: (params: { estudianteId?: string; programaId?: string; soloAdministrativos?: boolean; tipo?: string; q?: string; page?: number; size?: number }, token?: string) =>
+    apiFetch<Page<DocumentoResponse>>(`/api/v1/documentos?${aQueryParams({ ...params, page: params.page ?? 0, size: params.size ?? 20 })}`, { token }),
   tipos: (token?: string) => apiFetch<string[]>('/api/v1/documentos/tipos', { token }),
-  mios: (params: { tipo?: string; q?: string; page?: number; size?: number } = {}, token?: string) => {
-    const sp = new URLSearchParams()
-    if (params.tipo) sp.set('tipo', params.tipo)
-    if (params.q) sp.set('q', params.q)
-    sp.set('page', String(params.page ?? 0)); sp.set('size', String(params.size ?? 20))
-    return apiFetch<Page<DocumentoResponse>>(`/api/v1/documentos/mios?${sp}`, { token })
-  },
+  mios: (params: { tipo?: string; q?: string; page?: number; size?: number } = {}, token?: string) =>
+    apiFetch<Page<DocumentoResponse>>(`/api/v1/documentos/mios?${aQueryParams({ ...params, page: params.page ?? 0, size: params.size ?? 20 })}`, { token }),
   versiones: (id: string, token?: string) =>
     apiFetch<DocumentoResponse[]>(`/api/v1/documentos/${id}/versiones`, { token }),
-  subir: (archivo: File, params: { estudianteId?: string; programaId?: string; tipo?: string }, token?: string) => {
-    const sp = new URLSearchParams()
-    if (params.estudianteId) sp.set('estudianteId', params.estudianteId)
-    if (params.programaId) sp.set('programaId', params.programaId)
-    if (params.tipo) sp.set('tipo', params.tipo)
-    return apiUpload<DocumentoResponse>(`/api/v1/documentos?${sp}`, { archivo }, token)
-  },
-  subirMio: (archivo: File, tipo?: string, token?: string) => {
-    const sp = new URLSearchParams()
-    if (tipo) sp.set('tipo', tipo)
-    return apiUpload<DocumentoResponse>(`/api/v1/documentos/mios?${sp}`, { archivo }, token)
-  },
+  subir: (archivo: File, params: { estudianteId?: string; programaId?: string; tipo?: string }, token?: string) =>
+    apiUpload<DocumentoResponse>(`/api/v1/documentos?${aQueryParams(params)}`, { archivo }, token),
+  subirMio: (archivo: File, tipo?: string, token?: string) =>
+    apiUpload<DocumentoResponse>(`/api/v1/documentos/mios?${aQueryParams({ tipo })}`, { archivo }, token),
   descargar: (id: string, nombre: string) =>
     apiDownload(`/api/v1/documentos/${id}/descargar`, nombre),
   descargarMio: (id: string, nombre: string) =>
@@ -653,12 +587,8 @@ export const hvApi = {
    * Hoja de vida de un estudiante tal como saldría hoy, sin registrar una
    * versión. Es lo que se enseña antes de generar o descargar.
    */
-  vistaPreviaEstudiante: (estudianteId: string, opciones?: { plantillaId?: string; idioma?: 'es' | 'en' }) => {
-    const params = new URLSearchParams()
-    if (opciones?.plantillaId) params.set('plantillaId', opciones.plantillaId)
-    params.set('idioma', opciones?.idioma ?? 'es')
-    return apiBlob(`/api/v1/hojas-de-vida/vista-previa/${estudianteId}?${params}`)
-  },
+  vistaPreviaEstudiante: (estudianteId: string, opciones?: { plantillaId?: string; idioma?: 'es' | 'en' }) =>
+    apiBlob(`/api/v1/hojas-de-vida/vista-previa/${estudianteId}?${aQueryParams({ ...opciones, idioma: opciones?.idioma ?? 'es' })}`),
   generar: (estudianteId: string, opciones?: GenerarHvOpcionesRequest, token?: string) =>
     apiFetch<HojaDeVidaResponse>(
       `/api/v1/hojas-de-vida/generar/${estudianteId}`,
@@ -734,16 +664,12 @@ export const seguimientosApi = {
 import type { EmpresaRequest, EmpresaResponse, EstadoRelacionEmpresa } from './types'
 
 export const empresasApi = {
-  buscar: (params: { texto?: string; sector?: string; estado?: EstadoRelacionEmpresa; page?: number; size?: number } = {}) => {
-    const sp = new URLSearchParams()
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') sp.set(k, String(v)) })
-    return apiFetch<Page<EmpresaResponse>>(`/api/v1/empresas?${sp}`)
-  },
+  buscar: (params: { texto?: string; sector?: string; estado?: EstadoRelacionEmpresa; page?: number; size?: number } = {}) =>
+    apiFetch<Page<EmpresaResponse>>(`/api/v1/empresas?${aQueryParams(params)}`),
   crear: (data: EmpresaRequest) => apiFetch<EmpresaResponse>('/api/v1/empresas', { method: 'POST', data }),
   actualizar: (id: string, data: EmpresaRequest) => apiFetch<EmpresaResponse>(`/api/v1/empresas/${id}`, { method: 'PUT', data }),
   resumen: () => apiFetch<{ total: number; sinContactar: number; contactadas: number; enConversacion: number; aliadas: number; descartadas: number }>('/api/v1/empresas/resumen'),
   sectores: () => apiFetch<string[]>('/api/v1/empresas/sectores'),
-  estadosRelacion: () => apiFetch<Array<{ valor: EstadoRelacionEmpresa; etiqueta: string; viva: boolean }>>('/api/v1/empresas/estados-relacion'),
   obtener: (id: string, token?: string) => apiFetch<EmpresaResponse>(`/api/v1/empresas/${id}`, { token }),
   eliminar: (id: string, token?: string) => apiFetch<void>(`/api/v1/empresas/${id}`, { method: 'DELETE', token }),
   registrarContacto: (id: string, data: { estado?: EstadoRelacionEmpresa; proximoPaso?: string; nota?: string }) =>
@@ -784,17 +710,8 @@ export const actividadesApi = {
 import type { AuditoriaResponse } from './types'
 
 export const auditoriaApi = {
-  buscar: (params: { usuario?: string; modulo?: string; accion?: string; registroId?: string; page?: number; size?: number }, token?: string) => {
-    const sp = new URLSearchParams()
-    if (params.usuario) sp.set('usuario', params.usuario)
-    if (params.modulo) sp.set('modulo', params.modulo)
-    if (params.accion) sp.set('accion', params.accion)
-    if (params.registroId) sp.set('registroId', params.registroId)
-    sp.set('page', String(params.page ?? 0)); sp.set('size', String(params.size ?? 20))
-    return apiFetch<Page<AuditoriaResponse>>(`/api/v1/auditoria?${sp}`, { token })
-  },
-  obtener: (id: string, token?: string) =>
-    apiFetch<AuditoriaResponse>(`/api/v1/auditoria/${id}`, { token }),
+  buscar: (params: { usuario?: string; modulo?: string; accion?: string; registroId?: string; page?: number; size?: number }, token?: string) =>
+    apiFetch<Page<AuditoriaResponse>>(`/api/v1/auditoria?${aQueryParams({ ...params, page: params.page ?? 0, size: params.size ?? 20 })}`, { token }),
 }
 
 
@@ -913,11 +830,41 @@ export const brandingApi = {
 import type {
   ColocacionRequest,
   ColocacionResponse,
+  MensajeWhatsappResponse,
   PipelineEmpleabilidadResponse,
   PostulacionResponse,
   ResumenColocaciones,
   ResumenPostulaciones,
+  ResultadoEnvio,
+  WhatsappRequest,
+  WhatsappResponse,
 } from './types'
+
+export const whatsappApi = {
+  /** El canal del programa del propio usuario. Lo usa el portal del estudiante. */
+  mio: (token?: string) => apiFetch<WhatsappResponse>('/api/v1/whatsapp/mio', { token }),
+
+  consultar: (programaId: string, token?: string) =>
+    apiFetch<WhatsappResponse>(`/api/v1/whatsapp/${programaId}`, { token }),
+
+  guardar: (programaId: string, body: WhatsappRequest, token?: string) =>
+    apiFetch<WhatsappResponse>(`/api/v1/whatsapp/${programaId}`, {
+      method: 'PUT',
+      data: body,
+      token,
+    }),
+
+  /** Mensaje de texto al propio número del negocio; única prueba sin plantilla. */
+  probar: (programaId: string, token?: string) =>
+    apiFetch<ResultadoEnvio>(`/api/v1/whatsapp/${programaId}/probar`, {
+      method: 'POST',
+      token,
+    }),
+
+  /** Bandeja del programa, de más nueva a más vieja. */
+  bandeja: (programaId: string, token?: string) =>
+    apiFetch<MensajeWhatsappResponse[]>(`/api/v1/whatsapp/${programaId}/mensajes`, { token }),
+}
 
 export const pipelineApi = {
   mio: (token?: string) =>

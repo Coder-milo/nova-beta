@@ -38,6 +38,7 @@ import type {
   PreparacionEstudianteRequest, EstadoHito, EstudianteRequest,
 } from '@/lib/types'
 import { Textarea } from '@/components/ui/textarea'
+import { errorDe } from '@/lib/errores'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -74,14 +75,6 @@ function estadoHito(valor: string | null | undefined) {
   if (valor === 'SI') return { texto: 'Completado', clase: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700' }
   if (valor === 'EN_PROCESO') return { texto: 'En proceso', clase: 'border-amber-500/25 bg-amber-500/10 text-amber-700' }
   return { texto: 'Pendiente', clase: 'border-border bg-muted/50 text-muted-foreground' }
-}
-
-function errorDe(err: unknown, fallback: string): string {
-  if (err instanceof ApiCallError) {
-    if (err.status === 401 || err.status === 403) return 'Sin permisos para esta acción.'
-    return err.body.message ?? `${fallback} (HTTP ${err.status}).`
-  }
-  return 'No se pudo conectar con el backend.'
 }
 
 function DetailField({ label, value }: { label: string; value: string | number | null | undefined }) {

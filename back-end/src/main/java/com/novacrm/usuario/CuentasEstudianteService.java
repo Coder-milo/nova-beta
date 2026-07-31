@@ -53,6 +53,7 @@ public class CuentasEstudianteService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final BrandingService brandingService;
+    private final com.novacrm.whatsapp.WhatsappAvisosService whatsappAvisosService;
     /** La salvaguarda vive en un componente propio: es la unica cosa que
      *  separa una prueba de un envio a 108 personas reales, y dos copias de
      *  esa comprobacion son dos sitios donde puede quedar mal. */
@@ -73,12 +74,14 @@ public class CuentasEstudianteService {
                                     PasswordEncoder passwordEncoder,
                                     EmailService emailService,
                                     BrandingService brandingService,
+                                    com.novacrm.whatsapp.WhatsappAvisosService whatsappAvisosService,
                                     DestinatariosPermitidos destinatarios) {
         this.estudianteRepository = estudianteRepository;
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
         this.brandingService = brandingService;
+        this.whatsappAvisosService = whatsappAvisosService;
         this.destinatarios = destinatarios;
     }
 
@@ -277,6 +280,12 @@ public class CuentasEstudianteService {
         var envio = emailService.enviar(email,
                 "Activa tu acceso al panel - Cuando sabes ingles se nota",
                 correoDeActivacion(nombre, email, token, marcaPara(estudiante)));
+
+        // El aviso por WhatsApp es complementario y no se comparte con el
+        // correo: el enlace ya existe, y si el canal del programa está activo,
+        // el estudiante lo recibe donde sí lo va a abrir.
+        whatsappAvisosService.avisarActivacion(estudiante, nombre,
+                frontendUrl + "/recuperar-contrasena?token=" + token);
 
         if (envio.enviado()) {
             return new ResultadoCuenta(estudiante.getId(), nombre, email, estado,

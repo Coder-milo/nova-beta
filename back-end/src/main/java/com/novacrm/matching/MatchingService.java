@@ -117,18 +117,27 @@ public class MatchingService {
         if (postulacionRepository.findByEstudianteIdAndVacanteId(estudianteId, vacante.getId()).isPresent()) {
             return;
         }
-        postulacionService.crear(estudianteId,
-                new com.novacrm.postulacion.dto.PostulacionDtos.CrearPostulacion(
-                        estudianteId,
-                        vacante.getId(),
-                        vacante.getEmpresa() != null ? vacante.getEmpresa().getNombre() : "Sin registrar",
-                        vacante.getTitulo(),
-                        vacante.getFuente(),
-                        java.time.LocalDate.now(),
-                        com.novacrm.postulacion.EstadoPostulacion.ENVIADA,
-                        vacante.getUrlAplicar() != null ? vacante.getUrlAplicar() : vacante.getUrlOrigen(),
-                        null),
-                autor, loHaceElEstudiante);
+        try {
+            postulacionService.crear(estudianteId,
+                    new com.novacrm.postulacion.dto.PostulacionDtos.CrearPostulacion(
+                            estudianteId,
+                            vacante.getId(),
+                            vacante.getEmpresa() != null ? vacante.getEmpresa().getNombre() : "Sin registrar",
+                            vacante.getTitulo(),
+                            vacante.getFuente(),
+                            java.time.LocalDate.now(),
+                            com.novacrm.postulacion.EstadoPostulacion.ENVIADA,
+                            vacante.getUrlAplicar() != null ? vacante.getUrlAplicar() : vacante.getUrlOrigen(),
+                            null),
+                    autor, loHaceElEstudiante);
+        } catch (com.novacrm.exception.BusinessException e) {
+            // Carrera entre dos clics sobre el mismo match: el perdedor llega a
+            // crear() con el duplicado ya guardado. El match queda marcado y la
+            // postulacion la creo el ganador, asi que este intento es no-op.
+            if (postulacionRepository.findByEstudianteIdAndVacanteId(estudianteId, vacante.getId()).isEmpty()) {
+                throw e;
+            }
+        }
     }
 
     @Transactional
@@ -165,7 +174,14 @@ public class MatchingService {
                         match.setEstudiante(e);
                         match.setVacante(v);
                         match.setPuntaje(puntaje);
-                        matchRepository.save(match);
+                        try {
+                            matchRepository.save(match);
+                        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+                            // Dos ejecuciones del scheduler en paralelo: el
+                            // otro hilo ya creo el par y el unique lo rechaza.
+                            // Es un no-op, no un fallo.
+                            continue;
+                        }
                         matchesNuevos.add(match);
                     }
                 }

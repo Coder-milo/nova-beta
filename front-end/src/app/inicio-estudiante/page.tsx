@@ -11,6 +11,7 @@ import {
   Sparkle,
   UserCheck,
   WarningCircle,
+  WhatsappLogo,
 } from '@phosphor-icons/react'
 import Link from '@/compat/next-link'
 import {
@@ -19,6 +20,7 @@ import {
   matchesApi,
   notificacionesApi,
   seguimientosApi,
+  whatsappApi,
 } from '@/lib/api'
 import type { EstudianteResponse, SeguimientoResponse } from '@/lib/types'
 import { useBranding } from '@/lib/branding'
@@ -33,6 +35,7 @@ export default function InicioEstudiantePage() {
   const [documentos, setDocumentos] = useState(0)
   const [seguimientos, setSeguimientos] = useState<SeguimientoResponse[]>([])
   const [noLeidas, setNoLeidas] = useState(0)
+  const [whatsapp, setWhatsapp] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -40,11 +43,12 @@ export default function InicioEstudiantePage() {
     void (async () => {
       try {
         const p = await estudiantesApi.obtenerMiPerfil()
-        const [matches, proceso, misDocumentos, notificaciones] = await Promise.allSettled([
+        const [matches, proceso, misDocumentos, notificaciones, canal] = await Promise.allSettled([
           matchesApi.obtenerMisMatches(0, 100),
           seguimientosApi.mio(),
           documentosApi.mios({ size: 1 }),
           notificacionesApi.contarNoLeidas(p.id),
+          whatsappApi.mio(),
         ])
         if (!active) return
         setPerfil(p)
@@ -55,6 +59,14 @@ export default function InicioEstudiantePage() {
         if (proceso.status === 'fulfilled') setSeguimientos(proceso.value)
         if (misDocumentos.status === 'fulfilled') setDocumentos(misDocumentos.value.totalElements)
         if (notificaciones.status === 'fulfilled') setNoLeidas(notificaciones.value)
+        if (
+          canal.status === 'fulfilled' &&
+          canal.value.configurado &&
+          canal.value.activo &&
+          canal.value.numeroWhatsapp
+        ) {
+          setWhatsapp(canal.value.numeroWhatsapp)
+        }
       } finally {
         if (active) setLoading(false)
       }
@@ -106,6 +118,19 @@ export default function InicioEstudiantePage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 pb-8">
+      {whatsapp && (
+        <a
+          href={`https://wa.me/${whatsapp}`}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Escribir por WhatsApp"
+          title="Escríbenos por WhatsApp"
+          className="fixed bottom-6 right-6 z-40 flex size-14 items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-110"
+          style={{ backgroundColor: '#25D366' }}
+        >
+          <WhatsappLogo className="size-7" weight="fill" />
+        </a>
+      )}
       <section className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
         {bannerUrl && (
           <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />

@@ -74,7 +74,10 @@ function claseDe(estado: EstadoPostulacion | string): string {
   return ESTADOS.find((e) => e.valor === estado)?.clase ?? 'bg-muted text-muted-foreground'
 }
 
-const hoy = () => new Date().toISOString().slice(0, 10)
+const hoy = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 // ── Formulario: anotar una postulación ──────────────────────────────────────
 

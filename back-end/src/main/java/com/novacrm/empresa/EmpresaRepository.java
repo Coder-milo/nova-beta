@@ -12,9 +12,13 @@ import java.util.UUID;
 
 public interface EmpresaRepository extends JpaRepository<Empresa, UUID> {
 
-    Optional<Empresa> findByNombre(String nombre);
+    /** Solo activas: una empresa eliminada (soft) no puede reengancharse ni
+     *  bloquear el nombre, y una vacante no puede colgar de ella. */
+    @Query("SELECT e FROM Empresa e WHERE LOWER(e.nombre) = LOWER(:nombre) AND e.activo = true")
+    Optional<Empresa> findByNombreIgnoreCaseActiva(@Param("nombre") String nombre);
 
-    Optional<Empresa> findByNombreIgnoreCase(String nombre);
+    @Query("SELECT e FROM Empresa e WHERE e.id = :id AND e.activo = true")
+    Optional<Empresa> findActivaById(@Param("id") UUID id);
 
     List<Empresa> findByEstadoRelacion(EstadoRelacion estadoRelacion);
 

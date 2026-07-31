@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { dashboardApi, reportesApi, ApiCallError } from '@/lib/api'
 import { descargarCsv } from '@/lib/csv'
+import { hoyLocal } from '@/lib/utils'
 import type { DashboardSummaryResponse, DashboardChartsResponse, PuntoDato } from '@/lib/types'
 
 function MetricCard({ label, value, icon: Icon, color }: { label: string; value: string | number; icon: typeof Users; color: string }) {
@@ -81,7 +82,7 @@ export default function ReportesPage() {
   // Excel espera en español; con comas y sin BOM, cada fila caía entera en la
   // columna A y los acentos salían rotos.
   const exportCSV = (rows: PuntoDato[], filename: string) => {
-    const fecha = new Date().toISOString().slice(0, 10)
+    const fecha = hoyLocal()
     descargarCsv(
       `${filename}-${fecha}.csv`,
       ['Categoría', 'Cantidad', 'Porcentaje'],

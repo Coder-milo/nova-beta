@@ -8,6 +8,7 @@ import {
   CalendarBlank,
   ChatCircle,
   CircleNotch,
+  FileText,
   Globe,
   Info,
   Moon,
@@ -334,7 +335,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                     className="contenido-anuncio mt-1 text-sm text-muted-foreground"
                     dangerouslySetInnerHTML={{ __html: n.mensaje ?? '' }}
                   />
-                  {n.mediaUrl && (n.mediaTipo === 'IMAGE' ? <img src={n.mediaUrl} alt={`Material de ${n.titulo}`} className="mt-3 max-h-72 w-full rounded-lg border border-border object-cover" /> : n.mediaTipo === 'VIDEO' ? <video src={n.mediaUrl} controls className="mt-3 max-h-72 w-full rounded-lg border border-border" /> : <a href={n.mediaUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm font-medium text-primary hover:underline">{n.mediaTipo === 'FILE' ? 'Descargar el documento adjunto' : 'Abrir información del anuncio'}</a>)}
+                  <MediaNotificacion mediaUrl={n.mediaUrl ?? undefined} mediaTipo={n.mediaTipo ?? undefined} titulo={n.titulo} />
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     <p className="text-xs text-muted-foreground">
                       {new Date(n.createdAt).toLocaleString('es-CO')}
@@ -477,10 +478,20 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
   )
 }
 
+// La fecha del dia local en YYYY-MM-DD. toISOString() devuelve el dia en UTC:
+// entre medianoche y el amanecer local, la fecha saltaba al dia anterior y el
+// calendario y los filtros de "proximas actividades" se descuadraban.
+function fechaLocalYyyyMmDd(d: Date): string {
+  const anio = d.getFullYear()
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${anio}-${mes}-${dia}`
+}
+
 function CalendarioEstudiante({ actividades }: { actividades: ActividadResponse[] }) {
   const hoy = new Date()
   const [mes, setMes] = useState(() => new Date(hoy.getFullYear(), hoy.getMonth(), 1))
-  const [diaSeleccionado, setDiaSeleccionado] = useState(() => hoy.toISOString().slice(0, 10))
+  const [diaSeleccionado, setDiaSeleccionado] = useState(() => fechaLocalYyyyMmDd(hoy))
   const anio = mes.getFullYear()
   const indiceMes = mes.getMonth()
   const primerDia = (new Date(anio, indiceMes, 1).getDay() + 6) % 7
@@ -488,13 +499,13 @@ function CalendarioEstudiante({ actividades }: { actividades: ActividadResponse[
   const etiquetaMes = new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' }).format(mes)
   const eventosDia = actividades.filter((actividad) => actividad.fecha === diaSeleccionado)
   const eventosProximos = actividades
-    .filter((actividad) => actividad.fecha >= hoy.toISOString().slice(0, 10))
+    .filter((actividad) => actividad.fecha >= fechaLocalYyyyMmDd(hoy))
     .slice(0, 6)
 
   const cambiarMes = (delta: number) => {
     const siguiente = new Date(anio, indiceMes + delta, 1)
     setMes(siguiente)
-    setDiaSeleccionado(siguiente.toISOString().slice(0, 10))
+    setDiaSeleccionado(fechaLocalYyyyMmDd(siguiente))
   }
 
   return (
@@ -514,7 +525,7 @@ function CalendarioEstudiante({ actividades }: { actividades: ActividadResponse[
               const fecha = `${anio}-${String(indiceMes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
               const hayEventos = actividades.some((actividad) => actividad.fecha === fecha)
               const esSeleccionado = fecha === diaSeleccionado
-              const esHoy = fecha === hoy.toISOString().slice(0, 10)
+              const esHoy = fecha === fechaLocalYyyyMmDd(hoy)
               return <button key={fecha} type="button" onClick={() => setDiaSeleccionado(fecha)} className={`relative aspect-square rounded-xl text-sm transition-colors ${esSeleccionado ? 'bg-primary font-semibold text-primary-foreground' : esHoy ? 'border border-primary text-primary' : 'hover:bg-secondary'}`}><span>{dia}</span>{hayEventos && <span className={`absolute bottom-1 left-1/2 size-1.5 -translate-x-1/2 rounded-full ${esSeleccionado ? 'bg-primary-foreground' : 'bg-primary'}`} />}</button>
             })}
           </div>
@@ -523,6 +534,66 @@ function CalendarioEstudiante({ actividades }: { actividades: ActividadResponse[
       <Card className="shadow-none"><CardHeader><CardTitle className="text-base">{new Date(`${diaSeleccionado}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}</CardTitle><CardDescription>{eventosDia.length ? `${eventosDia.length} evento${eventosDia.length === 1 ? '' : 's'} programado${eventosDia.length === 1 ? '' : 's'}` : 'No hay eventos para esta fecha.'}</CardDescription></CardHeader><CardContent className="space-y-3">{eventosDia.length ? eventosDia.map((actividad) => <div key={actividad.id} className="rounded-xl border border-border p-3"><p className="font-semibold">{actividad.nombre}</p><p className="mt-1 text-xs text-muted-foreground">{actividad.hora ? `${actividad.hora} · ` : ''}{actividad.categoria}{actividad.responsable ? ` · ${actividad.responsable}` : ''}</p>{actividad.descripcion && <p className="mt-2 text-sm text-muted-foreground">{actividad.descripcion}</p>}</div>) : <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground"><CalendarBlank className="mx-auto mb-2 size-5" />Selecciona otro día para consultar los eventos.</div>}</CardContent></Card>
       <Card className="shadow-none xl:col-span-2"><CardHeader><CardTitle className="text-base">Próximos eventos</CardTitle></CardHeader><CardContent>{eventosProximos.length ? <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">{eventosProximos.map((actividad) => <button key={actividad.id} type="button" onClick={() => { const [year, month] = actividad.fecha.split('-').map(Number); setMes(new Date(year, month - 1, 1)); setDiaSeleccionado(actividad.fecha) }} className="rounded-xl border border-border p-3 text-left hover:border-primary/40 hover:bg-primary/[0.03]"><p className="font-semibold">{actividad.nombre}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(`${actividad.fecha}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}{actividad.hora ? ` · ${actividad.hora}` : ''}</p></button>)}</div> : <p className="text-sm text-muted-foreground">El equipo aún no ha programado eventos para tu proyecto.</p>}</CardContent></Card>
     </div>
+  )
+}
+
+function MediaNotificacion({
+  mediaUrl,
+  mediaTipo,
+  titulo,
+}: {
+  mediaUrl?: string
+  mediaTipo?: string
+  titulo: string
+}) {
+  const [errorImagen, setErrorImagen] = useState(false)
+
+  if (!mediaUrl || mediaUrl.trim() === '') return null
+
+  if (mediaTipo === 'IMAGE') {
+    if (errorImagen) {
+      return (
+        <a
+          href={mediaUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/30 px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-secondary/60"
+        >
+          <FileText className="size-4" />
+          Ver imagen del anuncio
+        </a>
+      )
+    }
+    return (
+      <img
+        src={mediaUrl}
+        alt={`Material de ${titulo}`}
+        onError={() => setErrorImagen(true)}
+        className="mt-3 max-h-72 w-full rounded-lg border border-border object-cover"
+      />
+    )
+  }
+
+  if (mediaTipo === 'VIDEO') {
+    return (
+      <video
+        src={mediaUrl}
+        controls
+        className="mt-3 max-h-72 w-full rounded-lg border border-border"
+      />
+    )
+  }
+
+  return (
+    <a
+      href={mediaUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/30 px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-secondary/60"
+    >
+      <FileText className="size-4" />
+      {mediaTipo === 'FILE' ? 'Descargar documento adjunto' : 'Abrir enlace del anuncio'}
+    </a>
   )
 }
 

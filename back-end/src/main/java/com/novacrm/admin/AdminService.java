@@ -1,5 +1,6 @@
 package com.novacrm.admin;
 
+import com.novacrm.estudiante.BorradoEstudiante;
 import com.novacrm.estudiante.EstudianteRepository;
 import com.novacrm.exception.BusinessException;
 import com.novacrm.programa.ProgramaRepository;
@@ -49,47 +50,7 @@ public class AdminService {
 
         if (ids.isEmpty()) return 0;
 
-        entityManager.createQuery(
-                "DELETE FROM Credencial c WHERE c.id IN (SELECT ec.id FROM EstudianteCertificacion ec WHERE ec.estudiante.id IN :ids)")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        entityManager.createQuery(
-                "DELETE FROM Match m WHERE m.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        entityManager.createQuery(
-                "DELETE FROM Notificacion n WHERE n.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        entityManager.createQuery(
-                "DELETE FROM EstudianteHabilidad eh WHERE eh.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        entityManager.createQuery(
-                "DELETE FROM EstudianteCertificacion ec WHERE ec.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        List<UUID> lcIds = entityManager.createQuery(
-                "SELECT lc.id FROM LinkedinConfiguracion lc WHERE lc.id IN :ids", UUID.class)
-                .setParameter("ids", ids)
-                .getResultList();
-        if (!lcIds.isEmpty()) {
-            entityManager.createQuery("DELETE FROM LinkedinConfiguracion lc WHERE lc.id IN :lcIds")
-                    .setParameter("lcIds", lcIds)
-                    .executeUpdate();
-        }
-
-        int eliminados = entityManager.createQuery(
-                "DELETE FROM Estudiante e WHERE e.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        return eliminados;
+        return BorradoEstudiante.borrarEnCadena(entityManager, ids);
     }
 
     @Transactional

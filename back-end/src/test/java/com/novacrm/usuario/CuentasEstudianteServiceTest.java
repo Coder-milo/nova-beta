@@ -51,13 +51,15 @@ class CuentasEstudianteServiceTest {
         brandingService = mock(com.novacrm.branding.BrandingService.class);
         when(brandingService.paraCorreo(any())).thenReturn(Optional.empty());
 
+        com.novacrm.whatsapp.WhatsappAvisosService whatsappAvisos = mock(com.novacrm.whatsapp.WhatsappAvisosService.class);
+
         // La lista de permitidos se inyecta ya construida: es un componente
         // real y no un mock, porque lo que se prueba aqui es justamente que
         // bloquee. Un mock la dejaria diciendo que si a todo.
         permitidos = new com.novacrm.config.DestinatariosPermitidos("");
         servicio = new CuentasEstudianteService(
                 estudianteRepository, usuarioRepository, encoder, emailService,
-                brandingService, permitidos);
+                brandingService, whatsappAvisos, permitidos);
 
         ReflectionTestUtils.setField(servicio, "frontendUrl", "http://localhost:3000");
         ReflectionTestUtils.setField(servicio, "logoUrl", "");

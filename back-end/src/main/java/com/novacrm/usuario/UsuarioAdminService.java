@@ -1,6 +1,7 @@
 package com.novacrm.usuario;
 
 import com.novacrm.auth.Usuario;
+import com.novacrm.auth.UsuarioRepository;
 import com.novacrm.exception.BusinessException;
 import com.novacrm.exception.ResourceNotFoundException;
 import com.novacrm.usuario.dto.UsuarioRequest;
@@ -20,24 +21,24 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class UsuarioAdminService {
 
-    private final UsuarioAdminRepository usuarioAdminRepository;
+    private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UsuarioAdminService(UsuarioAdminRepository usuarioAdminRepository,
+    public UsuarioAdminService(UsuarioRepository usuarioRepository,
                                PasswordEncoder passwordEncoder) {
-        this.usuarioAdminRepository = usuarioAdminRepository;
+        this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
     public List<UsuarioResponse> listar() {
-        return usuarioAdminRepository.findAll().stream()
+        return usuarioRepository.findAll().stream()
             .map(this::toResponse)
             .collect(Collectors.toList());
     }
 
     @Transactional
     public UsuarioResponse crear(UsuarioRequest request) {
-        if (usuarioAdminRepository.existsByEmail(request.email())) {
+        if (usuarioRepository.existsByEmail(request.email())) {
             throw new BusinessException("Ya existe un usuario con el email: " + request.email());
         }
         Usuario usuario = new Usuario();
@@ -46,7 +47,7 @@ public class UsuarioAdminService {
         usuario.setPassword(passwordEncoder.encode(request.password()));
         usuario.setRoles(request.roles());
         usuario.setActivo(true);
-        return toResponse(usuarioAdminRepository.save(usuario));
+        return toResponse(usuarioRepository.save(usuario));
     }
 
     @Transactional
@@ -64,7 +65,7 @@ public class UsuarioAdminService {
         if (request.password() != null && !request.password().isBlank()) {
             usuario.setPassword(passwordEncoder.encode(request.password()));
         }
-        return toResponse(usuarioAdminRepository.save(usuario));
+        return toResponse(usuarioRepository.save(usuario));
     }
 
     @Transactional
@@ -75,11 +76,11 @@ public class UsuarioAdminService {
             throw new BusinessException("No puedes desactivar tu propio usuario");
         }
         usuario.setActivo(false);
-        usuarioAdminRepository.save(usuario);
+        usuarioRepository.save(usuario);
     }
 
     private Usuario obtenerPorId(UUID id) {
-        return usuarioAdminRepository.findById(id)
+        return usuarioRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado: " + id));
     }
 

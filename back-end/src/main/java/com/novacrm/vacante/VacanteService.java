@@ -129,9 +129,9 @@ public class VacanteService {
         var vacante = buscar(id);
 
         vacante.setTitulo(primeroNoVacio(request.titulo(), vacante.getTitulo(), "Oferta sin titulo"));
-        vacante.setDescripcion(request.descripcion());
+        if (request.descripcion() != null) vacante.setDescripcion(request.descripcion());
         aplicarDatos(vacante, request);
-        vacante.setFechaExpiracion(request.fechaExpiracion());
+        if (request.fechaExpiracion() != null) vacante.setFechaExpiracion(request.fechaExpiracion());
 
         String url = vacio(request.url()) ? null : request.url().trim();
         if (url != null && !url.equals(vacante.getUrlOrigen())) {
@@ -151,17 +151,22 @@ public class VacanteService {
         return toResponse(vacanteRepository.save(vacante));
     }
 
-    /** Campos que se copian igual al crear y al editar. */
+    /**
+     * Campos que se copian igual al crear y al editar.
+     *
+     * <p>En edicion los nulos no se tocan: un PUT parcial no debe pisar el
+     * resto de la oferta. En creacion da igual, el campo nace nulo.
+     */
     private void aplicarDatos(Vacante vacante, VacanteRequest request) {
-        vacante.setRequisitos(request.requisitos());
-        vacante.setUbicacion(request.ubicacion());
-        vacante.setCiudad(request.ciudad());
-        vacante.setRangoSalarial(request.rangoSalarial());
-        vacante.setTipoContrato(request.tipoContrato());
-        vacante.setJornada(request.jornada());
-        vacante.setModalidadTrabajo(request.modalidadTrabajo());
-        vacante.setNivelInglesRequerido(request.nivelInglesRequerido());
-        vacante.setAniosExperienciaRequeridos(request.aniosExperienciaRequeridos());
+        if (request.requisitos() != null) vacante.setRequisitos(request.requisitos());
+        if (request.ubicacion() != null) vacante.setUbicacion(request.ubicacion());
+        if (request.ciudad() != null) vacante.setCiudad(request.ciudad());
+        if (request.rangoSalarial() != null) vacante.setRangoSalarial(request.rangoSalarial());
+        if (request.tipoContrato() != null) vacante.setTipoContrato(request.tipoContrato());
+        if (request.jornada() != null) vacante.setJornada(request.jornada());
+        if (request.modalidadTrabajo() != null) vacante.setModalidadTrabajo(request.modalidadTrabajo());
+        if (request.nivelInglesRequerido() != null) vacante.setNivelInglesRequerido(request.nivelInglesRequerido());
+        if (request.aniosExperienciaRequeridos() != null) vacante.setAniosExperienciaRequeridos(request.aniosExperienciaRequeridos());
     }
 
     private static boolean vacio(String valor) {
@@ -238,7 +243,9 @@ public class VacanteService {
     }
 
     private Empresa empresaOCrear(String nombre) {
-        return empresaRepository.findByNombre(nombre).orElseGet(() -> {
+        // Solo empresas activas: una empresa borrada no debe resucitar
+        // silenciosamente al registrar una vacante con su nombre.
+        return empresaRepository.findByNombreIgnoreCaseActiva(nombre).orElseGet(() -> {
             var empresa = new Empresa();
             empresa.setNombre(nombre);
             return empresaRepository.save(empresa);

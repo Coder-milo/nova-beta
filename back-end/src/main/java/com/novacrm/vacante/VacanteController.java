@@ -70,6 +70,10 @@ public class VacanteController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Obtener vacante por ID")
+    // Solo el equipo: devuelve tambien cerradas, con motivo de cierre interno y
+    // quien la registro (email del coordinador). El estudiante ve las vigentes
+    // por el listado, que ya filtra.
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public VacanteResponse obtener(@PathVariable UUID id) {
         return vacanteService.obtener(id);
     }

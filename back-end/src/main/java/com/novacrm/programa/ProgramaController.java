@@ -27,6 +27,9 @@ public class ProgramaController {
 
     @GetMapping
     @Operation(summary = "Listar programas activos (con filtros opcionales)")
+    // Solo el equipo: el listado lleva cliente, responsable y metricas de
+    // todas las cohortes. El estudiante ve su programa por su propia ficha.
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public List<ProgramaResponse> listar(@RequestParam(required = false) String q,
                                          @RequestParam(required = false) ProgramaEstado estado,
                                          @RequestParam(required = false) String cliente,
@@ -39,12 +42,14 @@ public class ProgramaController {
 
     @GetMapping("/{id}/resumen")
     @Operation(summary = "Indicadores del proyecto (detalle)")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public ProgramaResumenResponse resumen(@PathVariable UUID id) {
         return programaService.resumen(id);
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Obtener programa por ID")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public ProgramaResponse obtener(@PathVariable UUID id) {
         return programaService.obtener(id);
     }
@@ -68,6 +73,9 @@ public class ProgramaController {
     @Operation(summary = "Cambiar estado del programa")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public ProgramaResponse cambiarEstado(@PathVariable UUID id, @RequestBody CambioEstadoRequest request) {
+        if (request == null || request.estado() == null) {
+            throw new com.novacrm.exception.BusinessException("Indica el estado del programa");
+        }
         return programaService.cambiarEstado(id, request.estado());
     }
 

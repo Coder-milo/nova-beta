@@ -17,7 +17,11 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    # Fijado a RELEASE.2024-12-18T13-15-44Z: latest deslizaba y rompia la
+    # firma de URLs presignadas entre actualizaciones. Subir version solo
+    # cuando se haya validado la nueva.
+    # 2025-10-15 corrige CVE-2025-31489 (fuga de datos con ACLs legadas).
+    image: minio/minio:RELEASE.2025-10-15T17-29-55Z
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -71,11 +75,14 @@ services:
       CORREO_LOGO_URL: ${CORREO_LOGO_URL:-}
       CORREO_BANNER_PIE_URL: ${CORREO_BANNER_PIE_URL:-}
       CORREO_DESTINATARIOS_PERMITIDOS: ${CORREO_DESTINATARIOS_PERMITIDOS:-}
-      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
-      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET}
-      LINKEDIN_REDIRECT_URI: ${LINKEDIN_REDIRECT_URI:-https://api.novacrm.com/api/v1/linkedin/callback}
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
 volumes:
   pgdata:

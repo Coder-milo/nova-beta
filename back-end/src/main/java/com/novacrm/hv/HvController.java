@@ -1,5 +1,6 @@
 package com.novacrm.hv;
 
+import com.novacrm.auth.OwnershipService;
 import com.novacrm.hv.dto.*;
 import com.novacrm.hv.dto.AnalisisCompletitudResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -9,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,11 +25,14 @@ public class HvController {
     private final HvService hvService;
     private final ExtraccionHvService extraccionService;
     private final HvPdfService pdfService;
+    private final OwnershipService ownershipService;
 
-    public HvController(HvService hvService, ExtraccionHvService extraccionService, HvPdfService pdfService) {
+    public HvController(HvService hvService, ExtraccionHvService extraccionService,
+                        HvPdfService pdfService, OwnershipService ownershipService) {
         this.hvService = hvService;
         this.extraccionService = extraccionService;
         this.pdfService = pdfService;
+        this.ownershipService = ownershipService;
     }
 
     // ── Plantillas ───────────────────────────────────────────────────────────
@@ -82,7 +87,9 @@ public class HvController {
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public HojaDeVidaResponse generar(@PathVariable UUID estudianteId,
                                       @RequestParam(required = false) UUID plantillaId,
-                                      @RequestBody(required = false) GenerarHvOpcionesRequest request) {
+                                      @RequestBody(required = false) GenerarHvOpcionesRequest request,
+                                      Authentication auth) {
+        ownershipService.verificarAccesoEstudiante(auth, estudianteId);
         if (request != null) {
             UUID pid = request.plantillaId() != null ? request.plantillaId() : plantillaId;
             var reqFinal = new GenerarHvOpcionesRequest(pid, request.idioma(), request.seccionesExcluidas(), request.camposExcluidos());
@@ -103,7 +110,8 @@ public class HvController {
     @GetMapping("/estudiante/{estudianteId}")
     @Operation(summary = "Versiones de la hoja de vida de un estudiante")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
-    public List<HojaDeVidaResponse> deEstudiante(@PathVariable UUID estudianteId) {
+    public List<HojaDeVidaResponse> deEstudiante(@PathVariable UUID estudianteId, Authentication auth) {
+        ownershipService.verificarAccesoEstudiante(auth, estudianteId);
         return hvService.versionesDeEstudiante(estudianteId);
     }
 
@@ -112,7 +120,9 @@ public class HvController {
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public ResponseEntity<byte[]> vistaPreviaEstudiante(@PathVariable UUID estudianteId,
                                                         @RequestParam(required = false) UUID plantillaId,
-                                                        @RequestParam(required = false, defaultValue = "es") String idioma) {
+                                                        @RequestParam(required = false, defaultValue = "es") String idioma,
+                                                        Authentication auth) {
+        ownershipService.verificarAccesoEstudiante(auth, estudianteId);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"vista-previa-hv.pdf\"")
                 .contentType(MediaType.APPLICATION_PDF)
@@ -123,8 +133,9 @@ public class HvController {
     @GetMapping("/{id}/pdf")
     @Operation(summary = "Descargar el PDF de una hoja de vida")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
-    public ResponseEntity<byte[]> pdf(@PathVariable UUID id) {
+    public ResponseEntity<byte[]> pdf(@PathVariable UUID id, Authentication auth) {
         var hv = hvService.obtener(id);
+        ownershipService.verificarAccesoEstudiante(auth, hv.getEstudiante().getId());
         String nombre = "HV-" + hv.getEstudiante().getNombre() + "-" + hv.getEstudiante().getApellido()
                 + "-v" + hv.getNumeroVersion() + ".pdf";
         return ResponseEntity.ok()
@@ -137,7 +148,9 @@ public class HvController {
     @PatchMapping("/{id}/actual")
     @Operation(summary = "Marcar una versión como la vigente")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
-    public HojaDeVidaResponse marcarActual(@PathVariable UUID id) {
+    public HojaDeVidaResponse marcarActual(@PathVariable UUID id, Authentication auth) {
+        var hv = hvService.obtener(id);
+        ownershipService.verificarAccesoEstudiante(auth, hv.getEstudiante().getId());
         return hvService.marcarActual(id);
     }
 
@@ -145,7 +158,9 @@ public class HvController {
     @Operation(summary = "Eliminar una versión de hoja de vida")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
-    public void eliminar(@PathVariable UUID id) {
+    public void eliminar(@PathVariable UUID id, Authentication auth) {
+        var hv = hvService.obtener(id);
+        ownershipService.verificarAccesoEstudiante(auth, hv.getEstudiante().getId());
         hvService.eliminarHojaDeVida(id);
     }
 
@@ -164,7 +179,8 @@ public class HvController {
     @GetMapping("/analizar/{estudianteId}")
     @Operation(summary = "Analizar completitud del perfil para la plantilla CAC ATS")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
-    public AnalisisCompletitudResponse analizar(@PathVariable UUID estudianteId) {
+    public AnalisisCompletitudResponse analizar(@PathVariable UUID estudianteId, Authentication auth) {
+        ownershipService.verificarAccesoEstudiante(auth, estudianteId);
         return hvService.analizarCompletitud(estudianteId);
     }
 

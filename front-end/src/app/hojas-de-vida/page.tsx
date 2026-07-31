@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { VistaPreviaPdf } from '@/components/ui/vista-previa-pdf'
-import { hvApi, programasApi, estudiantesApi, perfilApi, ApiCallError } from '@/lib/api'
+import { hvApi, programasApi, estudiantesApi, perfilApi } from '@/lib/api'
 import type {
   ProgramaResponse, PlantillaResponse, GeneracionMasivaResponse,
   CampoExtraido, EstudianteRequest, EstudianteResponse,
@@ -19,6 +19,7 @@ import type {
   DatosHvDto, ExperienciaDto, FormacionDto,
 } from '@/lib/types'
 import { Textarea } from '@/components/ui/textarea'
+import { errorDe } from '@/lib/errores'
 
 type TabId = 'generacion' | 'plantillas' | 'extraccion' | 'edicion'
 
@@ -93,14 +94,6 @@ const ETIQUETAS_CAMPOS_ES: Record<string, string> = {
   SKILLS: 'Habilidades Técnicas y Herramientas',
   Languages: 'Idiomas y Niveles',
   LANGUAGES: 'Idiomas y Niveles',
-}
-
-function errorDe(err: unknown, fallback: string): string {
-  if (err instanceof ApiCallError) {
-    if (err.status === 401 || err.status === 403) return 'Sin permisos para esta acción.'
-    return err.body.message ?? `${fallback} (HTTP ${err.status}).`
-  }
-  return 'No se pudo conectar con el backend.'
 }
 
 export default function HojasDeVidaPage() {

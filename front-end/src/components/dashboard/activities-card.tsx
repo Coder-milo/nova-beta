@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { actividadesApi, programasApi, ApiCallError } from '@/lib/api'
+import { hoyLocal } from '@/lib/utils'
 import type { ActividadRequest, ActividadResponse, ProgramaResponse } from '@/lib/types'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -108,7 +109,7 @@ export function ActivitiesCard() {
     setEditingId(null)
     setForm({
       ...emptyForm,
-      fecha: new Date().toISOString().slice(0, 10),
+  fecha: hoyLocal(),
     })
     setError(null)
     setOpen(true)

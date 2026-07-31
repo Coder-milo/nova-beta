@@ -53,7 +53,7 @@ public class EmpresaService {
 
     @Transactional(readOnly = true)
     public EmpresaResponse obtener(UUID id) {
-        return aResponse(empresaRepository.findById(id)
+        return aResponse(empresaRepository.findActivaById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada")));
     }
 
@@ -64,7 +64,7 @@ public class EmpresaService {
 
     @Transactional
     public EmpresaResponse crear(GuardarEmpresa datos) {
-        empresaRepository.findByNombreIgnoreCase(datos.nombre().trim()).ifPresent(e -> {
+        empresaRepository.findByNombreIgnoreCaseActiva(datos.nombre().trim()).ifPresent(e -> {
             throw new BusinessException("Ya existe una empresa con ese nombre: " + e.getNombre());
         });
         var empresa = new Empresa();
@@ -88,11 +88,11 @@ public class EmpresaService {
 
     @Transactional
     public EmpresaResponse actualizar(UUID id, GuardarEmpresa datos) {
-        var empresa = empresaRepository.findById(id)
+        var empresa = empresaRepository.findActivaById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada"));
         String nombreNuevo = datos.nombre().trim();
         if (!empresa.getNombre().equalsIgnoreCase(nombreNuevo)) {
-            empresaRepository.findByNombreIgnoreCase(nombreNuevo).ifPresent(otra -> {
+            empresaRepository.findByNombreIgnoreCaseActiva(nombreNuevo).ifPresent(otra -> {
                 throw new BusinessException("Ya existe otra empresa con ese nombre");
             });
             empresa.setNombre(nombreNuevo);
@@ -103,9 +103,12 @@ public class EmpresaService {
 
     @Transactional
     public void eliminar(UUID id) {
-        var empresa = empresaRepository.findById(id)
+        var empresa = empresaRepository.findActivaById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada"));
-        empresaRepository.delete(empresa);
+        // Soft-delete: vacantes y contactos la referencian con FK RESTRICT, y
+        // borrarla de verdad rompia la operacion con un 500 si tenia historial.
+        empresa.setActivo(false);
+        empresaRepository.save(empresa);
         auditoriaService.registrar("Empresas", "Eliminación", "Empresa",
                 id.toString(), empresa.getNombre(), null, null);
     }
@@ -119,7 +122,7 @@ public class EmpresaService {
      */
     @Transactional
     public EmpresaResponse registrarContacto(UUID id, EstadoRelacion nuevoEstado, String proximoPaso, String nota) {
-        var empresa = empresaRepository.findById(id)
+        var empresa = empresaRepository.findActivaById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada"));
         empresa.registrarContacto(
                 nuevoEstado == null ? EstadoRelacion.CONTACTADA : nuevoEstado, LocalDate.now());

@@ -18,6 +18,25 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     List<Estudiante> findAllByProgramaIdAndActivoTrue(UUID programaId);
     Optional<Estudiante> findByEmail(String email);
     Optional<Estudiante> findByNumeroDocumento(String numeroDocumento);
+
+    /**
+     * El estudiante activo cuyo celular coincide con los dígitos dados,
+     * ignorando espacios, guiones, puntos y el indicativo que falte o sobre.
+     * Los celulares de la base se cargaron a mano y en varios formatos, y el
+     * remitente llega de Meta siempre en E.164: dos "mismos" números pueden
+     * ser "57 300 123 4567" y "+573001234567".
+     *
+     * <p>Busca por dígitos exactos primero y por versión sin el 57 inicial
+     * después (ver {@link com.novacrm.whatsapp.WhatsappWebhookService}).
+     */
+    @Query(value = """
+            SELECT * FROM estudiante e
+            WHERE e.activo = true
+              AND e.celular IS NOT NULL
+              AND regexp_replace(e.celular, '\\D', '', 'g') = :digitos
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<Estudiante> findByCelularLimpio(@Param("digitos") String digitos);
     long countByProgramaIdAndActivoTrue(UUID programaId);
 
     // --- Dashboard: KPIs y variaciones temporales ---
@@ -74,6 +93,11 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     @Modifying
     @Query("UPDATE Estudiante e SET e.activo = false, e.deletedAt = CURRENT_TIMESTAMP WHERE e.programa.id = :programaId AND e.activo = true")
     int softDeleteByProgramaId(@Param("programaId") UUID programaId);
+
+    /** Al borrar una plantilla: nadie queda apuntando a ella como preferida. */
+    @Modifying
+    @Query("UPDATE Estudiante e SET e.plantillaPreferida = null WHERE e.plantillaPreferida.id = :plantillaId")
+    int desvincularPlantillaPreferida(@Param("plantillaId") UUID plantillaId);
 
     interface ConteoPorProgramaProjection {
         UUID getProgramaId();

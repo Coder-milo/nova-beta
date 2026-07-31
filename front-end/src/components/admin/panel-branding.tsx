@@ -39,10 +39,12 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { brandingApi, programasApi, ApiCallError } from '@/lib/api'
+import { Confirmar } from '@/components/ui/confirmar'
+import { brandingApi, programasApi } from '@/lib/api'
 import { paletaDesde, textoSobre } from '@/lib/paleta'
 import { notificarIdentidadActualizada } from '@/lib/branding'
 import type { BrandingResponse, MedidaExigida, ProgramaResponse } from '@/lib/types'
+import { errorDe } from '@/lib/errores'
 
 /** Colores de arranque. Ahorran abrir el selector para lo más habitual. */
 const SUGERENCIAS = [
@@ -60,23 +62,6 @@ const MEDIDAS_POR_DEFECTO: MedidaExigida[] = [
   { clave: 'correoHeader', etiqueta: 'Cabecera del correo', ancho: 1200, alto: 400, anchoVista: 600, porque: 'Se muestra en los correos enviados.' },
   { clave: 'correoPie', etiqueta: 'Pie del correo', ancho: 1200, alto: 300, anchoVista: 600, porque: 'Cierra los correos del proyecto.' },
 ]
-
-function errorDe(err: unknown): string {
-  if (err instanceof ApiCallError) {
-    if (err.status === 401 || err.status === 403) {
-      return 'Sin permisos. Solo ADMIN o COORDINADOR pueden editar la identidad de un proyecto.'
-    }
-    const msg = err.body?.message ?? (typeof err.body === 'string' ? err.body : null)
-    return msg ?? `Error del servidor (HTTP ${err.status}).`
-  }
-  if (err instanceof Error && err.message) {
-    if (err.message.includes('Failed to fetch')) {
-      return 'No se pudo conectar con el servidor. Verifica que el backend Java (Spring Boot) esté iniciado.'
-    }
-    return err.message
-  }
-  return 'No se pudo guardar la identidad. Comprueba la conexión o la imagen cargada.'
-}
 
 function dataUrlABlob(dataUrl: string): Blob {
   const arr = dataUrl.split(',')
@@ -276,9 +261,9 @@ function CampoImagen({
   )
 }
 
-export function PanelBranding() {
+export function PanelBranding({ programaIdInicial }: { programaIdInicial?: string } = {}) {
   const [programas, setProgramas] = useState<ProgramaResponse[]>([])
-  const [programaId, setProgramaId] = useState('')
+  const [programaId, setProgramaId] = useState(programaIdInicial ?? '')
   const [branding, setBranding] = useState<BrandingResponse | null>(null)
 
   const [color, setColor] = useState('')
@@ -297,10 +282,10 @@ export function PanelBranding() {
       .listar()
       .then((lista) => {
         setProgramas(lista)
-        if (lista.length > 0) setProgramaId((actual) => actual || lista[0].id)
+        if (lista.length > 0) setProgramaId((actual) => actual || programaIdInicial || lista[0].id)
       })
       .catch(() => setProgramas([]))
-  }, [])
+  }, [programaIdInicial])
 
   const cargar = useCallback(async (id: string) => {
     if (!id) return
@@ -497,11 +482,10 @@ export function PanelBranding() {
     }
   }
 
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false)
+
   const volverAGamaGlobal = async () => {
     if (!programaId) return
-    if (!confirm('El proyecto volverá a usar la gama de colores global del panel. ¿Continuar?')) {
-      return
-    }
     setGuardando(true)
     try {
       await brandingApi.restablecer(programaId)
@@ -811,7 +795,7 @@ export function PanelBranding() {
                 Guardar y publicar identidad
               </Button>
               {branding.personalizado && (
-                <Button variant="outline" onClick={volverAGamaGlobal} disabled={guardando}>
+                <Button variant="outline" onClick={() => setShowResetConfirmModal(true)} disabled={guardando}>
                   Volver a la gama global
                 </Button>
               )}
@@ -821,6 +805,16 @@ export function PanelBranding() {
                 </span>
               )}
             </div>
+
+            <Confirmar
+              open={showResetConfirmModal}
+              onOpenChange={setShowResetConfirmModal}
+              titulo="Restablecer gama global"
+              descripcion="El proyecto volverá a usar la gama de colores global del panel en lugar de una personalizada."
+              textoConfirmar="Restablecer"
+              destructivo={true}
+              onConfirmar={volverAGamaGlobal}
+            />
           </>
         )}
       </CardContent>

@@ -424,46 +424,6 @@ public class EstudianteService {
 
     @Transactional
     public void hardDeleteMasivo(List<UUID> ids) {
-        if (ids == null || ids.isEmpty()) return;
-
-        entityManager.createQuery(
-                "DELETE FROM Credencial c WHERE c.id IN (SELECT ec.id FROM EstudianteCertificacion ec WHERE ec.estudiante.id IN :ids)")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        entityManager.createQuery(
-                "DELETE FROM Match m WHERE m.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        entityManager.createQuery(
-                "DELETE FROM Notificacion n WHERE n.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        entityManager.createQuery(
-                "DELETE FROM EstudianteHabilidad eh WHERE eh.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        entityManager.createQuery(
-                "DELETE FROM EstudianteCertificacion ec WHERE ec.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        List<UUID> lcIds = entityManager.createQuery(
-                "SELECT lc.id FROM LinkedinConfiguracion lc WHERE lc.id IN :ids", UUID.class)
-                .setParameter("ids", ids)
-                .getResultList();
-        if (!lcIds.isEmpty()) {
-            entityManager.createQuery("DELETE FROM LinkedinConfiguracion lc WHERE lc.id IN :lcIds")
-                    .setParameter("lcIds", lcIds)
-                    .executeUpdate();
-        }
-
-        entityManager.createQuery(
-                "DELETE FROM Estudiante e WHERE e.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
+        BorradoEstudiante.borrarEnCadena(entityManager, ids);
     }
 }

@@ -85,7 +85,9 @@ public class NotificacionController {
             throw new com.novacrm.exception.BusinessException("El mensaje es obligatorio");
         }
         int destinatarios = notificacionService.publicarAnuncio(
-                request.titulo(), mensaje, request.programaId(), mediaUrl, normalizarTipoMedia(request.mediaTipo(), mediaUrl));
+                request.titulo(), mensaje, request.programaId(), mediaUrl,
+                normalizarTipoMedia(request.mediaTipo(), mediaUrl),
+                Boolean.TRUE.equals(request.porWhatsapp()));
         return java.util.Map.of(
                 "destinatarios", destinatarios,
                 "mensaje", destinatarios == 0
@@ -156,7 +158,10 @@ public class NotificacionController {
             String mediaUrl,
 
             @jakarta.validation.constraints.Size(max = 20)
-            String mediaTipo) {}
+            String mediaTipo,
+
+            /** Avisar también por WhatsApp; requiere canal activo y plantilla aprobada. */
+            Boolean porWhatsapp) {}
 
     private String urlSegura(String url) {
         if (url == null || url.isBlank()) return null;

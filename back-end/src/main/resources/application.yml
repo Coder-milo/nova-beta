@@ -19,6 +19,9 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+    # El historial de esta base ya vio migraciones reordenadas; V19 es
+    # idempotente, asi que ejecutarla fuera de orden es seguro.
+    out-of-order: true
   servlet:
     multipart:
       max-file-size: 50MB
@@ -58,13 +61,15 @@ logging:
 
 app:
   jwt:
-    # Sin valor por defecto a proposito: la app no debe arrancar nunca con un
-    # secreto conocido. SecurityConfig valida y falla con un mensaje accionable.
+    # Sin fallback conocido a proposito: un despliegue sin JWT_SECRET debe
+    # fallar al arrancar (SecurityConfig), no firmar tokens con una clave
+    # publicada. En desarrollo local: JWT_ALLOW_EPHEMERAL=true.
     secret: ${JWT_SECRET:${NOVA_JWT_SECRET:}}
+    allow-ephemeral-secret: ${JWT_ALLOW_EPHEMERAL:false}
     expiration-ms: 28800000
     refresh-expiration-ms: 604800000
   cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:4200,http://localhost:3000}
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
   rate-limit:
     login-max: 5
     login-window-minutes: 1
@@ -111,10 +116,6 @@ app:
     # salvaguarda para probar el envio sin escribir a los 107 participantes.
     # Vaciarla habilita el envio real a todos.
     destinatarios-permitidos: ${CORREO_DESTINATARIOS_PERMITIDOS:}
-  linkedin:
-    client-id: ${LINKEDIN_CLIENT_ID:}
-    client-secret: ${LINKEDIN_CLIENT_SECRET:}
-    redirect-uri: ${LINKEDIN_REDIRECT_URI:}
 
 springdoc:
   swagger-ui:

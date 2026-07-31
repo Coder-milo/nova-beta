@@ -26,9 +26,12 @@ function aplicarCabecerasDeSeguridad(response: Response): Response {
   response.headers.set('X-Frame-Options', 'SAMEORIGIN')
   response.headers.set('X-XSS-Protection', '1; mode=block')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  
+  // En desarrollo (y produccion con bundle React/Astro) permitimos unsafe-inline y unsafe-eval
+  // para que Vite HMR, Astro e hidratación de React funcionen correctamente sin bloquear scripts.
   response.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; frame-src 'self' data: blob:; worker-src 'self' blob:; object-src 'self' data: blob:; connect-src 'self' ws: wss: https:; frame-ancestors 'self';",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; frame-src 'self' data: blob:; worker-src 'self' blob:; object-src 'self' data: blob:; connect-src 'self' ws: wss: http: https:; frame-ancestors 'self';",
   )
   return response
 }

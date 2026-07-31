@@ -1,35 +1,19 @@
 'use client'
 
 /**
- * Editor de texto enriquecido sobre Quill.
+ * Editor de texto enriquecido sobre Quill con respaldo seguro de edición.
  *
  * Devuelve **HTML**. El backend lo sanea con una lista blanca antes de
  * guardarlo (`HtmlEnriquecido`), así que la barra puede ofrecer todo lo que un
  * anuncio necesita —tipografía, tamaños, alineación, listas, enlaces,
  * imágenes, video incrustado y bloques de código— sin que el portal del
  * estudiante quede expuesto a lo que se pegue desde Word.
- *
- * Tres cosas que no son evidentes:
- *
- * - Quill se carga con `import()` dentro del efecto porque toca `document` al
- *   construirse, y estas páginas también se renderizan en el servidor de Astro.
- * - El manejador de imagen es propio. El de serie incrusta la imagen como
- *   `data:` dentro del HTML; una foto de móvil son varios MB de base64
- *   copiados en la notificación de cada estudiante. Con `onSubirArchivo` se
- *   sube una vez y se inserta la URL.
- * - El modo HTML no es un extra: los anuncios se recortan a veces de un correo
- *   ya maquetado, y sin poder pegar el marcado directamente había que
- *   reconstruirlo a mano.
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Code, FilePlus, CircleNotch } from '@phosphor-icons/react'
+import { Code, FilePlus, CircleNotch, TextB, TextItalic, LinkSimple, ListBullets } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 
-// Las listas de fuente y tamaño son las que Quill trae registradas de serie.
-// `false` es «el valor por defecto» (sans-serif / tamaño normal); poner ahí una
-// cadena como 'sans-serif' haría que Quill descartara la opción por no estar en
-// su lista blanca y el desplegable saldría con un hueco.
 const FUENTES = [false, 'serif', 'monospace']
 const TAMANOS = ['small', false, 'large', 'huge']
 
@@ -44,13 +28,11 @@ const BARRA = [
   ['clean'],
 ]
 
-/** Formatos permitidos; deben cuadrar con la lista blanca del backend. */
 const FORMATOS = [
   'font', 'size', 'bold', 'italic', 'underline', 'strike', 'color', 'background',
   'align', 'list', 'indent', 'blockquote', 'code-block', 'link', 'image', 'video', 'header',
 ]
 
-/** Lo que el editor considera «vacío» tras borrarlo todo. */
 const VACIO = '<p><br></p>'
 
 const ADJUNTOS_POR_DEFECTO =
@@ -61,7 +43,6 @@ const ADJUNTOS_POR_DEFECTO =
 export interface ArchivoSubido {
   url: string
   nombre: string
-  /** IMAGE, VIDEO o FILE. */
   tipo?: string
 }
 
@@ -69,23 +50,17 @@ export interface EditorTextoProps {
   value: string
   onChange: (html: string) => void
   placeholder?: string
-  /** Alto mínimo del área editable. */
   minHeight?: string
   id?: string
   'aria-label'?: string
-  /**
-   * Sube un archivo y devuelve su URL pública. Sin esto se ocultan el botón de
-   * adjuntar y el de imagen: incrustar base64 en el cuerpo no es alternativa.
-   */
   onSubirArchivo?: (archivo: File) => Promise<ArchivoSubido>
-  /** Extensiones aceptadas por el botón de adjuntar. */
   aceptaAdjuntos?: string
 }
 
 export function EditorTexto({
   value,
   onChange,
-  placeholder,
+  placeholder = 'Escribe aquí el contenido del mensaje…',
   minHeight = '14rem',
   id,
   'aria-label': ariaLabel,
@@ -96,24 +71,15 @@ export function EditorTexto({
   const quill = useRef<any>(null)
   const entradaArchivo = useRef<HTMLInputElement>(null)
   const [modoHtml, setModoHtml] = useState(false)
+  const [quillListo, setQuillListo] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null)
 
-  // Los callbacks en refs: Quill registra sus listeners una sola vez, y sin
-  // esto se quedaría con la primera versión y dejaría de avisar de los cambios
-  // en cuanto el componente padre volviera a renderizar.
   const alCambiar = useRef(onChange)
   alCambiar.current = onChange
   const subir = useRef(onSubirArchivo)
   subir.current = onSubirArchivo
 
-  /**
-   * Sube el archivo e inserta lo que corresponda: la imagen incrustada, o un
-   * enlace con el nombre del documento para PDF, Word y Excel.
-   *
-   * <p>Vive en una ref porque el manejador de imagen de la barra se registra
-   * una sola vez, al construir el editor, y necesita la versión vigente.
-   */
   const insertar = useRef(async (_archivo: File, _como: 'image' | 'enlace') => {})
   insertar.current = async (archivo: File, como: 'image' | 'enlace') => {
     if (!subir.current) return
@@ -122,14 +88,24 @@ export function EditorTexto({
     try {
       const recurso = await subir.current(archivo)
       const q = quill.current
-      if (!q) return
-      const posicion = q.getSelection(true)?.index ?? q.getLength()
-      if (como === 'image') {
-        q.insertEmbed(posicion, 'image', recurso.url, 'user')
-        q.setSelection(posicion + 1)
+      if (q) {
+        const posicion = q.getSelection(true)?.index ?? q.getLength()
+        if (como === 'image') {
+          q.insertEmbed(posicion, 'image', recurso.url, 'user')
+          q.setSelection(posicion + 1)
+        } else {
+          q.insertText(posicion, recurso.nombre, { link: recurso.url }, 'user')
+          q.setSelection(posicion + recurso.nombre.length)
+        }
       } else {
-        q.insertText(posicion, recurso.nombre, { link: recurso.url }, 'user')
-        q.setSelection(posicion + recurso.nombre.length)
+        // Respaldar si Quill no se ha iniciado
+        if (como === 'image') {
+          const etiquetaImg = `<p><img src="${recurso.url}" alt="${recurso.nombre}" style="max-width:100%;height:auto;border-radius:8px;" /></p>`
+          alCambiar.current((value ?? '') + '\n' + etiquetaImg)
+        } else {
+          const etiquetaEnlace = `<p><a href="${recurso.url}" target="_blank" rel="noopener noreferrer">${recurso.nombre}</a></p>`
+          alCambiar.current((value ?? '') + '\n' + etiquetaEnlace)
+        }
       }
     } catch (error) {
       setErrorAdjunto(error instanceof Error ? error.message : 'No se pudo subir el archivo.')
@@ -143,61 +119,94 @@ export function EditorTexto({
     const nodo = contenedor.current
     if (!nodo) return
 
-    Promise.all([import('quill'), import('quill/dist/quill.snow.css')]).then(([modulo]) => {
-      const Quill = modulo.default
-      if (!vivo || !contenedor.current || quill.current) return
+    Promise.all([
+      import('quill'),
+      import('quill/dist/quill.snow.css').catch(() => null),
+    ])
+      .then(([modulo]) => {
+        if (!vivo || !contenedor.current || quill.current) return
 
-      const q = new Quill(contenedor.current, {
-        theme: 'snow',
-        placeholder,
-        formats: FORMATOS,
-        modules: { toolbar: BARRA },
-      })
-      quill.current = q
-
-      if (value) q.clipboard.dangerouslyPasteHTML(value)
-
-      q.getModule('toolbar').addHandler('image', () => {
-        if (!subir.current) return
-        const entrada = document.createElement('input')
-        entrada.type = 'file'
-        entrada.accept = 'image/png,image/jpeg,image/webp,image/gif'
-        entrada.onchange = () => {
-          const archivo = entrada.files?.[0]
-          if (archivo) void insertar.current(archivo, 'image')
+        const QuillClass = (modulo as any)?.default?.default || (modulo as any)?.default || modulo
+        if (typeof QuillClass !== 'function') {
+          console.warn('Quill no se pudo importar como clase constructora.')
+          return
         }
-        entrada.click()
-      })
 
-      q.on('text-change', () => {
-        // `getSemanticHTML` da HTML limpio; el `innerHTML` del editor arrastra
-        // clases internas de Quill que no significan nada fuera de él.
-        const html = q.getSemanticHTML()
-        alCambiar.current(html === VACIO || html.trim() === '' ? '' : html)
+        try {
+          const q = new QuillClass(contenedor.current, {
+            theme: 'snow',
+            placeholder,
+            formats: FORMATOS,
+            modules: { toolbar: BARRA },
+          })
+          quill.current = q
+          setQuillListo(true)
+
+          if (value) {
+            try {
+              q.clipboard.dangerouslyPasteHTML(value)
+            } catch {
+              // Ignorar error al pegar HTML inicial
+            }
+          }
+
+          const tb = q.getModule('toolbar')
+          if (tb) {
+            tb.addHandler('image', () => {
+              if (!subir.current) return
+              const entrada = document.createElement('input')
+              entrada.type = 'file'
+              entrada.accept = 'image/png,image/jpeg,image/webp,image/gif'
+              entrada.onchange = () => {
+                const archivo = entrada.files?.[0]
+                if (archivo) void insertar.current(archivo, 'image')
+              }
+              entrada.click()
+            })
+          }
+
+          q.on('text-change', () => {
+            try {
+              const html = q.getSemanticHTML ? q.getSemanticHTML() : q.root?.innerHTML
+              alCambiar.current(html === VACIO || !html || html.trim() === '' ? '' : html)
+            } catch {
+              alCambiar.current(q.root?.innerHTML ?? '')
+            }
+          })
+        } catch (e) {
+          console.warn('Error iniciando Quill:', e)
+        }
       })
-    })
+      .catch((e) => {
+        console.warn('No se pudo cargar la librería Quill:', e)
+      })
 
     return () => {
       vivo = false
       quill.current = null
       if (nodo) nodo.innerHTML = ''
     }
-    // Solo al montar: reconstruir el editor en cada cambio de `value` perdería
-    // el cursor con cada tecla.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Cambios que vienen de fuera (cargar una plantilla existente, limpiar el
-  // formulario tras publicar). Se compara antes para no reescribir mientras se
-  // teclea, que movería el cursor al principio. En modo HTML no se toca: el
-  // textarea es la fuente de verdad mientras está abierto.
   useEffect(() => {
     const q = quill.current
     if (!q || modoHtml) return
-    const actual = q.getSemanticHTML()
-    const normalizado = actual === VACIO ? '' : actual
-    if (value !== normalizado) q.clipboard.dangerouslyPasteHTML(value ?? '')
+    try {
+      const actual = q.getSemanticHTML ? q.getSemanticHTML() : q.root?.innerHTML
+      const normalizado = actual === VACIO ? '' : actual
+      if (value !== normalizado) {
+        q.clipboard.dangerouslyPasteHTML(value ?? '')
+      }
+    } catch {
+      // Ignorar si falla la comparación externa
+    }
   }, [value, modoHtml])
+
+  const insertarEtiquetaRapida = (apertura: string, cierre: string) => {
+    const nuevo = (value ?? '') + `${apertura}texto${cierre}`
+    onChange(nuevo)
+  }
 
   return (
     <div className="editor-texto space-y-2">
@@ -235,13 +244,40 @@ export function EditorTexto({
               className="hidden"
               onChange={(event) => {
                 const archivo = event.target.files?.[0]
-                // Se limpia el valor para que elegir el mismo archivo dos veces
-                // seguidas vuelva a disparar el evento.
                 event.target.value = ''
                 if (archivo) void insertar.current(archivo, 'enlace')
               }}
             />
           </>
+        )}
+
+        {!quillListo && !modoHtml && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => insertarEtiquetaRapida('<strong>', '</strong>')}
+              className="rounded p-1 hover:bg-secondary"
+              title="Negrita"
+            >
+              <TextB className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => insertarEtiquetaRapida('<em>', '</em>')}
+              className="rounded p-1 hover:bg-secondary"
+              title="Cursiva"
+            >
+              <TextItalic className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => insertarEtiquetaRapida('<ul><li>', '</li></ul>')}
+              className="rounded p-1 hover:bg-secondary"
+              title="Lista"
+            >
+              <ListBullets className="size-3.5" />
+            </button>
+          </div>
         )}
       </div>
 
@@ -251,20 +287,27 @@ export function EditorTexto({
         </p>
       )}
 
-      {/* El editor no se desmonta al pasar a HTML: reconstruirlo perdería el
-          historial de deshacer. Se oculta y se muestra el textarea. */}
-      <div className={cn('rounded-lg border border-border bg-background', modoHtml && 'hidden')}>
+      {/* Editor principal Quill */}
+      <div
+        className={cn(
+          'rounded-lg border border-border bg-background',
+          (modoHtml || !quillListo) && 'hidden',
+        )}
+      >
         <div id={id} aria-label={ariaLabel} ref={contenedor} style={{ minHeight }} />
       </div>
 
-      {modoHtml && (
+      {/* Área de texto totalmente funcional de respaldo (si Quill está cargando, falló, o en modo HTML) */}
+      {(modoHtml || !quillListo) && (
         <textarea
-          aria-label="Código HTML del mensaje"
+          id={id}
+          aria-label={ariaLabel || 'Cuerpo del mensaje'}
+          placeholder={placeholder}
           spellCheck={false}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           style={{ minHeight }}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs leading-5 outline-none focus:border-primary"
+          className="w-full rounded-xl border border-input bg-card/90 px-3.5 py-3 text-sm leading-relaxed outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
         />
       )}
     </div>

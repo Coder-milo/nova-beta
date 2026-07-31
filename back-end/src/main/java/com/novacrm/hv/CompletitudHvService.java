@@ -147,13 +147,19 @@ public class CompletitudHvService {
             }
             return sb.isEmpty() ? null : sb.toString();
         }
-        if (f.entityField.contains("fecha")) {
-            if ("_tieneExperiencias".equals(f.entityField)) {
-                return data.get("_tieneExperiencias");
+        if (f.entityField.contains("|")) {
+            // Alternativas: el valor que exista ("celular | telefono").
+            for (var p : f.entityField.split("\\|")) {
+                String v = data.get(p.trim());
+                if (!isBlank(v)) return v;
             }
-            if ("_tieneFormaciones".equals(f.entityField)) {
-                return data.get("_tieneFormaciones");
-            }
+            return null;
+        }
+        if ("_tieneExperiencias".equals(f.entityField)) {
+            return data.get("_tieneExperiencias");
+        }
+        if ("_tieneFormaciones".equals(f.entityField)) {
+            return data.get("_tieneFormaciones");
         }
         if ("funciones".equals(f.entityField)) {
             return data.get("_tieneFunciones");
