@@ -217,12 +217,6 @@ public class PostulacionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Postulacion no encontrada"));
     }
 
-    /** Las que alguien marco como contratado y el equipo aun no ha verificado. */
-    @Transactional(readOnly = true)
-    public List<PostulacionResponse> pendientesDeConfirmar() {
-        return postulacionRepository.contratadasSinColocacion().stream().map(this::aResponse).toList();
-    }
-
     // ── Propagacion al seguimiento ──────────────────────────────────────────
 
     /** Apunte en el historial. Siempre; es el rastro de lo que paso. */

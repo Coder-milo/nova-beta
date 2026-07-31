@@ -196,11 +196,6 @@ public class VacanteService {
                 id.toString(), vacante.getTitulo() + " (" + nombreEmpresa + ")", null, null);
     }
 
-    /** Ofertas registradas por estudiantes y aun sin validar. */
-    public Page<VacanteResponse> pendientesDeRevisar(Pageable pageable) {
-        return vacanteRepository.findByRevisadaFalseAndActivoTrue(pageable).map(this::toResponse);
-    }
-
     private static String nullSafe(String valor) {
         return valor == null ? "" : valor.trim();
     }

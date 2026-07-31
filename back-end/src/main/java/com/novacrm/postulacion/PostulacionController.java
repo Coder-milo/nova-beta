@@ -116,20 +116,6 @@ public class PostulacionController {
         return Map.of("mensaje", "Postulacion eliminada");
     }
 
-    /**
-     * Las que alguien marco como contratado y el equipo no ha verificado.
-     *
-     * <p>Es la bandeja de entrada del coordinador: un estudiante diciendo que
-     * lo contrataron es una noticia que hay que confirmar con contrato y
-     * salario antes de contarla como colocacion.
-     */
-    @GetMapping("/pendientes-de-confirmar")
-    @Operation(summary = "Contratados sin colocacion registrada")
-    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
-    public List<PostulacionResponse> pendientesDeConfirmar() {
-        return postulacionService.pendientesDeConfirmar();
-    }
-
     @GetMapping("/estados")
     @Operation(summary = "Estados posibles de una postulacion")
     @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
