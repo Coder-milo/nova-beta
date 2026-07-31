@@ -39,21 +39,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Confirmar } from '@/components/ui/confirmar'
-import { comunicacionesApi, ApiCallError } from '@/lib/api'
+import { comunicacionesApi } from '@/lib/api'
 import type { FilaPadron, Padron, ResumenAltaCuentas, ResultadoCuenta } from '@/lib/types'
+import { errorDe } from '@/lib/errores'
 
 type Alcance = 'todos' | 'seleccion'
 type Filtro = 'todos' | 'sin-cuenta' | 'con-cuenta'
-
-function errorDe(err: unknown): string {
-  if (err instanceof ApiCallError) {
-    if (err.status === 401 || err.status === 403) {
-      return 'Sin permisos. Inicia sesión como ADMIN o COORDINADOR.'
-    }
-    return err.body.message ?? `Error del servidor (HTTP ${err.status}).`
-  }
-  return 'No se pudo conectar con el servidor.'
-}
 
 /** Sin tildes ni mayúsculas, para que buscar "hector" encuentre "Héctor". */
 function normalizar(texto: string): string {

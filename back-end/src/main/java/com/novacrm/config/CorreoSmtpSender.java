@@ -24,7 +24,7 @@ import java.nio.charset.StandardCharsets;
  */
 @Component
 @ConditionalOnProperty(name = "spring.mail.host")
-public class CorreoSmtpSender implements CorreoSender {
+public class CorreoSmtpSender {
 
     private static final Logger log = LoggerFactory.getLogger(CorreoSmtpSender.class);
 
@@ -48,18 +48,15 @@ public class CorreoSmtpSender implements CorreoSender {
      * —asi queda declarada por defecto—, y en ese caso intentar enviar daria un
      * error de conexion confuso en lugar de decir que falta configurarlo.
      */
-    @Override
     public boolean estaConfigurado() {
         return host != null && !host.isBlank()
                 && remitente != null && !remitente.isBlank();
     }
 
-    @Override
     public String descripcion() {
         return "SMTP";
     }
 
-    @Override
     public EmailService.Resultado enviar(String destinatario, String asunto, String htmlBody) {
         if (!estaConfigurado()) {
             return EmailService.Resultado.fallo(

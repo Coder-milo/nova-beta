@@ -40,10 +40,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Confirmar } from '@/components/ui/confirmar'
-import { brandingApi, programasApi, ApiCallError } from '@/lib/api'
+import { brandingApi, programasApi } from '@/lib/api'
 import { paletaDesde, textoSobre } from '@/lib/paleta'
 import { notificarIdentidadActualizada } from '@/lib/branding'
 import type { BrandingResponse, MedidaExigida, ProgramaResponse } from '@/lib/types'
+import { errorDe } from '@/lib/errores'
 
 /** Colores de arranque. Ahorran abrir el selector para lo más habitual. */
 const SUGERENCIAS = [
@@ -61,23 +62,6 @@ const MEDIDAS_POR_DEFECTO: MedidaExigida[] = [
   { clave: 'correoHeader', etiqueta: 'Cabecera del correo', ancho: 1200, alto: 400, anchoVista: 600, porque: 'Se muestra en los correos enviados.' },
   { clave: 'correoPie', etiqueta: 'Pie del correo', ancho: 1200, alto: 300, anchoVista: 600, porque: 'Cierra los correos del proyecto.' },
 ]
-
-function errorDe(err: unknown): string {
-  if (err instanceof ApiCallError) {
-    if (err.status === 401 || err.status === 403) {
-      return 'Sin permisos. Solo ADMIN o COORDINADOR pueden editar la identidad de un proyecto.'
-    }
-    const msg = err.body?.message ?? (typeof err.body === 'string' ? err.body : null)
-    return msg ?? `Error del servidor (HTTP ${err.status}).`
-  }
-  if (err instanceof Error && err.message) {
-    if (err.message.includes('Failed to fetch')) {
-      return 'No se pudo conectar con el servidor. Verifica que el backend Java (Spring Boot) esté iniciado.'
-    }
-    return err.message
-  }
-  return 'No se pudo guardar la identidad. Comprueba la conexión o la imagen cargada.'
-}
 
 function dataUrlABlob(dataUrl: string): Blob {
   const arr = dataUrl.split(',')

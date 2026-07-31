@@ -11,15 +11,6 @@ export interface LoginRequest {
   password: string
 }
 
-export interface LoginResponse {
-  token: string
-  refreshToken: string
-  usuarioId: string
-  email: string
-  nombre: string
-  roles: string[]
-}
-
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
 /** GET /api/v1/dashboard/summary */

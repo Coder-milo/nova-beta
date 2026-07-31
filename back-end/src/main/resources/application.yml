@@ -116,10 +116,6 @@ app:
     # salvaguarda para probar el envio sin escribir a los 107 participantes.
     # Vaciarla habilita el envio real a todos.
     destinatarios-permitidos: ${CORREO_DESTINATARIOS_PERMITIDOS:}
-  linkedin:
-    client-id: ${LINKEDIN_CLIENT_ID:}
-    client-secret: ${LINKEDIN_CLIENT_SECRET:}
-    redirect-uri: ${LINKEDIN_REDIRECT_URI:}
 
 springdoc:
   swagger-ui:

@@ -18,22 +18,14 @@ import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ImportadorCrm } from '@/components/admin/importador-crm'
-import { importarApi, importarExtApi, programasApi, ApiCallError } from '@/lib/api'
+import { importarApi, importarExtApi, programasApi } from '@/lib/api'
 import type {
   ProgramaResponse, ImportarResponse, ImportPreviewResponse,
   ImportacionHistorialResponse,
 } from '@/lib/types'
+import { errorDe } from '@/lib/errores'
 
 const pasos = ['Archivo', 'Validación', 'Confirmación', 'Resultado'] as const
-
-function errorDe(err: unknown): string {
-  if (err instanceof ApiCallError) {
-    if (err.status === 401 || err.status === 403) return 'Sin permisos. Inicia sesión como ADMIN o COORDINADOR.'
-    if (err.status === 400) return err.body.message ?? 'El archivo no tiene el formato correcto o está vacío.'
-    return `Error del servidor (HTTP ${err.status}). Intenta de nuevo.`
-  }
-  return 'No se pudo conectar con el backend.'
-}
 
 export default function ImportacionesPage() {
   const [seccion, setSeccion]       = useState<'estudiantes' | 'empresas' | 'colocaciones'>('estudiantes')

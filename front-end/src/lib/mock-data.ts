@@ -1,13 +1,6 @@
 // Datos ficticios en español para el panel administrativo de la Academia CAC.
 // Separados de los componentes visuales. No hay backend ni base de datos todavía.
 
-export const adminUser = {
-  nombre: 'Laura Martínez',
-  rol: 'Administradora',
-  email: 'admin@academia-cac.co',
-  iniciales: 'LM',
-}
-
 export type StatCard = {
   id: string
   label: string
@@ -171,45 +164,6 @@ export const importantAlerts: Alert[] = [
   },
 ]
 
-export type Activity = {
-  id: string
-  titulo: string
-  fecha: string
-  hora: string
-  categoria: string
-}
-
-export const upcomingActivities: Activity[] = [
-  {
-    id: 'e1',
-    titulo: 'Comité académico',
-    fecha: '18 jul 2026',
-    hora: '09:00 a. m.',
-    categoria: 'Reunión',
-  },
-  {
-    id: 'e2',
-    titulo: 'Cierre de matrículas',
-    fecha: '22 jul 2026',
-    hora: '05:00 p. m.',
-    categoria: 'Proceso',
-  },
-  {
-    id: 'e3',
-    titulo: 'Entrega de proyectos finales',
-    fecha: '25 jul 2026',
-    hora: '11:00 a. m.',
-    categoria: 'Académico',
-  },
-  {
-    id: 'e4',
-    titulo: 'Auditoría documental',
-    fecha: '29 jul 2026',
-    hora: '10:00 a. m.',
-    categoria: 'Auditoría',
-  },
-]
-
 export type QuickAction = {
   id: string
   label: string
@@ -260,46 +214,5 @@ export const quickActions: QuickAction[] = [
     descripcion: 'Adjunta un archivo',
     href: '/documentos',
     icon: 'document',
-  },
-]
-
-export type Notification = {
-  id: string
-  titulo: string
-  detalle: string
-  tiempo: string
-  leida: boolean
-  mediaUrl?: string | null
-  mediaTipo?: 'IMAGE' | 'VIDEO' | 'LINK' | null
-}
-
-export const notifications: Notification[] = [
-  {
-    id: 'n1',
-    titulo: 'Nueva hoja de vida',
-    detalle: 'Carlos Ramírez subió su hoja de vida.',
-    tiempo: 'Hace 10 min',
-    leida: false,
-  },
-  {
-    id: 'n2',
-    titulo: 'Importación completada',
-    detalle: 'Se cargaron 48 estudiantes correctamente.',
-    tiempo: 'Hace 1 h',
-    leida: false,
-  },
-  {
-    id: 'n3',
-    titulo: 'Documento vencido',
-    detalle: 'El certificado de Ana Gómez venció ayer.',
-    tiempo: 'Hace 3 h',
-    leida: false,
-  },
-  {
-    id: 'n4',
-    titulo: 'Proyecto actualizado',
-    detalle: 'Se cerró la fase 2 de Ciberseguridad.',
-    tiempo: 'Ayer',
-    leida: true,
   },
 ]

@@ -23,10 +23,11 @@ import {
   WarningCircle,
   X,
 } from '@phosphor-icons/react'
-import { ApiCallError, importarCrmApi } from '@/lib/api'
+import { importarCrmApi } from '@/lib/api'
 import type { ResultadoImportacionCrm } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { errorDe } from '@/lib/errores'
 
 export type EntidadImportable = 'empresas' | 'colocaciones'
 
@@ -46,14 +47,6 @@ const TEXTOS = {
     nota: 'Si el estudiante ya tiene una colocación vigente, la fila la actualiza en vez de crear una segunda.',
   },
 } as const
-
-function errorDe(err: unknown): string {
-  if (err instanceof ApiCallError) {
-    if (err.status === 401 || err.status === 403) return 'Sin permisos. Inicia sesión como ADMIN o COORDINADOR.'
-    return err.body.message ?? `Error del servidor (HTTP ${err.status}).`
-  }
-  return 'No se pudo conectar con el backend.'
-}
 
 export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
   const textos = TEXTOS[entidad]

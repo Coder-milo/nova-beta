@@ -399,9 +399,7 @@ input[type="checkbox"]:disabled {
   --e2: 0 2px 4px rgba(0, 0, 0, 0.15), 0 18px 48px -16px rgba(0, 0, 0, 0.35);
 }
 
-.liquid-glass,
-.glass-card,
-.apple-glass {
+.glass-card {
   position: relative;
   isolation: isolate;
   background:
@@ -425,9 +423,7 @@ input[type="checkbox"]:disabled {
   will-change: transform;
 }
 
-.liquid-glass::after,
-.glass-card::after,
-.apple-glass::after {
+.glass-card::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -447,8 +443,7 @@ input[type="checkbox"]:disabled {
   pointer-events: none;
 }
 
-.glass-card:hover,
-.apple-glass:hover {
+.glass-card:hover {
   z-index: 2;
   transform: none;
   border-color: color-mix(in srgb, var(--primary) 24%, var(--glass-edge));
@@ -500,9 +495,7 @@ input[type="checkbox"]:disabled {
   border-color: color-mix(in srgb, var(--primary) 36%, var(--glass-edge));
 }
 
-.dark .liquid-glass,
-.dark .glass-card,
-.dark .apple-glass {
+.dark .glass-card {
   background:
     linear-gradient(135deg, hsl(var(--marca-h) 82% 66% / 0.10), transparent 34%),
     linear-gradient(315deg, hsl(calc(var(--marca-h) + 26) 80% 60% / 0.045), transparent 38%),
@@ -517,8 +510,7 @@ input[type="checkbox"]:disabled {
     0 22px 52px -34px rgba(0, 0, 0, 0.82);
 }
 
-.dark .glass-card:hover,
-.dark .apple-glass:hover {
+.dark .glass-card:hover {
   border-color: hsl(var(--marca-h) 82% 66% / 0.35);
   background:
     linear-gradient(135deg, hsl(var(--marca-h) 82% 68% / 0.15), transparent 38%),
@@ -742,9 +734,7 @@ textarea {
 
 .light .ambient-grid { display: none; }
 
-.light .liquid-glass,
-.light .glass-card,
-.light .apple-glass {
+.light .glass-card {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.72), transparent 42%),
     var(--glass-surface);
@@ -783,17 +773,12 @@ textarea {
 
 /* Sin sombras flotantes en el portal oscuro: las tarjetas se separan por
    borde y contraste de superficie, no por un resplandor alrededor. */
-.dark .student-project-shell .liquid-glass,
 .dark .student-project-shell .glass-card,
-.dark .student-project-shell .apple-glass,
-.dark .student-project-shell .glass-card:hover,
-.dark .student-project-shell .apple-glass:hover {
+.dark .student-project-shell .glass-card:hover {
   box-shadow: none;
 }
 
-.dark .student-project-shell .liquid-glass::after,
-.dark .student-project-shell .glass-card::after,
-.dark .student-project-shell .apple-glass::after {
+.dark .student-project-shell .glass-card::after {
   display: none;
 }
 
@@ -882,13 +867,13 @@ textarea {
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .liquid-glass, .glass-card, .apple-glass { background: var(--card); }
+  .glass-card { background: var(--card); }
   .glass-chrome { background: var(--card); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .liquid-glass, .glass-card, .apple-glass { transition: none; }
-  .glass-card:hover, .apple-glass:hover { transform: none; }
+  .glass-card { transition: none; }
+  .glass-card:hover { transform: none; }
   .dark-brand-wave { animation: none; }
   .cac-logo-spinner__ring,
   .cac-logo-spinner__mark,

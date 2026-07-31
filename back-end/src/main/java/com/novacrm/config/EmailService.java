@@ -15,7 +15,7 @@ public class EmailService {
     private final SesClient sesClient;
 
     /** Canal alternativo (SMTP). Ausente si no hay servidor configurado. */
-    private final java.util.Optional<CorreoSender> senderExterno;
+    private final java.util.Optional<CorreoSmtpSender> senderExterno;
 
     @Value("${app.ses.source-email}")
     private String fromEmail;
@@ -24,7 +24,7 @@ public class EmailService {
     private String accessKey;
 
     public EmailService(SesClient sesClient,
-                        java.util.Optional<CorreoSender> senderExterno) {
+                        java.util.Optional<CorreoSmtpSender> senderExterno) {
         this.sesClient = sesClient;
         this.senderExterno = senderExterno;
     }
@@ -53,7 +53,7 @@ public class EmailService {
     }
 
     private boolean smtpDisponible() {
-        return senderExterno.map(CorreoSender::estaConfigurado).orElse(false);
+        return senderExterno.map(CorreoSmtpSender::estaConfigurado).orElse(false);
     }
 
     private boolean sesDisponible() {

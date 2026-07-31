@@ -35,21 +35,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { FilePreview } from '@/components/ui/file-preview'
 import { EditorTexto } from '@/components/ui/editor-texto'
-import { actividadesApi, comunicacionesApi, programasApi, ApiCallError } from '@/lib/api'
+import { actividadesApi, comunicacionesApi, programasApi } from '@/lib/api'
 import { hoyLocal } from '@/lib/utils'
 import type { TipoMediaAnuncio } from '@/lib/api'
 import type { ActividadRequest, ProgramaResponse } from '@/lib/types'
 import { Textarea } from '@/components/ui/textarea'
-
-function errorDe(err: unknown): string {
-  if (err instanceof ApiCallError) {
-    if (err.status === 401 || err.status === 403) {
-      return 'Sin permisos. Inicia sesión como ADMIN o COORDINADOR.'
-    }
-    return err.body.message ?? `Error del servidor (HTTP ${err.status}).`
-  }
-  return 'No se pudo conectar con el servidor.'
-}
+import { errorDe } from '@/lib/errores'
 
 // ── Anuncios ────────────────────────────────────────────────────────────────
 

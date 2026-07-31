@@ -18,7 +18,7 @@ import {
   UsersThree,
   WarningCircle,
 } from '@phosphor-icons/react'
-import { empresasApi, ApiCallError } from '@/lib/api'
+import { empresasApi } from '@/lib/api'
 import type { EmpresaRequest, EmpresaResponse, EstadoRelacionEmpresa, Page } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -55,11 +55,6 @@ function aFormulario(empresa: EmpresaResponse): EmpresaRequest {
     estadoRelacion: empresa.estadoRelacion, proximoPaso: empresa.proximoPaso ?? '', notas: empresa.notas ?? '',
     cargosTipicos: empresa.cargosTipicos ?? '', canalPostulacion: empresa.canalPostulacion ?? '',
   }
-}
-
-function errorDe(error: unknown, fallback: string) {
-  if (error instanceof ApiCallError) return error.body.message ?? `${fallback} (HTTP ${error.status}).`
-  return error instanceof Error ? error.message : fallback
 }
 
 function Kpi({ label, value, tone = 'text-primary' }: { label: string; value: number; tone?: string }) {
