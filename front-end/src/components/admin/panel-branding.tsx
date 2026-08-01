@@ -48,11 +48,14 @@ import { errorDe } from '@/lib/errores'
 
 /** Colores de arranque. Ahorran abrir el selector para lo más habitual. */
 const SUGERENCIAS = [
-  { hex: '#1268E8', nombre: 'Azul del panel' },
-  { hex: '#E8621C', nombre: 'Naranja' },
-  { hex: '#0F7B5A', nombre: 'Verde' },
-  { hex: '#7C3AED', nombre: 'Morado' },
-  { hex: '#C81E5B', nombre: 'Magenta' },
+  { hex: '#1268E8', nombre: 'Azul institucional' },
+  { hex: '#E8621C', nombre: 'Naranja corporativo' },
+  { hex: '#0F7B5A', nombre: 'Verde esmeralda' },
+  { hex: '#7C3AED', nombre: 'Morado moderno' },
+  { hex: '#C81E5B', nombre: 'Magenta vibrante' },
+  { hex: '#0284C7', nombre: 'Cian turquesa' },
+  { hex: '#D97706', nombre: 'Ámbar dorado' },
+  { hex: '#0F172A', nombre: 'Azul noche' },
 ]
 
 // Permite editar y previsualizar aun si el backend se está actualizando. Al
