@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwise, CheckCircle, CircleNotch, Eye, Kanban, PencilSimple, Plus, Trash, WarningCircle, X } from '@phosphor-icons/react'
+import { ArrowsClockwise, CheckCircle, CircleNotch, Eye, Kanban, Palette, PencilSimple, Plus, Trash, WarningCircle, X } from '@phosphor-icons/react'
 /**
  * Página de Proyectos / Programas — CRUD completo.
  *
@@ -292,6 +292,10 @@ export default function ProyectosPage() {
                         <Link href={`/proyectos/${p.id}`}
                           className="inline-flex h-7 items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
                           <Eye className="size-3" /> Ver
+                        </Link>
+                        <Link href={`/proyectos/${p.id}?tab=identidad`}
+                          className="inline-flex h-7 items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
+                          <Palette className="size-3 text-primary" /> Apariencia
                         </Link>
                         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openEdit(p)} disabled={isPending}>
                           <PencilSimple className="size-3" /> Editar

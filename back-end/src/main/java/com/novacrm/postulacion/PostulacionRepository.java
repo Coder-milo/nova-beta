@@ -52,17 +52,6 @@ public interface PostulacionRepository extends JpaRepository<Postulacion, UUID> 
             """)
     long contarRespuestasDe(@Param("empresaId") UUID empresaId, @Param("nombre") String nombre);
 
-    /** Postulaciones que el estudiante dice haber ganado y el equipo no ha confirmado. */
-    @Query("""
-            SELECT p FROM Postulacion p
-            WHERE p.estado = com.novacrm.postulacion.EstadoPostulacion.CONTRATADO
-              AND NOT EXISTS (
-                  SELECT 1 FROM Colocacion c
-                  WHERE c.estudiante.id = p.estudiante.id AND c.activa = true)
-            ORDER BY p.updatedAt DESC
-            """)
-    List<Postulacion> contratadasSinColocacion();
-
     @Query("SELECT p.estado, COUNT(p) FROM Postulacion p GROUP BY p.estado")
     List<Object[]> recuentoPorEstado();
 

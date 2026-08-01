@@ -103,15 +103,6 @@ public class VacanteController {
         return vacanteService.crearDesdeUrl(request, auth.getName(), false);
     }
 
-    @GetMapping("/pendientes-de-revisar")
-    @Operation(summary = "Ofertas sugeridas por estudiantes y aun sin validar")
-    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
-    public Page<VacanteResponse> pendientesDeRevisar(
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
-            Pageable pageable) {
-        return vacanteService.pendientesDeRevisar(pageable);
-    }
-
     @PostMapping("/{id}/revisar")
     @Operation(summary = "Dar por buena una oferta sugerida por un estudiante")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
