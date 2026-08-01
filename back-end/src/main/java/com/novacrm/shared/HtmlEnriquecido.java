@@ -1,7 +1,10 @@
 package com.novacrm.shared;
 
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.jsoup.safety.Safelist;
+
+import java.util.Set;
 
 /**
  * Limpieza del HTML que llega de un editor enriquecido.
@@ -42,6 +45,19 @@ public final class HtmlEnriquecido {
     private HtmlEnriquecido() {}
 
     /**
+     * Propiedades CSS que el editor puede emitir. Cualquier otra —posicion,
+     * superposicion, fondos fijos, imágenes remotas— se descarta: {@code url()}
+     * dentro de un estilo convertiría el anuncio en un rastreador y
+     * {@code position:fixed} en una superposición sobre el portal.
+     */
+    private static final Set<String> PROPIEDADES_CSS = Set.of(
+            "color", "background-color", "text-align",
+            "font-family", "font-size", "font-weight", "font-style", "text-decoration",
+            "width", "height", "max-width", "max-height");
+
+    private static final int MAX_LONGITUD_STYLE = 500;
+
+    /**
      * Devuelve el HTML sin etiquetas ni atributos peligrosos.
      *
      * @return cadena vacía si tras limpiar no queda texto ni contenido visible
@@ -54,6 +70,34 @@ public final class HtmlEnriquecido {
         // obligatoriedad lo dé por bueno.
         return Jsoup.parse(limpio).text().isBlank() && !limpio.contains("<img") && !limpio.contains("<iframe")
                 ? ""
-                : limpio;
+                : limpiarEstilos(limpio);
+    }
+
+    /** Recorta cada atributo {@code style} a las propiedades permitidas. */
+    private static String limpiarEstilos(String html) {
+        Document doc = Jsoup.parse(html);
+        doc.select("[style]").forEach(el -> {
+            String estilo = el.attr("style");
+            if (estilo == null || estilo.isBlank()) {
+                el.removeAttr("style");
+                return;
+            }
+            StringBuilder limpio = new StringBuilder();
+            for (String declaracion : estilo.split(";")) {
+                int dosPuntos = declaracion.indexOf(':');
+                if (dosPuntos < 0) continue;
+                String propiedad = declaracion.substring(0, dosPuntos).trim().toLowerCase();
+                String valor = declaracion.substring(dosPuntos + 1).trim();
+                if (PROPIEDADES_CSS.contains(propiedad)
+                        && !valor.isEmpty()
+                        && !valor.contains("url(")
+                        && limpio.length() + declaracion.length() <= MAX_LONGITUD_STYLE) {
+                    limpio.append(propiedad).append(':').append(valor).append(';');
+                }
+            }
+            if (limpio.isEmpty()) el.removeAttr("style");
+            else el.attr("style", limpio.toString());
+        });
+        return doc.body().html();
     }
 }
