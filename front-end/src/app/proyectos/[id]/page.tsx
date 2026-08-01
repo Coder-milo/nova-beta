@@ -717,7 +717,7 @@ const tabs: { id: TabId; label: string; icon: typeof Users }[] = [
   { id: 'documentos',  label: 'Documentos',    icon: FileText },
   { id: 'hv',          label: 'Hojas de vida', icon: ReadCvLogo },
   { id: 'actividades', label: 'Actividades',   icon: ClipboardText },
-  { id: 'identidad',   label: 'Identidad visual', icon: Palette },
+  { id: 'identidad',   label: 'Apariencia y Marca', icon: Palette },
   { id: 'historial',   label: 'Historial',     icon: ClockCounterClockwise },
 ]
 
@@ -730,6 +730,27 @@ export default function ProyectoDetallePage() {
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState<string | null>(null)
   const [tab, setTab]           = useState<TabId>('resumen')
+
+  // Sincronizar pestaña activa con la URL (?tab=...)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const urlParams = new URLSearchParams(window.location.search)
+    const urlTab = urlParams.get('tab')
+    if (urlTab === 'identidad' || urlTab === 'apariencia') {
+      setTab('identidad')
+    } else if (urlTab && ['resumen', 'estudiantes', 'documentos', 'hv', 'actividades', 'historial'].includes(urlTab)) {
+      setTab(urlTab as TabId)
+    }
+  }, [])
+
+  const cambiarTab = (nuevaTab: TabId) => {
+    setTab(nuevaTab)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('tab', nuevaTab)
+      window.history.replaceState({}, '', url.toString())
+    }
+  }
 
   const [showEdit, setShowEdit]   = useState(false)
   const [form, setForm]           = useState<ProgramaForm | null>(null)
@@ -856,6 +877,9 @@ export default function ProyectoDetallePage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => cambiarTab('identidad')}>
+              <Palette className="size-3.5 text-primary" /> Apariencia
+            </Button>
             <Button variant="outline" size="sm" onClick={openEdit} disabled={isPending}>
               <PencilSimple className="size-3.5" /> Editar
             </Button>
@@ -946,7 +970,7 @@ export default function ProyectoDetallePage() {
       {/* Pestañas */}
       <div className="flex overflow-x-auto border-b border-border">
         {tabs.map(({ id: tid, label, icon: Icon }) => (
-          <button key={tid} type="button" onClick={() => setTab(tid)}
+          <button key={tid} type="button" onClick={() => cambiarTab(tid)}
             className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition-colors ${tab === tid ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
             <Icon className="size-3.5" /> {label}
           </button>
