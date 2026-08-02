@@ -172,7 +172,7 @@ public class RemotiveConnector implements FuenteDeVacantes {
                 }
             }
         } catch (Exception e) {
-            log.error("Respuesta de Remotive ilegible: {}", e.getMessage());
+            log.warn("Respuesta de Remotive ilegible: {}", e.getMessage());
             return ResultadoBusqueda.fallo("respuesta de Remotive ilegible: " + e.getMessage());
         }
         return ResultadoBusqueda.de(ofertas);

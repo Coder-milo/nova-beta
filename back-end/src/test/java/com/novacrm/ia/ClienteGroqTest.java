@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ClienteGroqTest {
 
     private HttpServer servidor;
+    private int llamadasTotales;
 
     @AfterEach
     void cerrar() {
@@ -42,9 +43,23 @@ class ClienteGroqTest {
 
     @Test
     void errorDelServidorNuncaLanzaYDevuelveVacio() throws Exception {
-        arrancar(429, "{\"error\":{\"message\":\"rate limit\"}}");
-        var groq = new ClienteGroq("gsk-test", "modelo", 5_000, "http://localhost:" + puerto());
+        arrancar(429, "{\"error\":{\"message\":\"rate limit\"}}", null);
+        var groq = new ClienteGroq("gsk-test", "modelo", 5_000, "http://localhost:" + puerto(), 10);
         assertTrue(groq.completarJson("instrucciones", "contenido").isEmpty());
+        assertEquals(2, llamadasTotales, "debe reintentar una vez el 429");
+    }
+
+    @Test
+    void reintentaEl429YLaSegundaPasadaFunciona() throws Exception {
+        arrancar(429, "{\"error\":{\"message\":\"rate limit\"}}",
+                """
+                {"choices":[{"message":{"content":"{\\"bien\\": true}"}}]}
+                """);
+        var groq = new ClienteGroq("gsk-test", "modelo", 5_000, "http://localhost:" + puerto(), 10);
+        var json = groq.completarJson("instrucciones", "contenido");
+        assertTrue(json.isPresent(), "el reintento debía devolver el JSON válido");
+        assertTrue(json.get().get("bien").asBoolean());
+        assertEquals(2, llamadasTotales, "debía invocarse dos veces");
     }
 
     @Test
@@ -61,8 +76,28 @@ class ClienteGroqTest {
     }
 
     private void arrancar(int codigo, String cuerpo) throws Exception {
+        arrancar(codigo, cuerpo, null);
+    }
+
+    /**
+     * Sirve {@code cuerpo} con {@code codigo}; si llega un 429 y hay
+     * {@code cuerpoExitoso}, la segunda llamada responde 200 con él.
+     */
+    private void arrancar(int codigo, String cuerpo, String cuerpoExitoso) throws Exception {
+        llamadasTotales = 0;
         servidor = HttpServer.create(new InetSocketAddress(0), 0);
         servidor.createContext("/chat/completions", intercambio -> {
+            llamadasTotales++;
+            boolean darExito = codigo == 429 && cuerpoExitoso != null && llamadasTotales > 1;
+            if (darExito) {
+                byte[] exitoso = cuerpoExitoso.getBytes(StandardCharsets.UTF_8);
+                intercambio.getResponseHeaders().set("Content-Type", "application/json");
+                intercambio.sendResponseHeaders(200, exitoso.length);
+                try (var salida = intercambio.getResponseBody()) {
+                    salida.write(exitoso);
+                }
+                return;
+            }
             byte[] bytes = cuerpo.getBytes(StandardCharsets.UTF_8);
             intercambio.getResponseHeaders().set("Content-Type", "application/json");
             intercambio.sendResponseHeaders(codigo, bytes.length);

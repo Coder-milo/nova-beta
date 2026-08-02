@@ -10,6 +10,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import org.springframework.web.client.HttpStatusCodeException;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,6 +33,7 @@ public class ClienteGroq implements ProveedorIa {
     private final RestClient restClient;
     private final String modelo;
     private final String apiKey;
+    private final long retryEsperaMs;
 
     @org.springframework.beans.factory.annotation.Autowired
     public ClienteGroq(@Value("${app.ia.groq.api-key:}") String apiKey,
@@ -41,8 +44,14 @@ public class ClienteGroq implements ProveedorIa {
 
     /** Para tests: apunta el cliente a un servidor local. */
     public ClienteGroq(String apiKey, String modelo, int timeoutMs, String apiBase) {
+        this(apiKey, modelo, timeoutMs, apiBase, 2000);
+    }
+
+    /** Constructor completo, incluida la espera del reintento tras un 429. */
+    public ClienteGroq(String apiKey, String modelo, int timeoutMs, String apiBase, long retryEsperaMs) {
         this.apiKey = apiKey;
         this.modelo = modelo;
+        this.retryEsperaMs = retryEsperaMs;
         this.restClient = RestClient.builder()
                 .baseUrl(apiBase)
                 .defaultHeaders(headers -> {
@@ -98,12 +107,47 @@ public class ClienteGroq implements ProveedorIa {
                 return Optional.empty();
             }
             return extraerContenido(respuesta.getBody());
+        } catch (HttpStatusCodeException e) {
+            if (e.getStatusCode().value() == 429) {
+                // ponytail: retry simple para el 429 del tier gratuito; escalar a
+                // backoff exponencial si sigue dándolo de forma recurrente.
+                return reintentar(instrucciones, contenido);
+            }
+            log.warn("Groq respondió {} en una consulta de reconocimiento", e.getStatusCode());
+            return Optional.empty();
         } catch (Exception e) {
             // 429 del tier gratuito, timeout, red caida...: la IA no debe
             // tumbar una importacion que sin ella ya funcionaba.
             log.warn("Consulta a Groq falló: {}", e.getMessage());
             return Optional.empty();
         }
+    }
+
+    private Optional<JsonNode> reintentar(String instrucciones, String contenido) {
+        try {
+            Thread.sleep(retryEsperaMs);
+            log.warn("Groq respondió 429, reintento tras {}ms", retryEsperaMs);
+            var reintento = restClient.post()
+                    .uri("/chat/completions")
+                    .body(Map.of(
+                            "model", modelo,
+                            "temperature", 0,
+                            "response_format", Map.of("type", "json_object"),
+                            "messages", List.of(
+                                    Map.of("role", "system", "content", instrucciones),
+                                    Map.of("role", "user", "content", contenido))))
+                    .retrieve()
+                    .toEntity(Map.class);
+            if (reintento.getStatusCode().is2xxSuccessful() && reintento.getBody() != null) {
+                return extraerContenido(reintento.getBody());
+            }
+        } catch (InterruptedException interrumpido) {
+            Thread.currentThread().interrupt();
+            return Optional.empty();
+        } catch (Exception otra) {
+            log.warn("Reintento a Groq tras 429 falló: {}", otra.getMessage());
+        }
+        return Optional.empty();
     }
 
     private Optional<JsonNode> extraerContenido(Map<?, ?> cuerpo) {
