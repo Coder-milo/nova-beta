@@ -62,7 +62,8 @@ public class Estudiante extends BaseEntity {
     @Column(name = "sector_objetivo")
     private String sectorObjetivo;
 
-    @Column(name = "cargo_objetivo")
+    /** Suele ser una lista de cargos, no uno solo. Ver V31. */
+    @Column(name = "cargo_objetivo", columnDefinition = "TEXT")
     private String cargoObjetivo;
 
     @Column(name = "disponibilidad_movilidad")
@@ -159,7 +160,8 @@ public class Estudiante extends BaseEntity {
     @Column(name = "programa_academico")
     private String programaAcademico;
 
-    @Column(name = "area_formacion")
+    /** Texto libre: en el seguimiento hay respuestas de mas de mil caracteres. Ver V31. */
+    @Column(name = "area_formacion", columnDefinition = "TEXT")
     private String areaFormacion;
 
     @Column(name = "estado_formacion")

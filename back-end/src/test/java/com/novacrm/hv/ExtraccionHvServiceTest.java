@@ -62,4 +62,65 @@ class ExtraccionHvServiceTest {
         assertEquals("Bogotá", dto.ciudad());
         assertFalse(dto.experiencias().isEmpty(), "Debería extraer al menos una experiencia");
     }
+
+    @Test
+    void respuestaDeIaConDatosSeUsaSobreLasHeuristicas() throws Exception {
+        var ia = new com.novacrm.ia.ClienteGroq("gsk-test", "modelo", 5_000) {
+            @Override
+            public java.util.Optional<com.fasterxml.jackson.databind.JsonNode> completarJson(String instrucciones, String contenido) {
+                try {
+                    return java.util.Optional.of(new com.fasterxml.jackson.databind.ObjectMapper().readTree("""
+                            {"nombre": "Maria", "apellido": "Lopez", "cargoObjetivo": "CFO",
+                             "email": "ia@example.com", "celular": "3110000000", "ciudad": "Cali",
+                             "perfilProfesional": "Perfil desde la IA",
+                             "experiencias": [], "formaciones": []}
+                            """));
+                } catch (Exception e) {
+                    return java.util.Optional.empty();
+                }
+            }
+        };
+        var service = new ExtraccionHvService(ia);
+        var resultado = service.extraer(pdfDe("Maria Fernanda Lopez", "maria.lopez@example.com"));
+
+        assertEquals("ia@example.com", resultado.datosEstructurados().email());
+        assertEquals("CFO", resultado.datosEstructurados().cargoObjetivo());
+        assertEquals("Perfil desde la IA", resultado.datosEstructurados().perfilProfesional());
+    }
+
+    @Test
+    void respuestaVaciaDeIaNoTumbaLasHeuristicas() throws Exception {
+        var ia = new com.novacrm.ia.ClienteGroq("gsk-test", "modelo", 5_000) {
+            @Override
+            public java.util.Optional<com.fasterxml.jackson.databind.JsonNode> completarJson(String instrucciones, String contenido) {
+                return java.util.Optional.empty();
+            }
+        };
+        var service = new ExtraccionHvService(ia);
+        var resultado = service.extraer(pdfDe("Maria Fernanda Lopez", "maria.lopez@example.com"));
+
+        assertEquals("maria.lopez@example.com", resultado.datosEstructurados().email());
+    }
+
+    private static MockMultipartFile pdfDe(String nombre, String email) throws Exception {
+        byte[] pdfBytes;
+        try (PDDocument doc = new PDDocument()) {
+            PDPage page = new PDPage();
+            doc.addPage(page);
+            try (PDPageContentStream contents = new PDPageContentStream(doc, page)) {
+                contents.beginText();
+                contents.setFont(PDType1Font.HELVETICA_BOLD, 14);
+                contents.newLineAtOffset(50, 700);
+                contents.showText(nombre);
+                contents.setFont(PDType1Font.HELVETICA, 10);
+                contents.newLineAtOffset(0, -15);
+                contents.showText(email);
+                contents.endText();
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            doc.save(out);
+            pdfBytes = out.toByteArray();
+        }
+        return new MockMultipartFile("archivo", "hoja.pdf", "application/pdf", pdfBytes);
+    }
 }

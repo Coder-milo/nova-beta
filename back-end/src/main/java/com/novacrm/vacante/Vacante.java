@@ -92,6 +92,18 @@ public class Vacante extends BaseEntity {
     @Column(nullable = false)
     private boolean revisada = true;
 
+    /**
+     * A quien le sirve esta oferta.
+     *
+     * <p>Nulo en las que registra el equipo a mano y en las anteriores a que
+     * existiera el campo: no hay con que deducirlo, y suponerlo mandaria
+     * ofertas del exterior a quien no las busca. Una vacante sin segmento se
+     * considera apta para todos, como hasta ahora.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private com.novacrm.scraper.fuente.Segmento segmento;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "motivo_cierre", length = 30)
     private MotivoCierre motivoCierre;
@@ -171,4 +183,6 @@ public class Vacante extends BaseEntity {
     public void setCiudad(String ciudad) { this.ciudad = ciudad; }
     public boolean isRevisada() { return revisada; }
     public void setRevisada(boolean revisada) { this.revisada = revisada; }
+    public com.novacrm.scraper.fuente.Segmento getSegmento() { return segmento; }
+    public void setSegmento(com.novacrm.scraper.fuente.Segmento segmento) { this.segmento = segmento; }
 }

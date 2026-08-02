@@ -1,14 +1,12 @@
 package com.novacrm.scraper.portal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.novacrm.vacante.VacanteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
 
 /**
  * Traduccion de las ofertas de la API de Remotive al modelo propio.
@@ -25,7 +23,7 @@ class RemotiveConnectorTest {
 
     @BeforeEach
     void configurar() {
-        conector = new RemotiveConnector(mock(VacanteRepository.class), true);
+        conector = new RemotiveConnector(true);
     }
 
     private com.fasterxml.jackson.databind.JsonNode oferta(String json) throws Exception {
@@ -160,17 +158,44 @@ class RemotiveConnectorTest {
         assertNotEquals(una.getHashDedup(), otra.getHashDedup());
     }
 
+    /**
+     * Un cuerpo ilegible es un fallo de la fuente, no una busqueda sin
+     * resultados: el contrato distingue los dos casos para que una corrida rota
+     * se vea rota en el panel.
+     */
     @Test
-    void unaRespuestaIlegibleNoRompeLaEjecucion() {
-        assertTrue(conector.procesar("esto no es json").isEmpty());
-        assertTrue(conector.procesar("{}").isEmpty());
+    void unaRespuestaIlegibleSeReportaComoFallo() {
+        var resultado = conector.procesar("esto no es json");
+
+        assertTrue(resultado.fallo(), "una respuesta ilegible tiene que reportarse");
+        assertTrue(resultado.ofertas().isEmpty());
+    }
+
+    @Test
+    void unaRespuestaSinOfertasNoEsUnFallo() {
+        var resultado = conector.procesar("{}");
+
+        assertFalse(resultado.fallo(), "no encontrar nada es un resultado valido");
+        assertTrue(resultado.ofertas().isEmpty());
     }
 
     @Test
     void sePuedeDesactivarPorConfiguracion() {
-        var desactivado = new RemotiveConnector(mock(VacanteRepository.class), false);
+        var desactivado = new RemotiveConnector(false);
+        var resultado = desactivado.buscar("customer service", null);
 
-        assertTrue(desactivado.buscar("customer service", "remoto").isEmpty(),
-                "desactivado no debe salir a la red");
+        assertTrue(resultado.ofertas().isEmpty(), "desactivado no debe salir a la red");
+        assertFalse(resultado.fallo(), "estar apagada no es un fallo que reportar");
+        assertFalse(desactivado.estaHabilitada());
+    }
+
+    /**
+     * El tablero es el mismo para cualquier ciudad, asi que la fuente declara
+     * que no filtra por ella: es lo que evita las cinco peticiones identicas
+     * por termino que disparaba el bucle termino×ciudad.
+     */
+    @Test
+    void noFiltraPorCiudad() {
+        assertFalse(conector.filtraPorCiudad());
     }
 }

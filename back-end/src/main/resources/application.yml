@@ -83,6 +83,44 @@ app:
     # Si algun dia la API queda expuesta directamente a internet, hay que
     # dejar esta lista vacia: de lo contrario el limite es falseable.
     trusted-proxies: ${RATE_LIMIT_TRUSTED_PROXIES:127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+  vacantes:
+    # Cuanto vale una oferta que no dice hasta cuando esta abierta. Sin esto las
+    # vacantes automaticas no vencian nunca y `cerrarVencidas()` no podia
+    # cerrarlas jamas.
+    dias-vigencia-por-defecto: ${VACANTES_DIAS_VIGENCIA:30}
+  scraping:
+    # Fuentes de vacantes. Cada una sirve a un segmento distinto de la
+    # poblacion; ver com.novacrm.scraper.fuente.Segmento.
+    remotive:
+      # Remoto en ingles. API publica, sin cupo, pero sus condiciones piden no
+      # consultarla mas de cuatro veces al dia.
+      enabled: ${SCRAPING_REMOTIVE_ENABLED:true}
+    jsearch:
+      # Empleo local en Colombia. Es la unica fuente de vacantes colombianas:
+      # Adzuna no cubre el pais y el Servicio Publico de Empleo no publica datos
+      # abiertos. Sin JSEARCH_API_KEY el conector se apaga solo.
+      #
+      # La clave nunca va en el repositorio. Se registra en RapidAPI y se
+      # inyecta como variable de entorno.
+      api-key: ${JSEARCH_API_KEY:}
+      enabled: ${SCRAPING_JSEARCH_ENABLED:true}
+      # Tope duro del plan gratuito. El contador es persistente (tabla
+      # cuota_fuente) porque el proceso se reinicia en cada despliegue y el mes
+      # del proveedor no.
+      limite-mensual: ${JSEARCH_LIMITE_MENSUAL:200}
+      # Con cron diario, 6 consultas por corrida son ~180 al mes: cabe en el
+      # cupo dejando margen para los escaneos manuales del panel.
+      consultas-por-corrida: ${JSEARCH_CONSULTAS_POR_CORRIDA:6}
+      pais: ${JSEARCH_PAIS:co}
+    arbeitnow:
+      # Migracion al exterior. Tablero publico sin cupo; solo se conservan las
+      # ofertas que declaran patrocinio de visa.
+      enabled: ${SCRAPING_ARBEITNOW_ENABLED:true}
+      solo-con-visa: ${ARBEITNOW_SOLO_CON_VISA:true}
+    elempleo:
+      # Desactivado a proposito: extraer contenido del portal esta restringido
+      # por sus condiciones de uso. No activar sin un acuerdo con elempleo.com.
+      enabled: ${SCRAPING_ELEMPLEO_ENABLED:false}
   colocacion:
     # Salario objetivo del programa: por debajo de esto una colocacion cuenta,
     # pero no como colocacion digna. Es configuracion y no una constante porque
@@ -94,6 +132,24 @@ app:
     access-key: ${MINIO_ACCESS_KEY:}
     secret-key: ${MINIO_SECRET_KEY:}
     bucket: ${MINIO_BUCKET:novacrm}
+  ia:
+    # Asistencia de IA para reconocer lo que los diccionarios de sinonimos no
+    # cubren (hojas y columnas renombradas, HVs con formatos libres). La IA
+    # NUNCA decide sola: sugiere y el sistema valida la sugerencia contra el
+    # vocabulario real antes de usarla. Sin clave todo sigue igual que antes.
+    proveedor: ${IA_PROVEEDOR:groq}
+    groq:
+      api-key: ${GROQ_API_KEY:}
+      modelo: ${GROQ_MODELO:llama-3.3-70b-versatile}
+      timeout-ms: ${GROQ_TIMEOUT_MS:10000}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      modelo: ${OPENAI_MODELO:gpt-4o-mini}
+    custom:
+      api-key: ${CUSTOM_IA_API_KEY:}
+      modelo: ${CUSTOM_IA_MODELO:deepseek-chat}
+      api-base: ${CUSTOM_IA_API_BASE:https://api.deepseek.com/v1}
+      temperatura: ${CUSTOM_IA_TEMPERATURA:0.0}
   ses:
     region: ${AWS_REGION:${SES_REGION:us-east-1}}
     source-email: ${AWS_SES_FROM_EMAIL:${SES_SOURCE_EMAIL:noreply@novacrm.com}}

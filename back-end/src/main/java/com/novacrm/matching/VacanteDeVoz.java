@@ -1,10 +1,6 @@
 package com.novacrm.matching;
 
-import com.novacrm.vacante.Vacante;
-
-import java.text.Normalizer;
-import java.util.List;
-import java.util.Locale;
+import java.util.Set;
 
 /**
  * Reconoce las vacantes cuyo trabajo es hablar con el cliente en ingles.
@@ -14,42 +10,35 @@ import java.util.Locale;
  * destreza justo mas floja, y puntuarla con el nivel general la deja pasar.
  *
  * <p>Es una heuristica sobre el texto del anuncio: no hay un campo que lo
- * declare. Ante la duda se responde que no es de voz, de modo que el efecto
- * sea exigir mas solo cuando hay senales claras.
+ * declare. Ante la duda se responde que no es de voz, de modo que el efecto sea
+ * exigir mas solo cuando hay senales claras.
+ *
+ * <p>Las senales vivian aqui, en una lista de Java paralela a
+ * {@code matching-synonyms.yml} que ademas contenia justo el vocabulario de BPO
+ * que al yml le faltaba. Ahora salen del yml, con dos consecuencias: ampliarlo
+ * mejora el matching y la deteccion de voz a la vez, y la comparacion es por
+ * token y no por {@code contains} sobre el texto crudo —que hacia que "voice"
+ * coincidiera dentro de "invoice"—.
  */
 public final class VacanteDeVoz {
 
     /**
-     * Terminos habituales en los anuncios de BPO de voz, en espanol e ingles.
-     * Se comparan sobre el texto sin tildes y en minusculas.
+     * Grupos canonicos cuyo oficio implica atender por voz.
+     *
+     * <p>{@code bpo} queda fuera a proposito: nombra el modelo de negocio, no
+     * el puesto, y un BPO tiene tantas plazas de back office como de telefono.
      */
-    private static final List<String> SENALES = List.of(
-            "call center", "callcenter", "contact center",
-            "customer service", "servicio al cliente", "atencion al cliente",
-            "telemercadeo", "telemarketing", "televenta", "teleoperador",
-            "agente bilingue", "bilingual agent", "voice", "de voz",
-            "inbound", "outbound", "csr", "help desk", "mesa de ayuda",
-            "soporte telefonico", "asesor telefonico");
+    static final Set<String> CANONICOS_DE_VOZ =
+            Set.of("call_center", "servicio_cliente", "trabajo_de_voz");
 
     private VacanteDeVoz() {
     }
 
-    public static boolean esDeVoz(Vacante vacante) {
-        if (vacante == null) {
-            return false;
-        }
-        String texto = normalizar(
-                String.join(" ",
-                        vacante.getTitulo() == null ? "" : vacante.getTitulo(),
-                        vacante.getDescripcion() == null ? "" : vacante.getDescripcion(),
-                        vacante.getRequisitos() == null ? "" : vacante.getRequisitos()));
-
-        return SENALES.stream().anyMatch(texto::contains);
-    }
-
-    private static String normalizar(String texto) {
-        return Normalizer.normalize(texto, Normalizer.Form.NFD)
-                .replaceAll("\\p{InCombiningDiacriticalMarks}", "")
-                .toLowerCase(Locale.ROOT);
+    /**
+     * @param tokensVacante tokens del titulo, la descripcion y los requisitos,
+     *                      ya normalizados por {@link SkillSynonyms}
+     */
+    public static boolean esDeVoz(Set<String> tokensVacante) {
+        return tokensVacante != null && tokensVacante.stream().anyMatch(CANONICOS_DE_VOZ::contains);
     }
 }

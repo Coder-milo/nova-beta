@@ -4,6 +4,7 @@ import com.novacrm.exception.BusinessException;
 import com.novacrm.hv.dto.DatosHvDto;
 import com.novacrm.hv.dto.ExperienciaDto;
 import com.novacrm.hv.dto.FormacionDto;
+import com.novacrm.ia.ProveedorIa;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.stereotype.Service;
@@ -17,9 +18,15 @@ import java.util.regex.Pattern;
  * Extrae campos de una hoja de vida en PDF mediante heurísticas avanzadas por bloques de sección,
  * filtrando metadatos irrelevantes (referencias, cédulas, expediciones) y construyendo una estructura
  * DatosHvDto optimizada para alimentar directamente la plantilla CAC ATS.
+ *
+ * <p>Con la IA configurada se le pide el mismo {@link DatosHvDto} al modelo: si responde algo
+ * parseable y con datos, se usa; si no, las heurísticas de abajo siguen mandando. La IA es un
+ * refuerzo, no una dependencia.
  */
 @Service
 public class ExtraccionHvService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ExtraccionHvService.class);
 
     public record CampoExtraido(String campo, String valor, int confianza) {}
     public record ResultadoExtraccion(List<CampoExtraido> campos, String textoCompleto, DatosHvDto datosEstructurados) {}
@@ -29,6 +36,21 @@ public class ExtraccionHvService {
     private static final Pattern DOCUMENTO = Pattern.compile("(?:C\\.?C\\.?|c[eé]dula|documento)[^\\d]{0,15}(\\d{6,11})", Pattern.CASE_INSENSITIVE);
     private static final Pattern DOCUMENTO_SUELTO = Pattern.compile("(?<!\\d)(\\d{7,10})(?!\\d)");
     private static final Pattern LINKEDIN = Pattern.compile("(?i)linkedin\\.com/in/([a-zA-Z0-9_-]+)");
+
+    private static final String INSTRUCCIONES_IA = """
+            Extraes datos de hojas de vida en espanol para un CRM de empleabilidad.
+            Respondes SOLO con JSON, sin texto fuera del JSON.
+            Usa null para los campos que no aparezcan; no inventes valores.
+            El JSON debe encajar exactamente en esta estructura:
+            {"nombre": string|null, "apellido": string|null, "cargoObjetivo": string|null,
+             "email": string|null, "celular": string|null, "ciudad": string|null,
+             "linkedinUserId": string|null, "perfilProfesional": string|null,
+             "competencias": string|null, "idiomas": string|null,
+             "titulo": string|null, "institucionEducativa": string|null, "nivelEducativo": string|null,
+             "experiencias": [{"cargo": string, "empresa": string, "fechaInicio": string|null,
+                               "fechaFin": string|null, "actual": boolean, "funciones": string|null}],
+             "formaciones": [{"tipo": string, "programa": string, "institucion": string|null, "anio": string|null}]}
+            """;
 
     // Regex estricto para años válidos (1970 - 2029) aislados de números largos (cédulas o teléfonos)
     private static final Pattern ANIO_ISOLADO = Pattern.compile("(?<!\\d)(19[7-9]\\d|20[0-2]\\d)(?!\\d)");
@@ -52,8 +74,26 @@ public class ExtraccionHvService {
             new SeccionHeaderConfig("REFERENCIAS", List.of("ii. referencias familiares", "iii. referencias personales", "referencias familiares", "referencias personales", "referencias laborales", "referencias"))
     );
 
+    private final ProveedorIa proveedorIa;
+
+    public ExtraccionHvService() {
+        this(null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ExtraccionHvService(ProveedorIa proveedorIa) {
+        this.proveedorIa = proveedorIa;
+    }
+
     public ResultadoExtraccion extraer(MultipartFile archivo) {
         String texto = extraerTexto(archivo);
+        String textoRecortado = texto.length() > 8000 ? texto.substring(0, 8000) : texto;
+
+        var conIa = extraerConIa(textoRecortado);
+        if (conIa != null) {
+            return new ResultadoExtraccion(camposDesde(conIa), textoRecortado, conIa);
+        }
+
         var campos = new ArrayList<CampoExtraido>();
 
         // 1. Campos planos en el encabezado
@@ -185,7 +225,66 @@ public class ExtraccionHvService {
                 null
         );
 
-        return new ResultadoExtraccion(campos, texto.length() > 8000 ? texto.substring(0, 8000) : texto, datosEstructurados);
+        return new ResultadoExtraccion(campos, textoRecortado, datosEstructurados);
+    }
+
+    /**
+     * Pide el {@link DatosHvDto} al modelo. Se acepta la respuesta solo si
+     * parsea contra el DTO y trae al menos un dato de contacto o de nombre;
+     * un JSON vacío o ilegible devuelve {@code null} y se sigue con las heurísticas.
+     */
+    private DatosHvDto extraerConIa(String texto) {
+        if (proveedorIa == null || !proveedorIa.disponible()) {
+            log.info("Extracción de HV con IA omitida: Proveedor de IA no disponible o no configurado.");
+            return null;
+        }
+        log.info("Enviando texto de HV a proveedor de IA '{}' ({} caracteres) para extracción estructurada...", proveedorIa.nombre(), texto.length());
+        String contenido = """
+                Hoja de vida (texto extraido del PDF):
+                %s
+                """.formatted(texto.length() > 8000 ? texto.substring(0, 8000) : texto);
+
+        var resultado = proveedorIa.completarJson(INSTRUCCIONES_IA, contenido)
+                .flatMap(this::aDatosHv)
+                .orElse(null);
+
+        if (resultado != null) {
+            log.info("Extracción de HV completada con éxito mediante proveedor de IA '{}'.", proveedorIa.nombre());
+        } else {
+            log.warn("El proveedor de IA no devolvió datos estructurados válidos de la HV. Ejecutando fallback de heurísticas regex.");
+        }
+
+        return resultado;
+    }
+
+    private Optional<DatosHvDto> aDatosHv(com.fasterxml.jackson.databind.JsonNode json) {
+        try {
+            var datos = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .treeToValue(json, DatosHvDto.class);
+            if (datos.nombre() == null && datos.apellido() == null
+                    && datos.email() == null && datos.celular() == null) {
+                log.warn("El JSON devuelto por Groq no contiene identificador básico (nombre, apellido, email ni celular).");
+                return Optional.empty();
+            }
+            return Optional.of(datos);
+        } catch (Exception e) {
+            log.warn("Error al mapear la respuesta JSON de Groq a DatosHvDto: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private static List<CampoExtraido> camposDesde(DatosHvDto d) {
+        var campos = new ArrayList<CampoExtraido>();
+        if (d.nombre() != null) campos.add(new CampoExtraido("nombre", d.nombre(), 90));
+        if (d.apellido() != null) campos.add(new CampoExtraido("apellido", d.apellido(), 90));
+        if (d.cargoObjetivo() != null) campos.add(new CampoExtraido("cargoObjetivo", d.cargoObjetivo(), 90));
+        if (d.email() != null) campos.add(new CampoExtraido("email", d.email(), 90));
+        if (d.celular() != null) campos.add(new CampoExtraido("celular", d.celular(), 90));
+        if (d.ciudad() != null) campos.add(new CampoExtraido("ciudad", d.ciudad(), 90));
+        if (d.perfilProfesional() != null) campos.add(new CampoExtraido("perfilProfesional", d.perfilProfesional(), 90));
+        if (d.competencias() != null) campos.add(new CampoExtraido("competencias", d.competencias(), 90));
+        if (d.idiomas() != null) campos.add(new CampoExtraido("idiomas", d.idiomas(), 90));
+        return campos;
     }
 
     private String extraerTexto(MultipartFile archivo) {

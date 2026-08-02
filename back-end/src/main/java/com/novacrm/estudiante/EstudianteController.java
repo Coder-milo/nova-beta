@@ -343,8 +343,14 @@ public class EstudianteController {
     @Operation(summary = "Eliminación masiva de estudiantes (soft o hard delete)")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void eliminarMasivo(@RequestBody BulkDeleteRequest request) {
+    public void eliminarMasivo(@RequestBody BulkDeleteRequest request, Authentication auth) {
         if (request.permanente()) {
+            boolean esAdmin = auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            if (!esAdmin) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Solo ADMIN puede eliminar estudiantes de forma permanente");
+            }
             estudianteService.hardDeleteMasivo(request.ids());
         } else {
             estudianteService.softDeleteMasivo(request.ids());

@@ -2,8 +2,11 @@ package com.novacrm.scraper.portal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.novacrm.scraper.fuente.FuenteDeVacantes;
+import com.novacrm.scraper.fuente.OfertaCruda;
+import com.novacrm.scraper.fuente.ResultadoBusqueda;
+import com.novacrm.scraper.fuente.Segmento;
 import com.novacrm.vacante.Vacante;
-import com.novacrm.vacante.VacanteRepository;
 import org.jsoup.Jsoup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +42,7 @@ import java.util.Optional;
  * matching.
  */
 @Component
-public class RemotiveConnector implements PortalScraper {
+public class RemotiveConnector implements FuenteDeVacantes {
 
     private static final Logger log = LoggerFactory.getLogger(RemotiveConnector.class);
     private static final String PORTAL = "REMOTIVE";
@@ -58,7 +61,6 @@ public class RemotiveConnector implements PortalScraper {
             "latam", "latin america", "south america", "americas",
             "colombia");
 
-    private final VacanteRepository vacanteRepository;
     private final boolean habilitado;
 
     /**
@@ -69,10 +71,34 @@ public class RemotiveConnector implements PortalScraper {
      */
     private volatile HttpClient httpClient;
 
-    public RemotiveConnector(VacanteRepository vacanteRepository,
-                             @Value("${app.scraping.remotive.enabled:true}") boolean habilitado) {
-        this.vacanteRepository = vacanteRepository;
+    public RemotiveConnector(@Value("${app.scraping.remotive.enabled:true}") boolean habilitado) {
         this.habilitado = habilitado;
+    }
+
+    @Override
+    public String nombre() {
+        return PORTAL;
+    }
+
+    @Override
+    public Segmento segmento() {
+        return Segmento.REMOTO_INGLES;
+    }
+
+    @Override
+    public boolean estaHabilitada() {
+        return habilitado;
+    }
+
+    /**
+     * Sus condiciones piden no consultarla mas de cuatro veces al dia, y de
+     * todos modos el tablero es el mismo para cualquier ciudad: pedirlo una vez
+     * por cada ciudad del cohorte eran cinco peticiones con resultado
+     * identico.
+     */
+    @Override
+    public int maximoConsultasPorCorrida() {
+        return 4;
     }
 
     private HttpClient httpClient() {
@@ -93,14 +119,14 @@ public class RemotiveConnector implements PortalScraper {
     }
 
     @Override
-    public List<Vacante> buscar(String keyword, String ubicacion) {
+    public ResultadoBusqueda buscar(String termino, String ciudad) {
         if (!habilitado) {
-            return List.of();
+            return ResultadoBusqueda.vacio();
         }
         try {
             String url = ENDPOINT
                     + "?limit=" + LIMITE_POR_CONSULTA
-                    + "&search=" + URLEncoder.encode(keyword == null ? "" : keyword.trim(),
+                    + "&search=" + URLEncoder.encode(termino == null ? "" : termino.trim(),
                             StandardCharsets.UTF_8);
 
             HttpResponse<String> respuesta = httpClient().send(
@@ -113,44 +139,43 @@ public class RemotiveConnector implements PortalScraper {
                     HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
             if (respuesta.statusCode() != 200) {
-                log.warn("Remotive respondio {} para '{}'", respuesta.statusCode(), keyword);
-                return List.of();
+                return ResultadoBusqueda.fallo(
+                        "Remotive respondio " + respuesta.statusCode() + " para '" + termino + "'");
             }
             return procesar(respuesta.body());
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            log.warn("Consulta a Remotive interrumpida");
-            return List.of();
+            return ResultadoBusqueda.fallo("consulta a Remotive interrumpida");
         } catch (Exception e) {
-            log.error("Error consultando Remotive: {}", e.getMessage());
-            return List.of();
+            return ResultadoBusqueda.fallo("error consultando Remotive: " + e.getMessage());
         }
     }
 
-    /** Convierte la respuesta y persiste lo que no estuviera ya guardado. */
-    List<Vacante> procesar(String cuerpoJson) {
-        List<Vacante> guardadas = new ArrayList<>();
+    /** Convierte la respuesta; guardar es cosa de quien la pidio. */
+    ResultadoBusqueda procesar(String cuerpoJson) {
+        List<OfertaCruda> ofertas = new ArrayList<>();
         try {
-            JsonNode ofertas = MAPPER.readTree(cuerpoJson).path("jobs");
-            for (JsonNode oferta : ofertas) {
+            JsonNode nodos = MAPPER.readTree(cuerpoJson).path("jobs");
+            for (JsonNode oferta : nodos) {
                 try {
                     Optional<Vacante> vacante = mapear(oferta);
                     if (vacante.isEmpty()) {
                         continue;
                     }
-                    if (vacanteRepository.findByHashDedup(vacante.get().getHashDedup()).isPresent()) {
-                        continue;
-                    }
-                    guardadas.add(vacanteRepository.save(vacante.get()));
+                    // El nombre de la empresa viaja aparte: en el modelo propio
+                    // Empresa es una entidad del directorio, y resolverla —o
+                    // crearla— es decision de quien persiste.
+                    ofertas.add(new OfertaCruda(vacante.get(), texto(oferta, "company_name")));
                 } catch (Exception e) {
                     log.warn("Error mapeando oferta de Remotive: {}", e.getMessage());
                 }
             }
         } catch (Exception e) {
             log.error("Respuesta de Remotive ilegible: {}", e.getMessage());
+            return ResultadoBusqueda.fallo("respuesta de Remotive ilegible: " + e.getMessage());
         }
-        return guardadas;
+        return ResultadoBusqueda.de(ofertas);
     }
 
     /**
@@ -193,6 +218,7 @@ public class RemotiveConnector implements PortalScraper {
         vacante.setUrlAplicar(url);
 
         vacante.setFechaPublicacion(fecha(texto(oferta, "publication_date")));
+        vacante.setSegmento(Segmento.REMOTO_INGLES);
         vacante.setActivo(true);
         return Optional.of(vacante);
     }
@@ -240,8 +266,4 @@ public class RemotiveConnector implements PortalScraper {
         }
     }
 
-    @Override
-    public String getPortalNombre() {
-        return PORTAL;
-    }
 }

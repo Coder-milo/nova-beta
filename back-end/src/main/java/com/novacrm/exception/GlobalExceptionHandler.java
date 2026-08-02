@@ -36,6 +36,20 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("BUSINESS_ERROR", ex.getMessage(), Instant.now()));
     }
 
+    /**
+     * Credenciales que no valen: 401.
+     *
+     * <p>Salia como 400 —lo lanzaba una {@link BusinessException}— y la pantalla
+     * de login, que solo reconoce 401 y 403 como "credenciales incorrectas",
+     * enseñaba «El servidor respondio con un error (400). Intenta mas tarde».
+     * Quien se equivocaba de contrasena creia que el servidor estaba caido.
+     */
+    @ExceptionHandler(CredencialesInvalidasException.class)
+    public ResponseEntity<ErrorResponse> handleCredenciales(CredencialesInvalidasException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse("UNAUTHORIZED", ex.getMessage(), Instant.now()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ValidationErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()

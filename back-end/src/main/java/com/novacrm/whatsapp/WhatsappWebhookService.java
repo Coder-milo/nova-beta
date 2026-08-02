@@ -149,7 +149,7 @@ public class WhatsappWebhookService {
                         "Ya tenías una postulación registrada para esa vacante. ¡Buen trabajo!");
             }
         } else {
-            matchingService.descartarMatch(matchId);
+            matchingService.descartarMatch(matchId, "WhatsApp");
             registrarBandeja(programaId, e, entrante.celular(), "No, gracias (botón)");
             whatsappSender.enviarTexto(programaId, entrante.celular(),
                     "Entendido. Te avisaremos cuando aparezca otra vacante que encaje contigo.");
