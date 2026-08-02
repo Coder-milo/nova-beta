@@ -1,48 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import {
-  ArrowsClockwise,
-  Bank,
-  Bell,
-  CheckCircle,
-  CircleNotch,
-  Cloud,
-  Certificate,
-  Database,
-  EnvelopeSimple,
-  Eye,
-  EyeSlash,
-  FloppyDisk,
-  Gear,
-  Globe,
-  Key,
-  IdentificationCard,
-  Info,
-  InstagramLogo,
-  LinkedinLogo,
-  LockKey,
-  Monitor,
-  MapPin,
-  Moon,
-  Palette,
-  Phone,
-  Plus,
-  RocketLaunch,
-  ShareNetwork,
-  Shield,
-  ShieldWarning,
-  Sliders,
-  Sparkle,
-  Sun,
-  Trash,
-  User,
-  Users,
-  WarningCircle,
-  WhatsappLogo,
-  X,
-  type Icon,
-} from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon as ArrowsClockwise, BankIcon as Bank, BellIcon as Bell, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CloudIcon as Cloud, CertificateIcon as Certificate, DatabaseIcon as Database, EnvelopeSimpleIcon as EnvelopeSimple, EyeIcon as Eye, EyeSlashIcon as EyeSlash, FloppyDiskIcon as FloppyDisk, GearIcon as Gear, GlobeIcon as Globe, KeyIcon as Key, IdentificationCardIcon as IdentificationCard, InfoIcon as Info, InstagramLogoIcon as InstagramLogo, LinkedinLogoIcon as LinkedinLogo, LockKeyIcon as LockKey, MonitorIcon as Monitor, MapPinIcon as MapPin, MoonIcon as Moon, PaletteIcon as Palette, PhoneIcon as Phone, PlusIcon as Plus, RocketLaunchIcon as RocketLaunch, ShareNetworkIcon as ShareNetwork, ShieldIcon as Shield, ShieldWarningIcon as ShieldWarning, SlidersIcon as Sliders, SparkleIcon as Sparkle, SunIcon as Sun, TrashIcon as Trash, UserIcon as User, UsersIcon as Users, WarningCircleIcon as WarningCircle, WhatsappLogoIcon as WhatsappLogo, XIcon as X, type Icon } from '@phosphor-icons/react'
 import { Dialog } from '@base-ui/react/dialog'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
@@ -172,7 +131,7 @@ export default function ConfiguracionPage() {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
 
-  const handleAdminCambiarPassword = async (e: React.FormEvent) => {
+  const handleAdminCambiarPassword = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (!modalPasswordUser) return
     setPasswordError(null)
@@ -219,7 +178,7 @@ export default function ConfiguracionPage() {
   }, [])
 
   // Guardar datos institucionales
-  const handleSaveInst = (e: React.FormEvent) => {
+  const handleSaveInst = (e: React.SyntheticEvent) => {
     e.preventDefault()
     localStorage.setItem('nova_inst_config', JSON.stringify(instData))
     setInstSuccess(true)
@@ -227,7 +186,7 @@ export default function ConfiguracionPage() {
   }
 
   // Guardar datos académicos
-  const handleSaveAcademic = (e: React.FormEvent) => {
+  const handleSaveAcademic = (e: React.SyntheticEvent) => {
     e.preventDefault()
     localStorage.setItem('nova_acad_config', JSON.stringify(academicData))
     setAcademicSuccess(true)
@@ -257,7 +216,7 @@ export default function ConfiguracionPage() {
     loadUsuarios()
   }, [loadUsuarios])
 
-  const handleCrearUsuario = async (e: React.FormEvent) => {
+  const handleCrearUsuario = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     setUsuarioFormError(null)
     if (!nuevoUsuario.nombre.trim()) {

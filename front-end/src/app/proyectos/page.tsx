@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwise, CheckCircle, CircleNotch, Eye, Kanban, Palette, PencilSimple, Plus, Trash, WarningCircle, X } from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, EyeIcon as Eye, KanbanIcon as Kanban, PaletteIcon as Palette, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, TrashIcon as Trash, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 /**
  * Página de Proyectos / Programas — CRUD completo.
  *
@@ -93,7 +93,7 @@ export default function ProyectosPage() {
   }
 
   // ── Guardar ───────────────────────────────────────────────────────────────
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = (e: React.SyntheticEvent) => {
     e.preventDefault(); setFormError(null); setFormSuccess(null)
     if (!form.nombre.trim()) { setFormError('El nombre es obligatorio.'); return }
     if (form.fechaInicio && form.fechaFin && form.fechaFin < form.fechaInicio) {

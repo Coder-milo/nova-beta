@@ -20,15 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  ArrowsClockwise,
-  CheckCircle,
-  CircleNotch,
-  Envelope,
-  Key,
-  MagnifyingGlass,
-  WarningCircle,
-} from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, EnvelopeIcon as Envelope, KeyIcon as Key, MagnifyingGlassIcon as MagnifyingGlass, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import {
   Card,
   CardContent,

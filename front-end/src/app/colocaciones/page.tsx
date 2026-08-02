@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from '@/compat/next-link'
-import { Briefcase, Buildings, CheckCircle, CircleNotch, CurrencyDollar, MagnifyingGlass, Plus, Users, WarningCircle, XCircle } from '@phosphor-icons/react'
+import { BriefcaseIcon as Briefcase, BuildingsIcon as Buildings, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CurrencyDollarIcon as CurrencyDollar, MagnifyingGlassIcon as MagnifyingGlass, PlusIcon as Plus, UsersIcon as Users, WarningCircleIcon as WarningCircle, XCircleIcon as XCircle } from '@phosphor-icons/react'
 import { colocacionesApi, empresasApi, estudiantesApi, ApiCallError } from '@/lib/api'
 import type { ColocacionRequest, ColocacionResponse, EmpresaResponse, EstudianteResponse, ResumenColocaciones } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
@@ -52,7 +52,7 @@ export default function ColocacionesPage() {
   }, [q, registros])
 
   const abrirRegistro = () => { setForm(vacia); setAbierto(true); setError('') }
-  const guardar = async (event: React.FormEvent) => {
+  const guardar = async (event: React.SyntheticEvent) => {
     event.preventDefault()
     if (!form.estudianteId || !form.empresaNombre.trim()) return
     setGuardando(true); setError('')

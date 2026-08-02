@@ -1,16 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import {
-  Briefcase,
-  Check,
-  CircleNotch,
-  GraduationCap,
-  PencilSimple,
-  User,
-  WarningCircle,
-  X,
-} from '@phosphor-icons/react'
+import { BriefcaseIcon as Briefcase, CheckIcon as Check, CircleNotchIcon as CircleNotch, GraduationCapIcon as GraduationCap, PencilSimpleIcon as PencilSimple, UserIcon as User, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 import { ApiCallError, estudiantesApi, perfilApi } from '@/lib/api'
 import type { EstudianteRequest, EstudianteResponse, FormacionResponse, ExperienciaResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'

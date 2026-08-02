@@ -1,20 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import {
-  ArrowCounterClockwise,
-  CheckCircle,
-  CircleNotch,
-  CloudArrowUp,
-  DownloadSimple,
-  Eye,
-  File,
-  FilePdf,
-  FileText,
-  Trash,
-  WarningCircle,
-  XCircle,
-} from '@phosphor-icons/react'
+import { ArrowCounterClockwiseIcon as ArrowCounterClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CloudArrowUpIcon as CloudArrowUp, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileIcon as File, FilePdfIcon as FilePdf, FileTextIcon as FileText, TrashIcon as Trash, WarningCircleIcon as WarningCircle, XCircleIcon as XCircle } from '@phosphor-icons/react'
 import { ApiCallError, documentosApi, estudiantesApi } from '@/lib/api'
 import type { DocumentoResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'

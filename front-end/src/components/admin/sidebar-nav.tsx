@@ -1,6 +1,6 @@
 'use client'
 
-import { SignOut } from '@phosphor-icons/react'
+import { SignOutIcon as SignOut } from '@phosphor-icons/react'
 import Image from '@/compat/next-image'
 import Link from '@/compat/next-link'
 import { usePathname, useRouter } from '@/compat/next-navigation'

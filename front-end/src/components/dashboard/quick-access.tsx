@@ -1,4 +1,4 @@
-import { FilePlus, FolderPlus, Presentation, ReadCvLogo, UploadSimple, UserPlus } from '@phosphor-icons/react/ssr'
+import { FilePlusIcon as FilePlus, FolderPlusIcon as FolderPlus, PresentationIcon as Presentation, ReadCvLogoIcon as ReadCvLogo, UploadSimpleIcon as UploadSimple, UserPlusIcon as UserPlus } from '@phosphor-icons/react/ssr'
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
 import Link from '@/compat/next-link'
 import {

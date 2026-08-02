@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwise, CaretLeft, CaretRight, ShieldCheck, WarningCircle, X } from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon as ArrowsClockwise, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, ShieldCheckIcon as ShieldCheck, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 /**
  * Página de Auditoría — registro histórico de acciones del sistema.
  *
@@ -71,7 +71,7 @@ export default function AuditoriaPage() {
 
   useEffect(() => { load(currentPage, usuario, modulo, accion) }, [load, currentPage, usuario, modulo, accion])
 
-  const aplicarFiltros = (e: React.FormEvent) => {
+  const aplicarFiltros = (e: React.SyntheticEvent) => {
     e.preventDefault()
     setCurrent(0); setUsuario(usuarioInput.trim())
   }

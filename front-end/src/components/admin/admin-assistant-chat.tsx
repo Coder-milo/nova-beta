@@ -1,19 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  ArrowRight,
-  Buildings,
-  CircleNotch,
-  Compass,
-  FileCsv,
-  Gear,
-  PaperPlaneTilt,
-  Sparkle,
-  Trash,
-  Users,
-  X,
-} from '@phosphor-icons/react'
+import { ArrowRightIcon as ArrowRight, BuildingsIcon as Buildings, CircleNotchIcon as CircleNotch, CompassIcon as Compass, FileCsvIcon as FileCsv, GearIcon as Gear, PaperPlaneTiltIcon as PaperPlaneTilt, SparkleIcon as Sparkle, TrashIcon as Trash, UsersIcon as Users, XIcon as X } from '@phosphor-icons/react'
 import { usePathname, useRouter } from '@/compat/next-navigation'
 import { usePreferences } from '@/lib/preferences'
 import { cn } from '@/lib/utils'

@@ -1,17 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import {
-  ArrowRight,
-  Briefcase,
-  Building,
-  CheckCircle,
-  CircleNotch,
-  MapPin,
-  Sparkle,
-  Trash,
-  WarningCircle,
-} from '@phosphor-icons/react'
+import { ArrowRightIcon as ArrowRight, BriefcaseIcon as Briefcase, BuildingIcon as Building, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, MapPinIcon as MapPin, SparkleIcon as Sparkle, TrashIcon as Trash, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import { ApiCallError, matchesApi, postulacionesApi } from '@/lib/api'
 import { hoyLocal } from '@/lib/utils'
 import type { MatchResponse, PostulacionResponse, RazonDeMatch } from '@/lib/types'
@@ -157,7 +147,7 @@ export function StudentPostulaciones() {
     }
   }
 
-  const registrarManual = async (event: React.FormEvent) => {
+  const registrarManual = async (event: React.SyntheticEvent) => {
     event.preventDefault()
     if (!empresaManual.trim() || !cargoManual.trim() || registrando) return
     setRegistrando(true)

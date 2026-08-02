@@ -1,22 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from '@/compat/next-link'
-import {
-  Bell,
-  CaretLeft,
-  CaretRight,
-  CalendarBlank,
-  ChatCircle,
-  CircleNotch,
-  FileText,
-  Globe,
-  Info,
-  Moon,
-  Paperclip,
-  PaperPlaneTilt,
-  Sun,
-  WarningCircle,
-} from '@phosphor-icons/react'
+import { BellIcon as Bell, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CalendarBlankIcon as CalendarBlank, ChatCircleIcon as ChatCircle, CircleNotchIcon as CircleNotch, FileTextIcon as FileText, GlobeIcon as Globe, InfoIcon as Info, MoonIcon as Moon, PaperclipIcon as Paperclip, PaperPlaneTiltIcon as PaperPlaneTilt, SunIcon as Sun, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import {
   actividadesApi,
   estudiantesApi,
@@ -126,7 +111,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
     }
   }
 
-  const enviarMensaje = async (event: React.FormEvent) => {
+  const enviarMensaje = async (event: React.SyntheticEvent) => {
     event.preventDefault()
     if (!contenidoMensaje.trim() && !archivosMensaje.length) return
     setEnviandoMensaje(true)

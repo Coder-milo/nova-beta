@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowCounterClockwise, ArrowSquareOut, ArrowsClockwise, Briefcase, CaretLeft, CaretRight, CheckCircle, CircleNotch, CurrencyDollar, Funnel, GraduationCap, MagnifyingGlass, PencilSimple, Plus, Trash, Trophy, User, WarningCircle, X } from '@phosphor-icons/react'
+import { ArrowCounterClockwiseIcon as ArrowCounterClockwise, ArrowSquareOutIcon as ArrowSquareOut, ArrowsClockwiseIcon as ArrowsClockwise, BriefcaseIcon as Briefcase, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CurrencyDollarIcon as CurrencyDollar, FunnelIcon as Funnel, GraduationCapIcon as GraduationCap, MagnifyingGlassIcon as MagnifyingGlass, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, TrashIcon as Trash, TrophyIcon as Trophy, UserIcon as User, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 /**
  * Página de Estudiantes (CRUD Completo).
  *
@@ -239,7 +239,7 @@ export default function EstudiantesPage() {
   }
 
   // ── Guardar ───────────────────────────────────────────────────────────────
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = (e: React.SyntheticEvent) => {
     e.preventDefault(); setFormError(null); setFormSuccess(null)
     if (!form.nombre.trim()) { setFormError('El nombre es obligatorio.'); setFormTab('basic'); return }
     if (!form.apellido.trim()) { setFormError('El apellido es obligatorio.'); setFormTab('basic'); return }

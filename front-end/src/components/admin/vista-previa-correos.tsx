@@ -22,7 +22,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowsClockwise, CircleNotch, Envelope, WarningCircle } from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon as ArrowsClockwise, CircleNotchIcon as CircleNotch, EnvelopeIcon as Envelope, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import { ApiCallError, correosApi, programasApi } from '@/lib/api'
 import type { TipoCorreo } from '@/lib/api'
 import type { ProgramaResponse } from '@/lib/types'

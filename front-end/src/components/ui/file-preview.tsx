@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { CircleNotch, DownloadSimple, File, FilePdf, FileText, ImageSquare, PlayCircle, WarningCircle } from '@phosphor-icons/react'
+import { CircleNotchIcon as CircleNotch, DownloadSimpleIcon as DownloadSimple, FileIcon as File, FilePdfIcon as FilePdf, FileTextIcon as FileText, ImageSquareIcon as ImageSquare, PlayCircleIcon as PlayCircle, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import { ApiCallError, apiBlob } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'

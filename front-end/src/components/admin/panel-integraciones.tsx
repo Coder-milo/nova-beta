@@ -18,15 +18,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import {
-  CheckCircle,
-  CircleNotch,
-  Copy,
-  Plugs,
-  PlugsConnected,
-  ShieldWarning,
-  WarningCircle,
-} from '@phosphor-icons/react'
+import { CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CopyIcon as Copy, PlugsIcon as Plugs, PlugsConnectedIcon as PlugsConnected, ShieldWarningIcon as ShieldWarning, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import { configuracionApi } from '@/lib/api'
 import type { EstadoIntegracion } from '@/lib/types'
 import { Button } from '@/components/ui/button'

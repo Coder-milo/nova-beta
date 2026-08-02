@@ -1,18 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import {
-  ArrowRight,
-  Bell,
-  Briefcase,
-  CalendarBlank,
-  CircleNotch,
-  FileText,
-  Sparkle,
-  UserCheck,
-  WarningCircle,
-  WhatsappLogo,
-} from '@phosphor-icons/react'
+import { ArrowRightIcon as ArrowRight, BellIcon as Bell, BriefcaseIcon as Briefcase, CalendarBlankIcon as CalendarBlank, CircleNotchIcon as CircleNotch, FileTextIcon as FileText, SparkleIcon as Sparkle, UserCheckIcon as UserCheck, WarningCircleIcon as WarningCircle, WhatsappLogoIcon as WhatsappLogo } from '@phosphor-icons/react'
 import Link from '@/compat/next-link'
 import {
   documentosApi,

@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowSquareOut, ArrowsClockwise, Briefcase, Buildings, CalendarBlank, CaretLeft, CaretRight, CheckCircle, CircleNotch, CurrencyDollar, Globe, LinkSimple, MagnifyingGlass, MapPin, Plus, Translate, WarningCircle } from '@phosphor-icons/react'
+import { ArrowSquareOutIcon as ArrowSquareOut, ArrowsClockwiseIcon as ArrowsClockwise, BriefcaseIcon as Briefcase, BuildingsIcon as Buildings, CalendarBlankIcon as CalendarBlank, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CurrencyDollarIcon as CurrencyDollar, GlobeIcon as Globe, LinkSimpleIcon as LinkSimple, MagnifyingGlassIcon as MagnifyingGlass, MapPinIcon as MapPin, PlusIcon as Plus, TranslateIcon as Translate, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 /**
  * Página de Vacantes y Matching.
  *
@@ -64,7 +64,7 @@ export default function VacantesPage() {
     setFormVacante((anterior) => ({ ...anterior, [campo]: valor }))
   }
 
-  const crearVacante = async (event: React.FormEvent<HTMLFormElement>) => {
+  const crearVacante = async (event: React.SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!formVacante.titulo.trim()) {
       setFormError('Indica el título de la vacante para poder publicarla.')

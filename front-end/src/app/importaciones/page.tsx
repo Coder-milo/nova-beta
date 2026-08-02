@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwise, CaretLeft, CaretRight, CheckCircle, CircleNotch, ClockCounterClockwise, FileXls, ShieldCheck, UploadSimple, WarningCircle, X } from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon as ArrowsClockwise, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, ClockCounterClockwiseIcon as ClockCounterClockwise, FileXlsIcon as FileXls, ShieldCheckIcon as ShieldCheck, UploadSimpleIcon as UploadSimple, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 /**
  * Página de Importaciones — asistente en 4 pasos.
  *

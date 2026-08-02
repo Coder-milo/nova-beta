@@ -16,15 +16,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import {
-  CheckCircle,
-  CalendarBlank,
-  CircleNotch,
-  ImageSquare,
-  LinkSimple,
-  Megaphone,
-  WarningCircle,
-} from '@phosphor-icons/react'
+import { CheckCircleIcon as CheckCircle, CalendarBlankIcon as CalendarBlank, CircleNotchIcon as CircleNotch, ImageSquareIcon as ImageSquare, LinkSimpleIcon as LinkSimple, MegaphoneIcon as Megaphone, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import {
   Card,
   CardContent,
@@ -201,7 +193,7 @@ function PanelEvento({ programas }: { programas: ProgramaResponse[] }) {
   const [result, setResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const programar = async (event: React.FormEvent) => {
+  const programar = async (event: React.SyntheticEvent) => {
     event.preventDefault()
     if (!form.nombre.trim() || !form.fecha) return
     setSaving(true); setError(null); setResult(null)

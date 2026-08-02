@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwise, CaretLeft, CaretRight, CircleNotch, ClockCounterClockwise, DownloadSimple, Eye, FileArrowUp, FileText, MagnifyingGlass, Trash, UploadSimple, WarningCircle, X } from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon as ArrowsClockwise, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CircleNotchIcon as CircleNotch, ClockCounterClockwiseIcon as ClockCounterClockwise, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileArrowUpIcon as FileArrowUp, FileTextIcon as FileText, MagnifyingGlassIcon as MagnifyingGlass, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 /**
  * Página de Documentos — módulo documental completo con versionado.
  *
@@ -116,7 +116,7 @@ export default function DocumentosPage() {
     programasApi.listar().then(setProgramas).catch(() => setProgramas([]))
   }, [])
 
-  const aplicarBusqueda = (e: React.FormEvent) => {
+  const aplicarBusqueda = (e: React.SyntheticEvent) => {
     e.preventDefault()
     setCurrent(0); setQ(qInput.trim())
   }

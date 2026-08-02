@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowSquareOut, ChartBar, ChartPie, Database, FileXls, Info, Key } from '@phosphor-icons/react'
+import { ArrowSquareOutIcon as ArrowSquareOut, ChartBarIcon as ChartBar, ChartPieIcon as ChartPie, DatabaseIcon as Database, FileXlsIcon as FileXls, InfoIcon as Info, KeyIcon as Key } from '@phosphor-icons/react'
 /**
  * Página de Power BI.
  *

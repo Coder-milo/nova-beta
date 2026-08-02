@@ -1,4 +1,4 @@
-import { Briefcase, Buildings, CalendarBlank, ChartBar, ChartPie, FileText, Gear, GraduationCap, Kanban, Megaphone, ReadCvLogo, ShieldCheck, Sparkle, SquaresFour, Trophy, UploadSimple } from '@phosphor-icons/react/ssr'
+import { BriefcaseIcon as Briefcase, BuildingsIcon as Buildings, CalendarBlankIcon as CalendarBlank, ChartBarIcon as ChartBar, ChartPieIcon as ChartPie, FileTextIcon as FileText, GearIcon as Gear, GraduationCapIcon as GraduationCap, KanbanIcon as Kanban, MegaphoneIcon as Megaphone, ReadCvLogoIcon as ReadCvLogo, ShieldCheckIcon as ShieldCheck, SparkleIcon as Sparkle, SquaresFourIcon as SquaresFour, TrophyIcon as Trophy, UploadSimpleIcon as UploadSimple } from '@phosphor-icons/react/ssr'
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
 import { translate, type Locale, type TranslationKey } from '@/lib/preferences'
 export type NavItem = {

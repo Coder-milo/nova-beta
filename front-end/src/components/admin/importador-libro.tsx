@@ -15,16 +15,7 @@
  */
 
 import { useRef, useState } from 'react'
-import {
-  CheckCircle,
-  CircleNotch,
-  FileXls,
-  Info,
-  Sparkle,
-  UploadSimple,
-  WarningCircle,
-  X,
-} from '@phosphor-icons/react'
+import { CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, FileXlsIcon as FileXls, InfoIcon as Info, SparkleIcon as Sparkle, UploadSimpleIcon as UploadSimple, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 import { importarCrmApi } from '@/lib/api'
 import type { HojaProcesada, ResultadoImportacionLibro } from '@/lib/types'
 import { Button } from '@/components/ui/button'

@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, ArrowsClockwise, CaretLeft, CaretRight, CheckCircle, CircleNotch, ClipboardText, ClockCounterClockwise, DownloadSimple, FileText, Flag, Kanban, Palette, PencilSimple, Plus, ReadCvLogo, Rows, Trash, UploadSimple, Users, WarningCircle, X } from '@phosphor-icons/react'
+import { ArrowLeftIcon as ArrowLeft, ArrowsClockwiseIcon as ArrowsClockwise, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, ClipboardTextIcon as ClipboardText, ClockCounterClockwiseIcon as ClockCounterClockwise, DownloadSimpleIcon as DownloadSimple, FileTextIcon as FileText, FlagIcon as Flag, KanbanIcon as Kanban, PaletteIcon as Palette, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, ReadCvLogoIcon as ReadCvLogo, RowsIcon as Rows, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, UsersIcon as Users, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 import { PanelBranding } from '@/components/admin/panel-branding'
 import { PanelWhatsapp } from '@/components/admin/panel-whatsapp'
 /**
@@ -525,7 +525,7 @@ function TabActividades({ programaId }: { programaId: string }) {
 
   useEffect(() => { load() }, [load])
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = (e: React.SyntheticEvent) => {
     e.preventDefault(); setFormError(null)
     if (!nombre.trim()) { setFormError('El nombre es obligatorio.'); return }
     if (!fecha) { setFormError('La fecha es obligatoria.'); return }
@@ -787,7 +787,7 @@ export default function ProyectoDetallePage() {
     setFormError(null); setFormSuccess(null); setShowEdit(true)
   }
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (!form) return
     setFormError(null); setFormSuccess(null)

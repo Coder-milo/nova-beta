@@ -1,4 +1,4 @@
-import { FileText, GraduationCap, Kanban, ReadCvLogo, UserCheck, UserMinus, Users, Warning } from '@phosphor-icons/react/ssr'
+import { FileTextIcon as FileText, GraduationCapIcon as GraduationCap, KanbanIcon as Kanban, ReadCvLogoIcon as ReadCvLogo, UserCheckIcon as UserCheck, UserMinusIcon as UserMinus, UsersIcon as Users, WarningIcon as Warning } from '@phosphor-icons/react/ssr'
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
 import { Card, CardContent } from '@/components/ui/card'
 import type { StatCard as StatCardType } from '@/lib/mock-data'

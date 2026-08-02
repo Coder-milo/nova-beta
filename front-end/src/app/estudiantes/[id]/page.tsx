@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, ArrowsClockwise, Briefcase, Camera, CheckCircle, CircleNotch, ClipboardText, ClockCounterClockwise, DownloadSimple, Eye, FileText, FolderOpen, GraduationCap, PencilSimple, Plus, ReadCvLogo, SquaresFour, Star, Trash, UploadSimple, User, WarningCircle } from '@phosphor-icons/react'
+import { ArrowLeftIcon as ArrowLeft, ArrowsClockwiseIcon as ArrowsClockwise, BriefcaseIcon as Briefcase, CameraIcon as Camera, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, ClipboardTextIcon as ClipboardText, ClockCounterClockwiseIcon as ClockCounterClockwise, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileTextIcon as FileText, FolderOpenIcon as FolderOpen, GraduationCapIcon as GraduationCap, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, ReadCvLogoIcon as ReadCvLogo, SquaresFourIcon as SquaresFour, StarIcon as Star, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, UserIcon as User, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 /**
  * Perfil completo del estudiante (expediente institucional).
  *
@@ -281,7 +281,7 @@ export default function PerfilEstudiantePage() {
     setEditandoFicha(true)
   }
 
-  const guardarFicha = async (event: React.FormEvent) => {
+  const guardarFicha = async (event: React.SyntheticEvent) => {
     event.preventDefault()
     if (!fichaForm) return
     setGuardandoFicha(true)
@@ -319,7 +319,7 @@ export default function PerfilEstudiantePage() {
     finally { setGenerandoHv(false) }
   }
 
-  const handleCrearFormacion = async (e: React.FormEvent) => {
+  const handleCrearFormacion = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (!nuevaFormacion.institucion.trim() || !nuevaFormacion.programa.trim()) {
       flash('error', 'Institución y programa son obligatorios.'); return
@@ -344,7 +344,7 @@ export default function PerfilEstudiantePage() {
     catch (err) { flash('error', errorDe(err, 'Error al eliminar la formación')) }
   }
 
-  const handleCrearExperiencia = async (e: React.FormEvent) => {
+  const handleCrearExperiencia = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (!nuevaExperiencia.empresa.trim() || !nuevaExperiencia.cargo.trim()) {
       flash('error', 'Empresa y cargo son obligatorios.'); return
@@ -384,7 +384,7 @@ export default function PerfilEstudiantePage() {
     } catch (err) { flash('error', errorDe(err, 'Error al eliminar la hoja de vida')) }
   }
 
-  const handleSubirDocumento = async (e: React.FormEvent) => {
+  const handleSubirDocumento = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (!docFile) { flash('error', 'Selecciona un archivo primero.'); return }
     setSubiendoDoc(true)
@@ -404,7 +404,7 @@ export default function PerfilEstudiantePage() {
     catch (err) { flash('error', errorDe(err, 'Error al eliminar el documento')) }
   }
 
-  const handleCrearSeguimiento = async (e: React.FormEvent) => {
+  const handleCrearSeguimiento = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (!nuevoSeguimiento.tipo) { flash('error', 'El tipo de seguimiento es obligatorio.'); return }
     setGuardandoSeguimiento(true)
@@ -450,7 +450,7 @@ export default function PerfilEstudiantePage() {
     setFormSeguimientoEdit({ fecha: seguimiento.fecha ?? '', tipo: seguimiento.tipo, responsable: seguimiento.responsable ?? '', observacion: seguimiento.observacion ?? '', proximaAccion: seguimiento.proximaAccion ?? '', fechaProxima: seguimiento.fechaProxima ?? '', estado: seguimiento.estado })
   }
 
-  const guardarSeguimientoEdit = async (event: React.FormEvent) => {
+  const guardarSeguimientoEdit = async (event: React.SyntheticEvent) => {
     event.preventDefault()
     if (!seguimientoEditando) return
     setGuardandoSeguimientoEdit(true)
@@ -481,7 +481,7 @@ export default function PerfilEstudiantePage() {
     setEditandoPreparacion(true)
   }
 
-  const guardarPreparacion = async (event: React.FormEvent) => {
+  const guardarPreparacion = async (event: React.SyntheticEvent) => {
     event.preventDefault()
     setGuardandoPreparacion(true)
     try {

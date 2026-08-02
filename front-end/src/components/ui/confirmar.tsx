@@ -17,7 +17,7 @@
 
 import { useState } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
-import { CircleNotch, WarningCircle } from '@phosphor-icons/react'
+import { CircleNotchIcon as CircleNotch, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwise, Briefcase, ChartBar, DownloadSimple, GraduationCap, Kanban, TrendUp, UserCheck, UserCircleMinus, Users, WarningCircle } from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon as ArrowsClockwise, BriefcaseIcon as Briefcase, ChartBarIcon as ChartBar, DownloadSimpleIcon as DownloadSimple, GraduationCapIcon as GraduationCap, KanbanIcon as Kanban, TrendUpIcon as TrendUp, UserCheckIcon as UserCheck, UserCircleMinusIcon as UserCircleMinus, UsersIcon as Users, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 /**
  * Página de Reportes — Estadísticas y gráficos.
  *

@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowsClockwise, CircleNotch, DownloadSimple, WarningCircle } from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon as ArrowsClockwise, CircleNotchIcon as CircleNotch, DownloadSimpleIcon as DownloadSimple, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import { ApiCallError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'

@@ -1,4 +1,4 @@
-import { ArrowRight, Info, Warning } from '@phosphor-icons/react/ssr'
+import { ArrowRightIcon as ArrowRight, InfoIcon as Info, WarningIcon as Warning } from '@phosphor-icons/react/ssr'
 import Link from '@/compat/next-link'
 import {
   Card,
