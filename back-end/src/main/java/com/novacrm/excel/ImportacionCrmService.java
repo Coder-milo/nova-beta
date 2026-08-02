@@ -14,6 +14,11 @@ import com.novacrm.estudiante.EstudianteRepository;
 import com.novacrm.excel.dto.ResultadoImportacionCrm;
 import com.novacrm.excel.dto.ResultadoImportacionCrm.ColumnaReconocida;
 import com.novacrm.excel.dto.ResultadoImportacionCrm.FilaConError;
+import com.novacrm.excel.libro.DestinoDeHoja;
+import com.novacrm.excel.libro.HojaLeida;
+import com.novacrm.excel.libro.LectorDeLibro;
+import com.novacrm.excel.libro.ResolutorDeParticipante;
+import com.novacrm.ia.ReconocimientoConIa;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,115 +42,42 @@ import java.util.*;
 @Transactional(readOnly = true)
 public class ImportacionCrmService {
 
-    // ── Empresas ────────────────────────────────────────────────────────────
-
-    private static final Set<String> CAMPOS_EMPRESA = Set.of(
-            "nombre", "sector", "ciudad", "sitioWeb", "telefono", "email", "direccion",
-            "contactoNombre", "contactoEmail", "contactoCanal", "fechaPrimerContacto",
-            "estadoRelacion", "proximoPaso", "notas", "cargosTipicos", "canalPostulacion");
-
-    private static final Map<String, String> ALIAS_EMPRESA = alias(Map.ofEntries(
-            Map.entry("empresa", "nombre"),
-            Map.entry("nombre de la empresa", "nombre"),
-            Map.entry("razon social", "nombre"),
-            Map.entry("compania", "nombre"),
-            Map.entry("sector", "sector"),
-            Map.entry("industria", "sector"),
-            Map.entry("ciudad", "ciudad"),
-            Map.entry("sitio web", "sitioWeb"),
-            Map.entry("pagina web", "sitioWeb"),
-            Map.entry("web", "sitioWeb"),
-            Map.entry("telefono", "telefono"),
-            Map.entry("telefono empresa", "telefono"),
-            Map.entry("correo", "email"),
-            Map.entry("correo empresa", "email"),
-            Map.entry("email", "email"),
-            Map.entry("direccion", "direccion"),
-            Map.entry("contacto", "contactoNombre"),
-            Map.entry("nombre del contacto", "contactoNombre"),
-            Map.entry("persona de contacto", "contactoNombre"),
-            Map.entry("correo del contacto", "contactoEmail"),
-            Map.entry("email contacto", "contactoEmail"),
-            Map.entry("canal de contacto", "contactoCanal"),
-            Map.entry("fecha primer contacto", "fechaPrimerContacto"),
-            Map.entry("fecha de contacto", "fechaPrimerContacto"),
-            Map.entry("estado", "estadoRelacion"),
-            Map.entry("estado relacion", "estadoRelacion"),
-            Map.entry("estado de la relacion", "estadoRelacion"),
-            Map.entry("proximo paso", "proximoPaso"),
-            Map.entry("siguiente paso", "proximoPaso"),
-            Map.entry("notas", "notas"),
-            Map.entry("observaciones", "notas"),
-            Map.entry("cargos", "cargosTipicos"),
-            Map.entry("cargos tipicos", "cargosTipicos"),
-            Map.entry("perfiles que contrata", "cargosTipicos"),
-            Map.entry("canal de postulacion", "canalPostulacion")));
-
-    // ── Colocaciones ────────────────────────────────────────────────────────
-
-    private static final Set<String> CAMPOS_COLOCACION = Set.of(
-            "documento", "email", "empresaNombre", "cargo", "tipoVinculacion", "fechaInicio",
-            "canalConsecucion", "salario", "bonificaciones", "modalidad", "tipoContrato", "observaciones");
-
-    private static final Map<String, String> ALIAS_COLOCACION = alias(Map.ofEntries(
-            Map.entry("documento", "documento"),
-            Map.entry("numero de documento", "documento"),
-            Map.entry("cedula", "documento"),
-            Map.entry("identificacion", "documento"),
-            Map.entry("correo", "email"),
-            Map.entry("correo del estudiante", "email"),
-            Map.entry("email", "email"),
-            Map.entry("empresa", "empresaNombre"),
-            Map.entry("nombre de la empresa", "empresaNombre"),
-            Map.entry("cargo", "cargo"),
-            Map.entry("puesto", "cargo"),
-            Map.entry("tipo de vinculacion", "tipoVinculacion"),
-            Map.entry("vinculacion", "tipoVinculacion"),
-            Map.entry("fecha de inicio", "fechaInicio"),
-            Map.entry("fecha inicio", "fechaInicio"),
-            Map.entry("fecha de ingreso", "fechaInicio"),
-            Map.entry("canal", "canalConsecucion"),
-            Map.entry("canal de consecucion", "canalConsecucion"),
-            Map.entry("como se consiguio", "canalConsecucion"),
-            Map.entry("salario", "salario"),
-            Map.entry("sueldo", "salario"),
-            Map.entry("remuneracion", "salario"),
-            Map.entry("bonificaciones", "bonificaciones"),
-            Map.entry("modalidad", "modalidad"),
-            Map.entry("tipo de contrato", "tipoContrato"),
-            Map.entry("observaciones", "observaciones"),
-            Map.entry("notas", "observaciones")));
-
     private final ColumnMapper columnMapper;
     private final EmpresaRepository empresaRepository;
     private final EmpresaService empresaService;
     private final EstudianteRepository estudianteRepository;
     private final ColocacionRepository colocacionRepository;
     private final ColocacionService colocacionService;
+    private final ReconocimientoConIa reconocimientoConIa;
 
     public ImportacionCrmService(ColumnMapper columnMapper,
                                  EmpresaRepository empresaRepository,
                                  EmpresaService empresaService,
                                  EstudianteRepository estudianteRepository,
                                  ColocacionRepository colocacionRepository,
-                                 ColocacionService colocacionService) {
+                                 ColocacionService colocacionService,
+                                 ReconocimientoConIa reconocimientoConIa) {
         this.columnMapper = columnMapper;
         this.empresaRepository = empresaRepository;
         this.empresaService = empresaService;
         this.estudianteRepository = estudianteRepository;
         this.colocacionRepository = colocacionRepository;
         this.colocacionService = colocacionService;
+        this.reconocimientoConIa = reconocimientoConIa;
     }
 
     // ── Empresas ────────────────────────────────────────────────────────────
 
     @Transactional
     public ResultadoImportacionCrm importarEmpresas(MultipartFile archivo, boolean simular) {
-        var hoja = LectorHoja.leer(archivo, ALIAS_EMPRESA, columnMapper, CAMPOS_EMPRESA);
-        if (!hoja.columnas().containsValue("nombre")) {
-            throw new com.novacrm.exception.BusinessException(
-                    "Falta la columna con el nombre de la empresa. Titúlala «Empresa» o «Razón social».");
-        }
+        return importarEmpresas(hojaUnica(archivo, DestinoDeHoja.EMPRESAS,
+                "Falta la columna con el nombre de la empresa. Titúlala «Empresa» o «Razón social»."),
+                simular);
+    }
+
+    /** Misma pasada sobre una hoja ya leída, para la importación de libro completo. */
+    @Transactional
+    public ResultadoImportacionCrm importarEmpresas(HojaLeida hoja, boolean simular) {
 
         var errores = new ArrayList<FilaConError>();
         // Dentro del propio archivo se repiten empresas: la hoja suele ser un
@@ -162,28 +94,31 @@ public class ImportacionCrmService {
                 errores.add(new FilaConError(fila.numeroFila(), "Sin nombre de empresa"));
                 continue;
             }
-            String clave = nombre.trim().toLowerCase(Locale.ROOT);
+String clave = nombre.trim().toLowerCase(Locale.ROOT);
+            // `nombre` recortado para que tope con la columna de la base; el
+            // resto de campos con tope se recortan en la construccion de abajo.
+            nombre = cortar(nombre, 255);
             var existente = empresaRepository.findByNombreIgnoreCaseActiva(nombre.trim());
             boolean yaExiste = existente.isPresent() || vistas.contains(clave);
 
             try {
                 var datos = new GuardarEmpresa(
                         nombre.trim(),
-                        fila.texto("sector"),
-                        fila.texto("ciudad"),
-                        fila.texto("sitioWeb"),
-                        fila.texto("telefono"),
+                        cortar(fila.texto("sector"), 255),
+                        cortar(fila.texto("ciudad"), 255),
+                        cortar(fila.texto("sitioWeb"), 500),
+                        cortar(fila.texto("telefono"), 50),
                         correo(fila.texto("email")),
                         fila.texto("direccion"),
-                        fila.texto("contactoNombre"),
+                        cortar(fila.texto("contactoNombre"), 255),
                         correo(fila.texto("contactoEmail")),
-                        fila.texto("contactoCanal"),
+                        cortar(fila.texto("contactoCanal"), 255),
                         LectorHoja.fecha(fila.texto("fechaPrimerContacto")),
                         LectorHoja.enumDe(EstadoRelacion.class, fila.texto("estadoRelacion"), EstadoRelacion::getEtiqueta),
                         fila.texto("proximoPaso"),
                         fila.texto("notas"),
                         fila.texto("cargosTipicos"),
-                        fila.texto("canalPostulacion"));
+                        cortar(fila.texto("canalPostulacion"), 255));
 
                 if (!simular) {
                     if (existente.isPresent()) empresaService.actualizar(existente.get().getId(), datos);
@@ -204,14 +139,22 @@ public class ImportacionCrmService {
 
     @Transactional
     public ResultadoImportacionCrm importarColocaciones(MultipartFile archivo, boolean simular, String autor) {
-        var hoja = LectorHoja.leer(archivo, ALIAS_COLOCACION, columnMapper, CAMPOS_COLOCACION);
-        if (!hoja.columnas().containsValue("documento") && !hoja.columnas().containsValue("email")) {
+        return importarColocaciones(hojaUnica(archivo, DestinoDeHoja.COLOCACIONES,
+                "Falta la columna «Empresa»."), simular, autor);
+    }
+
+    /** Misma pasada sobre una hoja ya leída, para la importación de libro completo. */
+    @Transactional
+    public ResultadoImportacionCrm importarColocaciones(HojaLeida hoja, boolean simular, String autor) {
+        if (!hoja.tiene("documento") && !hoja.tiene("email") && !hoja.tiene("nombreCompleto")) {
             throw new com.novacrm.exception.BusinessException(
-                    "Falta la columna que identifica al estudiante. Añade «Número de documento» o «Correo».");
+                    "Falta la columna que identifica al participante. Añade «Número de documento», "
+                    + "«Correo» o «Nombre completo».");
         }
-        if (!hoja.columnas().containsValue("empresaNombre")) {
-            throw new com.novacrm.exception.BusinessException("Falta la columna «Empresa».");
-        }
+        // Solo se construye el índice por nombre si de verdad hace falta: es una
+        // consulta a toda la cohorte activa.
+        var porNombre = hoja.tiene("nombreCompleto")
+                ? new ResolutorDeParticipante(estudianteRepository) : null;
 
         var errores = new ArrayList<FilaConError>();
         int creados = 0;
@@ -224,6 +167,19 @@ public class ImportacionCrmService {
                 continue;
             }
             var estudiante = buscarEstudiante(fila.texto("documento"), fila.texto("email"));
+            if (estudiante.isEmpty() && porNombre != null) {
+                // El libro de seguimiento identifica al participante por su
+                // nombre y un número de orden: no trae ni documento ni correo.
+                String nombre = fila.texto("nombreCompleto");
+                var hallado = porNombre.buscar(nombre);
+                if (hallado instanceof ResolutorDeParticipante.Resultado.Encontrado encontrado) {
+                    estudiante = Optional.of(encontrado.estudiante());
+                } else {
+                    errores.add(new FilaConError(fila.numeroFila(),
+                            ResolutorDeParticipante.explicar(hallado, nombre)));
+                    continue;
+                }
+            }
             if (estudiante.isEmpty()) {
                 errores.add(new FilaConError(fila.numeroFila(),
                         "No hay ningún estudiante con ese documento o correo"));
@@ -241,16 +197,24 @@ public class ImportacionCrmService {
                 var datos = new GuardarColocacion(
                         estudiante.get().getId(),
                         null,
-                        empresa.trim(),
-                        fila.texto("cargo"),
+                        cortar(empresa.trim(), 255),
+                        cortar(fila.texto("cargo"), 255),
                         LectorHoja.enumDe(TipoVinculacion.class, fila.texto("tipoVinculacion"), TipoVinculacion::getEtiqueta),
                         LectorHoja.fecha(fila.texto("fechaInicio")),
                         LectorHoja.enumDe(CanalConsecucion.class, fila.texto("canalConsecucion"), CanalConsecucion::getEtiqueta),
                         LectorHoja.dinero(fila.texto("salario")),
-                        fila.texto("bonificaciones"),
-                        fila.texto("modalidad"),
-                        fila.texto("tipoContrato"),
-                        null, null, null, null, null,
+                        cortar(fila.texto("bonificaciones"), 255),
+                        cortar(fila.texto("modalidad"), 40),
+                        cortar(fila.texto("tipoContrato"), 60),
+                        // El checklist de ingreso venia descartandose aunque la
+                        // hoja lo trae: son las cinco casillas que dicen si la
+                        // vinculacion esta verificada, y sin ellas toda
+                        // colocacion importada aparecia como sin revisar.
+                        casilla(fila.texto("checklistContrato")),
+                        casilla(fila.texto("checklistVerificacionVacante")),
+                        casilla(fila.texto("checklistBenchmark")),
+                        casilla(fila.texto("checklistReglamento")),
+                        casilla(fila.texto("checklistColilla")),
                         fila.texto("observaciones"));
 
                 if (!simular) {
@@ -286,6 +250,30 @@ public class ImportacionCrmService {
     }
 
     /**
+     * Casilla del checklist de ingreso.
+     *
+     * <p>La hoja las escribe con simbolos: "✅ Sí" cumplida, "⏳ Pendiente" no.
+     * Un valor que no diga ni una cosa ni la otra se deja sin responder en vez
+     * de darlo por incumplido: "no anotado" y "verificado que no" no son lo
+     * mismo cuando lo que se audita es si la vinculacion se reviso.
+     */
+    private static Boolean casilla(String valor) {
+        if (valor == null || valor.isBlank()) {
+            return null;
+        }
+        // Palabra por palabra y no con `contains`: "Sin verificar" contiene
+        // "si" y significa justo lo contrario de "Sí".
+        var palabras = Set.of(LectorHoja.normalizar(valor).split(" "));
+        if (palabras.contains("si") || palabras.contains("ok") || palabras.contains("cumplido")) {
+            return true;
+        }
+        if (palabras.contains("pendiente") || palabras.contains("no")) {
+            return false;
+        }
+        return null;
+    }
+
+    /**
      * Un correo mal escrito no debe tumbar la fila entera.
      *
      * <p>El DTO valida el formato, y muchas hojas traen "N/A" o "pendiente" en
@@ -303,22 +291,57 @@ public class ImportacionCrmService {
         return mensaje == null || mensaje.isBlank() ? e.getClass().getSimpleName() : mensaje;
     }
 
+    /** Recorta un texto al tope de su columna en la base para que el 22001 no tuele toda la hoja. */
+    private static String cortar(String valor, int largoMaximo) {
+        if (valor == null || valor.length() <= largoMaximo) {
+            return valor;
+        }
+        return valor.substring(0, largoMaximo).trim();
+    }
+
     private static ResultadoImportacionCrm resultado(boolean simular,
-                                                     LectorHoja.Hoja hoja,
+                                                     HojaLeida hoja,
                                                      int creados,
                                                      int actualizados,
                                                      List<FilaConError> errores) {
         var columnas = hoja.columnas().entrySet().stream()
                 .map(e -> new ColumnaReconocida(e.getKey(), e.getValue()))
                 .toList();
+        // `omitidos` en cero: estas dos hojas no descartan filas por duplicado,
+        // las actualizan. El numero de errores ya viaja en la lista `errores`,
+        // y duplicarlo aqui hacia que el panel mostrara como "omitidas" filas
+        // que en realidad habian fallado.
         return new ResultadoImportacionCrm(simular, hoja.filas().size(), creados, actualizados,
-                errores.size(), errores, columnas);
+                0, errores, columnas);
     }
 
-    /** Normaliza las claves del mapa de alias una sola vez, al cargar la clase. */
-    private static Map<String, String> alias(Map<String, String> crudo) {
-        var salida = new HashMap<String, String>();
-        crudo.forEach((cabecera, campo) -> salida.put(LectorHoja.normalizar(cabecera), campo));
-        return Map.copyOf(salida);
+    /**
+     * Busca en el libro la única hoja que corresponde a un destino.
+     *
+     * <p>Estos endpoints reciben un archivo pensando en una sola tabla, pero el
+     * archivo que manda el equipo trae siete hojas. Se busca la que encaja en
+     * vez de asumir que es la primera, que era leer el tablero de indicadores.
+     */
+    private HojaLeida hojaUnica(MultipartFile archivo, DestinoDeHoja destino, String siNoHay) {
+        var clasificadas = LectorDeLibro.leer(archivo, reconocimientoConIa);
+        var candidatas = clasificadas.stream()
+                .filter(LectorDeLibro.HojaClasificada::importable)
+                .filter(c -> c.destino() == destino)
+                .toList();
+        if (candidatas.isEmpty()) {
+            String detalle = clasificadas.stream()
+                    .filter(c -> !c.importable())
+                    .map(c -> "«" + c.nombre() + "»: " + c.motivo())
+                    .reduce((a, b) -> a + "; " + b)
+                    .map(m -> " Se revisaron estas hojas — " + m)
+                    .orElse("");
+            throw new com.novacrm.exception.BusinessException(siNoHay + detalle);
+        }
+        // Con varias hojas del mismo tipo —el libro trae dos de empresas— se usa
+        // la que más columnas reconocidas aporta.
+        return candidatas.stream()
+                .max(Comparator.comparingInt(c -> c.hoja().columnas().size()))
+                .orElseThrow()
+                .hoja();
     }
 }

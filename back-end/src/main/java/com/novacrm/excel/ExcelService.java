@@ -162,7 +162,7 @@ public class ExcelService {
 
         DatosArchivo datos = parsearArchivo(archivo);
         List<String> columnasDetectadas = datos.columnasDetectadas();
-        List<Map<String, String>> filas = datos.filas();
+        List<FilaImportada> filas = datos.filas();
 
         boolean esFormatoMaestra = columnasDetectadas.contains("Nombre_Completo");
 
@@ -179,42 +179,32 @@ public class ExcelService {
         int errores = 0;
         List<String> erroresDetalle = new ArrayList<>();
 
-        for (Map<String, String> fila : filas) {
+        for (FilaImportada fila : filas) {
             try {
-                var estudiante = construirEstudiante(fila, columnMap, esFormatoMaestra);
+                var estudiante = construirEstudiante(fila.datos(), columnMap, esFormatoMaestra);
                 estudiante.setPrograma(programa);
                 estudiante.setActivo(true);
 
-                if (estudiante.getEmail() != null && !estudiante.getEmail().isBlank()) {
-                    var existente = estudianteRepository.findByEmail(estudiante.getEmail());
-                    if (existente.isPresent()) {
-                        aplicarActualizacion(existente.get(), estudiante);
-                        estudianteRepository.save(existente.get());
-                        actualizados++;
-                    } else {
-                        if (upsertPorDocumentoOInsertar(estudiante)) {
-                            actualizados++;
-                        } else {
-                            creados++;
-                        }
-                    }
-                } else if (estudiante.getNumeroDocumento() != null
-                        && !estudiante.getNumeroDocumento().isBlank()) {
-                    var existenteDoc = estudianteRepository.findByNumeroDocumento(estudiante.getNumeroDocumento());
-                    if (existenteDoc.isPresent()) {
-                        aplicarActualizacion(existenteDoc.get(), estudiante);
-                        estudianteRepository.save(existenteDoc.get());
-                        actualizados++;
-                    } else {
-                        throw new BusinessException("Email vacío o no encontrado en la fila");
-                    }
+                // construirEstudiante ya exige email no vacio (lanza BusinessException si
+                // falta), asi que llegado aqui el email siempre esta presente: no hace
+                // falta una rama alterna por numeroDocumento.
+                var existente = estudianteRepository.findByEmail(estudiante.getEmail());
+                if (existente.isPresent()) {
+                    aplicarActualizacion(existente.get(), estudiante);
+                    estudianteRepository.save(existente.get());
+                    actualizados++;
+                } else if (upsertPorDocumentoOInsertar(estudiante)) {
+                    actualizados++;
                 } else {
-                    throw new BusinessException("Email vacío o no encontrado en la fila");
+                    creados++;
                 }
                 importados++;
             } catch (Exception e) {
                 errores++;
-                erroresDetalle.add("Fila " + (importados + errores) + ": " + e.getMessage());
+                // Numero de fila real del archivo Excel (BE-08): antes se citaba
+                // el contador de exitos+errores, que no coincide con la fila
+                // real en cuanto el archivo tiene alguna fila en blanco.
+                erroresDetalle.add("Fila " + fila.numeroFilaExcel() + ": " + e.getMessage());
             }
         }
 
@@ -241,7 +231,7 @@ public class ExcelService {
 
         DatosArchivo datos = parsearArchivo(archivo);
         List<String> columnasDetectadas = datos.columnasDetectadas();
-        List<Map<String, String>> filas = datos.filas();
+        List<FilaImportada> filas = datos.filas();
 
         boolean esFormatoMaestra = columnasDetectadas.contains("Nombre_Completo");
 
@@ -257,11 +247,9 @@ public class ExcelService {
         int conErrores = 0;
         List<String> errores = new ArrayList<>();
 
-        int numFila = 0;
-        for (Map<String, String> fila : filas) {
-            numFila++;
+        for (FilaImportada fila : filas) {
             try {
-                var estudiante = construirEstudiante(fila, columnMap, esFormatoMaestra);
+                var estudiante = construirEstudiante(fila.datos(), columnMap, esFormatoMaestra);
                 if (estudianteRepository.findByEmail(estudiante.getEmail()).isPresent()) {
                     actualizados++;
                 } else {
@@ -269,7 +257,7 @@ public class ExcelService {
                 }
             } catch (Exception e) {
                 conErrores++;
-                errores.add("Fila " + numFila + ": " + e.getMessage());
+                errores.add("Fila " + fila.numeroFilaExcel() + ": " + e.getMessage());
             }
         }
 
@@ -298,8 +286,14 @@ public class ExcelService {
 
     private DatosArchivo parsearArchivo(MultipartFile archivo) {
         List<String> columnasDetectadas = new ArrayList<>();
-        List<Map<String, String>> filas = new ArrayList<>();
+        List<FilaImportada> filas = new ArrayList<>();
 
+        // XSSFWorkbook carga el libro completo en memoria antes de que
+        // podamos validar nada (BE-08); el limite de tamaño ya lo pone
+        // spring.servlet.multipart.max-file-size (50MB) antes de llegar aqui,
+        // asi que el peor caso queda acotado. Pasar a un lector streaming
+        // (SXSSFWorkbook/SAX) evitaria el resto, pero es un cambio mayor que
+        // toca la deteccion dinamica de columnas: se deja fuera de este pase.
         try (var workbook = new XSSFWorkbook(archivo.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
             Row header = sheet.getRow(0);
@@ -323,7 +317,9 @@ public class ExcelService {
                     fila.put(columnasDetectadas.get(j), val);
                     if (!val.isBlank()) allEmpty = false;
                 }
-                if (!allEmpty) filas.add(fila);
+                // i es el indice de POI (0-based, fila 0 = encabezado); i+1 es
+                // el numero de fila tal cual lo ve el usuario en Excel.
+                if (!allEmpty) filas.add(new FilaImportada(i + 1, fila));
             }
         } catch (IOException e) {
             throw new BusinessException("Error al leer el archivo Excel: " + e.getMessage());
@@ -415,7 +411,9 @@ public class ExcelService {
         return false;
     }
 
-    private record DatosArchivo(List<String> columnasDetectadas, List<Map<String, String>> filas) {}
+    private record DatosArchivo(List<String> columnasDetectadas, List<FilaImportada> filas) {}
+
+    private record FilaImportada(int numeroFilaExcel, Map<String, String> datos) {}
 
     private void splitAndSetNombreCompleto(Estudiante e, String nombreCompleto) {
         if (nombreCompleto == null || nombreCompleto.isBlank()) return;
@@ -471,15 +469,20 @@ public class ExcelService {
                 case "tieneInternet" -> e.setTieneInternet(parseBoolean(val));
                 case "interesMigratorio" -> e.setInteresMigratorio(parseBoolean(val));
                 case "fechaNacimiento" -> {
+                    LocalDate fecha = null;
                     for (var fmt : List.of(
                             DateTimeFormatter.ofPattern("dd/MM/yyyy"),
                             DateTimeFormatter.ofPattern("yyyy-MM-dd"),
                             DateTimeFormatter.ofPattern("dd-MM-yyyy"))) {
                         try {
-                            e.setFechaNacimiento(LocalDate.parse(val, fmt));
+                            fecha = LocalDate.parse(val, fmt);
                             break;
                         } catch (DateTimeParseException ignored) {}
                     }
+                    if (fecha == null) {
+                        throw new BusinessException("Formato de fecha no reconocido: '" + val + "'");
+                    }
+                    e.setFechaNacimiento(fecha);
                 }
                 case "nivelIngles" -> {
                     var codigo = val.toUpperCase().replaceAll("[^A-Z0-9]", "");
@@ -503,6 +506,12 @@ public class ExcelService {
     }
 
     private void aplicarActualizacion(Estudiante existente, Estudiante nuevo) {
+        // Reimportar por email/documento a alguien en la papelera trae datos
+        // frescos: reactivarlo, no dejarlo desactualizado ahi (BE-09).
+        if (!existente.isActivo()) {
+            existente.setActivo(true);
+            existente.setDeletedAt(null);
+        }
         if (nuevo.getNombre() != null && !nuevo.getNombre().isBlank()) existente.setNombre(nuevo.getNombre());
         if (nuevo.getApellido() != null && !nuevo.getApellido().isBlank()) existente.setApellido(nuevo.getApellido());
         if (nuevo.getTelefono() != null) existente.setTelefono(nuevo.getTelefono());
@@ -606,6 +615,13 @@ public class ExcelService {
         return switch (cell.getCellType()) {
             case STRING -> cell.getStringCellValue();
             case NUMERIC -> {
+                // Excel guarda las fechas como numero serial; sin este chequeo
+                // "3.6 Fecha de nacimiento" llega como "45000.0" y ningun
+                // formato de fecha calza (BE-04).
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    yield cell.getLocalDateTimeCellValue().toLocalDate()
+                            .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                }
                 double val = cell.getNumericCellValue();
                 yield val == Math.floor(val) ? String.valueOf((long) val) : String.valueOf(val);
             }
