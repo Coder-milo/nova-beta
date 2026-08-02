@@ -89,13 +89,13 @@ public class MatchController {
     }
 
     @DeleteMapping("/{matchId}")
-    @Operation(summary = "Descartar o eliminar un match")
+    @Operation(summary = "Descartar un match")
     @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
     public void descartarMatch(@PathVariable UUID matchId, Authentication auth) {
         var match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new com.novacrm.exception.ResourceNotFoundException("Match no encontrado: " + matchId));
         ownershipService.verificarAccesoEstudiante(auth, match.getEstudiante().getId());
-        matchingService.descartarMatch(matchId);
+        matchingService.descartarMatch(matchId, auth.getName());
     }
 }

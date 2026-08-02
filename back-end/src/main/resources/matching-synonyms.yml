@@ -1,5 +1,13 @@
-# Agrupa terminos equivalentes del dominio tech-laboral bajo una clave canonica.
+# Agrupa terminos equivalentes bajo una clave canonica.
 # Usado por SkillSynonyms para normalizar tokens antes de comparar.
+#
+# Un mismo sinonimo no puede aparecer bajo dos claves: SkillSynonyms resuelve
+# la primera coincidencia y el resultado dependeria del orden de lectura.
+#
+# El vocabulario nacio siendo casi solo de TI, que no es a lo que aspira esta
+# poblacion: la mayoria apunta a BPO y servicio al cliente bilingue. Los grupos
+# de abajo cubren esos oficios; sin ellos, un cargo objetivo como "Bilingual
+# Customer Service Representative" se quedaba en un solo token.
 
 desarrollador:
   - desarrollador
@@ -192,9 +200,7 @@ sector_tecnologia:
   - tecnologia
   - technology
   - software
-  - it
   - informatica
-  - sistemas
   - tech
   - digital
 
@@ -229,8 +235,6 @@ sector_educacion:
 sector_comercio:
   - comercio
   - retail
-  - ventas
-  - comercial
   - ecommerce
   - trade
 
@@ -241,8 +245,6 @@ sector_industrial:
   - manufacturing
   - produccion
   - production
-  - logistica
-  - logistics
 
 ingles_nivel:
   - ingles
@@ -271,3 +273,96 @@ resolucion:
   - analytical
   - analitico
   - solution oriented
+
+# --- Oficios a los que aspira la mayoria del programa --------------------
+
+# El modelo de negocio, no el oficio: un BPO tiene tanto puestos de voz como de
+# back office, asi que estar aqui no implica hablar por telefono.
+bpo:
+  - bpo
+  - business process outsourcing
+  - outsourcing
+  - tercerizacion
+  - servicios tercerizados
+
+call_center:
+  - call center
+  - callcenter
+  - contact center
+  - centro de contacto
+  - centro de llamadas
+
+servicio_cliente:
+  - servicio al cliente
+  - servicio cliente
+  - atencion al cliente
+  - atencion cliente
+  - customer service
+  - customer support
+  - customer care
+  - customer experience
+  - customer success
+  - servicio al usuario
+  - csr
+
+# Puestos cuya herramienta es la voz. Se mantiene aparte de servicio_cliente
+# porque es lo que decide contra que destreza se puntua el ingles: aqui manda
+# el nivel oral, que es donde esta la brecha real del cohorte.
+trabajo_de_voz:
+  - teleoperador
+  - telemercadeo
+  - telemarketing
+  - televenta
+  - televentas
+  - agente bilingue
+  - bilingual agent
+  - agente telefonico
+  - asesor telefonico
+  - soporte telefonico
+  - inbound
+  - outbound
+  - de voz
+  - voice
+
+data_entry:
+  - data entry
+  - digitacion
+  - digitador
+  - captura de datos
+  - ingreso de datos
+  - transcripcion
+  - back office
+
+logistica:
+  - logistica
+  - logistics
+  - bodega
+  - bodeguero
+  - warehouse
+  - almacen
+  - inventario
+  - inventory
+  - despacho
+  - supply chain
+  - cadena de suministro
+
+hoteleria_turismo:
+  - hoteleria
+  - hotel
+  - turismo
+  - tourism
+  - hospitality
+  - restaurante
+  - restaurant
+  - mesero
+  - bartender
+  - recepcion hotelera
+
+salud_asistencial:
+  - auxiliar de enfermeria
+  - enfermeria
+  - nursing
+  - cuidador
+  - caregiver
+  - auxiliar en salud
+  - primeros auxilios

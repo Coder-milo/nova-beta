@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Code, FilePlus, CircleNotch, TextB, TextItalic, LinkSimple, ListBullets } from '@phosphor-icons/react'
+import { CodeIcon as Code, FilePlusIcon as FilePlus, CircleNotchIcon as CircleNotch, TextBIcon as TextB, TextItalicIcon as TextItalic, LinkSimpleIcon as LinkSimple, ListBulletsIcon as ListBullets } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 
 const FUENTES = [false, 'serif', 'monospace']

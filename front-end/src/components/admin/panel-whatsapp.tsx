@@ -14,15 +14,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ArrowsClockwise,
-  CheckCircle,
-  CircleNotch,
-  FloppyDisk,
-  PaperPlaneTilt,
-  WhatsappLogo,
-  WarningCircle,
-} from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, FloppyDiskIcon as FloppyDisk, PaperPlaneTiltIcon as PaperPlaneTilt, WhatsappLogoIcon as WhatsappLogo, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import {
   Card,
   CardContent,

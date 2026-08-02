@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { WifiSlash } from '@phosphor-icons/react'
+import { WifiSlashIcon as WifiSlash } from '@phosphor-icons/react'
 /**
  * Dashboard principal — Server Component.
  *

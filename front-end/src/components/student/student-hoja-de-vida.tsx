@@ -20,17 +20,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import {
-  Briefcase,
-  Check,
-  CircleNotch,
-  GraduationCap,
-  Plus,
-  Trash,
-  User,
-  WarningCircle,
-  X,
-} from '@phosphor-icons/react'
+import { BriefcaseIcon as Briefcase, CheckIcon as Check, CircleNotchIcon as CircleNotch, GraduationCapIcon as GraduationCap, PlusIcon as Plus, TrashIcon as Trash, UserIcon as User, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 import { ApiCallError, estudiantesApi, hvApi, perfilApi } from '@/lib/api'
 import type {
   EstudianteRequest,

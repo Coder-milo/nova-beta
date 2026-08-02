@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowRight, CircleNotch, Envelope, Eye, EyeSlash, Info, LockKey, WarningCircle } from '@phosphor-icons/react'
+import { ArrowRightIcon as ArrowRight, CircleNotchIcon as CircleNotch, EnvelopeIcon as Envelope, EyeIcon as Eye, EyeSlashIcon as EyeSlash, InfoIcon as Info, LockKeyIcon as LockKey, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import Image from '@/compat/next-image'
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from '@/compat/next-navigation'
@@ -50,7 +50,7 @@ export default function LoginPage() {
     setBackgroundFailed(true)
   }
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     setError(null)
@@ -75,8 +75,14 @@ export default function LoginPage() {
               'Demasiados intentos. Espera unos minutos e inténtalo nuevamente.',
             )
           } else {
+            // El mensaje del backend antes de inventar uno. Decir "error del
+            // servidor" ante cualquier código que no fuera 401/403/429 convertía
+            // problemas del propio formulario en una avería imaginaria: el
+            // usuario se quedaba esperando a que arreglaran algo que no estaba
+            // roto en vez de revisar lo que había escrito.
             setError(
-              `El servidor respondió con un error (${err.status}). Intenta más tarde.`,
+              err.body?.message ??
+                `El servidor respondió con un error (${err.status}). Intenta más tarde.`,
             )
           }
         } else {

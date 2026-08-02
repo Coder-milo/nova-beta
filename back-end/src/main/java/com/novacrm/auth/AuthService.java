@@ -3,6 +3,7 @@ package com.novacrm.auth;
 import com.novacrm.config.EmailService;
 import com.novacrm.config.SecurityConfig;
 import com.novacrm.exception.BusinessException;
+import com.novacrm.exception.CredencialesInvalidasException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -26,6 +27,7 @@ public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final String CREDENCIALES_INVALIDAS = "Correo o contrasena incorrectos";
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
@@ -61,17 +63,22 @@ public class AuthService {
         this.marcaCorreoService = marcaCorreoService;
     }
 
+    /**
+     * Los tres fracasos posibles responden 401 con el mismo texto: distinguir
+     * "ese correo no existe" de "la contrasena no es esa" permite averiguar
+     * quien tiene cuenta probando correos.
+     */
     @Transactional
     public LoginResponse login(LoginRequest request) {
         var usuario = usuarioRepository.findByEmail(request.email())
-                .orElseThrow(() -> new BusinessException("Credenciales invalidas"));
+                .orElseThrow(() -> new CredencialesInvalidasException(CREDENCIALES_INVALIDAS));
 
         if (!passwordEncoder.matches(request.password(), usuario.getPassword())) {
-            throw new BusinessException("Credenciales invalidas");
+            throw new CredencialesInvalidasException(CREDENCIALES_INVALIDAS);
         }
 
         if (!usuario.isActivo()) {
-            throw new BusinessException("Credenciales invalidas");
+            throw new CredencialesInvalidasException(CREDENCIALES_INVALIDAS);
         }
 
         return respuestaConTokens(usuario);
@@ -85,14 +92,14 @@ public class AuthService {
             claims = Jwts.parser().verifyWith(key).build()
                     .parseSignedClaims(refreshToken).getPayload();
         } catch (Exception e) {
-            throw new BusinessException("Refresh token invalido o expirado");
+            throw new CredencialesInvalidasException("Refresh token invalido o expirado");
         }
         if (!JwtClaims.TYPE_REFRESH.equals(claims.get(JwtClaims.TYPE, String.class))) {
-            throw new BusinessException("El token no es un refresh token");
+            throw new CredencialesInvalidasException("El token no es un refresh token");
         }
         var usuario = usuarioRepository.findByEmail(claims.getSubject())
                 .filter(Usuario::isActivo)
-                .orElseThrow(() -> new BusinessException("Usuario no valido"));
+                .orElseThrow(() -> new CredencialesInvalidasException("Usuario no valido"));
         return respuestaConTokens(usuario);
     }
 

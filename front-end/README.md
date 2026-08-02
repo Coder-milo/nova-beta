@@ -32,5 +32,5 @@ node .\dist\server\entry.mjs
 - Tailwind CSS 4 mediante el plugin oficial para Vite.
 - El backend se configura con `BACKEND_URL`.
 
-El frontend anterior permanece en `../front-end` únicamente como respaldo
-durante la transición.
+Este directorio (`front-end/`) es el único frontend activo del repositorio;
+la migración desde Next.js ya se completó.

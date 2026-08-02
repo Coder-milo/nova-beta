@@ -1,20 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import {
-  ArrowRight,
-  Briefcase,
-  Building,
-  CheckCircle,
-  CircleNotch,
-  MapPin,
-  Sparkle,
-  Trash,
-  WarningCircle,
-} from '@phosphor-icons/react'
+import { ArrowRightIcon as ArrowRight, BriefcaseIcon as Briefcase, BuildingIcon as Building, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, MapPinIcon as MapPin, SparkleIcon as Sparkle, TrashIcon as Trash, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import { ApiCallError, matchesApi, postulacionesApi } from '@/lib/api'
 import { hoyLocal } from '@/lib/utils'
-import type { MatchResponse, PostulacionResponse } from '@/lib/types'
+import type { MatchResponse, PostulacionResponse, RazonDeMatch } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,6 +26,58 @@ function MatchScore({ score }: { score: number }) {
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
       <span className="text-xs font-semibold tabular-nums">{pct}%</span>
+    </div>
+  )
+}
+
+/**
+ * Por qué se recomendó esta vacante.
+ *
+ * Hasta ahora se mostraba el porcentaje solo, sin una razón detrás: un número
+ * sin explicación no ayuda a decidir si vale la pena postularse. Los criterios
+ * que no se pudieron evaluar no aparecen —no entraron en el puntaje, y
+ * mostrarlos en cero sería mentir—.
+ */
+function RazonesDelMatch({
+  razones,
+  cobertura,
+}: {
+  razones: RazonDeMatch[]
+  cobertura: number | null
+}) {
+  if (!razones || razones.length === 0) return null
+
+  const etiqueta = (ratio: number) =>
+    ratio >= 0.85 ? 'cumple' : ratio >= 0.5 ? 'parcial' : 'bajo'
+  const tono = (ratio: number) =>
+    ratio >= 0.85
+      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+      : ratio >= 0.5
+        ? 'bg-amber-400/10 text-amber-700 dark:text-amber-400'
+        : 'bg-muted text-muted-foreground'
+
+  // Por debajo de la mitad del peso, el porcentaje se apoya en poca evidencia y
+  // conviene decirlo en vez de presentarlo como si fuera igual de firme.
+  const pocaEvidencia = cobertura !== null && cobertura < 0.5
+
+  return (
+    <div className="space-y-1.5">
+      <ul className="flex flex-wrap gap-1.5">
+        {razones.map((r) => (
+          <li
+            key={r.criterio}
+            className={`rounded-full px-2 py-0.5 text-xs ${tono(r.ratio)}`}
+          >
+            {r.criterio}: {etiqueta(r.ratio)}
+          </li>
+        ))}
+      </ul>
+      {pocaEvidencia && (
+        <p className="text-xs text-muted-foreground">
+          Esta oferta da poca información, así que la compatibilidad es
+          orientativa.
+        </p>
+      )}
     </div>
   )
 }
@@ -105,7 +147,7 @@ export function StudentPostulaciones() {
     }
   }
 
-  const registrarManual = async (event: React.FormEvent) => {
+  const registrarManual = async (event: React.SyntheticEvent) => {
     event.preventDefault()
     if (!empresaManual.trim() || !cargoManual.trim() || registrando) return
     setRegistrando(true)
@@ -278,10 +320,13 @@ export function StudentPostulaciones() {
                       {m.vacanteUbicacion}
                     </p>
                   )}
-                  <div className="flex items-center gap-2">
-                    <Sparkle className="size-3.5 text-primary" />
-                    <span className="text-xs text-muted-foreground">Compatibilidad:</span>
-                    <MatchScore score={m.puntaje} />
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkle className="size-3.5 text-primary" />
+                      <span className="text-xs text-muted-foreground">Compatibilidad:</span>
+                      <MatchScore score={m.puntaje} />
+                    </div>
+                    <RazonesDelMatch razones={m.razones} cobertura={m.cobertura} />
                   </div>
                   <div className="flex items-center gap-1.5 text-sm text-emerald-600">
                     <CheckCircle className="size-4" />
@@ -336,10 +381,13 @@ export function StudentPostulaciones() {
                       {m.vacanteUbicacion}
                     </p>
                   )}
-                  <div className="flex items-center gap-2">
-                    <Sparkle className="size-3.5 text-primary" />
-                    <span className="text-xs text-muted-foreground">Compatibilidad:</span>
-                    <MatchScore score={m.puntaje} />
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkle className="size-3.5 text-primary" />
+                      <span className="text-xs text-muted-foreground">Compatibilidad:</span>
+                      <MatchScore score={m.puntaje} />
+                    </div>
+                    <RazonesDelMatch razones={m.razones} cobertura={m.cobertura} />
                   </div>
                   <Button
                     size="sm"

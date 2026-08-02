@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowSquareOut, ArrowsClockwise, CheckCircle, CircleNotch, DownloadSimple, Eye, FileMagnifyingGlass, FileText, Globe, ListChecks, Minus, PencilSimpleLine, Plus, ReadCvLogo, Stack, Star, Trash, UploadSimple, WarningCircle, X, XCircle } from '@phosphor-icons/react'
+import { ArrowSquareOutIcon as ArrowSquareOut, ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileMagnifyingGlassIcon as FileMagnifyingGlass, FileTextIcon as FileText, GlobeIcon as Globe, ListChecksIcon as ListChecks, MinusIcon as Minus, PencilSimpleLineIcon as PencilSimpleLine, PlusIcon as Plus, ReadCvLogoIcon as ReadCvLogo, StackIcon as Stack, StarIcon as Star, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, WarningCircleIcon as WarningCircle, XIcon as X, XCircleIcon as XCircle } from '@phosphor-icons/react'
 import Link from '@/compat/next-link'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -187,7 +187,7 @@ export default function HojasDeVidaPage() {
   const [nuevoIdioma, setNuevoIdioma] = useState('')
   const [guardandoItem, setGuardandoItem] = useState(false)
 
-  const handleGuardarNuevoItem = async (e: React.FormEvent) => {
+  const handleGuardarNuevoItem = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (!editEstudianteId || !modalAgregar) return
     setGuardandoItem(true)
@@ -291,7 +291,7 @@ export default function HojasDeVidaPage() {
   }
 
   // ── Plantillas ────────────────────────────────────────────────────────────
-  const handleCrearPlantilla = async (e: React.FormEvent) => {
+  const handleCrearPlantilla = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (!plNombre.trim()) { setPlError('El nombre es obligatorio.'); return }
     if (!plArchivo) { setPlError('Selecciona una plantilla Word (.docx) o PDF.'); return }

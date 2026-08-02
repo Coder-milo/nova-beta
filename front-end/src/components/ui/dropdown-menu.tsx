@@ -1,6 +1,6 @@
 "use client"
 
-import { CaretRight, Check } from '@phosphor-icons/react'
+import { CaretRightIcon as CaretRight, CheckIcon as Check } from '@phosphor-icons/react'
 
 import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"

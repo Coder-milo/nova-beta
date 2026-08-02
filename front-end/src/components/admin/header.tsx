@@ -1,26 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  ArrowBendDownLeft,
-  ArrowsClockwise,
-  Bell,
-  ChatCircle,
-  CheckCircle,
-  Clock,
-  EnvelopeSimple,
-  FileText,
-  FolderSimple,
-  GraduationCap,
-  Globe,
-  List,
-  MagnifyingGlass,
-  Paperclip,
-  PaperPlaneTilt,
-  UserCircle,
-  WarningCircle,
-  X,
-} from '@phosphor-icons/react'
+import { ArrowBendDownLeftIcon as ArrowBendDownLeft, ArrowsClockwiseIcon as ArrowsClockwise, BellIcon as Bell, ChatCircleIcon as ChatCircle, CheckCircleIcon as CheckCircle, ClockIcon as Clock, EnvelopeSimpleIcon as EnvelopeSimple, FileTextIcon as FileText, FolderSimpleIcon as FolderSimple, GraduationCapIcon as GraduationCap, GlobeIcon as Globe, ListIcon as List, MagnifyingGlassIcon as MagnifyingGlass, PaperclipIcon as Paperclip, PaperPlaneTiltIcon as PaperPlaneTilt, UserCircleIcon as UserCircle, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 import { usePathname, useRouter } from '@/compat/next-navigation'
 import { Button } from '@/components/ui/button'
 import {

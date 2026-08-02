@@ -415,11 +415,7 @@ public class EstudianteService {
     @Transactional
     public void softDeleteMasivo(List<UUID> ids) {
         if (ids == null || ids.isEmpty()) return;
-        estudianteRepository.findAllById(ids).forEach(estudiante -> {
-            estudiante.setActivo(false);
-            estudiante.setDeletedAt(Instant.now());
-            estudianteRepository.save(estudiante);
-        });
+        estudianteRepository.softDeleteByIdIn(ids);
     }
 
     @Transactional

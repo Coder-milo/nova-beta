@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BookOpenText, CalendarBlank, CircleNotch, FileText, PaperPlaneTilt, Sparkle, Trash, X } from '@phosphor-icons/react'
+import { BookOpenTextIcon as BookOpenText, CalendarBlankIcon as CalendarBlank, CircleNotchIcon as CircleNotch, FileTextIcon as FileText, PaperPlaneTiltIcon as PaperPlaneTilt, SparkleIcon as Sparkle, TrashIcon as Trash, XIcon as X } from '@phosphor-icons/react'
 import { useRouter } from '@/compat/next-navigation'
 import { usePreferences } from '@/lib/preferences'
 import { cn } from '@/lib/utils'

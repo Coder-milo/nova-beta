@@ -129,23 +129,81 @@ public class NotificacionService {
         notificacionRepository.delete(notificacion);
     }
 
+    /**
+     * Avisa de los matches nuevos de una corrida, agrupando por estudiante.
+     *
+     * <p>Antes se emitía una notificación y una plantilla de WhatsApp por cada
+     * match. Con ~107 participantes activos y hasta 500 vacantes por corrida
+     * eso son decenas de miles de mensajes en una sola ejecución del
+     * programador: la bandeja del estudiante queda inservible y la factura de
+     * WhatsApp se dispara. Ahora cada estudiante recibe una notificación con su
+     * resumen, y por WhatsApp solo van sus mejores {@code TOPE_WHATSAPP}
+     * matches —que son los únicos con botones de sí/no, la señal que después
+     * sirve para calibrar el motor—.
+     */
     @Transactional
     public void generarNotificacionesMatch(List<Match> matches) {
-        for (Match match : matches) {
-            var notificacion = new Notificacion();
-            notificacion.setTitulo("Nueva vacante recomendada");
-            notificacion.setMensaje("Se ha encontrado una vacante que coincide con tu perfil: " + match.getVacante().getTitulo());
-            notificacion.setEstudiante(match.getEstudiante());
-            notificacion.setTipo("MATCH");
-            notificacion.setReferenciaId(match.getId().toString());
-            notificacionRepository.save(notificacion);
-            match.setNotificado(true);
-            matchRepository.save(match);
+        if (matches == null || matches.isEmpty()) {
+            return;
         }
+        var porEstudiante = matches.stream()
+                .collect(java.util.stream.Collectors.groupingBy(m -> m.getEstudiante().getId()));
+
+        List<Match> avisosWhatsapp = new java.util.ArrayList<>();
+        for (var lote : porEstudiante.values()) {
+            // De mayor a menor puntaje: lo primero que lee el estudiante y lo
+            // que se lleva el cupo de WhatsApp debe ser lo más afín.
+            var ordenados = lote.stream()
+                    .sorted(java.util.Comparator.comparing(Match::getPuntaje).reversed())
+                    .toList();
+
+            notificacionRepository.save(resumenDe(ordenados));
+            for (Match match : ordenados) {
+                match.setNotificado(true);
+            }
+            matchRepository.saveAll(ordenados);
+            avisosWhatsapp.addAll(ordenados.subList(0, Math.min(TOPE_WHATSAPP, ordenados.size())));
+        }
+
         // El aviso por WhatsApp (si el programa tiene canal) va con la misma
         // decisión: el match ya es notificable, así que también se le avisa al
         // celular con sus botones de sí/no.
-        whatsappAvisosService.avisarMatches(matches);
+        whatsappAvisosService.avisarMatches(avisosWhatsapp);
+    }
+
+    /** Cuántos matches de un mismo estudiante llegan a WhatsApp por corrida. */
+    static final int TOPE_WHATSAPP = 3;
+
+    /** Cuántos títulos se nombran en el resumen antes de resumir el resto. */
+    private static final int TITULOS_EN_RESUMEN = 3;
+
+    private Notificacion resumenDe(List<Match> ordenados) {
+        var notificacion = new Notificacion();
+        notificacion.setEstudiante(ordenados.get(0).getEstudiante());
+        notificacion.setTipo("MATCH");
+        // Apunta al mejor: es el único destino con sentido para un resumen, y
+        // deja el enlace utilizable cuando el lote trae un solo match.
+        notificacion.setReferenciaId(ordenados.get(0).getId().toString());
+
+        if (ordenados.size() == 1) {
+            notificacion.setTitulo("Nueva vacante recomendada");
+            notificacion.setMensaje("Se ha encontrado una vacante que coincide con tu perfil: "
+                    + ordenados.get(0).getVacante().getTitulo());
+            return notificacion;
+        }
+
+        var titulos = ordenados.stream()
+                .limit(TITULOS_EN_RESUMEN)
+                .map(m -> m.getVacante().getTitulo())
+                .toList();
+        int restantes = ordenados.size() - titulos.size();
+        String mensaje = "Se encontraron " + ordenados.size()
+                + " vacantes que coinciden con tu perfil: " + String.join(", ", titulos)
+                + (restantes > 0 ? " y " + restantes + " más." : ".");
+
+        notificacion.setTitulo(ordenados.size() + " vacantes recomendadas");
+        notificacion.setMensaje(mensaje);
+        return notificacion;
     }
 
     /** Registra en la bandeja del estudiante cada mensaje enviado por el equipo. */

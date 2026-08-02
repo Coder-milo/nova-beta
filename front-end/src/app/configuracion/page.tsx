@@ -1,44 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import {
-  ArrowsClockwise,
-  Bank,
-  Bell,
-  CheckCircle,
-  CircleNotch,
-  Cloud,
-  Certificate,
-  Database,
-  EnvelopeSimple,
-  FloppyDisk,
-  Gear,
-  Globe,
-  Key,
-  IdentificationCard,
-  InstagramLogo,
-  LinkedinLogo,
-  LockKey,
-  Monitor,
-  MapPin,
-  Moon,
-  Palette,
-  Phone,
-  Plus,
-  RocketLaunch,
-  ShareNetwork,
-  Shield,
-  ShieldWarning,
-  Sliders,
-  Sun,
-  Trash,
-  User,
-  Users,
-  WarningCircle,
-  WhatsappLogo,
-  X,
-  type Icon,
-} from '@phosphor-icons/react'
+import { ArrowsClockwiseIcon as ArrowsClockwise, BankIcon as Bank, BellIcon as Bell, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CloudIcon as Cloud, CertificateIcon as Certificate, DatabaseIcon as Database, EnvelopeSimpleIcon as EnvelopeSimple, EyeIcon as Eye, EyeSlashIcon as EyeSlash, FloppyDiskIcon as FloppyDisk, GearIcon as Gear, GlobeIcon as Globe, KeyIcon as Key, IdentificationCardIcon as IdentificationCard, InfoIcon as Info, InstagramLogoIcon as InstagramLogo, LinkedinLogoIcon as LinkedinLogo, LockKeyIcon as LockKey, MonitorIcon as Monitor, MapPinIcon as MapPin, MoonIcon as Moon, PaletteIcon as Palette, PhoneIcon as Phone, PlusIcon as Plus, RocketLaunchIcon as RocketLaunch, ShareNetworkIcon as ShareNetwork, ShieldIcon as Shield, ShieldWarningIcon as ShieldWarning, SlidersIcon as Sliders, SparkleIcon as Sparkle, SunIcon as Sun, TrashIcon as Trash, UserIcon as User, UsersIcon as Users, WarningCircleIcon as WarningCircle, WhatsappLogoIcon as WhatsappLogo, XIcon as X, type Icon } from '@phosphor-icons/react'
 import { Dialog } from '@base-ui/react/dialog'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
@@ -57,6 +20,7 @@ import { EstadoDot } from '@/components/ui/estado-dot'
 import { useAuth } from '@/lib/auth'
 import { usePreferences } from '@/lib/preferences'
 import { adminApi, programasApi, usuariosApi, ApiCallError } from '@/lib/api'
+import { PanelIntegraciones } from '@/components/admin/panel-integraciones'
 import type { UsuarioResponse } from '@/lib/types'
 
 const ROLES_DISPONIBLES = ['ADMIN', 'COORDINADOR'] as const
@@ -140,18 +104,6 @@ export default function ConfiguracionPage() {
   })
   const [academicSuccess, setAcademicSuccess] = useState(false)
 
-  // ── 3. Integraciones & APIs (Persistente) ──────────────────────────────────
-  const [integrationData, setIntegrationData] = useState({
-    smtpHost: 'smtp.sendgrid.net',
-    smtpPort: '587',
-    smtpUser: 'apikey',
-    smtpFromEmail: 'notificaciones@academycac.edu.co',
-    powerBiWorkspaceId: 'cac-pbi-workspace-prod-01',
-    powerBiReportId: 'report-empleabilidad-2026',
-    linkedInClientId: '78cac_linkedin_api_key_v2',
-    cloudStorageBucket: 'cac-documentos-hojas-de-vida-s3',
-  })
-  const [integrationSuccess, setIntegrationSuccess] = useState(false)
 
   // ── 4. Usuarios & Programas ──────────────────────────────────────────────
   const [programas, setProgramas] = useState<{ id: string; nombre: string }[]>([])
@@ -179,7 +131,7 @@ export default function ConfiguracionPage() {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
 
-  const handleAdminCambiarPassword = async (e: React.FormEvent) => {
+  const handleAdminCambiarPassword = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (!modalPasswordUser) return
     setPasswordError(null)
@@ -215,15 +167,18 @@ export default function ConfiguracionPage() {
       const savedAcad = localStorage.getItem('nova_acad_config')
       if (savedAcad) setAcademicData(JSON.parse(savedAcad))
 
-      const savedInteg = localStorage.getItem('nova_integ_config')
-      if (savedInteg) setIntegrationData(JSON.parse(savedInteg))
+      // Purga de credenciales que la versión anterior de esta pantalla dejó
+      // en el navegador: guardaba las claves de Groq, WhatsApp y JSearch en
+      // texto plano. Quitar la escritura no borra lo ya escrito, así que se
+      // limpia al abrir la pantalla.
+      localStorage.removeItem('nova_integ_config')
     } catch {
       // Si falla lectura de localStorage, usa valores por defecto
     }
   }, [])
 
   // Guardar datos institucionales
-  const handleSaveInst = (e: React.FormEvent) => {
+  const handleSaveInst = (e: React.SyntheticEvent) => {
     e.preventDefault()
     localStorage.setItem('nova_inst_config', JSON.stringify(instData))
     setInstSuccess(true)
@@ -231,19 +186,11 @@ export default function ConfiguracionPage() {
   }
 
   // Guardar datos académicos
-  const handleSaveAcademic = (e: React.FormEvent) => {
+  const handleSaveAcademic = (e: React.SyntheticEvent) => {
     e.preventDefault()
     localStorage.setItem('nova_acad_config', JSON.stringify(academicData))
     setAcademicSuccess(true)
     setTimeout(() => setAcademicSuccess(false), 3000)
-  }
-
-  // Guardar datos de integraciones
-  const handleSaveIntegration = (e: React.FormEvent) => {
-    e.preventDefault()
-    localStorage.setItem('nova_integ_config', JSON.stringify(integrationData))
-    setIntegrationSuccess(true)
-    setTimeout(() => setIntegrationSuccess(false), 3000)
   }
 
   const loadUsuarios = useCallback(async () => {
@@ -269,7 +216,7 @@ export default function ConfiguracionPage() {
     loadUsuarios()
   }, [loadUsuarios])
 
-  const handleCrearUsuario = async (e: React.FormEvent) => {
+  const handleCrearUsuario = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     setUsuarioFormError(null)
     if (!nuevoUsuario.nombre.trim()) {
@@ -812,16 +759,6 @@ export default function ConfiguracionPage() {
                   />
                   <span>Notificar al coordinador de área cuando se matricule un nuevo estudiante.</span>
                 </label>
-
-                <label className="flex items-center gap-3 text-xs font-medium cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={academicData.requerirLinkedInObligatorio}
-                    onChange={(e) => setAcademicData((p) => ({ ...p, requerirLinkedInObligatorio: e.target.checked }))}
-                    className="size-4 cursor-pointer"
-                  />
-                  <span>Requerir perfil de LinkedIn validado antes de exportar hoja de vida a empresas.</span>
-                </label>
               </div>
             </CardContent>
           </Card>
@@ -829,80 +766,14 @@ export default function ConfiguracionPage() {
       )}
 
       {/* ── PESTAÑA 3: INTEGRACIONES & APIS ────────────────────────────────── */}
-      {activeTab === 'integraciones' && (
-        <form onSubmit={handleSaveIntegration} className="grid gap-6 lg:grid-cols-2">
-          <Card className="rounded-2xl shadow-sm lg:col-span-2">
-            <CardHeader className="border-b border-border/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <ShareNetwork className="size-5 text-primary" /> Servicios Externos e Integraciones
-                  </CardTitle>
-                  <CardDescription>
-                    Parámetros de conexión con SendGrid (emails), Power BI, LinkedIn Jobs y almacenamiento en nube.
-                  </CardDescription>
-                </div>
-                <Button type="submit" size="sm">
-                  <FloppyDisk className="size-4 mr-1" />
-                  Guardar Conexiones
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-6 pt-6">
-              {integrationSuccess && (
-                <div role="status" className="flex items-center gap-2 rounded-xl bg-green-500/10 border border-green-500/30 p-3 text-xs font-medium text-green-600 dark:text-green-400">
-                  <CheckCircle className="size-4 shrink-0" />
-                  <span>Parámetros de conexión de integraciones guardados en este navegador (no sincronizados con el servidor).</span>
-                </div>
-              )}
-
-              {/* SMTP */}
-              <div className="flex flex-col gap-3 rounded-xl border border-border/60 p-4 bg-secondary/10">
-                <h3 className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-wider">
-                  <EnvelopeSimple className="size-4 text-primary" /> Servidor SMTP Transaccional (Emails)
-                </h3>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Input
-                    value={integrationData.smtpHost}
-                    onChange={(e) => setIntegrationData((p) => ({ ...p, smtpHost: e.target.value }))}
-                    placeholder="smtp.sendgrid.net"
-                  />
-                  <Input
-                    value={integrationData.smtpPort}
-                    onChange={(e) => setIntegrationData((p) => ({ ...p, smtpPort: e.target.value }))}
-                    placeholder="587"
-                  />
-                </div>
-              </div>
-
-              {/* Power BI & LinkedIn */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-3 rounded-xl border border-border/60 p-4 bg-secondary/10">
-                  <h3 className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-wider">
-                    <Database className="size-4 text-amber-500" /> Power BI Embedded Workspace
-                  </h3>
-                  <Input
-                    value={integrationData.powerBiWorkspaceId}
-                    onChange={(e) => setIntegrationData((p) => ({ ...p, powerBiWorkspaceId: e.target.value }))}
-                    placeholder="Workspace ID"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-3 rounded-xl border border-border/60 p-4 bg-secondary/10">
-                  <h3 className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-wider">
-                    <LinkedinLogo className="size-4 text-[#0A66C2]" /> LinkedIn Jobs API Client ID
-                  </h3>
-                  <Input
-                    value={integrationData.linkedInClientId}
-                    onChange={(e) => setIntegrationData((p) => ({ ...p, linkedInClientId: e.target.value }))}
-                    placeholder="Client ID"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </form>
-      )}
+      {/* ── PESTAÑA 3: INTEGRACIONES & APIS ──────────────────────────────────
+          Era un formulario que guardaba las claves de Groq, WhatsApp y JSearch
+          en localStorage: texto plano legible por cualquier script inyectado
+          —el mismo fallo que se corrigió para el JWT— y encima inútil, porque
+          el backend las lee de variables de entorno al arrancar y nada de lo
+          que se escribiera aquí llegaba al servidor. Ahora es un tablero de
+          solo lectura contra el estado real del backend. */}
+      {activeTab === 'integraciones' && <PanelIntegraciones />}
 
       {/* ── PESTAÑA 4: USUARIOS & SEGURIDAD ────────────────────────────────── */}
       {activeTab === 'usuarios' && (

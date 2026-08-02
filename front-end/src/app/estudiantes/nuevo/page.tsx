@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, CaretLeft, CaretRight, CheckCircle, CircleNotch, Info, UserPlus, WarningCircle } from '@phosphor-icons/react'
+import { ArrowLeftIcon as ArrowLeft, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, InfoIcon as Info, UserPlusIcon as UserPlus, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 /**
  * Registro de estudiante — asistente en 6 pasos.
  *

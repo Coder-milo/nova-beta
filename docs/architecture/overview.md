@@ -6,9 +6,9 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                      CLIENT LAYER                            │
 │  ┌──────────────┐  ┌────────────┐  ┌───────────────────┐   │
-│  │ Angular 17   │  │ Thymeleaf  │  │ curl / Postman /  │   │
+│  │ Astro + React│  │ Thymeleaf  │  │ curl / Postman /  │   │
 │  │ (front-end)  │  │ (credencial│  │ Swagger UI        │   │
-│  │ localhost:4200│  │  pública)  │  │ localhost:8080    │   │
+│  │ localhost:3000│  │  pública)  │  │ localhost:8080    │   │
 │  └──────┬───────┘  └─────┬──────┘  └─────────┬─────────┘   │
 └─────────┼────────────────┼──────────────────┼──────────────┘
           │                │                  │
@@ -81,9 +81,15 @@ Usuario ──┐                 Programa ──┐
 
 ### Tablas del sistema
 
-| Esquema | Flyway | Migraciones versionadas |
-|---------|--------|------------------------|
+> Lista no exhaustiva de las tablas principales (hoy hay 27 migraciones Flyway;
+> módulos más recientes como postulación, seguimiento, colocación, hoja de
+> vida, documentos, anuncios, actividades, mensajería WhatsApp y auditoría
+> añadieron tablas que no están todas listadas aquí).
+
+| Tabla | Descripción |
+|-------|-------------|
 | `usuario` | Usuarios del sistema (admin, coordinadores) |
+| `usuario_rol` | Roles de cada usuario (ADMIN, COORDINADOR, ESTUDIANTE) |
 | `programa` | Programas de empleabilidad |
 | `estudiante` | Estudiantes inscritos |
 | `vacante` | Vacantes de empleo (scrapeadas o manuales) |
@@ -96,7 +102,7 @@ Usuario ──┐                 Programa ──┐
 | `catalogo_habilidad` | Catálogo de habilidades |
 | `estudiante_habilidad` | Habilidades por estudiante |
 | `catalogo_nivel_ingles` | Niveles de inglés (A1-C2) |
-| `linkedin_configuracion` | Tokens OAuth de LinkedIn |
+| `linkedin_configuracion` | Configuración LinkedIn (entidad sin API todavía) |
 
 ## Motor de Matching
 
@@ -161,7 +167,7 @@ La clase está en el paquete `com.novacrm.config` y es inyectada en `MatchingSer
 
 ### ColumnMapper
 
-El componente `ColumnMapper` carga `column-synonyms.yml` (42 entradas con sinónimos para cada campo de `Estudiante`) y resuelve cualquier columna de un Excel a su campo de entidad correspondiente sin código hardcodeado.
+El componente `ColumnMapper` carga `column-synonyms.yml` (43 entradas con sinónimos para cada campo de `Estudiante`) y resuelve cualquier columna de un Excel a su campo de entidad correspondiente sin código hardcodeado.
 
 **Algoritmo de mapeo (`map(header)`):**
 1. **Normalización**: elimina prefijos numéricos (`"3.1 "`, `"4.3 "`), contenido parentético corto, acentos, puntuación, y convierte a lowercase
@@ -264,7 +270,7 @@ El paquete `com.novacrm.admin` implementa cinco operaciones vía `EntityManager`
 
 | Archivo | Propósito |
 |---|---|
-| `column-synonyms.yml` | 42 grupos de sinónimos para mapeo de columnas Excel |
+| `column-synonyms.yml` | 43 grupos de sinónimos para mapeo de columnas Excel |
 | `matching-synonyms.yml` | 28 grupos de sinónimos técnico-laborales para matching |
 | `matching-config.yml` | Pesos, umbral mínimo y máximo de vacantes del matching |
 
@@ -326,8 +332,4 @@ El paquete `com.novacrm.admin` implementa cinco operaciones vía `EntityManager`
 
 ## Monitoreo
 
-| Herramienta | Endpoint | Puerto |
-|-------------|----------|--------|
-| Prometheus | `/actuator/prometheus` | 8080 |
-| Grafana | (dashboard configurable) | 3000 |
-| Loki | (logs agregados) | 3100 |
+**No implementado todavía.** No hay Prometheus/Grafana/Loki en `docker-compose.yml` ni la dependencia `micrometer-registry-prometheus` en el backend. Solo Actuator con `health` e `info` expuestos (ver [`docs/api/endpoints.md`](../api/endpoints.md#actuator)).

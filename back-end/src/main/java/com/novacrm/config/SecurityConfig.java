@@ -178,6 +178,8 @@ public class SecurityConfig {
                         auth.setDetails(claims);
                         org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
                     } catch (Exception e) {
+                        log.warn("Token JWT rechazado en {} {}: {}",
+                                request.getMethod(), request.getRequestURI(), e.getMessage());
                         org.springframework.security.core.context.SecurityContextHolder.clearContext();
                     }
                 }

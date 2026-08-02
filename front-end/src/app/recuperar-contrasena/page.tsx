@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, CheckCircle, CircleNotch, Eye, EyeSlash, GraduationCap, WarningCircle } from '@phosphor-icons/react'
+import { ArrowLeftIcon as ArrowLeft, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, EyeIcon as Eye, EyeSlashIcon as EyeSlash, GraduationCapIcon as GraduationCap, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 /**
  * Página de recuperación de contraseña.
  *
@@ -24,7 +24,7 @@ function FormularioEmail() {
   const [enviado, setEnviado] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault()
     startTransition(async () => {
       try { await authApi.forgotPassword(email.trim()) } catch { /* respuesta uniforme por seguridad */ }
@@ -73,7 +73,7 @@ function FormularioNuevaContrasena({ token }: { token: string }) {
   const [listo, setListo]         = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault()
     setError(null)
     if (password.length < 8) { setError('La contraseña debe tener al menos 8 caracteres.'); return }

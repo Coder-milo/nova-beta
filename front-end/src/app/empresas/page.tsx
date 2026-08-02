@@ -2,22 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from '@/compat/next-link'
-import {
-  ArrowSquareOut,
-  Buildings,
-  CaretLeft,
-  CaretRight,
-  CheckCircle,
-  CircleNotch,
-  EnvelopeSimple,
-  Funnel,
-  MagnifyingGlass,
-  MapPin,
-  Plus,
-  UploadSimple,
-  UsersThree,
-  WarningCircle,
-} from '@phosphor-icons/react'
+import { ArrowSquareOutIcon as ArrowSquareOut, BuildingsIcon as Buildings, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, EnvelopeSimpleIcon as EnvelopeSimple, FunnelIcon as Funnel, MagnifyingGlassIcon as MagnifyingGlass, MapPinIcon as MapPin, PlusIcon as Plus, UploadSimpleIcon as UploadSimple, UsersThreeIcon as UsersThree, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import { empresasApi } from '@/lib/api'
 import { errorDe } from '@/lib/errores'
 import type { EmpresaRequest, EmpresaResponse, EstadoRelacionEmpresa, Page } from '@/lib/types'
@@ -119,7 +104,7 @@ export default function EmpresasPage() {
     if (!open) { setEditando(false); setSeleccionada(null) }
   }
 
-  const guardar = async (event: React.FormEvent) => {
+  const guardar = async (event: React.SyntheticEvent) => {
     event.preventDefault()
     setGuardando(true); setError('')
     try {
@@ -131,7 +116,7 @@ export default function EmpresasPage() {
     finally { setGuardando(false) }
   }
 
-  const registrarContacto = async (event: React.FormEvent) => {
+  const registrarContacto = async (event: React.SyntheticEvent) => {
     event.preventDefault()
     if (!seleccionada) return
     setRegistrandoContacto(true); setError('')

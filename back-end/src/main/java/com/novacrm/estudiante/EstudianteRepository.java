@@ -2,6 +2,7 @@ package com.novacrm.estudiante;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +14,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
+    // programa es LAZY; sin el fetch, toResponse() dispara una consulta extra
+    // por Programa distinto en la pagina al leer e.getPrograma() (BE-13).
+    @EntityGraph(attributePaths = "programa")
     Page<Estudiante> findByProgramaIdAndActivoTrue(UUID programaId, Pageable pageable);
 
     List<Estudiante> findAllByProgramaIdAndActivoTrue(UUID programaId);
@@ -82,17 +86,23 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
                    or e.email is null or trim(e.email) = ''
                    or e.numeroDocumento is null or trim(e.numeroDocumento) = '')
             """)
+    @EntityGraph(attributePaths = "programa")
     Page<Estudiante> buscarActivosConDatosFaltantes(Pageable pageable);
 
     // --- Papelera ---
+    @EntityGraph(attributePaths = "programa")
     Page<Estudiante> findByProgramaIdAndActivoFalse(UUID programaId, Pageable pageable);
     long countByProgramaIdAndActivoFalse(UUID programaId);
     long countByActivoFalse();
-    List<Estudiante> findByActivoFalseAndDeletedAtBefore(Instant fecha);
 
     @Modifying
     @Query("UPDATE Estudiante e SET e.activo = false, e.deletedAt = CURRENT_TIMESTAMP WHERE e.programa.id = :programaId AND e.activo = true")
     int softDeleteByProgramaId(@Param("programaId") UUID programaId);
+
+    /** Igual que {@link #softDeleteByProgramaId}, pero por lista de ids (BE-13: evita load+save por fila). */
+    @Modifying
+    @Query("UPDATE Estudiante e SET e.activo = false, e.deletedAt = CURRENT_TIMESTAMP WHERE e.id IN :ids AND e.activo = true")
+    int softDeleteByIdIn(@Param("ids") List<UUID> ids);
 
     /** Al borrar una plantilla: nadie queda apuntando a ella como preferida. */
     @Modifying
@@ -122,6 +132,7 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
               AND (:estadoAcademico IS NULL OR e.estadoAcademico = :estadoAcademico)
               AND (:estadoEmpleabilidad IS NULL OR e.estadoEmpleabilidad = :estadoEmpleabilidad)
             """)
+    @EntityGraph(attributePaths = "programa")
     Page<Estudiante> buscarAvanzado(@org.springframework.data.repository.query.Param("q") String q,
                                     @org.springframework.data.repository.query.Param("programaId") UUID programaId,
                                     @org.springframework.data.repository.query.Param("ciudad") String ciudad,

@@ -8,6 +8,7 @@ import { SidebarNav } from '@/components/admin/sidebar-nav'
 import { Header } from '@/components/admin/header'
 import { DarkBrandBackdrop } from '@/components/admin/dark-brand-backdrop'
 import { StudentHelpChat } from '@/components/student/student-help-chat'
+import { AdminAssistantChat } from '@/components/admin/admin-assistant-chat'
 import { LocaleContentTranslator } from '@/components/ui/locale-content-translator'
 import { useAuth } from '@/lib/auth'
 import { soloEsEstudiante } from '@/lib/navigation'
@@ -106,7 +107,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
-      {esEstudiante && <StudentHelpChat />}
+      {esEstudiante ? <StudentHelpChat /> : <AdminAssistantChat />}
     </div>
   )
 }

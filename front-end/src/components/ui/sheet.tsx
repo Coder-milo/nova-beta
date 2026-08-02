@@ -1,6 +1,6 @@
 "use client"
 
-import { X } from '@phosphor-icons/react'
+import { XIcon as X } from '@phosphor-icons/react'
 
 import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"

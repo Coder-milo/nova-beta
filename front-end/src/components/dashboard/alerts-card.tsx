@@ -1,4 +1,4 @@
-import { ArrowRight, Info, Warning } from '@phosphor-icons/react/ssr'
+import { ArrowRightIcon as ArrowRight, InfoIcon as Info, WarningIcon as Warning } from '@phosphor-icons/react/ssr'
 import Link from '@/compat/next-link'
 import {
   Card,
@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { SampleDataBadge } from '@/components/dashboard/sample-data-badge'
 import { cn } from '@/lib/utils'
 import { importantAlerts } from '@/lib/mock-data'
 import type { AlertaResponse } from '@/lib/types'
@@ -65,7 +66,10 @@ export function AlertsCard({ alerts }: Props) {
   return (
     <Card className="rounded-xl shadow-sm">
       <CardHeader>
-        <CardTitle>Alertas importantes</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>Alertas importantes</CardTitle>
+          {alerts === null && <SampleDataBadge />}
+        </div>
         <CardDescription>Situaciones que requieren tu atención</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">

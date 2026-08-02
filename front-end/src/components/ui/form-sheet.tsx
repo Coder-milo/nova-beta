@@ -22,7 +22,7 @@
  */
 
 import { useState } from 'react'
-import { CircleNotch } from '@phosphor-icons/react'
+import { CircleNotchIcon as CircleNotch } from '@phosphor-icons/react'
 import {
   Sheet,
   SheetContent,

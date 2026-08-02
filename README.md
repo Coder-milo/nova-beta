@@ -29,7 +29,7 @@
 | Importación Excel | Apache POI 5.3.0 |
 | Emails | AWS SES SDK 2.25.0 |
 | Rate limiting | Bucket4j 8.7.0 |
-| Monitoreo | Prometheus / Grafana / Loki (micrometer) |
+| Monitoreo | Actuator (`health`, `info`) — Prometheus/Grafana/Loki no implementado todavía |
 | Contenedores | Docker + Docker Compose |
 
 ## Arquitectura
@@ -37,9 +37,9 @@
 ```
 ┌──────────────┐     ┌──────────────────────────────────────────┐
 │   Frontend    │     │           NOVA CRM API (8080)            │
-│  Angular 17   │────▶│                                          │
+│ Astro + React │────▶│                                          │
 │ (localhost:   │     │  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐   │
-│    4200)      │     │  │ Auth │ │Progr.│ │Estud.│ │Vacan.│   │
+│    3000)      │     │  │ Auth │ │Progr.│ │Estud.│ │Vacan.│   │
 └──────────────┘     │  │      │ │      │ │      │ │      │   │
                      │  ├──────┤ ├──────┤ ├──────┤ ├──────┤   │
 ┌──────────────┐     │  │Match │ │Certif│ │Notif.│ │Scrap.│   │
@@ -76,7 +76,7 @@ cd back-end
 mvn spring-boot:run
 ```
 
-La API arranca en `http://localhost:8080`. Swagger UI en `http://localhost:8080/swagger-ui/index.html`.
+La API arranca en `http://localhost:8080`. Swagger UI en `http://localhost:8080/swagger-ui.html` (path configurado en `springdoc.swagger-ui.path`).
 
 En otra terminal inicia el frontend actual (Astro/React) desde la raíz del repositorio:
 
@@ -97,7 +97,7 @@ El frontend queda disponible en `http://localhost:3000`.
 | Método | Ruta | Acceso | Descripción |
 |--------|------|--------|-------------|
 | POST | `/api/v1/auth/login` | Público | Login JWT |
-| GET/POST | `/api/v1/programas` | Mixto | CRUD programas |
+| GET/POST/PUT/PATCH | `/api/v1/programas` | Mixto | Listar, crear, editar, cambiar estado (sin DELETE) |
 | GET/POST | `/api/v1/estudiantes` | Coord./Admin | CRUD estudiantes |
 | GET | `/api/v1/estudiantes/papelera` | Coord./Admin | Listar papelera (inactivos) |
 | POST | `/api/v1/estudiantes/{id}/restaurar` | Coord./Admin | Restaurar estudiante de la papelera |
@@ -111,7 +111,7 @@ El frontend queda disponible en `http://localhost:3000`.
 | DELETE | `/api/v1/admin/purgar-papelera` | Admin | Elimina físicamente estudiantes con >30 días en papelera |
 | DELETE | `/api/v1/admin/cleanup` | Admin | Vacía todo el sistema transaccional (estudiantes, vacantes, matches) |
 | GET | `/credencial/{uuid}` | Público | Verificar credencial |
-| GET/POST | `/api/v1/linkedin/*` | Autenticado | LinkedIn OAuth |
+| — | — | — | LinkedIn OAuth: sin implementar (solo existe la entidad `LinkedinConfiguracion`, ningún endpoint todavía) |
 
 Ver documentación completa en [`docs/api/endpoints.md`](docs/api/endpoints.md).
 
@@ -131,6 +131,7 @@ NOVA-CRM/
 │   ├── src/main/java/com/novacrm/
 │   │   ├── auth/           # Login, JWT, Usuario
 │   │   ├── config/         # Security, CORS, MinIO, SES, Swagger
+│   │   ├── dashboard/      # KPIs, gráficos y alertas para el panel
 │   │   ├── estudiante/     # CRUD + DTOs
 │   │   ├── programa/       # CRUD + estados
 │   │   ├── vacante/        # Vacantes públicas

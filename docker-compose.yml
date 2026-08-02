@@ -75,6 +75,8 @@ services:
       CORREO_LOGO_URL: ${CORREO_LOGO_URL:-}
       CORREO_BANNER_PIE_URL: ${CORREO_BANNER_PIE_URL:-}
       CORREO_DESTINATARIOS_PERMITIDOS: ${CORREO_DESTINATARIOS_PERMITIDOS:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODELO: ${GROQ_MODELO:-llama-3.3-70b-versatile}
     ports:
       - "8080:8080"
     healthcheck:

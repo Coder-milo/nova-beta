@@ -3,7 +3,6 @@ package com.novacrm.matching;
 import com.novacrm.config.MatchingConfig;
 import com.novacrm.estudiante.Estudiante;
 import com.novacrm.estudiante.EstudianteRepository;
-import com.novacrm.habilidad.EstudianteHabilidadRepository;
 import com.novacrm.matching.dto.MatchResponse;
 import com.novacrm.notificacion.NotificacionService;
 import com.novacrm.vacante.Vacante;
@@ -14,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -25,7 +23,6 @@ public class MatchingService {
     private final MatchRepository matchRepository;
     private final EstudianteRepository estudianteRepository;
     private final VacanteRepository vacanteRepository;
-    private final EstudianteHabilidadRepository estudianteHabilidadRepository;
     private final SkillSynonyms skillSynonyms;
     private final MatchingConfig config;
     private final NotificacionService notificacionService;
@@ -37,7 +34,6 @@ public class MatchingService {
     public MatchingService(MatchRepository matchRepository,
                            EstudianteRepository estudianteRepository,
                            VacanteRepository vacanteRepository,
-                           EstudianteHabilidadRepository estudianteHabilidadRepository,
                            SkillSynonyms skillSynonyms,
                            MatchingConfig config,
                            NotificacionService notificacionService,
@@ -46,7 +42,6 @@ public class MatchingService {
         this.matchRepository = matchRepository;
         this.estudianteRepository = estudianteRepository;
         this.vacanteRepository = vacanteRepository;
-        this.estudianteHabilidadRepository = estudianteHabilidadRepository;
         this.skillSynonyms = skillSynonyms;
         this.config = config;
         this.notificacionService = notificacionService;
@@ -54,16 +49,38 @@ public class MatchingService {
         this.postulacionRepository = postulacionRepository;
     }
 
+    /**
+     * Vacantes recomendadas al estudiante.
+     *
+     * <p>Solo las vivas: sin filtrar vigencia, la lista acumulaba
+     * indefinidamente vacantes ya cerradas y el estudiante se postulaba a
+     * plazas que no existen. Y sin las descartadas, que se conservan para
+     * calibrar pero no se le vuelven a mostrar a quien ya dijo que no.
+     */
     public Page<MatchResponse> obtenerMatches(UUID estudianteId, org.springframework.data.domain.Pageable pageable) {
-        return matchRepository.findByEstudianteIdOrderByPuntajeDesc(estudianteId, pageable)
+        return matchRepository.findVigentesDeEstudiante(
+                        estudianteId, java.time.LocalDateTime.now(), pageable)
                 .map(this::toResponse);
     }
 
+    /**
+     * Marca el match como descartado sin borrarlo.
+     *
+     * <p>Borraba la fila. El boton "No, gracias" de WhatsApp es la etiqueta
+     * negativa mas limpia que recibe el sistema —la persona vio la vacante y
+     * dijo que no— y se destruia al llegar; sin ella no hay forma de saber si
+     * un puntaje alto predice algo. Ademas el par sigue registrado, asi que la
+     * siguiente corrida no vuelve a proponerlo.
+     */
     @Transactional
-    public void descartarMatch(UUID matchId) {
+    public void descartarMatch(UUID matchId, String autor) {
         var match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new com.novacrm.exception.ResourceNotFoundException("Match no encontrado: " + matchId));
-        matchRepository.delete(match);
+        if (match.isDescartado()) {
+            return;
+        }
+        match.descartar(autor);
+        matchRepository.save(match);
     }
 
     private MatchResponse toResponse(Match m) {
@@ -83,7 +100,34 @@ public class MatchingService {
                 m.getPuntaje(),
                 m.isNotificado(),
                 m.isPostulado(),
-                m.getCreatedAt());
+                m.getCreatedAt(),
+                razonesDe(m),
+                m.getCobertura());
+    }
+
+    /**
+     * Traduce el desglose guardado a algo que se le pueda ensenar a la persona.
+     *
+     * <p>Solo los criterios que se pudieron evaluar; los que no tenian datos no
+     * entraron en el puntaje y mostrarlos como cero mentiria. Ordenados por
+     * peso: lo que mas movio el resultado se lee primero.
+     */
+    private List<MatchResponse.RazonDeMatch> razonesDe(Match m) {
+        var razones = new ArrayList<MatchResponse.RazonDeMatch>();
+        agregarRazon(razones, "Afinidad de perfil", m.getPuntajeAfinidad(), config.getPesoAfinidad());
+        agregarRazon(razones, "Competencias", m.getPuntajeHabilidades(), config.getPesoHabilidades());
+        agregarRazon(razones, "Inglés", m.getPuntajeIngles(), config.getPesoIngles());
+        agregarRazon(razones, "Ubicación", m.getPuntajeUbicacion(), config.getPesoUbicacion());
+        agregarRazon(razones, "Experiencia", m.getPuntajeExperiencia(), config.getPesoExperiencia());
+        razones.sort(java.util.Comparator.comparingInt(MatchResponse.RazonDeMatch::peso).reversed());
+        return razones;
+    }
+
+    private static void agregarRazon(List<MatchResponse.RazonDeMatch> razones,
+                                     String criterio, BigDecimal ratio, int peso) {
+        if (ratio != null) {
+            razones.add(new MatchResponse.RazonDeMatch(criterio, ratio, peso));
+        }
     }
 
     public long contarMatchesPendientes(UUID estudianteId) {
@@ -140,55 +184,91 @@ public class MatchingService {
         }
     }
 
+    /** Una vacante del pool con sus tokens ya resueltos, para no repetirlo. */
+    private record VacanteTokenizada(Vacante vacante, Set<String> terminos, Set<String> competencias) {}
+
     @Transactional
     public int ejecutarMatching() {
-        var estudiantes = estudianteRepository.findAll();
-        int maxVacantes = config.getMaxVacantesPorEjecucion();
+        // Primero se carga el pool entero y despues se puntua. Hace falta en
+        // ese orden porque el peso de cada token —cuanto informa coincidir en
+        // el— se estima sobre el conjunto de vacantes de la corrida, y eso no
+        // se puede saber pagina a pagina. Son como mucho 500 vacantes con sus
+        // tokens: cabe de sobra en memoria.
+        var pool = cargarPool();
+        if (pool.isEmpty()) {
+            return 0;
+        }
+        // `activo` solo dice que la ficha no esta en la papelera: incluia a
+        // quien se retiro del programa y a quien ya esta empleado. Mandarles
+        // recomendaciones —y avisos de WhatsApp— es ruido para ellos y trabajo
+        // perdido para el equipo.
+        var estudiantes = estudianteRepository.findAllByActivoTrue().stream()
+                .filter(MatchingService::buscaEmpleo)
+                .toList();
+        if (estudiantes.isEmpty()) {
+            return 0;
+        }
         int umbral = config.getUmbralMinimo();
+        String versionDeConfig = versionDeConfig();
+
+        var pesos = PesosPorRareza.de(pool.stream().map(VacanteTokenizada::terminos).toList());
+
+        // Precalculado una sola vez por estudiante, no en cada par
+        // estudiante×vacante (BE-05): tokens de perfil y de competencias solo
+        // dependen del estudiante, no de la vacante que se este evaluando.
+        //
+        // Las competencias salen del campo de texto de la ficha —que llenan el
+        // equipo y la extraccion de hojas de vida— y no de `estudiante_habilidad`:
+        // esa tabla no la escribe nadie en todo el backend, asi que el criterio
+        // de habilidades era una constante para el 100% de los pares.
+        Map<UUID, Set<String>> terminosPerfilPorEstudiante = new HashMap<>();
+        Map<UUID, Set<String>> competenciasPorEstudiante = new HashMap<>();
+        for (Estudiante e : estudiantes) {
+            terminosPerfilPorEstudiante.put(e.getId(), skillSynonyms.tokenize(
+                    e.getCargoObjetivo(), e.getSectorObjetivo(), e.getSectorExperiencia(),
+                    e.getUltimoCargo(), e.getPerfilProfesional(), e.getAreaFormacion(),
+                    e.getNivelEducativo()));
+            competenciasPorEstudiante.put(e.getId(),
+                    skillSynonyms.tokenize(e.getCompetencias()));
+        }
+
+        // Pares ya emparejados, en una sola consulta (BE-05): antes era un
+        // existsBy... por cada par estudiante×vacante.
+        var vacanteIds = pool.stream().map(p -> p.vacante().getId()).toList();
+        Set<String> paresExistentes = matchRepository.findByVacanteIdIn(vacanteIds).stream()
+                .map(m -> m.getEstudiante().getId() + "|" + m.getVacante().getId())
+                .collect(Collectors.toSet());
 
         List<Match> matchesNuevos = new ArrayList<>();
-        int procesadas = 0;
-        int page = 0;
+        for (VacanteTokenizada candidata : pool) {
+            var v = candidata.vacante();
+            for (Estudiante e : estudiantes) {
+                if (paresExistentes.contains(e.getId() + "|" + v.getId())) continue;
+                // Antes de puntuar: recomendarle empleo remoto en ingles a
+                // quien no tiene computador, o una plaza en Berlin a quien no
+                // busca migrar, no es una recomendacion debil sino una
+                // imposible.
+                if (!ElegibilidadPorSegmento.esElegible(e, v)) continue;
+                var desglose = calcularPuntaje(e, v,
+                        terminosPerfilPorEstudiante.get(e.getId()), candidata.terminos(),
+                        competenciasPorEstudiante.get(e.getId()), candidata.competencias(),
+                        pesos);
+                if (!superaElCorte(desglose, umbral)) continue;
 
-        while (procesadas < maxVacantes) {
-            // Solo vigentes: recomendar una vacante vencida hace que el
-            // estudiante se postule a una plaza que ya no existe. Y solo
-            // revisadas: una oferta que sugirio un participante se ve, pero no
-            // se le recomienda a los otros 106 hasta que el equipo la valide.
-            var pagina = vacanteRepository.findVigentes(
-                    java.time.LocalDateTime.now(), PageRequest.of(page, 200));
-            if (pagina.getContent().isEmpty()) break;
-            // El corte se mira sobre la pagina sin filtrar: una pagina entera
-            // de ofertas sin revisar no significa que se hayan acabado las
-            // vacantes, y cortar ahi dejaria fuera todas las siguientes.
-            var vacantes = pagina.getContent().stream().filter(Vacante::isRevisada).toList();
-
-            for (Vacante v : vacantes) {
-                if (procesadas >= maxVacantes) break;
-                for (Estudiante e : estudiantes) {
-                    if (!e.isActivo()) continue;
-                    if (matchRepository.existsByEstudianteIdAndVacanteId(e.getId(), v.getId())) continue;
-                    BigDecimal puntaje = calcularPuntaje(e, v);
-                    if (puntaje.compareTo(BigDecimal.valueOf(umbral)) >= 0) {
-                        var match = new Match();
-                        match.setEstudiante(e);
-                        match.setVacante(v);
-                        match.setPuntaje(puntaje);
-                        try {
-                            matchRepository.save(match);
-                        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-                            // Dos ejecuciones del scheduler en paralelo: el
-                            // otro hilo ya creo el par y el unique lo rechaza.
-                            // Es un no-op, no un fallo.
-                            continue;
-                        }
-                        matchesNuevos.add(match);
-                    }
+                var match = new Match();
+                match.setEstudiante(e);
+                match.setVacante(v);
+                match.aplicarDesglose(desglose, versionDeConfig);
+                try {
+                    matchRepository.save(match);
+                } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+                    // Dos ejecuciones del scheduler en paralelo: el otro hilo
+                    // ya creo el par y el unique lo rechaza. Es un no-op, no un
+                    // fallo.
+                    continue;
                 }
-                procesadas++;
+                matchesNuevos.add(match);
             }
-            if (!pagina.hasNext()) break;
-            page++;
         }
 
         if (!matchesNuevos.isEmpty()) {
@@ -198,81 +278,202 @@ public class MatchingService {
         return matchesNuevos.size();
     }
 
-    private BigDecimal calcularPuntaje(Estudiante e, Vacante v) {
-        double puntaje = 0;
+    /**
+     * Vacantes candidatas de esta corrida, ya tokenizadas.
+     *
+     * <p>Solo vigentes: recomendar una vacante vencida hace que el estudiante
+     * se postule a una plaza que ya no existe. Y solo revisadas: una oferta que
+     * sugirio un participante se ve, pero no se le recomienda a los otros 106
+     * hasta que el equipo la valide.
+     */
+    private List<VacanteTokenizada> cargarPool() {
+        int maxVacantes = config.getMaxVacantesPorEjecucion();
+        List<VacanteTokenizada> pool = new ArrayList<>();
+        int page = 0;
 
-        // 1) Afinidad de perfil: solapamiento de terminos normalizados por sinonimos.
-        // Se incluyen mas campos del estudiante que antes (perfilProfesional, areaFormacion, nivelEducativo).
-        Set<String> terminosEstudiante = skillSynonyms.tokenize(
-                e.getCargoObjetivo(), e.getSectorObjetivo(), e.getSectorExperiencia(),
-                e.getUltimoCargo(), e.getPerfilProfesional(), e.getAreaFormacion(),
-                e.getNivelEducativo());
-        Set<String> terminosVacante = skillSynonyms.tokenize(
-                v.getTitulo(), v.getDescripcion(), v.getRequisitos());
-
-        if (terminosEstudiante.isEmpty() || terminosVacante.isEmpty()) {
-            puntaje += config.getPesoAfinidad() * 0.5;
-        } else {
-            long coincidencias = terminosEstudiante.stream()
-                    .filter(terminosVacante::contains)
-                    .count();
-            double ratio = Math.min((double) coincidencias / terminosEstudiante.size(), 1.0);
-
-            if (hayCoincidenciaSector(e, v)) {
-                ratio = Math.min(ratio + 0.15, 1.0);
+        while (pool.size() < maxVacantes) {
+            var pagina = vacanteRepository.findVigentes(
+                    java.time.LocalDateTime.now(), PageRequest.of(page, 200));
+            if (pagina.getContent().isEmpty()) break;
+            for (Vacante v : pagina.getContent()) {
+                // El corte se mira sobre el pool ya filtrado: una pagina entera
+                // de ofertas sin revisar no significa que se hayan acabado las
+                // vacantes, y cortar ahi dejaria fuera todas las siguientes.
+                if (!v.isRevisada()) continue;
+                if (pool.size() >= maxVacantes) break;
+                pool.add(new VacanteTokenizada(v,
+                        skillSynonyms.tokenize(v.getTitulo(), v.getDescripcion(), v.getRequisitos()),
+                        skillSynonyms.tokenize(v.getDescripcion(), v.getRequisitos())));
             }
-
-            puntaje += config.getPesoAfinidad() * ratio;
+            if (!pagina.hasNext()) break;
+            page++;
         }
+        return pool;
+    }
 
-        // 2) Habilidades: las habilidades registradas del estudiante vs el texto de la vacante.
-        var habilidades = estudianteHabilidadRepository.findByEstudianteId(e.getId());
-        if (!habilidades.isEmpty()) {
-            Set<String> habilidadesStudent = habilidades.stream()
-                    .map(eh -> skillSynonyms.tokenize(eh.getHabilidad().getNombre()))
-                    .flatMap(Set::stream)
-                    .collect(Collectors.toSet());
-            Set<String> habilidadesVacante = skillSynonyms.tokenize(v.getDescripcion(), v.getRequisitos());
+    /**
+     * Si tiene sentido recomendarle vacantes.
+     *
+     * <p>Quien se retiro del programa ya no participa, y a quien esta empleado
+     * recomendarle plazas no le sirve: el seguimiento de esa persona es la
+     * permanencia en el puesto, no una nueva busqueda.
+     */
+    static boolean buscaEmpleo(Estudiante e) {
+        return e.getEstadoAcademico() != com.novacrm.estudiante.EstadoAcademico.RETIRADO
+                && e.getEstadoEmpleabilidad() != com.novacrm.estudiante.EstadoEmpleabilidad.EMPLEADO;
+    }
 
-            if (!habilidadesVacante.isEmpty() && !habilidadesStudent.isEmpty()) {
-                long coincidenciasH = habilidadesStudent.stream()
-                        .filter(habilidadesVacante::contains)
-                        .count();
-                double ratioH = Math.min((double) coincidenciasH / habilidadesStudent.size(), 1.0);
-                puntaje += config.getPesoHabilidades() * ratioH;
-            } else {
-                puntaje += config.getPesoHabilidades() * 0.7;
-            }
-        } else {
-            puntaje += config.getPesoHabilidades() * 0.4;
+    /**
+     * Un par llega a ser match si supera el umbral y ademas se apoya en
+     * suficiente evidencia.
+     *
+     * <p>Las dos condiciones hacen falta: sin la de cobertura, un par evaluado
+     * por un unico criterio con suerte volveria a colarse por encima del
+     * umbral, que es exactamente lo que hacia que toda vacante emparejara con
+     * todo participante.
+     */
+    boolean superaElCorte(DesglosePuntaje desglose, int umbral) {
+        return desglose.puntaje().compareTo(BigDecimal.valueOf(umbral)) >= 0
+                && desglose.cobertura().doubleValue() >= config.getCoberturaMinima();
+    }
+
+    /** Huella de los pesos vigentes, para saber con que se calculo un puntaje. */
+    private String versionDeConfig() {
+        return "a%d-h%d-i%d-u%d-e%d/umbral%d/cob%s".formatted(
+                config.getPesoAfinidad(), config.getPesoHabilidades(), config.getPesoIngles(),
+                config.getPesoUbicacion(), config.getPesoExperiencia(),
+                config.getUmbralMinimo(), config.getCoberturaMinima());
+    }
+
+    /**
+     * Evalua un par estudiante×vacante criterio por criterio.
+     *
+     * <p>Cada criterio devuelve un ratio de 0 a 1, o {@code null} si no hay con
+     * que juzgarlo. Los que no se pueden evaluar quedan fuera del reparto en
+     * vez de puntuar: antes un dato ausente valia como dato bueno —una vacante
+     * sin nivel de ingles ni experiencia declarada se llevaba enteros esos dos
+     * criterios— y el resultado era que toda vacante superaba el umbral contra
+     * todo participante.
+     */
+    DesglosePuntaje calcularPuntaje(Estudiante e, Vacante v,
+            Set<String> terminosEstudiante, Set<String> terminosVacante,
+            Set<String> competenciasEstudiante, Set<String> competenciasVacante,
+            PesosPorRareza pesos) {
+
+        Double afinidad = ratioAfinidad(e, v, terminosEstudiante, terminosVacante, pesos);
+        Double habilidades = pesos.parecido(competenciasEstudiante, competenciasVacante);
+        Double ingles = ratioIngles(e, v, terminosVacante);
+        Double ubicacion = ratioUbicacion(e, v);
+        Double experiencia = ratioExperiencia(e, v);
+
+        var balanza = new DesglosePuntaje.Balanza();
+        balanza.agregar(config.getPesoAfinidad(), afinidad);
+        balanza.agregar(config.getPesoHabilidades(), habilidades);
+        balanza.agregar(config.getPesoIngles(), ingles);
+        balanza.agregar(config.getPesoUbicacion(), ubicacion);
+        balanza.agregar(config.getPesoExperiencia(), experiencia);
+
+        return new DesglosePuntaje(afinidad, habilidades, ingles, ubicacion, experiencia,
+                balanza.puntaje(), balanza.cobertura(config.getPesoTotal()));
+    }
+
+    /**
+     * Afinidad de perfil: solapamiento de terminos normalizados por sinonimos,
+     * con un empujon si el sector del estudiante coincide con el de la empresa.
+     */
+    private Double ratioAfinidad(Estudiante e, Vacante v,
+                                 Set<String> terminosEstudiante, Set<String> terminosVacante,
+                                 PesosPorRareza pesos) {
+        Double solape = pesos.parecido(terminosEstudiante, terminosVacante);
+        if (solape == null) {
+            return null;
         }
+        return hayCoincidenciaSector(e, v) ? Math.min(solape + 0.15, 1.0) : solape;
+    }
 
-        // 3) Nivel de ingles: se puntua contra el nivel medido en las pruebas,
-        // no contra el que declara el estudiante. Y si la vacante es de voz,
-        // contra el oral, que es donde esta la brecha real.
-        puntaje += puntajeIngles(e, v, config);
-
-        // 4) Ubicacion.
-        if (e.getCiudad() != null && v.getUbicacion() != null) {
-            if (v.getUbicacion().toLowerCase().contains(e.getCiudad().toLowerCase())
-                    || e.getCiudad().toLowerCase().contains(v.getUbicacion().toLowerCase())) {
-                puntaje += config.getPesoUbicacion();
-            } else if (Boolean.TRUE.equals(e.getDisponibilidadMovilidad())) {
-                puntaje += config.getPesoUbicacion() * 0.6;
-            }
-        } else {
-            puntaje += config.getPesoUbicacion() * 0.5;
+    /**
+     * Ajuste de ingles entre estudiante y vacante.
+     *
+     * <p>Encierra la decision que mas afecta al resultado: que nivel del
+     * estudiante se compara. Se usa el medido en las pruebas y no el declarado
+     * en el formulario de admision, que en la primera cohorte estaba inflado en
+     * 89 de 102 casos; y si la vacante es de voz se compara contra el oral, que
+     * es donde esta la brecha real de esta poblacion.
+     *
+     * <p>Nulo cuando la vacante no declara nivel —no se puede juzgar algo que
+     * el anuncio no pide— y tambien cuando del estudiante no hay ni nivel
+     * declarado ni medido. Que la vacante no exija ingles ya no reparte puntos
+     * a todo el mundo: simplemente ese criterio no aplica a ese par.
+     */
+    Double ratioIngles(Estudiante e, Vacante v, Set<String> terminosVacante) {
+        int requerido = ordenNivelRequerido(v.getNivelInglesRequerido());
+        if (requerido == 0) {
+            return null;
         }
-
-        // 5) Experiencia.
-        if (v.getAniosExperienciaRequeridos() == null || v.getAniosExperienciaRequeridos() <= 0) {
-            puntaje += config.getPesoExperiencia();
-        } else if (e.getAniosExperiencia() != null) {
-            double ratio = Math.min((double) e.getAniosExperiencia() / v.getAniosExperienciaRequeridos(), 1.0);
-            puntaje += config.getPesoExperiencia() * ratio;
+        var perfil = PerfilIngles.de(e);
+        var nivel = VacanteDeVoz.esDeVoz(terminosVacante) ? perfil.paraVacanteDeVoz() : perfil.efectivo();
+        if (nivel.isEmpty()) {
+            return null;
         }
+        return Math.min((double) nivel.get().getOrden() / requerido, 1.0);
+    }
 
-        return BigDecimal.valueOf(puntaje).setScale(2, RoundingMode.HALF_UP);
+    /**
+     * Cercania geografica.
+     *
+     * <p>Se prefiere {@code ciudad} —limpia, y ahora poblada por el
+     * enriquecedor— sobre el texto libre de {@code ubicacion}. Una vacante
+     * remota vale para cualquier ciudad: el participante no tiene que
+     * desplazarse.
+     */
+    private Double ratioUbicacion(Estudiante e, Vacante v) {
+        if (esRemota(v)) {
+            return 1.0;
+        }
+        String ciudadEstudiante = normalizar(e.getCiudad());
+        String lugarVacante = normalizar(v.getCiudad() != null ? v.getCiudad() : v.getUbicacion());
+        if (ciudadEstudiante.isBlank() || lugarVacante.isBlank()) {
+            return null;
+        }
+        if (lugarVacante.contains(ciudadEstudiante) || ciudadEstudiante.contains(lugarVacante)) {
+            return 1.0;
+        }
+        return Boolean.TRUE.equals(e.getDisponibilidadMovilidad()) ? 0.6 : 0.0;
+    }
+
+    /**
+     * Experiencia.
+     *
+     * <p>Que la vacante pida cero anios es un dato —y bueno para esta
+     * poblacion—, asi que puntua completo. Que no diga nada, en cambio, no se
+     * puede juzgar; igual que no poder saber los anios del estudiante.
+     */
+    private Double ratioExperiencia(Estudiante e, Vacante v) {
+        Integer requeridos = v.getAniosExperienciaRequeridos();
+        if (requeridos == null) {
+            return null;
+        }
+        if (requeridos <= 0) {
+            return 1.0;
+        }
+        if (e.getAniosExperiencia() == null) {
+            return null;
+        }
+        return Math.min((double) e.getAniosExperiencia() / requeridos, 1.0);
+    }
+
+    private static boolean esRemota(Vacante v) {
+        String modalidad = normalizar(v.getModalidadTrabajo());
+        return modalidad.contains("remoto") || modalidad.contains("remote");
+    }
+
+    private static String normalizar(String texto) {
+        if (texto == null) {
+            return "";
+        }
+        return java.text.Normalizer.normalize(texto.trim(), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}", "")
+                .toLowerCase(java.util.Locale.ROOT);
     }
 
     private boolean hayCoincidenciaSector(Estudiante e, Vacante v) {
@@ -289,36 +490,6 @@ public class MatchingService {
             return true;
         }
         return false;
-    }
-
-    /**
-     * Puntua el ajuste de ingles entre estudiante y vacante.
-     *
-     * <p>Se extrae del calculo general porque encierra la decision que mas
-     * afecta al resultado: que nivel del estudiante se compara. Antes se usaba
-     * {@code estudiante.getNivelIngles()}, que es el que la persona declara en
-     * el formulario de admision. En la primera cohorte ese dato estaba inflado
-     * en 89 de 102 casos, asi que el motor recomendaba vacantes que el
-     * candidato no podia sostener en la entrevista.
-     */
-    double puntajeIngles(Estudiante e, Vacante v, MatchingConfig config) {
-        int requerido = ordenNivelRequerido(v.getNivelInglesRequerido());
-        if (requerido == 0) {
-            // La vacante no exige ingles: no penaliza a nadie.
-            return config.getPesoIngles();
-        }
-
-        var perfil = PerfilIngles.de(e);
-        var nivel = VacanteDeVoz.esDeVoz(v) ? perfil.paraVacanteDeVoz() : perfil.efectivo();
-
-        if (nivel.isEmpty()) {
-            // Sin dato alguno no se puede afirmar que cumpla ni que no cumpla.
-            // Se puntua a la mitad para que no desplace a quien si esta medido.
-            return config.getPesoIngles() * 0.5;
-        }
-
-        double ratio = Math.min((double) nivel.get().getOrden() / requerido, 1.0);
-        return config.getPesoIngles() * ratio;
     }
 
     private int ordenNivelRequerido(String requerido) {

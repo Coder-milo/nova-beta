@@ -14,6 +14,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import { SampleDataBadge } from '@/components/dashboard/sample-data-badge'
 import { enrollmentTrend } from '@/lib/mock-data'
 import type { PuntoDato } from '@/lib/types'
 
@@ -36,7 +37,10 @@ export function EnrollmentChart({ data }: Props) {
   return (
     <Card className="rounded-xl shadow-sm">
       <CardHeader>
-        <CardTitle>Ingreso de estudiantes</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>Ingreso de estudiantes</CardTitle>
+          {data === null && <SampleDataBadge />}
+        </div>
         <CardDescription>Nuevos matriculados por mes · año actual</CardDescription>
       </CardHeader>
       <CardContent>

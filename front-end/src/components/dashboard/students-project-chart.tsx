@@ -14,6 +14,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import { SampleDataBadge } from '@/components/dashboard/sample-data-badge'
 import { studentsByProject } from '@/lib/mock-data'
 import type { PuntoDato } from '@/lib/types'
 
@@ -35,7 +36,10 @@ export function StudentsProjectChart({ data }: Props) {
   return (
     <Card className="rounded-xl shadow-sm">
       <CardHeader>
-        <CardTitle>Estudiantes por proyecto</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>Estudiantes por proyecto</CardTitle>
+          {data === null && <SampleDataBadge />}
+        </div>
         <CardDescription>Inscritos en cada programa</CardDescription>
       </CardHeader>
       <CardContent>

@@ -1,17 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import {
-  CalendarDots,
-  Check,
-  CircleNotch,
-  NotePencil,
-  PencilSimple,
-  Plus,
-  Trash,
-  WarningCircle,
-  X,
-} from '@phosphor-icons/react'
+import { CalendarDotsIcon as CalendarDots, CheckIcon as Check, CircleNotchIcon as CircleNotch, NotePencilIcon as NotePencil, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, TrashIcon as Trash, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 import {
   Card,
   CardContent,
@@ -131,7 +121,7 @@ export function ActivitiesCard() {
     setOpen(true)
   }
 
-  const submit = async (event: React.FormEvent) => {
+  const submit = async (event: React.SyntheticEvent) => {
     event.preventDefault()
     if (!form.nombre.trim()) { setError('Escribe el título de la actividad.'); return }
     if (!form.fecha) { setError('Selecciona la fecha.'); return }
