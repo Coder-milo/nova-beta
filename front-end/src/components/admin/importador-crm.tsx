@@ -103,8 +103,8 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
   }
 
   const informe = resultado ?? simulacion
-  const reconocidas = informe?.columnasReconocidas.filter((c: any) => c.campoDestino) ?? []
-  const ignoradas = informe?.columnasReconocidas.filter((c: any) => !c.campoDestino) ?? []
+  const reconocidas = informe?.columnasReconocidas.filter((c) => c.campo) ?? []
+  const ignoradas = informe?.columnasReconocidas.filter((c) => !c.campo) ?? []
 
   return (
     <Card className="rounded-lg border-border shadow-none">
@@ -168,24 +168,24 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
             <div className="flex flex-wrap gap-4 text-xs">
               <div>
                 <span className="text-muted-foreground">Filas leídas:</span>{' '}
-                <b>{informe.totalFilas}</b>
+                <b>{informe.filasLeidas}</b>
               </div>
               <div>
                 <span className="text-muted-foreground">Válidas:</span>{' '}
-                <b className="text-emerald-600">{informe.validos}</b>
+                <b className="text-emerald-600">{informe.creados + informe.actualizados}</b>
               </div>
               <div>
                 <span className="text-muted-foreground">Nuevos registros:</span>{' '}
-                <b>{informe.nuevos}</b>
+                <b>{informe.creados}</b>
               </div>
               <div>
                 <span className="text-muted-foreground">Actualizaciones:</span>{' '}
                 <b>{informe.actualizados}</b>
               </div>
-              {informe.conErrores > 0 && (
+              {informe.errores.length > 0 && (
                 <div>
                   <span className="text-muted-foreground">Con error:</span>{' '}
-                  <b className="text-destructive">{informe.conErrores}</b>
+                  <b className="text-destructive">{informe.errores.length}</b>
                 </div>
               )}
             </div>
@@ -197,17 +197,17 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {reconocidas.map((c: any) => (
                   <span
-                    key={c.columnaOrigen}
+                    key={c.cabecera}
                     className="rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs"
-                    title={`Se guarda en: ${c.campoDestino}`}
+                    title={`Se guarda en: ${c.campo}`}
                   >
-                    {c.columnaOrigen}
+                    {c.cabecera}
                   </span>
                 ))}
               </div>
               {ignoradas.length > 0 && (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Se ignoran {ignoradas.length} columna(s): {ignoradas.map((c: any) => c.columnaOrigen).join(', ')}.
+                  Se ignoran {ignoradas.length} columna(s): {ignoradas.map((c) => c.cabecera).join(', ')}.
                 </p>
               )}
             </div>
@@ -219,8 +219,8 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
                 </p>
                 <ul className="mt-1.5 max-h-40 space-y-1 overflow-y-auto text-xs">
                   {informe.errores.map((e: any) => (
-                    <li key={`${e.fila}-${e.error}`} className="text-muted-foreground">
-                      <b>Fila {e.fila}:</b> {e.error}
+                    <li key={`${e.fila}-${e.motivo}`} className="text-muted-foreground">
+                      <b>Fila {e.fila}:</b> {e.motivo}
                     </li>
                   ))}
                 </ul>

@@ -16,6 +16,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import { SampleDataBadge } from '@/components/dashboard/sample-data-badge'
 import { studentsByStatus } from '@/lib/mock-data'
 import type { PuntoDato } from '@/lib/types'
 
@@ -60,7 +61,10 @@ export function StudentsStatusChart({ data }: Props) {
   return (
     <Card className="rounded-xl shadow-sm">
       <CardHeader>
-        <CardTitle>Estudiantes por estado</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>Estudiantes por estado</CardTitle>
+          {data === null && <SampleDataBadge />}
+        </div>
         <CardDescription>Distribución actual del alumnado</CardDescription>
       </CardHeader>
       <CardContent>

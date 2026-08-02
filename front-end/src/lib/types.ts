@@ -372,6 +372,20 @@ export interface MatchResponse {
   notificado: boolean
   postulado: boolean
   createdAt: string
+  /**
+   * Por qué se recomendó, criterio por criterio (ratio de 0 a 1). Solo trae los
+   * criterios que se pudieron evaluar; vacío en los matches anteriores a que se
+   * guardara el desglose.
+   */
+  razones: RazonDeMatch[]
+  /** Fracción del peso que tenía datos reales al puntuar, de 0 a 1. */
+  cobertura: number | null
+}
+
+export interface RazonDeMatch {
+  criterio: string
+  ratio: number
+  peso: number
 }
 
 export interface CertificacionResponse {
@@ -695,18 +709,24 @@ export interface ImportPreviewResponse {
   advertencias: string[]
 }
 
+/**
+ * Espejo exacto de `ResultadoImportacionCrm` (record Java).
+ *
+ * Los nombres de antes —`totalFilas`, `validos`, `nuevos`, `conErrores`,
+ * `columnaOrigen`, `campoDestino`, `error`— no existen en el backend: la
+ * pantalla de importación mostraba `undefined` en todos los contadores y una
+ * lista de columnas en blanco.
+ */
 export interface ResultadoImportacionCrm {
-  totalFilas: number
-  validos: number
-  nuevos: number
-  actualizados: number
-  conErrores: number
-  creados?: number
-  filasLeidas?: number
-  omitidos?: number
-  columnasReconocidas: { columnaOrigen: string; campoDestino: string }[]
-  errores: { fila: number; error: string }[]
   simulacion: boolean
+  filasLeidas: number
+  creados: number
+  actualizados: number
+  /** Filas que ya estaban registradas y se dejaron como estaban. */
+  omitidos: number
+  errores: { fila: number; motivo: string }[]
+  /** `campo` en null son columnas que se ignoran; verlas explica por qué falta un dato. */
+  columnasReconocidas: { cabecera: string; campo: string | null }[]
 }
 
 export type CrearVacante = VacanteRequest
@@ -1029,4 +1049,42 @@ export interface ResumenColocaciones {
   salarioPromedio: number | null
   checklistCompletos: number
   porCanal: Array<{ canal: string; etiqueta: string; total: number }>
+}
+
+/** Una pestaña del libro, después de intentar importarla. */
+export interface HojaProcesada {
+  nombre: string
+  /** A qué se importó, o null si se omitió. */
+  destino: string | null
+  /** Por qué se omitió; null si se importó. */
+  motivo: string | null
+  detalle: ResultadoImportacionCrm | null
+  /** Cabeceras que reconoció la IA, no el diccionario de sinónimos. */
+  columnasPorIa: string[]
+  /** Si el destino de la hoja lo decidió la IA. */
+  destinoPorIa: boolean
+}
+
+export interface ResultadoImportacionLibro {
+  simulacion: boolean
+  hojas: HojaProcesada[]
+}
+
+/**
+ * Estado de una integración externa (GET /api/v1/configuracion/integraciones).
+ *
+ * Nunca trae credenciales, ni enmascaradas: solo si están puestas y en qué
+ * variable de entorno se ponen.
+ */
+export interface EstadoIntegracion {
+  id: string
+  nombre: string
+  categoria: string
+  configurada: boolean
+  resumen: string
+  detalles: { etiqueta: string; valor: string }[]
+  variablesEntorno: string[]
+  /** Si admite una prueba de conexión en vivo. */
+  probable: boolean
+  advertencia: string | null
 }

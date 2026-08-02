@@ -75,8 +75,14 @@ export default function LoginPage() {
               'Demasiados intentos. Espera unos minutos e inténtalo nuevamente.',
             )
           } else {
+            // El mensaje del backend antes de inventar uno. Decir "error del
+            // servidor" ante cualquier código que no fuera 401/403/429 convertía
+            // problemas del propio formulario en una avería imaginaria: el
+            // usuario se quedaba esperando a que arreglaran algo que no estaba
+            // roto en vez de revisar lo que había escrito.
             setError(
-              `El servidor respondió con un error (${err.status}). Intenta más tarde.`,
+              err.body?.message ??
+                `El servidor respondió con un error (${err.status}). Intenta más tarde.`,
             )
           }
         } else {

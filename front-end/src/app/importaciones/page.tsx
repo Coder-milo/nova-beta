@@ -8,6 +8,7 @@ import { ArrowsClockwise, CaretLeft, CaretRight, CheckCircle, CircleNotch, Clock
  *   GET  /api/v1/programas            → selector de programa destino
  *   POST /api/v1/importar/preview     → validación previa del archivo
  *   POST /api/v1/importar             → importación definitiva
+ *   POST /api/v1/importar/libro       → libro completo, todas sus hojas de una vez
  *   GET  /api/v1/importar/historial   → historial de importaciones
  *
  * Requiere JWT ADMIN o COORDINADOR.
@@ -18,6 +19,7 @@ import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ImportadorCrm } from '@/components/admin/importador-crm'
+import { ImportadorLibro } from '@/components/admin/importador-libro'
 import { importarApi, importarExtApi, programasApi } from '@/lib/api'
 import type {
   ProgramaResponse, ImportarResponse, ImportPreviewResponse,
@@ -28,7 +30,7 @@ import { errorDe } from '@/lib/errores'
 const pasos = ['Archivo', 'Validación', 'Confirmación', 'Resultado'] as const
 
 export default function ImportacionesPage() {
-  const [seccion, setSeccion]       = useState<'estudiantes' | 'empresas' | 'colocaciones'>('estudiantes')
+  const [seccion, setSeccion]       = useState<'libro' | 'estudiantes' | 'empresas' | 'colocaciones'>('libro')
   const [paso, setPaso]             = useState(1)
   const [programas, setProgramas]   = useState<ProgramaResponse[]>([])
   const [programaId, setProgramaId] = useState('')
@@ -127,6 +129,15 @@ export default function ImportacionesPage() {
       <div className="inline-flex max-w-fit rounded-xl border border-border bg-muted/40 p-1">
         <button
           type="button"
+          onClick={() => setSeccion('libro')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            seccion === 'libro' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Libro completo
+        </button>
+        <button
+          type="button"
           onClick={() => setSeccion('estudiantes')}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             seccion === 'estudiantes' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
@@ -154,6 +165,7 @@ export default function ImportacionesPage() {
         </button>
       </div>
 
+      {seccion === 'libro' && <ImportadorLibro />}
       {seccion === 'empresas' && <ImportadorCrm entidad="empresas" />}
       {seccion === 'colocaciones' && <ImportadorCrm entidad="colocaciones" />}
 

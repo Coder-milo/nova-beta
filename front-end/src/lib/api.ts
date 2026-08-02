@@ -77,10 +77,14 @@ async function apiFetch<T>(
     // El caso ambiguo —Spring devuelve 403 cuando un JWT vencido deja la
     // petición como anónima— lo resuelve el proxy antes de llegar aquí: ya
     // intentó renovar y, si el refresh tampoco valía, responde 401.
+    // `/auth/session` queda fuera por lo mismo: su 401 es "esa contrasena no
+    // es", no "tu sesion expiro". Tratarlo como caducidad borraba la sesion que
+    // el usuario aun no habia abierto y le cambiaba el mensaje por uno falso.
     if (
       response.status === 401 &&
       typeof window !== 'undefined' &&
-      !path.startsWith('/api/v1/auth/')
+      !path.startsWith('/api/v1/auth/') &&
+      path !== '/auth/session'
     ) {
       await cerrarSesionCaducada()
       if (window.location.pathname !== '/login') {
@@ -354,13 +358,25 @@ export const estudiantesApi = {
 
 // ─── Importación Excel ───────────────────────────────────────────────────────
 
-import type { ImportarResponse, ResultadoImportacionCrm } from './types'
+import type {
+  ImportarResponse,
+  ResultadoImportacionCrm,
+  ResultadoImportacionLibro,
+} from './types'
 
 export const importarCrmApi = {
   empresas: (archivo: File, simular = false, token?: string) =>
     apiUpload<ResultadoImportacionCrm>(`/api/v1/importar/empresas?simular=${simular}`, { archivo }, token),
   colocaciones: (archivo: File, simular = false, token?: string) =>
     apiUpload<ResultadoImportacionCrm>(`/api/v1/importar/colocaciones?simular=${simular}`, { archivo }, token),
+  /**
+   * Libro completo: una sola subida para un archivo con varias pestañas.
+   *
+   * Cada hoja se manda a su destino —participantes, empresas, postulaciones,
+   * colocaciones— y las que no son datos importables se informan con su motivo.
+   */
+  libro: (archivo: File, simular = false, token?: string) =>
+    apiUpload<ResultadoImportacionLibro>(`/api/v1/importar/libro?simular=${simular}`, { archivo }, token),
 }
 
 /** Un correo automático del sistema, tal como lo describe el backend. */
@@ -924,4 +940,19 @@ export const colocacionesApi = {
     apiFetch<{ mensaje: string }>(`/api/v1/colocaciones/${id}/cerrar`, { method: 'POST', data: { motivo }, token }),
   eliminar: (id: string, token?: string) =>
     apiFetch<void>(`/api/v1/colocaciones/${id}`, { method: 'DELETE', token }),
+}
+
+// ─── Configuración: integraciones externas ───────────────────────────────────
+
+import type { EstadoIntegracion } from './types'
+
+export const configuracionApi = {
+  /** Estado de cada integración. Solo ADMIN. No devuelve credenciales. */
+  integraciones: () =>
+    apiFetch<EstadoIntegracion[]>('/api/v1/configuracion/integraciones'),
+  probarIntegracion: (id: string) =>
+    apiFetch<{ exito: boolean; mensaje: string }>(
+      `/api/v1/configuracion/integraciones/${id}/probar`,
+      { method: 'POST' },
+    ),
 }

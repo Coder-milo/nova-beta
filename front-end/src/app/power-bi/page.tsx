@@ -1,12 +1,12 @@
 'use client'
 
-import { ArrowSquareOut, ChartBar, ChartPie, Database, FileXls, Key } from '@phosphor-icons/react'
+import { ArrowSquareOut, ChartBar, ChartPie, Database, FileXls, Info, Key } from '@phosphor-icons/react'
 /**
  * Página de Power BI.
  *
- * Muestra el acceso a tableros interactivos e informes corporativos integrados.
- * Proporciona un enlace directo a los reportes en el servicio en la nube y
- * detalla los indicadores clave de rendimiento (KPI) analizados.
+ * Vista previa de los indicadores que se publicarán en Power BI. Todavía no
+ * hay un informe conectado a un Data Warehouse real: el CTA abre el portal
+ * genérico de Power BI, no un tablero especifico de NOVA CRM.
  */
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -15,6 +15,10 @@ import { Button } from '@/components/ui/button'
 export default function PowerBiPage() {
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+        <Info className="size-4 shrink-0" />
+        <span>Próximamente: esta sección aún no está conectada a un informe real de Power BI. Los KPI de abajo son ilustrativos.</span>
+      </div>
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Acceso al Tablero */}
         <Card className="rounded-xl shadow-sm border-primary/30 flex flex-col justify-between">
@@ -25,12 +29,13 @@ export default function PowerBiPage() {
               </span>
               <div>
                 <CardTitle className="text-base">Tablero de Control de Empleabilidad</CardTitle>
-                <CardDescription>Informe en tiempo real de inserción laboral e impacto de los programas.</CardDescription>
+                <CardDescription>Planeado: inserción laboral e impacto de los programas (próximamente).</CardDescription>
               </div>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed pt-2">
-              Accede al entorno oficial de Power BI Service para interactuar con los filtros avanzados por cohorte, 
-              geografía, género e ingresos mensuales antes y después del programa.
+              Cuando el informe este listo, se podra interactuar con filtros avanzados por cohorte,
+              geografía, género e ingresos mensuales antes y después del programa. Por ahora el enlace
+              abre el portal general de Power BI, no un tablero especifico de NOVA CRM.
             </p>
           </CardHeader>
           <CardContent className="pt-0 flex justify-start">
@@ -48,9 +53,9 @@ export default function PowerBiPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Database className="size-4" />
-              Métricas e Indicadores Clave
+              Métricas e Indicadores Clave (planeadas)
             </CardTitle>
-            <CardDescription>Métricas sincronizadas con el almacén de datos (Data Warehouse).</CardDescription>
+            <CardDescription>Indicadores propuestos; aun no sincronizados con ningun almacen de datos.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 text-xs">
             <div className="flex items-start gap-2.5">
