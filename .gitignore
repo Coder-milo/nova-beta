@@ -42,5 +42,7 @@ Thumbs.db
 # Base vectorial local de ruflo: binario que cambia en cada ejecucion. No es
 # codigo, no debe versionarse.
 ruvector.db
+agentdb.rvf
+agentdb.rvf.lock
 stash-dump.txt
 revisada

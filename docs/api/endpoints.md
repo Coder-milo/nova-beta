@@ -25,7 +25,40 @@ Login de usuario, devuelve JWT.
 }
 ```
 
+**Errores:**
+
+| Código | Cuándo | Cuerpo |
+|---|---|---|
+| `400` | El email no tiene forma de email, o falta un campo | `VALIDATION_ERROR` con el detalle por campo |
+| `401` | Correo desconocido, contraseña incorrecta o cuenta desactivada | `UNAUTHORIZED` — mismo mensaje en los tres casos, para no permitir enumerar cuentas |
+| `429` | Más de 5 intentos por minuto desde la misma IP | — |
+
+Los tres fracasos de credenciales devolvían `400` hasta agosto de 2026, porque
+los lanzaba una `BusinessException`. El navegador no podía distinguirlos del
+`400` de validación y la pantalla de login enseñaba «El servidor respondió con
+un error (400). Intenta más tarde» a quien solo se había equivocado de
+contraseña.
+
 **Rate limit:** 5 requests/minuto por IP.
+
+### `POST /api/v1/auth/refresh`
+
+Renueva el access token con un refresh token. `LoginResponse` de nuevo (token, usuarioId, email, nombre, roles).
+
+Un refresh token inválido o vencido responde `401` (antes `400`).
+
+**Request body:**
+```json
+{ "refreshToken": "eyJhbGciOiJIUzI1NiJ9..." }
+```
+
+### `POST /api/v1/auth/forgot-password`
+
+Solicita enlace de recuperación de contraseña. Respuesta idéntica exista o no el correo (evita enumeración de usuarios).
+
+### `POST /api/v1/auth/reset-password`
+
+Restablece la contraseña con el token recibido por correo.
 
 ---
 
@@ -37,7 +70,7 @@ Base: `/api/v1/programas`
 
 Lista programas activos. Público.
 
-**Query params:** `page` (default 0), `size` (default 20)
+**Sin paginación:** devuelve la lista completa (`List<ProgramaResponse>`), no soporta `page`/`size`.
 
 ### `GET /api/v1/programas/{id}`
 
@@ -86,7 +119,7 @@ Base: `/api/v1/estudiantes`
 
 Lista estudiantes paginados. `@PreAuthorize COORDINADOR, ADMIN`
 
-**Query params:** `page`, `size`, `programaId` (filtro opcional)
+**Query params:** `page`, `size`, `programaId` (**requerido** — 400 si falta)
 
 ### `GET /api/v1/estudiantes/{id}`
 
@@ -143,9 +176,39 @@ Lista estudiantes en la papelera (activo=false, ordenados por deleted_at DESC). 
 
 Restaura un estudiante de la papelera (activo=true, deleted_at=null). `@PreAuthorize COORDINADOR, ADMIN`
 
+### `POST /api/v1/estudiantes/bulk-delete`
+
+Eliminación masiva. `@PreAuthorize COORDINADOR, ADMIN` — pero `permanente=true` exige **ADMIN** (COORDINADOR solo puede hacer soft-delete masivo; `403` si intenta hard-delete).
+
+**Request body:**
+```json
+{
+  "ids": ["uuid", "uuid"],
+  "permanente": false
+}
+```
+
+**Response:** `204 No Content`
+
 ---
 
+## Dashboard
 
+Base: `/api/v1/dashboard` · `@PreAuthorize` a nivel de clase: `COORDINADOR, ADMIN`
+
+### `GET /api/v1/dashboard/summary`
+
+KPIs agregados (total estudiantes, activos, graduados, retirados, docs. pendientes, etc.). Sin query params.
+
+### `GET /api/v1/dashboard/charts`
+
+Series para los gráficos del dashboard (distribución por estado, histórico de ingresos, estudiantes por proyecto). Sin query params.
+
+### `GET /api/v1/dashboard/alerts`
+
+Alertas activas (estudiantes con datos faltantes, vacantes por vencer, etc.). Sin query params.
+
+---
 
 ## Vacantes
 
@@ -264,7 +327,90 @@ Marca notificación como leída. `@PreAuthorize COORDINADOR, ADMIN, ESTUDIANTE`
 
 ---
 
+## Configuración
+
+### `GET /api/v1/configuracion/integraciones`
+
+Estado real de cada integración externa: IA, fuentes de vacantes, correo saliente y
+almacenamiento. `@PreAuthorize ADMIN`
+
+**Nunca devuelve credenciales, ni enmascaradas.** Solo dice si están puestas, en qué
+variable de entorno se ponen y los datos no sensibles (proveedor, modelo, bucket, cupo
+restante). La pantalla de configuración ofrecía campos para escribir las claves de Groq,
+WhatsApp y JSearch y las guardaba en `localStorage` —texto plano legible por cualquier
+script inyectado— sin que el backend llegara a verlas nunca, porque se leen del entorno
+al arrancar.
+
+**Response 200:**
+```json
+[
+  { "id": "ia", "nombre": "Asistencia de IA", "categoria": "Reconocimiento",
+    "configurada": true, "resumen": "Reconoce hojas y columnas que...",
+    "detalles": [{ "etiqueta": "Modelo", "valor": "llama-3.3-70b-versatile" }],
+    "variablesEntorno": ["GROQ_API_KEY", "GROQ_MODELO"],
+    "probable": true, "advertencia": "La IA solo sugiere: ..." }
+]
+```
+
+### `POST /api/v1/configuracion/integraciones/{id}/probar`
+
+Prueba de conexión en vivo. `@PreAuthorize ADMIN`
+
+Solo para lo que se puede comprobar sin efectos (`ia`). Las fuentes con cupo no se
+prueban —gastar una de las 200 peticiones mensuales de JSearch para saber que la clave
+sirve es justo lo que el panel intenta cuidar— y el correo tampoco, porque una prueba
+real implica mandarle un mensaje a alguien.
+
+---
+
 ## Importación Excel
+
+### `POST /api/v1/importar/libro`
+
+Importa un libro completo con varias hojas en una sola subida. `@PreAuthorize COORDINADOR, ADMIN`
+
+Es lo que hace falta para el archivo de seguimiento que usa el equipo, que trae siete
+pestañas. Los otros tres endpoints leen `getSheetAt(0)` y dan por hecho que la cabecera
+es la primera fila; con ese archivo eso significa abrir el tablero de indicadores y
+fallar con «no se reconoció ninguna columna».
+
+Cada hoja se clasifica por el vocabulario de sus títulos y se manda a su destino:
+
+| Destino | Qué escribe | Cómo identifica a la persona |
+|---|---|---|
+| `Participantes` | **Actualiza**, no da de alta | nombre completo |
+| `Empresas` | crea o actualiza por nombre | — |
+| `Postulaciones` | crea; no duplica las ya anotadas | nombre completo |
+| `Colocaciones` | una vigente por participante | documento, correo o nombre completo |
+
+La hoja de participantes **no crea a nadie**: no trae correo, y `Estudiante.email` es
+obligatorio y único. Inventar uno rompería el acceso del estudiante y sus avisos, así que
+los nombres desconocidos se informan fila por fila.
+
+La cabecera se busca en las primeras 15 filas eligiendo la que más títulos reconocibles
+aporta —no la primera con varias celdas, que suele ser una banda de grupos («DATOS DEL
+PARTICIPANTE»)—. Se toleran columnas en blanco intercaladas, títulos repetidos (gana la
+primera columna) y la fila de leyenda que va justo debajo de la cabecera.
+
+**Request:** `multipart/form-data` con campo `archivo` (.xlsx o .xls) y `simular` (bool,
+default `false`). Con `simular=true` corre las mismas validaciones sin escribir nada.
+
+**Response 200:**
+```json
+{
+  "simulacion": true,
+  "hojas": [
+    { "nombre": "Dashboard", "destino": null, "detalle": null,
+      "motivo": "Parece participantes pero le falta la columna que identifica al participante" },
+    { "nombre": "Perfiles Empleabilidad", "destino": "Participantes", "motivo": null,
+      "detalle": { "simulacion": true, "filasLeidas": 107, "creados": 0, "actualizados": 107,
+                   "omitidos": 0, "errores": [], "columnasReconocidas": [] } }
+  ]
+}
+```
+
+Las hojas que no se importan se informan con su motivo en vez de desaparecer: una hoja
+omitida en silencio es indistinguible de una importada vacía.
 
 ### `POST /api/v1/importar`
 
@@ -296,21 +442,7 @@ Importa estudiantes desde archivo Excel con detección dinámica de columnas med
 
 ## LinkedIn
 
-Base: `/api/v1/linkedin`
-
-**Nota:** Esta funcionalidad requiere crear una app en LinkedIn Developer Portal. Actualmente en desarrollo.
-
-### `GET /api/v1/linkedin/auth-url`
-
-Obtiene URL de OAuth de LinkedIn.
-
-### `POST /api/v1/linkedin/callback`
-
-Callback de OAuth de LinkedIn.
-
-### `POST /api/v1/linkedin/compartir`
-
-Comparte credencial en LinkedIn.
+**No implementado como API todavía.** Solo existe la entidad `LinkedinConfiguracion` (paquete `com.novacrm.linkedin`); no hay ningún `@RestController` bajo `/api/v1/linkedin/*` en el backend actual ni llamadas a esa ruta desde el frontend. Los endpoints de OAuth/compartir que documentaba esta sección no existen hoy — quedan pendientes de implementar.
 
 ---
 
@@ -327,11 +459,12 @@ Página pública de verificación de credencial digital. Renderizada con Thymele
 
 ## Actuator
 
-| Ruta | Descripción |
-|------|-------------|
-| `GET /actuator/health` | Health check |
-| `GET /actuator/metrics` | Métricas Prometheus |
-| `GET /actuator/info` | Info de la aplicación |
+Solo `health` e `info` están expuestos (`management.endpoints.web.exposure.include: health,info`); no hay endpoint de métricas Prometheus (ni la dependencia `micrometer-registry-prometheus`, ni Prometheus/Grafana/Loki en `docker-compose.yml` — ver nota en el README).
+
+| Ruta | Acceso | Descripción |
+|------|--------|-------------|
+| `GET /actuator/health` | Público | Health check |
+| `GET /actuator/info` | Requiere autenticación | Info de la aplicación |
 
 ---
 
