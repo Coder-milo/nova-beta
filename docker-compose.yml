@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: novacrm
+      POSTGRES_USER: novacrm
+      POSTGRES_PASSWORD: ${NOVA_DB_PASSWORD:-novacrm_secret}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U novacrm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    # Fijado a RELEASE.2024-12-18T13-15-44Z: latest deslizaba y rompia la
+    # firma de URLs presignadas entre actualizaciones. Subir version solo
+    # cuando se haya validado la nueva.
+    # 2025-10-15 corrige CVE-2025-31489 (fuga de datos con ACLs legadas).
+    image: minio/minio:RELEASE.2025-10-15T17-29-55Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-novacrm}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-novacrm_secret}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  app:
+    build:
+      context: ./back-end
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: novacrm
+      DB_USER: novacrm
+      DB_PASSWORD: ${NOVA_DB_PASSWORD:-novacrm_secret}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-novacrm}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-novacrm_secret}
+      # Falla con un mensaje claro si falta el secreto, antes de arrancar la app.
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET es requerido - definelo en .env (genera uno con: openssl rand -base64 32)}"
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_SES_FROM_EMAIL: ${AWS_SES_FROM_EMAIL:-noreply@novacrm.com}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      CORREO_REMITENTE: ${CORREO_REMITENTE:-}
+      CORREO_NOMBRE_REMITENTE: ${CORREO_NOMBRE_REMITENTE:-NOVA - CAC Eurocentres}
+      CORREO_BASE_URL_PUBLICA: ${CORREO_BASE_URL_PUBLICA:-http://localhost:8080}
+      CORREO_LOGO_URL: ${CORREO_LOGO_URL:-}
+      CORREO_BANNER_PIE_URL: ${CORREO_BANNER_PIE_URL:-}
+      CORREO_DESTINATARIOS_PERMITIDOS: ${CORREO_DESTINATARIOS_PERMITIDOS:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODELO: ${GROQ_MODELO:-llama-3.3-70b-versatile}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  pgdata:
+  minio_data:

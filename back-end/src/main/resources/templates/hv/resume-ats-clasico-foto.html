@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<style>
+  @page { size: A4; margin: 0.5in; }
+  body { margin: 0; padding: 0; font-family: 'Carlito', sans-serif; color: #1E293B; }
+  table { border-collapse: collapse; }
+</style>
+</head>
+<body>
+
+  <!-- Barra de acento dorado superior -->
+  <table style="width:100%;page-break-inside:avoid;" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="width:100%;height:4pt;background:#D97706;font-size:0;line-height:0;border-top-left-radius:6pt;border-top-right-radius:6pt;">&#160;</td>
+    </tr>
+  </table>
+
+  <!-- Header clásico azul rey con espacio para foto -->
+  <table style="width:100%;background:#1E3A8A;page-break-inside:avoid;border-bottom-left-radius:6pt;border-bottom-right-radius:6pt;" cellpadding="0" cellspacing="0">
+    <tr>
+      {{PHOTO_CONTAINER}}
+      <td style="padding:18pt 22pt;vertical-align:middle;">
+        <h1 style="margin:0;font-size:21pt;font-weight:700;color:#ffffff;line-height:23pt;letter-spacing:.3pt;">{{FULL_NAME}}</h1>
+        <div style="margin-top:6pt;font-size:12.5pt;font-weight:700;color:#FDE68A;text-transform:uppercase;line-height:14pt;letter-spacing:.8pt;">{{PROFESSIONAL_TITLE}}</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Línea de contacto estilizada -->
+  <div style="margin-top:10pt;padding:6pt 12pt;background:#F8FAFC;border:1pt solid #E2E8F0;border-radius:4pt;font-size:10.5pt;color:#334155;line-height:14pt;text-align:center;">{{CONTACT_LINE}}</div>
+
+  <!-- SECCIONES EN 1 COLUMNA ELEGANTE -->
+  <!-- SECTION:SUMMARY --><!-- /SECTION:SUMMARY -->
+  <!-- SECTION:EXPERIENCE --><!-- /SECTION:EXPERIENCE -->
+  <!-- SECTION:EDUCATION --><!-- /SECTION:EDUCATION -->
+  <!-- SECTION:CERTIFICATIONS --><!-- /SECTION:CERTIFICATIONS -->
+  <!-- SECTION:ACHIEVEMENTS --><!-- /SECTION:ACHIEVEMENTS -->
+  <!-- SECTION:SKILLS --><!-- /SECTION:SKILLS -->
+  <!-- SECTION:LANGUAGES --><!-- /SECTION:LANGUAGES -->
+
+</body>
+</html>

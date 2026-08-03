@@ -1,0 +1,51 @@
+# Blueprint de despliegue gratuito en Render (https://render.com).
+# La base de datos es Postgres gratuito en Neon (https://neon.tech) — se configura
+# aparte y sus datos se pegan en las variables DB_* del panel de Render.
+#
+# NO se necesita MinIO ni AWS SES para esta primera version en produccion.
+services:
+  - type: web
+    name: nova-crm-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./back-end/Dockerfile
+    dockerContext: ./back-end
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      # Render genera un secreto aleatorio y seguro automaticamente.
+      - key: NOVA_JWT_SECRET
+        generateValue: true
+      # Datos de la base PostgreSQL / Supabase (pegar en el panel de Render — no se versionan).
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: NOVA_DB_NAME
+        sync: false
+      - key: NOVA_DB_USER
+        sync: false
+      - key: NOVA_DB_PASSWORD
+        sync: false
+      # Supabase exige TLS.
+      - key: DB_PARAMS
+        value: "?sslmode=require"
+      # Origenes permitidos del frontend (coma-separados). Ajustar al desplegar el front.
+      - key: CORS_ORIGINS
+        sync: false
+      # IPs/CIDRs de proxies de confianza para X-Forwarded-For (coma-separados).
+      # El default de la app trata TODA red privada como proxy de confianza, lo
+      # que permite spoofear el rate-limit de login si el backend es alcanzable
+      # desde esa red (hallazgo de pentest F2-1). En Render, fijar SOLO la IP
+      # real del balanceador/proxy delante del servicio; si no hay proxy
+      # intermedio (Render termina TLS y reenvia directo), dejar vacio.
+      - key: RATE_LIMIT_TRUSTED_PROXIES
+        sync: false
+      # Clave de JSearch (RapidAPI). Es la unica fuente de vacantes colombianas
+      # del sistema: Adzuna no cubre Colombia y el Servicio Publico de Empleo no
+      # publica datos abiertos. Se registra en RapidAPI y se pega aqui a mano
+      # —nunca en el repositorio—. Si se deja vacia, el conector se apaga solo y
+      # lo deja en el log; el resto de fuentes sigue funcionando.
+      - key: JSEARCH_API_KEY
+        sync: false

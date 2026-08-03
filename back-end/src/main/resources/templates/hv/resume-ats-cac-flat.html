@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<style>
+  @page { size: A4; margin: 0.6in; }
+  body { margin: 0; padding: 0; font-family: 'Carlito', sans-serif; color: #000000; }
+  table { border-collapse: collapse; }
+</style>
+</head>
+<body>
+
+  <!-- Barra superior bicolor (42% rojo / 58% azul) — tabla en vez de linear-gradient (openhtmltopdf = CSS 2.1) -->
+  <table style="width:100%;page-break-inside:avoid;" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="width:42%;height:5pt;background:#E1251B;font-size:0;line-height:0;border-top-left-radius:8pt;">&#160;</td>
+      <td style="width:58%;height:5pt;background:#1F4E79;font-size:0;line-height:0;border-top-right-radius:8pt;">&#160;</td>
+    </tr>
+  </table>
+
+  <!-- Header azul sin logo: el nombre y el cargo ocupan todo el ancho.
+       La marca ya la lleva la barra bicolor de arriba; repetirla con el
+       logotipo robaba 80pt a la línea del nombre y obligaba a partirlo en dos
+       renglones en cuanto el estudiante tenía dos apellidos largos. -->
+  <table style="width:100%;background:#1F4E79;page-break-inside:avoid;border-bottom-left-radius:8pt;border-bottom-right-radius:8pt;" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="padding:16pt 20pt;vertical-align:middle;">
+        <h1 style="margin:0;font-size:20pt;font-weight:700;color:#ffffff;line-height:22pt;letter-spacing:.2pt;">{{FULL_NAME}}</h1>
+        <div style="margin-top:7pt;font-size:13pt;font-weight:700;color:#9DB8D8;text-transform:uppercase;line-height:14pt;letter-spacing:.6pt;">{{PROFESSIONAL_TITLE}}</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- La línea de contacto se arma en Java. Cuando se montaba aquí con un
+       marcador por dato, un estudiante sin teléfono dejaba dos barras rojas
+       seguidas, y el enlace «Portfolio» apuntaba siempre a "#" porque no había
+       ningún campo detrás. Ahora solo se pinta lo que existe. -->
+  <div style="margin-top:9pt;font-size:11pt;color:#000000;line-height:14pt;text-align:center;">{{CONTACT_LINE}}</div>
+
+  <!-- SECTION:SUMMARY --><!-- /SECTION:SUMMARY -->
+  <!-- SECTION:EXPERIENCE --><!-- /SECTION:EXPERIENCE -->
+  <!-- SECTION:EDUCATION --><!-- /SECTION:EDUCATION -->
+  <!-- SECTION:CERTIFICATIONS --><!-- /SECTION:CERTIFICATIONS -->
+  <!-- SECTION:ACHIEVEMENTS --><!-- /SECTION:ACHIEVEMENTS -->
+  <!-- SECTION:SKILLS --><!-- /SECTION:SKILLS -->
+  <!-- SECTION:LANGUAGES --><!-- /SECTION:LANGUAGES -->
+
+</body>
+</html>

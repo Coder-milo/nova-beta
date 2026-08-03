@@ -1,0 +1,368 @@
+# Agrupa terminos equivalentes bajo una clave canonica.
+# Usado por SkillSynonyms para normalizar tokens antes de comparar.
+#
+# Un mismo sinonimo no puede aparecer bajo dos claves: SkillSynonyms resuelve
+# la primera coincidencia y el resultado dependeria del orden de lectura.
+#
+# El vocabulario nacio siendo casi solo de TI, que no es a lo que aspira esta
+# poblacion: la mayoria apunta a BPO y servicio al cliente bilingue. Los grupos
+# de abajo cubren esos oficios; sin ellos, un cargo objetivo como "Bilingual
+# Customer Service Representative" se quedaba en un solo token.
+
+desarrollador:
+  - desarrollador
+  - developer
+  - programador
+  - programmer
+  - software engineer
+  - software developer
+  - ingeniero de software
+  - ingeniero en sistemas
+  - full stack
+  - frontend
+  - backend
+  - dev
+
+analista:
+  - analista
+  - analyst
+  - business analyst
+  - analista funcional
+  - analista de datos
+
+disenador:
+  - diseñador
+  - disenador
+  - designer
+  - ux
+  - ui
+  - ux ui
+  - ux designer
+  - ui designer
+  - graphic designer
+  - diseño grafico
+  - diseño
+
+administrativo:
+  - administrativo
+  - administrative
+  - asistente
+  - assistant
+  - secretario
+  - secretary
+  - recepcionista
+  - receptionist
+  - auxiliar
+
+ventas:
+  - ventas
+  - sales
+  - comercial
+  - vendedor
+  - seller
+  - account executive
+  - business development
+
+soporte:
+  - soporte
+  - support
+  - help desk
+  - service desk
+  - it support
+  - technical support
+  - mesa de ayuda
+
+gerente:
+  - gerente
+  - manager
+  - director
+  - lider
+  - leader
+  - team lead
+  - lead
+  - head
+  - jefe
+  - supervisor
+
+java:
+  - java
+  - java ee
+  - j2ee
+  - jakarta ee
+  - spring boot
+  - spring
+  - hibernate
+  - jpa
+
+javascript:
+  - javascript
+  - js
+  - ecmascript
+  - typescript
+  - node
+  - nodejs
+  - node js
+  - react
+  - angular
+  - vue
+  - nextjs
+  - next js
+
+python:
+  - python
+  - django
+  - flask
+  - fastapi
+
+php:
+  - php
+  - laravel
+  - symfony
+  - wordpress
+
+base_datos:
+  - base de datos
+  - database
+  - sql
+  - bd
+  - mysql
+  - postgresql
+  - postgres
+  - oracle
+  - sql server
+  - mongodb
+  - nosql
+  - redis
+
+nube:
+  - nube
+  - cloud
+  - aws
+  - azure
+  - google cloud
+  - gcp
+  - devops
+
+redes:
+  - redes
+  - networking
+  - cisco
+  - firewall
+  - router
+  - switch
+  - ccna
+  - network
+
+seguridad:
+  - seguridad
+  - security
+  - cybersecurity
+  - ciberseguridad
+  - ethical hacking
+  - pentesting
+  - iso 27001
+
+datos_analitica:
+  - datos
+  - data
+  - data science
+  - ciencia de datos
+  - data analysis
+  - analitica
+  - big data
+  - machine learning
+  - inteligencia artificial
+  - ia
+  - ai
+
+calidad:
+  - calidad
+  - quality
+  - testing
+  - qa
+  - quality assurance
+  - test automation
+  - qa engineer
+  - control de calidad
+
+infraestructura:
+  - infraestructura
+  - infrastructure
+  - it
+  - sistemas
+  - sysadmin
+  - administrador de sistemas
+  - devops engineer
+  - site reliability
+  - sre
+
+sector_tecnologia:
+  - tecnologia
+  - technology
+  - software
+  - informatica
+  - tech
+  - digital
+
+sector_salud:
+  - salud
+  - health
+  - healthcare
+  - medicina
+  - hospital
+  - clinical
+  - medico
+
+sector_financiero:
+  - financiero
+  - financial
+  - bancos
+  - banking
+  - fintech
+  - contabilidad
+  - accounting
+  - contable
+
+sector_educacion:
+  - educacion
+  - education
+  - enseñanza
+  - teaching
+  - docente
+  - profesor
+  - academic
+
+sector_comercio:
+  - comercio
+  - retail
+  - ecommerce
+  - trade
+
+sector_industrial:
+  - industrial
+  - industria
+  - manufactura
+  - manufacturing
+  - produccion
+  - production
+
+ingles_nivel:
+  - ingles
+  - english
+  - bilingual
+  - bilingue
+
+comunicacion:
+  - comunicacion
+  - communication
+  - interpersonal
+  - trabajo en equipo
+  - teamwork
+  - colaboracion
+
+liderazgo:
+  - liderazgo
+  - leadership
+  - gestion de equipos
+  - team management
+  - people management
+
+resolucion:
+  - resolucion de problemas
+  - problem solving
+  - analytical
+  - analitico
+  - solution oriented
+
+# --- Oficios a los que aspira la mayoria del programa --------------------
+
+# El modelo de negocio, no el oficio: un BPO tiene tanto puestos de voz como de
+# back office, asi que estar aqui no implica hablar por telefono.
+bpo:
+  - bpo
+  - business process outsourcing
+  - outsourcing
+  - tercerizacion
+  - servicios tercerizados
+
+call_center:
+  - call center
+  - callcenter
+  - contact center
+  - centro de contacto
+  - centro de llamadas
+
+servicio_cliente:
+  - servicio al cliente
+  - servicio cliente
+  - atencion al cliente
+  - atencion cliente
+  - customer service
+  - customer support
+  - customer care
+  - customer experience
+  - customer success
+  - servicio al usuario
+  - csr
+
+# Puestos cuya herramienta es la voz. Se mantiene aparte de servicio_cliente
+# porque es lo que decide contra que destreza se puntua el ingles: aqui manda
+# el nivel oral, que es donde esta la brecha real del cohorte.
+trabajo_de_voz:
+  - teleoperador
+  - telemercadeo
+  - telemarketing
+  - televenta
+  - televentas
+  - agente bilingue
+  - bilingual agent
+  - agente telefonico
+  - asesor telefonico
+  - soporte telefonico
+  - inbound
+  - outbound
+  - de voz
+  - voice
+
+data_entry:
+  - data entry
+  - digitacion
+  - digitador
+  - captura de datos
+  - ingreso de datos
+  - transcripcion
+  - back office
+
+logistica:
+  - logistica
+  - logistics
+  - bodega
+  - bodeguero
+  - warehouse
+  - almacen
+  - inventario
+  - inventory
+  - despacho
+  - supply chain
+  - cadena de suministro
+
+hoteleria_turismo:
+  - hoteleria
+  - hotel
+  - turismo
+  - tourism
+  - hospitality
+  - restaurante
+  - restaurant
+  - mesero
+  - bartender
+  - recepcion hotelera
+
+salud_asistencial:
+  - auxiliar de enfermeria
+  - enfermeria
+  - nursing
+  - cuidador
+  - caregiver
+  - auxiliar en salud
+  - primeros auxilios

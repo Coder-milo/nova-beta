@@ -1,0 +1,249 @@
+{
+  "templateName": "Resume ATS CAC",
+  "version": "1.0",
+  "sections": [
+    {
+      "id": "header",
+      "title": "Encabezado",
+      "fields": [
+        {
+          "placeholder": "FULL_NAME",
+          "label": "Nombre Completo",
+          "type": "text",
+          "required": true,
+          "source": "estudiante",
+          "entityField": "nombre + apellido",
+          "maxLength": 100
+        },
+        {
+          "placeholder": "PROFESSIONAL_TITLE",
+          "label": "Cargo / Título Profesional",
+          "type": "text",
+          "required": true,
+          "source": "estudiante",
+          "entityField": "cargoObjetivo",
+          "maxLength": 100
+        }
+      ]
+    },
+    {
+      "id": "contact",
+      "title": "Información de Contacto",
+      "fields": [
+        {
+          "placeholder": "CITY_COUNTRY",
+          "label": "Ciudad, País",
+          "type": "text",
+          "required": true,
+          "source": "estudiante",
+          "entityField": "ciudad + nacionalidad",
+          "maxLength": 100
+        },
+        {
+          "placeholder": "PHONE",
+          "label": "Teléfono / Celular",
+          "type": "tel",
+          "required": true,
+          "source": "estudiante",
+          "entityField": "celular | telefono",
+          "maxLength": 20
+        },
+        {
+          "placeholder": "LINKEDIN_URL",
+          "label": "Perfil de LinkedIn",
+          "type": "url",
+          "required": false,
+          "source": "estudiante",
+          "entityField": "linkedinUrl",
+          "maxLength": 500
+        },
+        {
+          "placeholder": "PORTFOLIO_URL",
+          "label": "URL del Portafolio",
+          "type": "url",
+          "required": false,
+          "source": "estudiante",
+          "entityField": "carpetaUrl",
+          "maxLength": 500
+        },
+        {
+          "placeholder": "EMAIL",
+          "label": "Correo Electrónico",
+          "type": "email",
+          "required": true,
+          "source": "estudiante",
+          "entityField": "email",
+          "maxLength": 100
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "title": "Perfil Profesional",
+      "fields": [
+        {
+          "placeholder": "SUMMARY",
+          "label": "Resumen Profesional",
+          "type": "textarea",
+          "required": true,
+          "source": "estudiante",
+          "entityField": "perfilProfesional",
+          "maxLength": 1000
+        }
+      ]
+    },
+    {
+      "id": "experience",
+      "title": "Experiencia Profesional",
+      "type": "repeating",
+      "maxItems": 5,
+      "fields": [
+        {
+          "placeholder": "JOB_TITLE",
+          "label": "Cargo Desempeñado",
+          "type": "text",
+          "required": true,
+          "source": "experiencia",
+          "entityField": "cargo",
+          "maxLength": 100
+        },
+        {
+          "placeholder": "ORGANIZATION",
+          "label": "Empresa / Organización",
+          "type": "text",
+          "required": true,
+          "source": "experiencia",
+          "entityField": "empresa",
+          "maxLength": 200
+        },
+        {
+          "placeholder": "CITY",
+          "label": "Ciudad",
+          "type": "text",
+          "required": false,
+          "source": "manual",
+          "entityField": null,
+          "maxLength": 100
+        },
+        {
+          "placeholder": "DATES",
+          "label": "Rango de Fechas",
+          "type": "text",
+          "required": true,
+          "source": "experiencia",
+          "entityField": "fechaInicio + fechaFin",
+          "maxLength": 50
+        },
+        {
+          "placeholder": "BULLETS",
+          "label": "Logros y Funciones",
+          "type": "list",
+          "required": true,
+          "source": "experiencia",
+          "entityField": "funciones",
+          "maxItems": 5,
+          "maxLength": 300
+        }
+      ]
+    },
+    {
+      "id": "education",
+      "title": "Educación Académica",
+      "type": "repeating",
+      "maxItems": 3,
+      "fields": [
+        {
+          "placeholder": "DEGREE",
+          "label": "Título / Programa",
+          "type": "text",
+          "required": true,
+          "source": "estudiante",
+          "entityField": "titulo",
+          "maxLength": 200
+        },
+        {
+          "placeholder": "INSTITUTION",
+          "label": "Institución Educativa",
+          "type": "text",
+          "required": true,
+          "source": "estudiante",
+          "entityField": "institucionEducativa",
+          "maxLength": 200
+        },
+        {
+          "placeholder": "YEAR",
+          "label": "Año de Graduación",
+          "type": "text",
+          "required": false,
+          "source": "formacion",
+          "entityField": "fechaFin",
+          "maxLength": 20
+        }
+      ]
+    },
+    {
+      "id": "certifications",
+      "title": "Certificaciones y Formación Adicional",
+      "type": "repeating",
+      "maxItems": 10,
+      "fields": [
+        {
+          "placeholder": "CERTIFICATION",
+          "label": "Certificación / Curso",
+          "type": "text",
+          "required": false,
+          "source": "formacion",
+          "entityField": "programa",
+          "maxLength": 300
+        }
+      ]
+    },
+    {
+      "id": "achievements",
+      "title": "Logros Destacados",
+      "type": "repeating",
+      "maxItems": 5,
+      "fields": [
+        {
+          "placeholder": "ACHIEVEMENT",
+          "label": "Logro Destacado",
+          "type": "textarea",
+          "required": false,
+          "source": "manual",
+          "entityField": null,
+          "maxLength": 300
+        }
+      ]
+    },
+    {
+      "id": "skills",
+      "title": "Habilidades Técnicas",
+      "fields": [
+        {
+          "placeholder": "SKILLS",
+          "label": "Habilidades Técnicas / Competencias",
+          "type": "list",
+          "required": true,
+          "source": "estudiante",
+          "entityField": "competencias",
+          "maxLength": 500
+        }
+      ]
+    },
+    {
+      "id": "languages",
+      "title": "Idiomas",
+      "fields": [
+        {
+          "placeholder": "LANGUAGES",
+          "label": "Idiomas y Niveles",
+          "type": "text",
+          "required": false,
+          "source": "estudiante",
+          "entityField": "idiomas + nivelIngles",
+          "maxLength": 300
+        }
+      ]
+    }
+  ]
+}

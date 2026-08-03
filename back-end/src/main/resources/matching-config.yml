@@ -1,0 +1,18 @@
+# Configuracion del algoritmo de matching.
+# Modificar este archivo y reiniciar la aplicacion para aplicar cambios.
+pesos:
+  afinidad: 35
+  habilidades: 10
+  ingles: 20
+  ubicacion: 15
+  experiencia: 20
+
+umbral_minimo: 55
+
+# Fraccion minima del peso total que debe tener datos reales para que un par
+# llegue a ser match. Los criterios sin datos no puntuan ni penalizan: quedan
+# fuera del reparto. Sin este minimo, un puntaje calculado sobre un solo
+# criterio valdria tanto como uno calculado sobre los cinco.
+cobertura_minima: 0.5
+
+max_vacantes_por_ejecucion: 500

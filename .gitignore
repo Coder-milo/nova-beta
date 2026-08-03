@@ -1,0 +1,48 @@
+# Build (Java / Maven)
+back-end/target/
+*.class
+*.jar
+
+# Build y dependencias (Node / Astro)
+node_modules/
+front-end/dist/
+front-end/.astro/
+front-end/.vite-cache/
+.vercel/
+
+# Archivos subidos por los usuarios. NO son codigo: son fotos, documentos y
+# hojas de vida con datos personales de los participantes —los nombres de
+# fichero llevan el numero de documento—. En produccion viven en el
+# almacenamiento de objetos, no en el repositorio.
+back-end/storage/
+
+# Secretos y entorno
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Herramientas de agentes. Sembraban un .claude-flow/ dentro de cada carpeta
+# de src/ que tocaban, y aparecian once directorios sin seguimiento mezclados
+# con el codigo cada vez que alguien miraba el estado del repo.
+.claude-flow/
+.swarm/
+.agents/
+.marcador-tmp
+
+# Base vectorial local de ruflo: binario que cambia en cada ejecucion. No es
+# codigo, no debe versionarse.
+ruvector.db
+agentdb.rvf
+agentdb.rvf.lock
+stash-dump.txt
+revisada

@@ -1,0 +1,9 @@
+spring:
+  jpa:
+    show-sql: false
+  flyway:
+    clean-disabled: true
+
+logging:
+  level:
+    com.novacrm: INFO
