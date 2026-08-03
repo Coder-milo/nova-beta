@@ -74,6 +74,22 @@
 >
 > **Hallazgo abierto — 🔴 SEC-01:** `V1__init.sql:280-289` siembra `admin@novacrm.com` con la contraseña **`admin123`**, documentada en `README.md:93` y en `docs/api/endpoints.md`. Esa migración corre en **todos** los entornos, producción incluida: cualquiera que lea el repositorio conoce las credenciales de un ADMIN del despliegue. Arreglo sugerido: sembrar el hash desde una variable de entorno obligatoria, o forzar cambio de contraseña en el primer inicio de sesión. No se tocó aquí porque cambiar la semilla sin coordinar puede dejar fuera al administrador del despliegue actual.
 
+> **Actualización 8 (2026-08-02) — la pantalla de configuración prometía cosas que no ocurrían.**
+>
+> Los formularios de institución y de parámetros académicos guardaban en `localStorage` (`nova_inst_config`, `nova_acad_config`). El aviso decía "guardado en este navegador", así que la mentira estaba a la vista, pero era el único sitio donde escribir el NIT y la dirección de la sede: cada navegador tenía su versión y todo se perdía al limpiar la caché.
+>
+> El **umbral de match** era peor, porque ahí no había aviso ninguno. La pantalla lo ofrecía, arrancaba en `'70'` (`page.tsx:98`) y el motor cortaba por el `umbral_minimo: 55` de `matching-config.yml`. No es que el número no se guardara: es que el número que se enseñaba nunca fue el que decidía a quién se le recomienda una vacante. Lo mismo con los **días de retención**: `AdminService.purgarPapelera()` restaba `Duration.ofDays(30)` fijos, así que subirlos a 90 no salvaba ninguna ficha del borrado del día 31.
+>
+> Añadida la tabla `configuracion_global` (`V32`, fila única con `CHECK (id = 1)`) con `ConfiguracionGlobal` / `ConfiguracionRepository` / `ConfiguracionService` / `ConfiguracionController` en `GET`+`PUT /api/v1/configuracion`, siguiendo el patrón de `ProgramaBranding`. **Los dos números pasan a mandar**: `MatchingService.ejecutarMatching()` pide el umbral a la configuración —y la huella `configVersion` registra el que se usó de verdad—, y la purga pregunta los días. Ninguno se cachea al arrancar: empujar el valor a memoria dejaría a una segunda instancia cortando por el número viejo hasta el siguiente despliegue.
+>
+> **Tres controles retirados en vez de persistidos.** Las casillas "alertar a la empresa cuando un candidato supera el 85%" y "notificar al coordinador cuando se matricule un estudiante" no tenían ningún consumidor en el backend: guardarlas habría convertido una casilla decorativa en una promesa con respaldo en base de datos. El campo de texto "plantilla de CV predeterminada" duplicaba un control que sí existe (`PATCH /api/v1/hv/plantillas/{id}/predeterminada`), y dos sitios para lo mismo acaban discrepando; el panel ahora remite al de verdad. `requerirLinkedInObligatorio` ni siquiera se pintaba: estado muerto.
+>
+> Los valores por defecto no siembran datos: la respuesta sin fila lleva los textos vacíos y `guardado: false`. La pantalla traía un NIT y una resolución escritos a mano que en la base habrían parecido datos reales de la institución. Lo que hubiera en el navegador no se tira —el formulario se rellena con ello y avisa de que hace falta guardar para subirlo—, salvo el umbral, que no se rescata a propósito porque nunca estuvo en efecto.
+>
+> De paso, `configuracion/page.tsx` baja de **1288 a 516 líneas**: los formularios salen a `panel-institucion.tsx`, `panel-academico.tsx` y `panel-usuarios.tsx`, y `SettingsSection`/`FieldLabel` a `settings-section.tsx` para que dejen de ser usables solo desde dentro de ese archivo.
+>
+> **527 pruebas en verde, 0 fallos, 0 errores** —incluido `PapeleraIntegrationTest`, que ahora sí corre contra Postgres real y aplica `V32`—, `tsc --noEmit` limpio y `astro build` correcto.
+
 **Leyenda de severidades**
 
 | Símbolo | Severidad | Significado |

@@ -34,6 +34,9 @@ public class MarcaCorreoService {
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
 
+    @Value("${app.correo.base-url-publica:http://localhost:8080}")
+    private String baseUrlPublica;
+
     public MarcaCorreoService(BrandingService brandingService) {
         this.brandingService = brandingService;
     }
@@ -42,10 +45,10 @@ public class MarcaCorreoService {
     public MarcaCorreo para(UUID programaId) {
         return brandingService.paraCorreo(programaId)
                 .map(b -> new MarcaCorreo(
-                        primeroNoVacio(b.getCorreoHeaderUrl(), logoUrl),
+                        urlDe(primeroNoVacio(b.getCorreoHeaderUrl(), logoUrl)),
                         b.getCorreoHeaderAncho(),
                         b.getCorreoHeaderAlto(),
-                        primeroNoVacio(b.getCorreoPieUrl(), bannerPieUrl),
+                        urlDe(primeroNoVacio(b.getCorreoPieUrl(), bannerPieUrl)),
                         b.getCorreoPieAncho(),
                         b.getCorreoPieAlto(),
                         b.getCorreoTextoPie(),
@@ -54,11 +57,15 @@ public class MarcaCorreoService {
     }
 
     public MarcaCorreo global() {
-        return MarcaCorreo.global(logoUrl, bannerPieUrl);
+        return MarcaCorreo.global(urlDe(logoUrl), urlDe(bannerPieUrl));
     }
 
     public String frontendUrl() {
         return frontendUrl;
+    }
+
+    private String urlDe(String url) {
+        return com.novacrm.branding.ImagenBrandingService.urlDe(url, baseUrlPublica);
     }
 
     private static String primeroNoVacio(String preferido, String respaldo) {

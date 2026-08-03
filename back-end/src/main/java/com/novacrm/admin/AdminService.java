@@ -19,14 +19,17 @@ public class AdminService {
 
     private final EstudianteRepository estudianteRepository;
     private final ProgramaRepository programaRepository;
+    private final com.novacrm.configuracion.ConfiguracionService configuracionService;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public AdminService(EstudianteRepository estudianteRepository,
-                        ProgramaRepository programaRepository) {
+                        ProgramaRepository programaRepository,
+                        com.novacrm.configuracion.ConfiguracionService configuracionService) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
+        this.configuracionService = configuracionService;
     }
 
     @Transactional
@@ -76,9 +79,17 @@ public class AdminService {
                 .executeUpdate();
     }
 
+    /**
+     * Borra fisicamente lo que lleva demasiado en la papelera.
+     *
+     * <p>Los dias los decide la configuracion. Estaban clavados en 30 mientras
+     * la pantalla ofrecia un campo para cambiarlos, asi que subirlos a 90 no
+     * salvaba ninguna ficha del borrado del dia 31.
+     */
     @Transactional
     public int purgarPapelera() {
-        var limite = Instant.now().minus(java.time.Duration.ofDays(30));
+        var limite = Instant.now().minus(
+                java.time.Duration.ofDays(configuracionService.diasRetencionPapelera()));
         List<UUID> ids = entityManager.createQuery(
                 "SELECT e.id FROM Estudiante e WHERE e.activo = false AND e.deletedAt < :limite", UUID.class)
                 .setParameter("limite", limite)

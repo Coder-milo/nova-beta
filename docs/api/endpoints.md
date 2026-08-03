@@ -111,6 +111,74 @@ Estados: `BORRADOR → ACTIVO → FINALIZADO → ARCHIVADO`
 
 ---
 
+## Plataformas
+
+Base: `/api/v1/plataformas`
+
+Catálogo de plataformas externas (ELL, Pearson, Q10, Test Hub…). Tres capas:
+1. **Catálogo**: qué plataformas existen (Configuración). `@PreAuthorize COORDINADOR, ADMIN`
+2. **Por programa**: qué ofrece cada programa (Proyectos → pestaña Plataformas). `@PreAuthorize COORDINADOR, ADMIN`
+3. **Por estudiante**: qué tiene cada estudiante, solo dentro de lo que ofrece su programa (ficha del estudiante). `@PreAuthorize COORDINADOR, ADMIN`
+
+Eliminar es **desactivar** (borrado suave): la plataforma deja de ofrecerse y de aparecer en el portal, pero las asignaciones existentes no se tocan.
+
+### `GET /api/v1/plataformas`
+
+Catálogo de plataformas activas, ordenado por nombre.
+
+### `POST /api/v1/plataformas`
+
+Crea plataforma. Código único. `@PreAuthorize COORDINADOR, ADMIN`
+
+**Request body:**
+```json
+{
+  "codigo": "ELL",
+  "nombre": "ELL Technologies",
+  "url": "https://learn.elltechnologies.com/login",
+  "iconoUrl": "https://…/logo.png"
+}
+```
+
+### `PUT /api/v1/plataformas/{id}`
+
+Actualiza nombre, enlace e imagen. Rechaza código duplicado. `@PreAuthorize COORDINADOR, ADMIN`
+
+### `DELETE /api/v1/plataformas/{id}`
+
+Desactiva (borrado suave). No borra asignaciones. `@PreAuthorize COORDINADOR, ADMIN`
+
+### `GET /api/v1/plataformas/programa/{programaId}`
+
+Plataformas visibles en un programa (las que su cohorte puede recibir).
+
+### `PUT /api/v1/plataformas/programa/{programaId}`
+
+Asigna el conjunto completo al programa (reemplazo total). Solo acepta plataformas activas del catálogo. Devuelve la lista resultante.
+
+**Request body:**
+```json
+{
+  "plataformaIds": ["uuid-1", "uuid-2"]
+}
+```
+
+### `GET /api/v1/plataformas/estudiante/{estudianteId}`
+
+Plataformas asignadas a un estudiante (incluye las desactivadas, para que el equipo pueda ver el historial completo).
+
+### `PUT /api/v1/plataformas/estudiante/{estudianteId}`
+
+Asigna el conjunto completo al estudiante (reemplazo total). Rechaza plataformas que el programa del estudiante no ofrezca. Devuelve la lista resultante.
+
+**Request body:** igual que programa.
+
+### `GET /api/v1/plataformas/mias`
+
+Plataformas activas asignadas al estudiante autenticado. `@PreAuthorize ESTUDIANTE, COORDINADOR, ADMIN`
+
+---
+
 ## Estudiantes
 
 Base: `/api/v1/estudiantes`
@@ -329,6 +397,66 @@ Marca notificación como leída. `@PreAuthorize COORDINADOR, ADMIN, ESTUDIANTE`
 
 ## Configuración
 
+### `GET /api/v1/configuracion`
+
+Configuración de la instalación: identidad de la institución y parámetros de operación.
+`@PreAuthorize isAuthenticated()`
+
+Una sola fila para todo el CRM (`configuracion_global`, `id = 1`). Vivía en `localStorage`
+bajo `nova_inst_config` y `nova_acad_config`, así que cada navegador tenía su propia
+versión del NIT y de la sede, y todo se perdía al limpiar la caché.
+
+Si nadie ha guardado nada, responde los valores por defecto con `guardado: false` y los
+campos de texto vacíos: no se siembra un NIT ni una resolución de ejemplo, que en la base
+parecerían datos reales de la institución.
+
+**Response 200:**
+```json
+{
+  "nombreOficial": null, "nit": null, "registroEducativo": null, "sedePrincipal": null,
+  "telefonoContacto": null, "whatsappSoporte": null,
+  "emailContacto": null, "emailSoporte": null,
+  "sitioWeb": null, "linkedinUrl": null, "instagramUrl": null,
+  "cohorteActiva": null,
+  "umbralMatchMinimo": 55, "diasRetencionPapelera": 30,
+  "guardado": false, "actualizadoEn": null,
+  "umbralPorDefecto": 55, "diasRetencionPorDefecto": 30
+}
+```
+
+`umbralPorDefecto` y `diasRetencionPorDefecto` viajan aparte para que la pantalla pueda
+decir de dónde sale el número cuando nadie lo ha tocado: es la diferencia entre «el corte
+está en 55» y «el corte está en 55 porque lo dice `matching-config.yml`».
+
+### `PUT /api/v1/configuracion`
+
+Guarda la configuración. `@PreAuthorize COORDINADOR, ADMIN`
+
+El cuerpo va entero (mismo cuerpo que la respuesta, sin los campos derivados): mandar solo
+lo cambiado obligaría a distinguir «no lo toqué» de «lo borré», que con campos opcionales
+es justo lo que se confunde. Cada panel de la pantalla reenvía los campos que no edita tal
+y como los recibió.
+
+| Situación | Código | Detalle |
+|---|---|---|
+| Guardado | `200` | Devuelve la configuración ya aplicada |
+| `umbralMatchMinimo` fuera de 0–100, o `diasRetencionPapelera` fuera de 1–365 | `400` | `BUSINESS_ERROR`, con **todos** los motivos en el mismo mensaje |
+| Sin rol COORDINADOR ni ADMIN | `403` | — |
+
+**Los dos números mandan de verdad**, que era el problema:
+
+- `umbralMatchMinimo` lo lee `MatchingService.ejecutarMatching()` en cada corrida. Antes
+  el motor leía siempre `umbral_minimo` de `matching-config.yml` mientras la pantalla
+  ofrecía editar el valor y arrancaba en 70: subirlo a 80 no cambiaba ni un match. `null`
+  vuelve a delegar en el YAML.
+- `diasRetencionPapelera` lo lee `DELETE /api/v1/admin/purgar-papelera`. Antes eran 30 días
+  escritos en el código, así que subirlos a 90 no salvaba ninguna ficha del borrado del
+  día 31.
+
+Solo afecta a los matches que se calculen a partir de ese momento; los ya existentes
+conservan el puntaje y el desglose con que se crearon, y su `configVersion` registra el
+umbral que se usó.
+
 ### `GET /api/v1/configuracion/integraciones`
 
 Estado real de cada integración externa: IA, fuentes de vacantes, correo saliente y
@@ -521,7 +649,13 @@ Restaura todos los estudiantes de un programa desde la papelera. `@PreAuthorize 
 
 ### `DELETE /api/v1/admin/purgar-papelera`
 
-Elimina físicamente estudiantes con más de 30 días en la papelera y todas sus dependencias. `@PreAuthorize ADMIN`
+Elimina físicamente los estudiantes que pasaron el plazo de retención y todas sus
+dependencias. `@PreAuthorize ADMIN`
+
+El plazo sale de `diasRetencionPapelera` (ver `GET /api/v1/configuracion`); son 30 días si
+nadie lo ha configurado. Estaba clavado en 30 en el código mientras la pantalla ofrecía
+cambiarlo. `retencion` devuelve el plazo que se acaba de aplicar de verdad, no una
+constante.
 
 **Response 200:**
 ```json

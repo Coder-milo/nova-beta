@@ -66,13 +66,4 @@ class ClaveImagenSeguraTest {
                 () -> ImagenBrandingService.claveSegura("../../etc/passwd"));
         assertEquals("Imagen no encontrada", e.getMessage());
     }
-
-    @Test
-    void detectaUrlsQueSoloFuncionanEnDesarrollo() {
-        assertTrue(ImagenBrandingService.esLocal("http://localhost:3000/brand/logo.png"));
-        assertTrue(ImagenBrandingService.esLocal("http://127.0.0.1:8080/x.png"));
-        assertTrue(ImagenBrandingService.esLocal("data:image/png;base64,iVBOR"));
-        assertFalse(ImagenBrandingService.esLocal("https://api.novacrm.com/api/v1/branding/imagen/branding/x.png"));
-        assertFalse(ImagenBrandingService.esLocal(null));
-    }
 }

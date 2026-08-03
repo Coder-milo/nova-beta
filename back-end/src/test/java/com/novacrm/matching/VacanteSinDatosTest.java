@@ -38,7 +38,7 @@ class VacanteSinDatosTest {
         // pesos o el umbral, esta prueba se entera.
         config = new MatchingConfig();
         config.init();
-        matchingService = new MatchingService(null, null, null, null, config, null, null, null);
+        matchingService = new MatchingService(null, null, null, null, config, null, null, null, null);
         // Pool de vacantes de referencia con el que se estima que informa cada
         // token. Mezcla oficios para que ninguno sea trivialmente raro.
         pesos = PesosPorRareza.de(List.of(

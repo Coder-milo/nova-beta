@@ -43,6 +43,7 @@ export function LocaleContentTranslator() {
   const attributeOriginals = useRef(new WeakMap<HTMLElement, Map<string, string>>())
 
   useEffect(() => {
+    if (locale === 'es') return
     const root = document.querySelector('main')
     if (!root) return
     let applying = false
@@ -53,7 +54,11 @@ export function LocaleContentTranslator() {
       let node = walker.nextNode()
       while (node) {
         const element = node.parentElement
-        if (element && !['SCRIPT', 'STYLE', 'CODE', 'PRE'].includes(element.tagName)) {
+        if (
+          element &&
+          !['SCRIPT', 'STYLE', 'CODE', 'PRE', 'INPUT', 'TEXTAREA'].includes(element.tagName) &&
+          !element.closest('.ql-editor, .editor-texto, [contenteditable="true"]')
+        ) {
           const original = originals.current.get(node) ?? node.nodeValue ?? ''
           if (!originals.current.has(node)) originals.current.set(node, original)
           const next = locale === 'en' ? reemplazar(original, locale) : original
@@ -62,6 +67,7 @@ export function LocaleContentTranslator() {
         node = walker.nextNode()
       }
       root.querySelectorAll<HTMLElement>('[placeholder], [title], [aria-label]').forEach((element) => {
+        if (element.closest('.ql-editor, .editor-texto, [contenteditable="true"]')) return
         for (const attribute of ['placeholder', 'title', 'aria-label']) {
           const current = element.getAttribute(attribute)
           if (!current) continue

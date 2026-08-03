@@ -437,7 +437,9 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
         type: blob.type || 'image/png',
       })
       const subida = await brandingApi.subirImagen(programaId, medida.clave, archivo)
-      urls[medida.clave] = subida.url
+      // El backend devuelve la clave; si aún corre una versión anterior que
+      // devuelve la URL completa, se reduce igual al guardar.
+      urls[medida.clave] = subida.clave ?? subida.url ?? null
     }
     return urls
   }

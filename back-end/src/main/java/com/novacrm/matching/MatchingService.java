@@ -29,6 +29,13 @@ public class MatchingService {
     private final com.novacrm.postulacion.PostulacionService postulacionService;
     private final com.novacrm.postulacion.PostulacionRepository postulacionRepository;
 
+    /**
+     * De donde sale el umbral de verdad. El YAML solo pone el valor de partida:
+     * quien lo cambia es el equipo desde la pantalla de configuracion, y hasta
+     * ahora ese numero no llegaba aqui.
+     */
+    private final com.novacrm.configuracion.ConfiguracionService configuracionService;
+
     private static final List<String> NIVELES_INGLES = List.of("A1", "A2", "B1", "B2", "C1", "C2");
 
     public MatchingService(MatchRepository matchRepository,
@@ -38,7 +45,8 @@ public class MatchingService {
                            MatchingConfig config,
                            NotificacionService notificacionService,
                            com.novacrm.postulacion.PostulacionService postulacionService,
-                           com.novacrm.postulacion.PostulacionRepository postulacionRepository) {
+                           com.novacrm.postulacion.PostulacionRepository postulacionRepository,
+                           com.novacrm.configuracion.ConfiguracionService configuracionService) {
         this.matchRepository = matchRepository;
         this.estudianteRepository = estudianteRepository;
         this.vacanteRepository = vacanteRepository;
@@ -47,6 +55,7 @@ public class MatchingService {
         this.notificacionService = notificacionService;
         this.postulacionService = postulacionService;
         this.postulacionRepository = postulacionRepository;
+        this.configuracionService = configuracionService;
     }
 
     /**
@@ -208,8 +217,12 @@ public class MatchingService {
         if (estudiantes.isEmpty()) {
             return 0;
         }
-        int umbral = config.getUmbralMinimo();
-        String versionDeConfig = versionDeConfig();
+        // El de la pantalla de configuracion si alguien lo fijo; si no, el de
+        // matching-config.yml. Antes se leia siempre el del YAML mientras la
+        // pantalla ofrecia editarlo: subirlo a 80 no cambiaba nada y nada lo
+        // decia.
+        int umbral = configuracionService.umbralDeMatch();
+        String versionDeConfig = versionDeConfig(umbral);
 
         var pesos = PesosPorRareza.de(pool.stream().map(VacanteTokenizada::terminos).toList());
 
@@ -337,12 +350,18 @@ public class MatchingService {
                 && desglose.cobertura().doubleValue() >= config.getCoberturaMinima();
     }
 
-    /** Huella de los pesos vigentes, para saber con que se calculo un puntaje. */
-    private String versionDeConfig() {
+    /**
+     * Huella de los pesos vigentes, para saber con que se calculo un puntaje.
+     *
+     * <p>El umbral llega como parametro y no se relee de la configuracion: si
+     * alguien lo cambia a mitad de una corrida, la huella tiene que decir con
+     * cual se puntuo de verdad, no con cual esta guardado ahora.
+     */
+    private String versionDeConfig(int umbral) {
         return "a%d-h%d-i%d-u%d-e%d/umbral%d/cob%s".formatted(
                 config.getPesoAfinidad(), config.getPesoHabilidades(), config.getPesoIngles(),
                 config.getPesoUbicacion(), config.getPesoExperiencia(),
-                config.getUmbralMinimo(), config.getCoberturaMinima());
+                umbral, config.getCoberturaMinima());
     }
 
     /**

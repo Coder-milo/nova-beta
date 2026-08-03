@@ -16,9 +16,12 @@ import java.util.UUID;
 public class AdminController {
 
     private final AdminService adminService;
+    private final com.novacrm.configuracion.ConfiguracionService configuracionService;
 
-    public AdminController(AdminService adminService) {
+    public AdminController(AdminService adminService,
+                           com.novacrm.configuracion.ConfiguracionService configuracionService) {
         this.adminService = adminService;
+        this.configuracionService = configuracionService;
     }
 
     @DeleteMapping("/programas/{programaId}/estudiantes")
@@ -56,11 +59,17 @@ public class AdminController {
         );
     }
 
+    /**
+     * La retención sale de la configuración, no de un 30 escrito aquí: el
+     * número que devuelve la respuesta tiene que ser el que se acaba de aplicar
+     * de verdad, o el panel volvería a decir «30 días» tras una purga a 90.
+     */
     @DeleteMapping("/purgar-papelera")
-    @Operation(summary = "Eliminar físicamente estudiantes con más de 30 días en la papelera")
+    @Operation(summary = "Eliminar físicamente estudiantes que pasaron los días de retención configurados")
     @ResponseStatus(HttpStatus.OK)
     public Map<String, Object> purgarPapelera() {
+        int dias = configuracionService.diasRetencionPapelera();
         int eliminados = adminService.purgarPapelera();
-        return Map.of("eliminados", eliminados, "tipo", "hard-delete", "retencion", "30 dias");
+        return Map.of("eliminados", eliminados, "tipo", "hard-delete", "retencion", dias + " dias");
     }
 }

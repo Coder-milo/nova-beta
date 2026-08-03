@@ -38,7 +38,7 @@ public record BrandingResponse(
 
         List<MedidasExigidas.Medida> medidasExigidas) {
 
-    public static BrandingResponse de(String programaNombre, ProgramaBranding b) {
+    public static BrandingResponse de(String programaNombre, ProgramaBranding b, String baseUrlPublica) {
         return new BrandingResponse(
                 b.getProgramaId(),
                 programaNombre,
@@ -46,13 +46,13 @@ public record BrandingResponse(
                 b.getColorPrimario(),
                 b.getTituloHeader(),
                 b.getSubtituloHeader(),
-                b.getBannerPanelUrl(),
+                ImagenBrandingService.urlDe(b.getBannerPanelUrl(), baseUrlPublica),
                 b.getBannerPanelAncho(),
                 b.getBannerPanelAlto(),
-                b.getCorreoHeaderUrl(),
+                ImagenBrandingService.urlDe(b.getCorreoHeaderUrl(), baseUrlPublica),
                 b.getCorreoHeaderAncho(),
                 b.getCorreoHeaderAlto(),
-                b.getCorreoPieUrl(),
+                ImagenBrandingService.urlDe(b.getCorreoPieUrl(), baseUrlPublica),
                 b.getCorreoPieAncho(),
                 b.getCorreoPieAlto(),
                 b.getCorreoTextoPie(),

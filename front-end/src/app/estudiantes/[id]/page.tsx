@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeftIcon as ArrowLeft, ArrowsClockwiseIcon as ArrowsClockwise, BriefcaseIcon as Briefcase, CameraIcon as Camera, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, ClipboardTextIcon as ClipboardText, ClockCounterClockwiseIcon as ClockCounterClockwise, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileTextIcon as FileText, FolderOpenIcon as FolderOpen, GraduationCapIcon as GraduationCap, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, ReadCvLogoIcon as ReadCvLogo, SquaresFourIcon as SquaresFour, StarIcon as Star, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, UserIcon as User, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { ArrowLeftIcon as ArrowLeft, ArrowsClockwiseIcon as ArrowsClockwise, BriefcaseIcon as Briefcase, CameraIcon as Camera, CheckIcon as Check, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, ClipboardTextIcon as ClipboardText, ClockCounterClockwiseIcon as ClockCounterClockwise, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileTextIcon as FileText, FolderOpenIcon as FolderOpen, GraduationCapIcon as GraduationCap, LinkSimpleIcon as LinkSimple, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, ReadCvLogoIcon as ReadCvLogo, SquaresFourIcon as SquaresFour, StarIcon as Star, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, UserIcon as User, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 /**
  * Perfil completo del estudiante (expediente institucional).
  *
@@ -28,14 +28,14 @@ import { EstadoDot } from '@/components/ui/estado-dot'
 import { FilePreview, FilePreviewSheet } from '@/components/ui/file-preview'
 import {
   estudiantesApi, perfilApi, seguimientosApi, hvApi, documentosApi,
-  auditoriaApi, pipelineApi, postulacionesApi, colocacionesApi, ApiCallError,
+  auditoriaApi, pipelineApi, postulacionesApi, colocacionesApi, plataformasApi, ApiCallError,
 } from '@/lib/api'
 import type {
   EstudianteResponse, FormacionResponse, FormacionRequest,
   ExperienciaResponse, ExperienciaRequest, SeguimientoResponse,
   SeguimientoRequest, HojaDeVidaResponse, DocumentoResponse,
   AuditoriaResponse, PipelineEmpleabilidadResponse, PostulacionResponse, ColocacionResponse,
-  PreparacionEstudianteRequest, EstadoHito, EstudianteRequest,
+  PreparacionEstudianteRequest, EstadoHito, EstudianteRequest, PlataformaResponse,
 } from '@/lib/types'
 import { Textarea } from '@/components/ui/textarea'
 import { errorDe } from '@/lib/errores'
@@ -99,7 +99,7 @@ const emptyFormacion: FormacionRequest = { tipo: 'CURSO', institucion: '', progr
 const emptyExperiencia: ExperienciaRequest = { empresa: '', cargo: '', fechaInicio: '', fechaFin: '', funciones: '', actual: false }
 const emptySeguimiento: SeguimientoRequest = { fecha: '', tipo: 'LLAMADA', responsable: '', observacion: '', proximaAccion: '', fechaProxima: '', estado: 'PENDIENTE' }
 
-type TabId = 'resumen' | 'personal' | 'academico' | 'formacion' | 'experiencia' | 'hv' | 'documentos' | 'seguimientos' | 'historial'
+type TabId = 'resumen' | 'personal' | 'academico' | 'formacion' | 'experiencia' | 'hv' | 'documentos' | 'plataformas' | 'seguimientos' | 'historial'
 
 // ─── Componente principal ────────────────────────────────────────────────────
 
@@ -147,6 +147,13 @@ export default function PerfilEstudiantePage() {
   const [subiendoDoc, setSubiendoDoc]   = useState(false)
   const [documentoPreview, setDocumentoPreview] = useState<DocumentoResponse | null>(null)
   const docRef = useRef<HTMLInputElement>(null)
+
+  // Plataformas de acceso
+  const [plataformasCat, setPlataformasCat] = useState<PlataformaResponse[]>([])
+  const [plataformasEst, setPlataformasEst] = useState<string[]>([])
+  const [plataformasPgm, setPlataformasPgm] = useState<string[]>([])
+  const [loadingPlataformas, setLoadingPlataformas] = useState(true)
+  const [guardandoPlataformas, setGuardandoPlataformas] = useState(false)
 
   // Seguimientos
   const [seguimientos, setSeguimientos]   = useState<SeguimientoResponse[]>([])
@@ -247,6 +254,21 @@ export default function PerfilEstudiantePage() {
     finally { setLoadingHist(false) }
   }, [id])
 
+  const loadPlataformas = useCallback(async () => {
+    setLoadingPlataformas(true)
+    try {
+      const [cat, est, pgm] = await Promise.all([
+        plataformasApi.catalogo(),
+        plataformasApi.deEstudiante(id),
+        estudiante?.programaId ? plataformasApi.dePrograma(estudiante.programaId) : Promise.resolve([]),
+      ])
+      setPlataformasCat(cat)
+      setPlataformasEst(est.map((p) => p.id))
+      setPlataformasPgm(pgm.map((p) => p.id))
+    } catch { setPlataformasCat([]); setPlataformasEst([]); setPlataformasPgm([]) }
+    finally { setLoadingPlataformas(false) }
+  }, [id, estudiante?.programaId])
+
   useEffect(() => {
     if (!id) return
     loadEstudiante()
@@ -254,11 +276,31 @@ export default function PerfilEstudiantePage() {
     documentosApi.tipos().then(setTiposDoc).catch(() => setTiposDoc([]))
   }, [id, loadEstudiante, loadFormaciones, loadExperiencias, loadHvs, loadDocumentos, loadSeguimientos, loadEmpleabilidad, loadHistorial])
 
+  // Las plataformas del programa solo se saben cuando la ficha del estudiante
+  // ya dijo a qué programa pertenece.
+  useEffect(() => {
+    if (id && estudiante) loadPlataformas()
+  }, [id, estudiante?.programaId, loadPlataformas])
+
   // ── Acciones ──────────────────────────────────────────────────────────────
 
   const flash = (tipo: 'ok' | 'error', texto: string) => {
     setMensaje({ tipo, texto })
     setTimeout(() => setMensaje(null), 5000)
+  }
+
+  const togglePlataforma = (pid: string) =>
+    setPlataformasEst((prev) => prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid])
+
+  const guardarPlataformas = async () => {
+    setGuardandoPlataformas(true)
+    try {
+      const asignadas = await plataformasApi.asignarEstudiante(id, plataformasEst)
+      setPlataformasEst(asignadas.map((p) => p.id))
+      flash('ok', 'Plataformas actualizadas.')
+    } catch (err) {
+      flash('error', errorDe(err))
+    } finally { setGuardandoPlataformas(false) }
   }
 
   const abrirEdicionFicha = () => {
@@ -536,6 +578,7 @@ export default function PerfilEstudiantePage() {
     { id: 'experiencia',  label: 'Experiencia',  icon: Briefcase },
     { id: 'hv',           label: 'Hoja de vida', icon: ReadCvLogo },
     { id: 'documentos',   label: 'Documentos',   icon: FolderOpen },
+    { id: 'plataformas',  label: 'Plataformas',  icon: LinkSimple },
     { id: 'seguimientos', label: 'Seguimientos', icon: ClipboardText },
     { id: 'historial',    label: 'Historial',    icon: ClockCounterClockwise },
   ]
@@ -1145,6 +1188,61 @@ export default function PerfilEstudiantePage() {
             onDownload={() => documentosApi.descargar(documentoPreview.id, documentoPreview.nombre).catch((err) => flash('error', errorDe(err, 'Error al descargar')))}
           />}
         </div>
+      )}
+
+      {/* ── Plataformas de acceso ─────────────────────────────────────────── */}
+      {tab === 'plataformas' && (
+        <Card className="rounded-lg border-primary/20 shadow-none">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base"><LinkSimple className="me-2 inline size-4 text-primary" /> Plataformas de acceso</CardTitle>
+            <CardDescription>
+              Plataformas externas a las que este estudiante tiene acceso. Solo las activas de su programa quedan visibles en el portal.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {loadingPlataformas ? <SeccionCargando texto="Cargando plataformas…" /> : (
+              plataformasCat.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay plataformas en el catálogo todavía. Crea una desde Configuración → Plataformas.</p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {plataformasCat.map((p) => {
+                    const ofrecida = plataformasPgm.includes(p.id)
+                    return (
+                      <label
+                        key={p.id}
+                        className={`flex items-center gap-2 rounded-lg border p-3 text-sm transition-colors ${ofrecida ? 'cursor-pointer hover:bg-muted/50' : 'opacity-60'}`}
+                        title={p.url}
+                      >
+                        <input
+                          type="checkbox"
+                          className="size-4 accent-primary"
+                          disabled={loadingPlataformas || guardandoPlataformas || !ofrecida}
+                          checked={plataformasEst.includes(p.id)}
+                          onChange={() => togglePlataforma(p.id)}
+                        />
+                        {p.iconoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.iconoUrl} alt="" className="size-6 rounded object-contain" />
+                        ) : (
+                          <span className="flex size-6 items-center justify-center rounded bg-primary/10 text-xs font-semibold text-primary">{p.nombre.charAt(0).toUpperCase()}</span>
+                        )}
+                        <span className="font-medium">{p.nombre}</span>
+                        {!ofrecida && <span className="ml-auto text-xs text-muted-foreground">no ofrecida</span>}
+                      </label>
+                    )
+                  })}
+                </div>
+              )
+            )}
+            {!loadingPlataformas && plataformasCat.length > 0 && (
+              <div className="flex justify-end">
+                <Button onClick={guardarPlataformas} disabled={guardandoPlataformas}>
+                  {guardandoPlataformas ? <CircleNotch className="animate-spin" /> : <Check size={16} />} Guardar
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* ── Seguimientos ───────────────────────────────────────────────────── */}
