@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeftIcon as ArrowLeft, ArrowsClockwiseIcon as ArrowsClockwise, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, ClipboardTextIcon as ClipboardText, ClockCounterClockwiseIcon as ClockCounterClockwise, DownloadSimpleIcon as DownloadSimple, FileTextIcon as FileText, FlagIcon as Flag, KanbanIcon as Kanban, PaletteIcon as Palette, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, ReadCvLogoIcon as ReadCvLogo, RowsIcon as Rows, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, UsersIcon as Users, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { ArrowLeftIcon as ArrowLeft, ArrowsClockwiseIcon as ArrowsClockwise, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, ClipboardTextIcon as ClipboardText, ClockCounterClockwiseIcon as ClockCounterClockwise, DownloadSimpleIcon as DownloadSimple, FileTextIcon as FileText, FlagIcon as Flag, KanbanIcon as Kanban, PaletteIcon as Palette, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, ReadCvLogoIcon as ReadCvLogo, RowsIcon as Rows, SquaresFourIcon as SquaresFour, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, UsersIcon as Users, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 import { PanelBranding } from '@/components/admin/panel-branding'
 import { PanelWhatsapp } from '@/components/admin/panel-whatsapp'
 /**
@@ -29,12 +29,12 @@ import { Input } from '@/components/ui/input'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import {
   programasApi, estudiantesApi, documentosApi, hvApi, actividadesApi,
-  auditoriaApi, ApiCallError,
+  auditoriaApi, plataformasApi, ApiCallError,
 } from '@/lib/api'
 import type {
   ProgramaResponse, ProgramaRequest, ProgramaEstado, ProgramaResumenResponse,
   EstudianteResponse, DocumentoResponse, GeneracionMasivaResponse,
-  ActividadResponse, AuditoriaResponse, Page,
+  ActividadResponse, AuditoriaResponse, Page, PlataformaResponse,
 } from '@/lib/types'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -707,9 +707,101 @@ function TabHistorial({ programaId }: { programaId: string }) {
   )
 }
 
+// ─── Pestaña: Plataformas ─────────────────────────────────────────────────────
+
+function TabPlataformas({ programaId }: { programaId: string }) {
+  const [catalogo, setCatalogo] = useState<PlataformaResponse[]>([])
+  const [asignadas, setAsignadas] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
+  const [guardando, setGuardando] = useState(false)
+  const [mensaje, setMensaje] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      const [cat, asg] = await Promise.all([
+        plataformasApi.catalogo(),
+        plataformasApi.dePrograma(programaId),
+      ])
+      setCatalogo(cat)
+      setAsignadas(new Set(asg.map((p) => p.id)))
+    } catch {
+      setError('No se pudieron cargar las plataformas.')
+    } finally { setLoading(false) }
+  }, [programaId])
+
+  useEffect(() => { load() }, [load])
+
+  const toggle = (id: string) =>
+    setAsignadas((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+
+  const guardar = () => {
+    setGuardando(true); setMensaje(null)
+    void (async () => {
+      try {
+        await plataformasApi.asignarPrograma(programaId, [...asignadas])
+        setMensaje('Plataformas del proyecto actualizadas.')
+      } catch (err) {
+        setMensaje(err instanceof ApiCallError
+          ? `Error del servidor (HTTP ${err.status}).`
+          : 'No se pudo conectar con el backend.')
+      } finally { setGuardando(false) }
+    })()
+  }
+
+  if (loading) return <EstadoCarga mensaje="Cargando plataformas…" />
+  if (error) return <EstadoError mensaje={error} onRetry={load} />
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="rounded-lg border-border shadow-none">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Plataformas para este proyecto</CardTitle>
+          <CardDescription className="text-xs">
+            Las plataformas que los estudiantes de este proyecto pueden tener. Después se asignan individualmente desde la ficha de cada estudiante.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="py-4">
+          {catalogo.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aún no hay plataformas creadas. Agréguelas desde Configuración → Plataformas.</p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {catalogo.map((p) => (
+                <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-secondary/30">
+                  <input type="checkbox" checked={asignadas.has(p.id)} onChange={() => toggle(p.id)}
+                    disabled={guardando} className="size-4 rounded border-gray-300 accent-primary" />
+                  {p.iconoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.iconoUrl} alt="" className="size-7 shrink-0 rounded-md border border-border bg-muted object-contain p-0.5" />
+                  ) : (
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">{p.nombre.charAt(0).toUpperCase()}</span>
+                  )}
+                  <span className="text-sm font-medium text-foreground">{p.nombre}</span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-4 flex items-center gap-3">
+            <Button size="sm" onClick={guardar} disabled={guardando || catalogo.length === 0}>
+              {guardando ? <CircleNotch className="size-4 animate-spin" /> : <CheckCircle className="size-4" />} Guardar plataformas
+            </Button>
+            {mensaje && <span className="text-sm text-muted-foreground">{mensaje}</span>}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 // ─── Página principal ─────────────────────────────────────────────────────────
 
-type TabId = 'resumen' | 'estudiantes' | 'documentos' | 'hv' | 'actividades' | 'identidad' | 'historial'
+type TabId = 'resumen' | 'estudiantes' | 'documentos' | 'hv' | 'actividades' | 'plataformas' | 'identidad' | 'historial'
 
 const tabs: { id: TabId; label: string; icon: typeof Users }[] = [
   { id: 'resumen',     label: 'Resumen',       icon: Rows },
@@ -717,6 +809,7 @@ const tabs: { id: TabId; label: string; icon: typeof Users }[] = [
   { id: 'documentos',  label: 'Documentos',    icon: FileText },
   { id: 'hv',          label: 'Hojas de vida', icon: ReadCvLogo },
   { id: 'actividades', label: 'Actividades',   icon: ClipboardText },
+  { id: 'plataformas', label: 'Plataformas',   icon: SquaresFour },
   { id: 'identidad',   label: 'Apariencia y Marca', icon: Palette },
   { id: 'historial',   label: 'Historial',     icon: ClockCounterClockwise },
 ]
@@ -738,7 +831,7 @@ export default function ProyectoDetallePage() {
     const urlTab = urlParams.get('tab')
     if (urlTab === 'identidad' || urlTab === 'apariencia') {
       setTab('identidad')
-    } else if (urlTab && ['resumen', 'estudiantes', 'documentos', 'hv', 'actividades', 'historial'].includes(urlTab)) {
+    } else if (urlTab && ['resumen', 'estudiantes', 'documentos', 'hv', 'actividades', 'plataformas', 'historial'].includes(urlTab)) {
       setTab(urlTab as TabId)
     }
   }, [])
@@ -982,6 +1075,7 @@ export default function ProyectoDetallePage() {
       {tab === 'documentos'  && <TabDocumentos programaId={id} />}
       {tab === 'hv'          && <TabHojasDeVida programaId={id} />}
       {tab === 'actividades' && <TabActividades programaId={id} />}
+      {tab === 'plataformas' && <TabPlataformas programaId={id} />}
       {tab === 'identidad'   && (
         <>
           <PanelBranding programaIdInicial={id} />

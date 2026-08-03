@@ -1,17 +1,18 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowRightIcon as ArrowRight, BellIcon as Bell, BriefcaseIcon as Briefcase, CalendarBlankIcon as CalendarBlank, CircleNotchIcon as CircleNotch, FileTextIcon as FileText, SparkleIcon as Sparkle, UserCheckIcon as UserCheck, WarningCircleIcon as WarningCircle, WhatsappLogoIcon as WhatsappLogo } from '@phosphor-icons/react'
+import { ArrowRightIcon as ArrowRight, ArrowSquareOutIcon as ArrowSquareOut, BellIcon as Bell, BriefcaseIcon as Briefcase, CalendarBlankIcon as CalendarBlank, CircleNotchIcon as CircleNotch, FileTextIcon as FileText, LinkSimpleIcon as LinkSimple, SparkleIcon as Sparkle, UserCheckIcon as UserCheck, WarningCircleIcon as WarningCircle, WhatsappLogoIcon as WhatsappLogo } from '@phosphor-icons/react'
 import Link from '@/compat/next-link'
 import {
   documentosApi,
   estudiantesApi,
   matchesApi,
   notificacionesApi,
+  plataformasApi,
   seguimientosApi,
   whatsappApi,
 } from '@/lib/api'
-import type { EstudianteResponse, SeguimientoResponse } from '@/lib/types'
+import type { EstudianteResponse, PlataformaResponse, SeguimientoResponse } from '@/lib/types'
 import { useBranding } from '@/lib/branding'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +24,7 @@ export default function InicioEstudiantePage() {
   const [postulaciones, setPostulaciones] = useState(0)
   const [documentos, setDocumentos] = useState(0)
   const [seguimientos, setSeguimientos] = useState<SeguimientoResponse[]>([])
+  const [plataformas, setPlataformas] = useState<PlataformaResponse[]>([])
   const [noLeidas, setNoLeidas] = useState(0)
   const [whatsapp, setWhatsapp] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -32,12 +34,13 @@ export default function InicioEstudiantePage() {
     void (async () => {
       try {
         const p = await estudiantesApi.obtenerMiPerfil()
-        const [matches, proceso, misDocumentos, notificaciones, canal] = await Promise.allSettled([
+        const [matches, proceso, misDocumentos, notificaciones, canal, misPlataformas] = await Promise.allSettled([
           matchesApi.obtenerMisMatches(0, 100),
           seguimientosApi.mio(),
           documentosApi.mios({ size: 1 }),
           notificacionesApi.contarNoLeidas(p.id),
           whatsappApi.mio(),
+          plataformasApi.mias(),
         ])
         if (!active) return
         setPerfil(p)
@@ -48,6 +51,7 @@ export default function InicioEstudiantePage() {
         if (proceso.status === 'fulfilled') setSeguimientos(proceso.value)
         if (misDocumentos.status === 'fulfilled') setDocumentos(misDocumentos.value.totalElements)
         if (notificaciones.status === 'fulfilled') setNoLeidas(notificaciones.value)
+        if (misPlataformas.status === 'fulfilled') setPlataformas(misPlataformas.value)
         if (
           canal.status === 'fulfilled' &&
           canal.value.configurado &&
@@ -137,6 +141,11 @@ export default function InicioEstudiantePage() {
       {alertas.length > 0 && <section className="rounded-3xl border border-primary/25 bg-card p-5 shadow-none sm:p-6">
         <div className="flex items-start gap-3"><span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><WarningCircle className="size-5" weight="duotone" /></span><div><h2 className="font-semibold text-foreground">Alertas para avanzar</h2><p className="mt-1 text-sm text-muted-foreground">Acciones concretas para completar tu proceso de empleabilidad.</p></div></div>
         <div className="mt-5 grid gap-3 lg:grid-cols-3">{alertas.map((alerta) => alerta.externa ? <a key={alerta.id} href={alerta.href} target="_blank" rel="noreferrer" className="group rounded-2xl border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"><p className="text-sm font-semibold text-foreground">{alerta.titulo}</p><p className="mt-1.5 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">Ir a LinkedIn <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></a> : <Link key={alerta.id} href={alerta.href} className="group rounded-2xl border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"><p className="text-sm font-semibold text-foreground">{alerta.titulo}</p><p className="mt-1.5 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">Resolver ahora <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></Link>)}</div>
+      </section>}
+
+      {plataformas.length > 0 && <section className="rounded-3xl border border-border bg-card p-5 shadow-none sm:p-6">
+        <div className="mb-5 flex items-start gap-3"><span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><LinkSimple className="size-5" weight="duotone" /></span><div><h2 className="font-semibold text-foreground">Tus plataformas</h2><p className="mt-1 text-sm text-muted-foreground">Accede a las plataformas de aprendizaje y evaluación habilitadas para ti.</p></div></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{plataformas.map((p) => <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="group flex items-center gap-3 rounded-2xl border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"><span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted">{p.iconoUrl ? <img src={p.iconoUrl} alt="" className="size-full p-1.5 object-contain" /> : <LinkSimple className="size-5 text-primary" />}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-foreground">{p.nombre}</span><span className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">{p.url.replace(/^https?:\/\//, '').split('/')[0]} <ArrowSquareOut className="size-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></span></span></a>)}</div>
       </section>}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -904,6 +904,51 @@ export interface BrandingResponse {
 
 // ─── Canal de WhatsApp por proyecto ──────────────────────────────────────────
 
+/**
+ * Configuración de la instalación. Una sola para todo el CRM: el NIT de la
+ * institución es uno, no uno por navegador.
+ */
+export interface ConfiguracionGlobalRequest {
+  nombreOficial?: string | null
+  nit?: string | null
+  registroEducativo?: string | null
+  sedePrincipal?: string | null
+  telefonoContacto?: string | null
+  whatsappSoporte?: string | null
+  emailContacto?: string | null
+  emailSoporte?: string | null
+  sitioWeb?: string | null
+  linkedinUrl?: string | null
+  instagramUrl?: string | null
+  cohorteActiva?: string | null
+  /** Puntaje mínimo para que un par estudiante–vacante llegue a ser match. */
+  umbralMatchMinimo?: number | null
+  diasRetencionPapelera?: number | null
+}
+
+export interface ConfiguracionGlobalResponse {
+  nombreOficial: string | null
+  nit: string | null
+  registroEducativo: string | null
+  sedePrincipal: string | null
+  telefonoContacto: string | null
+  whatsappSoporte: string | null
+  emailContacto: string | null
+  emailSoporte: string | null
+  sitioWeb: string | null
+  linkedinUrl: string | null
+  instagramUrl: string | null
+  cohorteActiva: string | null
+  umbralMatchMinimo: number
+  diasRetencionPapelera: number
+  /** false = nadie ha guardado nada todavía; lo que llega es lo de fábrica. */
+  guardado: boolean
+  actualizadoEn: string | null
+  /** El de matching-config.yml, para poder decir de dónde sale el número. */
+  umbralPorDefecto: number
+  diasRetencionPorDefecto: number
+}
+
 export interface WhatsappRequest {
   numeroWhatsapp?: string | null
   phoneId?: string | null
@@ -1087,4 +1132,24 @@ export interface EstadoIntegracion {
   /** Si admite una prueba de conexión en vivo. */
   probable: boolean
   advertencia: string | null
+}
+
+export interface PlataformaResponse {
+  id: string
+  codigo: string
+  nombre: string
+  url: string
+  iconoUrl: string | null
+  activo: boolean
+}
+
+export interface PlataformaRequest {
+  codigo: string
+  nombre: string
+  url: string
+  iconoUrl?: string | null
+}
+
+export interface PlataformaAsignacionRequest {
+  plataformaIds: string[]
 }

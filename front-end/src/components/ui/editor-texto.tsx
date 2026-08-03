@@ -75,6 +75,8 @@ export function EditorTexto({
   const [subiendo, setSubiendo] = useState(false)
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null)
 
+  const esCambioInterno = useRef(false)
+
   const alCambiar = useRef(onChange)
   alCambiar.current = onChange
   const subir = useRef(onSubirArchivo)
@@ -165,7 +167,10 @@ export function EditorTexto({
             })
           }
 
-          q.on('text-change', () => {
+          q.on('text-change', (_delta: any, _oldDelta: any, source: string) => {
+            if (source === 'user') {
+              esCambioInterno.current = true
+            }
             try {
               const html = q.getSemanticHTML ? q.getSemanticHTML() : q.root?.innerHTML
               alCambiar.current(html === VACIO || !html || html.trim() === '' ? '' : html)
@@ -192,11 +197,18 @@ export function EditorTexto({
   useEffect(() => {
     const q = quill.current
     if (!q || modoHtml) return
+
+    if (q.hasFocus() || esCambioInterno.current) {
+      esCambioInterno.current = false
+      return
+    }
+
     try {
       const actual = q.getSemanticHTML ? q.getSemanticHTML() : q.root?.innerHTML
-      const normalizado = actual === VACIO ? '' : actual
-      if (value !== normalizado) {
-        q.clipboard.dangerouslyPasteHTML(value ?? '')
+      const normalizado = actual === VACIO || !actual || actual.trim() === '' ? '' : actual
+      const valorNormalizado = value === VACIO || !value || value.trim() === '' ? '' : value
+      if (valorNormalizado !== normalizado) {
+        q.clipboard.dangerouslyPasteHTML(valorNormalizado)
       }
     } catch {
       // Ignorar si falla la comparación externa

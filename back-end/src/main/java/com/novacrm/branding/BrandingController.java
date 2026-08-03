@@ -72,12 +72,16 @@ public class BrandingController {
     }
 
     /**
-     * Sube una imagen de marca y devuelve la URL con la que referenciarla.
+     * Sube una imagen de marca y devuelve la clave con la que referenciarla.
      *
      * <p>El servidor <strong>decodifica el archivo</strong> para comprobar las
      * medidas en vez de creer lo que diga el cliente: la pantalla ya recorta
      * con un canvas, pero si el servidor se fia, una imagen del tamano
      * equivocado sale descuadrada a 108 bandejas de entrada.
+     *
+     * <p>Devuelve la clave de almacenamiento y no una URL porque la URL lleva
+     * el host de quien la subio; la URL publica se construye al servir con
+     * {@code app.correo.base-url-publica}.
      */
     @PostMapping(value = "/{programaId}/imagen", consumes = "multipart/form-data")
     @Operation(summary = "Subir una imagen de marca")
@@ -93,7 +97,7 @@ public class BrandingController {
                 .orElseThrow(() -> new com.novacrm.exception.BusinessException(
                         "Imagen desconocida: " + clave));
 
-        return java.util.Map.of("url", imagenService.guardar(exigida, archivo));
+        return java.util.Map.of("clave", imagenService.guardar(exigida, archivo));
     }
 
     /**

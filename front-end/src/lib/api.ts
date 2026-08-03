@@ -677,6 +677,31 @@ export const seguimientosApi = {
     apiFetch<void>(`/api/v1/estudiantes/${estudianteId}/seguimientos/${id}`, { method: 'DELETE', token }),
 }
 
+import type { PlataformaResponse, PlataformaRequest } from './types'
+
+export const plataformasApi = {
+  catalogo: (token?: string) => apiFetch<PlataformaResponse[]>('/api/v1/plataformas', { token }),
+  crear: (body: PlataformaRequest, token?: string) =>
+    apiFetch<PlataformaResponse>('/api/v1/plataformas', { method: 'POST', data: body, token }),
+  actualizar: (id: string, body: PlataformaRequest, token?: string) =>
+    apiFetch<PlataformaResponse>(`/api/v1/plataformas/${id}`, { method: 'PUT', data: body, token }),
+  eliminar: (id: string, token?: string) =>
+    apiFetch<void>(`/api/v1/plataformas/${id}`, { method: 'DELETE', token }),
+  mias: (token?: string) => apiFetch<PlataformaResponse[]>('/api/v1/plataformas/mias', { token }),
+  dePrograma: (programaId: string, token?: string) =>
+    apiFetch<PlataformaResponse[]>(`/api/v1/plataformas/programa/${programaId}`, { token }),
+  asignarPrograma: (programaId: string, plataformaIds: string[], token?: string) =>
+    apiFetch<PlataformaResponse[]>(`/api/v1/plataformas/programa/${programaId}`, {
+      method: 'PUT', data: { plataformaIds }, token,
+    }),
+  deEstudiante: (estudianteId: string, token?: string) =>
+    apiFetch<PlataformaResponse[]>(`/api/v1/plataformas/estudiante/${estudianteId}`, { token }),
+  asignarEstudiante: (estudianteId: string, plataformaIds: string[], token?: string) =>
+    apiFetch<PlataformaResponse[]>(`/api/v1/plataformas/estudiante/${estudianteId}`, {
+      method: 'PUT', data: { plataformaIds }, token,
+    }),
+}
+
 import type { EmpresaRequest, EmpresaResponse, EstadoRelacionEmpresa } from './types'
 
 export const empresasApi = {
@@ -834,9 +859,9 @@ export const brandingApi = {
   restablecer: (programaId: string, token?: string) =>
     apiFetch<void>(`/api/v1/branding/${programaId}`, { method: 'DELETE', token }),
 
-  /** Sube una imagen ya optimizada y devuelve una URL pública de la marca. */
+  /** Sube una imagen ya optimizada y devuelve la clave con la que referenciarla. */
   subirImagen: (programaId: string, clave: string, archivo: File, token?: string) =>
-    apiUpload<{ url: string }>(
+    apiUpload<{ clave?: string; url?: string }>(
       `/api/v1/branding/${programaId}/imagen`,
       { clave, archivo },
       token,
@@ -942,11 +967,31 @@ export const colocacionesApi = {
     apiFetch<void>(`/api/v1/colocaciones/${id}`, { method: 'DELETE', token }),
 }
 
-// ─── Configuración: integraciones externas ───────────────────────────────────
+// ─── Configuración de la instalación ─────────────────────────────────────────
 
-import type { EstadoIntegracion } from './types'
+import type {
+  ConfiguracionGlobalRequest,
+  ConfiguracionGlobalResponse,
+  EstadoIntegracion,
+} from './types'
 
 export const configuracionApi = {
+  /**
+   * Datos institucionales y parámetros de operación. Vivían en localStorage:
+   * cada navegador tenía su propia versión y el umbral que se editaba no era
+   * el que usaba el motor de matching.
+   */
+  obtener: (token?: string) =>
+    apiFetch<ConfiguracionGlobalResponse>('/api/v1/configuracion', { token }),
+
+  /** Requiere COORDINADOR o ADMIN. */
+  guardar: (body: ConfiguracionGlobalRequest, token?: string) =>
+    apiFetch<ConfiguracionGlobalResponse>('/api/v1/configuracion', {
+      method: 'PUT',
+      data: body,
+      token,
+    }),
+
   /** Estado de cada integración. Solo ADMIN. No devuelve credenciales. */
   integraciones: () =>
     apiFetch<EstadoIntegracion[]>('/api/v1/configuracion/integraciones'),

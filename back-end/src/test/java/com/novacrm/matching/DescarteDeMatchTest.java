@@ -31,7 +31,7 @@ class DescarteDeMatchTest {
     void configurar() {
         matchRepository = mock(MatchRepository.class);
         matchingService = new MatchingService(
-                matchRepository, null, null, null, null, null, null, null);
+                matchRepository, null, null, null, null, null, null, null, null);
     }
 
     private Match match() {

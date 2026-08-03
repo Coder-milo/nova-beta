@@ -30,13 +30,17 @@ public class BrandingService {
     private final BrandingRepository brandingRepository;
     private final ProgramaRepository programaRepository;
     private final OwnershipService ownershipService;
+    private final String baseUrlPublica;
 
     public BrandingService(BrandingRepository brandingRepository,
                            ProgramaRepository programaRepository,
-                           OwnershipService ownershipService) {
+                           OwnershipService ownershipService,
+                           @org.springframework.beans.factory.annotation.Value(
+                                   "${app.correo.base-url-publica:http://localhost:8080}") String baseUrlPublica) {
         this.brandingRepository = brandingRepository;
         this.programaRepository = programaRepository;
         this.ownershipService = ownershipService;
+        this.baseUrlPublica = baseUrlPublica;
     }
 
     /**
@@ -61,7 +65,7 @@ public class BrandingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Programa no encontrado"));
 
         return brandingRepository.findById(programaId)
-                .map(b -> BrandingResponse.de(programa.getNombre(), b))
+                .map(b -> BrandingResponse.de(programa.getNombre(), b, baseUrlPublica))
                 .orElseGet(() -> BrandingResponse.sinPersonalizar(programaId, programa.getNombre()));
     }
 
@@ -83,15 +87,15 @@ public class BrandingService {
         branding.setTituloHeader(vacioComoNulo(request.tituloHeader()));
         branding.setSubtituloHeader(vacioComoNulo(request.subtituloHeader()));
 
-        branding.setBannerPanelUrl(vacioComoNulo(request.bannerPanelUrl()));
+        branding.setBannerPanelUrl(ImagenBrandingService.claveDe(request.bannerPanelUrl()));
         branding.setBannerPanelAncho(request.bannerPanelAncho());
         branding.setBannerPanelAlto(request.bannerPanelAlto());
 
-        branding.setCorreoHeaderUrl(vacioComoNulo(request.correoHeaderUrl()));
+        branding.setCorreoHeaderUrl(ImagenBrandingService.claveDe(request.correoHeaderUrl()));
         branding.setCorreoHeaderAncho(request.correoHeaderAncho());
         branding.setCorreoHeaderAlto(request.correoHeaderAlto());
 
-        branding.setCorreoPieUrl(vacioComoNulo(request.correoPieUrl()));
+        branding.setCorreoPieUrl(ImagenBrandingService.claveDe(request.correoPieUrl()));
         branding.setCorreoPieAncho(request.correoPieAncho());
         branding.setCorreoPieAlto(request.correoPieAlto());
         branding.setCorreoTextoPie(vacioComoNulo(request.correoTextoPie()));
@@ -99,7 +103,7 @@ public class BrandingService {
         branding.tocar();
         brandingRepository.save(branding);
 
-        return BrandingResponse.de(programa.getNombre(), branding);
+        return BrandingResponse.de(programa.getNombre(), branding, baseUrlPublica);
     }
 
     /** Volver a la gama global: se borra la fila, que es lo que eso significa. */

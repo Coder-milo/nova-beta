@@ -34,7 +34,12 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers
-@Import({JpaConfig.class, AdminService.class, PurgeScheduler.class})
+// ConfiguracionService entra porque la purga le pregunta cuantos dias de
+// retencion hay configurados —antes eran 30 escritos en el codigo—, y
+// MatchingConfig porque es de quien ese servicio toma los valores de partida.
+@Import({JpaConfig.class, AdminService.class, PurgeScheduler.class,
+        com.novacrm.configuracion.ConfiguracionService.class,
+        com.novacrm.config.MatchingConfig.class})
 class PapeleraIntegrationTest {
 
     @Container

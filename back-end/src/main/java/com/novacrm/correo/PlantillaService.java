@@ -48,6 +48,9 @@ public class PlantillaService {
     @Value("${app.correo.banner-pie-url:}")
     private String bannerPieUrl;
 
+    @Value("${app.correo.base-url-publica:http://localhost:8080}")
+    private String baseUrlPublica;
+
     public PlantillaService(PlantillaRepository plantillaRepository,
                             EstudianteRepository estudianteRepository,
                             BrandingService brandingService,
@@ -289,14 +292,21 @@ public class PlantillaService {
     }
 
     private MarcaCorreo marcaDe(UUID programaId) {
+        // La tabla guarda la clave de la imagen; la URL publica se construye
+        // aqui con la base del entorno, de modo que el correo nunca salga con
+        // un host de desarrollo incrustado en la base de datos.
         return brandingService.paraCorreo(programaId)
                 .map(b -> new MarcaCorreo(
-                        primeroNoVacio(b.getCorreoHeaderUrl(), logoUrl),
+                        urlDe(primeroNoVacio(b.getCorreoHeaderUrl(), logoUrl)),
                         b.getCorreoHeaderAncho(), b.getCorreoHeaderAlto(),
-                        primeroNoVacio(b.getCorreoPieUrl(), bannerPieUrl),
+                        urlDe(primeroNoVacio(b.getCorreoPieUrl(), bannerPieUrl)),
                         b.getCorreoPieAncho(), b.getCorreoPieAlto(),
                         b.getCorreoTextoPie(), b.getColorPrimario()))
-                .orElseGet(() -> MarcaCorreo.global(logoUrl, bannerPieUrl));
+                .orElseGet(() -> MarcaCorreo.global(urlDe(logoUrl), urlDe(bannerPieUrl)));
+    }
+
+    private String urlDe(String url) {
+        return com.novacrm.branding.ImagenBrandingService.urlDe(url, baseUrlPublica);
     }
 
     private PlantillaGuardada buscar(UUID id) {

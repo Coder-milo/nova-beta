@@ -68,6 +68,8 @@ public class CuentasEstudianteService {
     @Value("${app.correo.banner-pie-url:}")
     private String bannerPieUrl;
 
+    @Value("${app.correo.base-url-publica:http://localhost:8080}")
+    private String baseUrlPublica;
 
     public CuentasEstudianteService(EstudianteRepository estudianteRepository,
                                     UsuarioRepository usuarioRepository,
@@ -336,15 +338,23 @@ public class CuentasEstudianteService {
         UUID programaId = estudiante.getPrograma() == null ? null : estudiante.getPrograma().getId();
         return brandingService.paraCorreo(programaId)
                 .map(b -> new MarcaCorreo(
-                        primeroNoVacio(b.getCorreoHeaderUrl(), logoUrl),
+                        urlDe(primeroNoVacio(b.getCorreoHeaderUrl(), logoUrl)),
                         b.getCorreoHeaderAncho(),
                         b.getCorreoHeaderAlto(),
-                        primeroNoVacio(b.getCorreoPieUrl(), bannerPieUrl),
+                        urlDe(primeroNoVacio(b.getCorreoPieUrl(), bannerPieUrl)),
                         b.getCorreoPieAncho(),
                         b.getCorreoPieAlto(),
                         b.getCorreoTextoPie(),
                         b.getColorPrimario()))
-                .orElseGet(() -> MarcaCorreo.global(logoUrl, bannerPieUrl));
+                .orElseGet(() -> global());
+    }
+
+    private MarcaCorreo global() {
+        return MarcaCorreo.global(urlDe(logoUrl), urlDe(bannerPieUrl));
+    }
+
+    private String urlDe(String url) {
+        return com.novacrm.branding.ImagenBrandingService.urlDe(url, baseUrlPublica);
     }
 
     private static String primeroNoVacio(String preferido, String respaldo) {
@@ -352,7 +362,7 @@ public class CuentasEstudianteService {
     }
 
     String correoDeActivacion(String nombre, String email, String token) {
-        return correoDeActivacion(nombre, email, token, MarcaCorreo.global(logoUrl, bannerPieUrl));
+        return correoDeActivacion(nombre, email, token, global());
     }
 
     /**

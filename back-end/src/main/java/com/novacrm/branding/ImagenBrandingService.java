@@ -2,7 +2,6 @@ package com.novacrm.branding;
 
 import com.novacrm.documento.StorageService;
 import com.novacrm.exception.BusinessException;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -10,12 +9,10 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.List;
 import java.util.Set;
 
 /**
- * Guarda las imagenes de marca y devuelve una URL que un cliente de correo
- * pueda abrir.
+ * Guarda las imagenes de marca y devuelve la clave con la que se las referencia.
  *
  * <p><strong>El problema que resuelve.</strong> Las imagenes venian apuntando a
  * {@code http://localhost:3000/brand/...}. Eso funciona en un navegador de la
@@ -25,10 +22,10 @@ import java.util.Set;
  * en {@code <img src>} y Outlook de escritorio no las dibuja—, asi que la unica
  * salida es una URL publica de verdad.
  *
- * <p>Se apoya en {@link StorageService}, que ya sabe hablar con MinIO y caer a
- * disco cuando no esta configurado, y se sirve por un endpoint abierto del
- * backend. En produccion {@code app.correo.base-url-publica} apunta al dominio
- * real y la misma URL deja de ser local.
+ * <p>La tabla de marca guarda la <strong>clave</strong> de la imagen, no su URL:
+ * una URL lleva el host de quien la subio y se queda rota cuando el despliegue
+ * cambia. La URL publica se construye al servir con {@link #urlDe}, colgada de
+ * {@code app.correo.base-url-publica}, que en produccion apunta al dominio real.
  */
 @Service
 public class ImagenBrandingService {
@@ -44,16 +41,6 @@ public class ImagenBrandingService {
 
     private final StorageService storageService;
 
-    /**
-     * De donde cuelgan las URL que se escriben en los correos.
-     *
-     * <p>Por defecto el propio backend en local. En produccion tiene que ser el
-     * dominio publico: es lo que el cliente de correo del destinatario va a
-     * intentar abrir.
-     */
-    @Value("${app.correo.base-url-publica:http://localhost:8080}")
-    private String baseUrlPublica;
-
     public ImagenBrandingService(StorageService storageService) {
         this.storageService = storageService;
     }
@@ -66,7 +53,7 @@ public class ImagenBrandingService {
      * {@code canvas} antes de subir, pero un cliente puede mandar cualquier
      * cosa: si el servidor se fia, el correo sale descuadrado a 108 personas.
      *
-     * @return la URL publica con la que referenciarla
+     * @return la clave de almacenamiento con la que se referenciara la imagen
      */
     public String guardar(MedidasExigidas.Medida exigida, MultipartFile archivo) {
         var motivos = new java.util.ArrayList<String>();
@@ -105,19 +92,10 @@ public class ImagenBrandingService {
         }
 
         String key = storageService.subir("branding", nombreDe(exigida, tipo), contenido, tipo);
-        return urlPublicaDe(key);
+        return key;
     }
 
-    /** La URL absoluta con la que se referencia una imagen ya guardada. */
-    public String urlPublicaDe(String key) {
-        String base = baseUrlPublica.endsWith("/")
-                ? baseUrlPublica.substring(0, baseUrlPublica.length() - 1)
-                : baseUrlPublica;
-        return base + "/api/v1/branding/imagen/" + key;
-    }
-
-    /**
-     * Forma exacta que puede tener la clave de una imagen de marca.
+    /** La clave con la que se pide una imagen de marca.
      *
      * <p>Es lo unico que separa el endpoint publico de una lectura de archivos
      * arbitrarios: {@code StorageService} resuelve la clave contra un
@@ -144,25 +122,39 @@ public class ImagenBrandingService {
         return key;
     }
 
-    /** Si una URL sigue apuntando a un host que solo existe en desarrollo. */
-    public static boolean esLocal(String url) {
-        if (url == null || url.isBlank()) return false;
-        String u = url.toLowerCase();
-        return u.contains("://localhost") || u.contains("://127.0.0.1") || u.startsWith("data:");
+    /**
+     * Reduce a su clave lo que el administrador manda al guardar: una clave ya
+     * normalizada, la URL completa de este mismo servidor o una URL externa.
+     *
+     * <p>La tabla guarda claves —no URLs— porque una URL lleva el host de quien
+     * la subio y se queda rota cuando el despliegue cambia. La URL publica se
+     * reconstruye al servir con {@link #urlDe}, colgada de la base que tenga el
+     * entorno en ese momento. Una URL externa (un CDN, por ejemplo) no es
+     * nuestra imagen y se conserva tal cual.
+     */
+    public static String claveDe(String valor) {
+        if (valor == null || valor.isBlank()) return null;
+        String v = valor.trim();
+        if (v.startsWith("http://") || v.startsWith("https://")) {
+            int i = v.indexOf("/api/v1/branding/imagen/");
+            if (i >= 0) return v.substring(i + "/api/v1/branding/imagen/".length());
+            return v;
+        }
+        return v;
     }
 
-    /** Avisos sobre las imagenes de un branding, para la pantalla de edicion. */
-    public static List<String> avisosDeUrl(BrandingResponse branding) {
-        var avisos = new java.util.ArrayList<String>();
-        if (esLocal(branding.correoHeaderUrl())) {
-            avisos.add("La cabecera del correo apunta a una direccion local: no se vera en "
-                    + "ninguna bandeja de entrada. Vuelve a subir la imagen.");
-        }
-        if (esLocal(branding.correoPieUrl())) {
-            avisos.add("El pie del correo apunta a una direccion local: no se vera en ninguna "
-                    + "bandeja de entrada. Vuelve a subir la imagen.");
-        }
-        return avisos;
+    /**
+     * La URL con la que una clave de marca se pone en un correo: la clave
+     * colgada de la base publica configurada, o la URL externa tal cual.
+     */
+    public static String urlDe(String valor, String basePublica) {
+        String clave = claveDe(valor);
+        if (clave == null) return null;
+        if (clave.startsWith("http://") || clave.startsWith("https://")) return clave;
+        String base = basePublica == null || basePublica.isBlank()
+                ? "http://localhost:8080"
+                : (basePublica.endsWith("/") ? basePublica.substring(0, basePublica.length() - 1) : basePublica);
+        return base + "/api/v1/branding/imagen/" + clave;
     }
 
     private static String nombreDe(MedidasExigidas.Medida exigida, String tipo) {

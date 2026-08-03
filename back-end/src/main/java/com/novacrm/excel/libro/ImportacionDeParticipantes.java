@@ -104,7 +104,11 @@ public class ImportacionDeParticipantes {
         texto(fila, "competencias", e::setCompetencias, 0);
         texto(fila, "carpetaUrl", e::setCarpetaUrl, 1000);
         texto(fila, "linkedinUrl", e::setLinkedinUrl, 1000);
-        texto(fila, "ciudad", e::setCiudad);
+        texto(fila, "ciudad", v -> {
+            if (v != null && !v.contains("\n") && !v.toLowerCase().contains("solvo") && !v.toLowerCase().contains("bpo")) {
+                e.setCiudad(v);
+            }
+        });
         texto(fila, "celular", e::setCelular, 50);
         texto(fila, "telefono", e::setTelefono, 50);
 
