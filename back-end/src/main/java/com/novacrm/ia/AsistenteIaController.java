@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,11 +26,21 @@ public class AsistenteIaController {
     }
 
     @PostMapping("/asistente-admin")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
     @Operation(summary = "Asistente virtual de navegación y consultas para Administradores",
             description = "Responde preguntas sobre el funcionamiento del sitio y genera acciones de navegación directa.")
     public ResponseEntity<RespuestaAsistenteDto> consultarAsistenteAdmin(
             @Valid @RequestBody ConsultaAsistenteDto consulta) {
         RespuestaAsistenteDto respuesta = asistenteIaService.procesarConsulta(consulta);
         return ResponseEntity.ok(respuesta);
+    }
+
+    @PostMapping("/asistente-estudiante")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    @Operation(summary = "Asistente virtual seguro para estudiantes",
+            description = "Orienta sobre empleabilidad y el portal del estudiante sin exponer funciones administrativas.")
+    public ResponseEntity<RespuestaAsistenteDto> consultarAsistenteEstudiante(
+            @Valid @RequestBody ConsultaAsistenteDto consulta) {
+        return ResponseEntity.ok(asistenteIaService.procesarConsultaEstudiante(consulta));
     }
 }
