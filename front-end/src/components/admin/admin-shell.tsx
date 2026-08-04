@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { SidebarNav } from '@/components/admin/sidebar-nav'
 import { Header } from '@/components/admin/header'
-import { DarkBrandBackdrop } from '@/components/admin/dark-brand-backdrop'
 import { StudentHelpChat } from '@/components/student/student-help-chat'
 import { AdminAssistantChat } from '@/components/admin/admin-assistant-chat'
 import { LocaleContentTranslator } from '@/components/ui/locale-content-translator'
@@ -55,7 +54,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
       <div className={cn(
       'relative flex h-svh max-h-svh w-full bg-background text-foreground overflow-hidden',
-      esEstudiante && 'student-project-shell',
+      esEstudiante ? 'student-project-shell' : 'admin-project-shell',
       )}>
       <LocaleContentTranslator />
       {/* ── Barra de progreso de navegación (top) ───────────────────────── */}
@@ -74,7 +73,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       {/* Malla ambiente de luz y fondo con foto institucional de la Sede CAC */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden z-0 select-none">
         <div className="ambient-mesh" />
-        {!esEstudiante && <DarkBrandBackdrop />}
         {/* Velos translúcidos adaptables a la luz y oscuridad */}
         <div className="ambient-grid absolute inset-0 opacity-[0.035] dark:opacity-100" />
       </div>

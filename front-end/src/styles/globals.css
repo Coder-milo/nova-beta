@@ -763,6 +763,17 @@ textarea {
     url("/brand/photos/academy-admin-backdrop.png") center center / cover no-repeat;
 }
 
+/* El panel administrativo oscuro usa un único color sólido, sin fotografía,
+   halos, degradados, ondas ni cuadrícula. */
+.dark .admin-project-shell .ambient-mesh {
+  background: #080d16;
+}
+
+.dark .admin-project-shell .ambient-grid,
+.dark .admin-project-shell .dark-brand-backdrop {
+  display: none;
+}
+
 /* El portal estudiantil conserva una atmósfera neutra para que predomine el
    color elegido por cada proyecto, no la fotografía del panel administrativo. */
 .dark .student-project-shell .ambient-mesh {
