@@ -24,14 +24,11 @@ public class BrandingController {
 
     private final BrandingService brandingService;
     private final ImagenBrandingService imagenService;
-    private final com.novacrm.documento.StorageService storageService;
 
     public BrandingController(BrandingService brandingService,
-                              ImagenBrandingService imagenService,
-                              com.novacrm.documento.StorageService storageService) {
+                              ImagenBrandingService imagenService) {
         this.brandingService = brandingService;
         this.imagenService = imagenService;
-        this.storageService = storageService;
     }
 
     /**
@@ -117,12 +114,12 @@ public class BrandingController {
         String key = ImagenBrandingService.claveSegura(
                 java.net.URLDecoder.decode(bruta, java.nio.charset.StandardCharsets.UTF_8));
 
-        byte[] contenido = storageService.descargar(key);
+        BrandingImagen imagen = imagenService.descargar(key);
         return ResponseEntity.ok()
-                .header("Content-Type", key.endsWith(".jpg") ? "image/jpeg" : "image/png")
+                .header("Content-Type", imagen.getContentType())
                 // Las imagenes de marca cambian poco y las pide cada bandeja que
                 // abre el correo; sin cache es una descarga por apertura.
                 .header("Cache-Control", "public, max-age=604800")
-                .body(contenido);
+                .body(imagen.getContenido());
     }
 }
