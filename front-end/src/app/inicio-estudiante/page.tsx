@@ -128,12 +128,15 @@ export default function InicioEstudiantePage() {
         {bannerUrl && (
           <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
         )}
+        {bannerUrl && (
+          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/10" />
+        )}
         {!bannerUrl && <div className="absolute inset-0 bg-primary/[0.035]" />}
         <div className="relative p-6 md:p-8">
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[.14em] text-emerald-800">{branding?.subtituloHeader || 'Portal del estudiante'}</p>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">Hola, {perfil?.nombre}</h1>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-700">Aquí tienes un resumen de tu proceso y los próximos pasos que requieren tu atención.</p>
+            <p className={`mb-2 text-xs font-semibold uppercase tracking-[.14em] ${bannerUrl ? 'text-emerald-200 drop-shadow-md' : 'text-emerald-800 dark:text-emerald-300'}`}>{branding?.subtituloHeader || 'Portal del estudiante'}</p>
+            <h1 className={`text-2xl font-semibold tracking-tight md:text-3xl ${bannerUrl ? 'text-white [text-shadow:0_2px_8px_rgb(0_0_0/0.8)]' : 'text-foreground'}`}>Hola, {perfil?.nombre}</h1>
+            <p className={`mt-2 max-w-xl text-sm leading-6 ${bannerUrl ? 'text-white/90 [text-shadow:0_1px_5px_rgb(0_0_0/0.8)]' : 'text-muted-foreground'}`}>Aquí tienes un resumen de tu proceso y los próximos pasos que requieren tu atención.</p>
           </div>
         </div>
       </section>
