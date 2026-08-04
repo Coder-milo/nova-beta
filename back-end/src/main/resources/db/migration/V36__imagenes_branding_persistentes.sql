@@ -7,4 +7,3 @@ CREATE TABLE branding_imagen (
     contenido BYTEA NOT NULL,
     creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
