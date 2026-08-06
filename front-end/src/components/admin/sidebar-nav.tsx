@@ -1,6 +1,7 @@
 'use client'
 
 import { SignOutIcon as SignOut } from '@phosphor-icons/react'
+import { useState } from 'react'
 import Image from '@/compat/next-image'
 import Link from '@/compat/next-link'
 import { usePathname, useRouter } from '@/compat/next-navigation'
@@ -22,6 +23,7 @@ export function SidebarNav({
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
+  const [cerrandoSesion, setCerrandoSesion] = useState(false)
   const { locale, t } = usePreferences()
 
   // Menú según rol: el portal del estudiante ve su propia navegación.
@@ -155,10 +157,17 @@ export function SidebarNav({
           )}
           {!collapsed && (
             <button
-              onClick={() => {
-                logout()
-                router.push('/login')
+              onClick={async () => {
+                if (cerrandoSesion) return
+                setCerrandoSesion(true)
+                try {
+                  await logout()
+                  router.replace('/login')
+                } finally {
+                  setCerrandoSesion(false)
+                }
               }}
+              disabled={cerrandoSesion}
               title={t('signOut')}
               className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-500/20 hover:text-red-500 transition-colors"
             >

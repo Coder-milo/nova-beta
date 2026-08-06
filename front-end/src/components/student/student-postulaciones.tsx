@@ -98,15 +98,14 @@ export function StudentPostulaciones() {
   useEffect(() => {
     ;(async () => {
       try {
-        const page = await matchesApi.obtenerMisMatches(0, 100)
+        const [page, postulaciones] = await Promise.all([
+          matchesApi.obtenerMisMatches(0, 100),
+          postulacionesApi.mias().catch(() => [] as PostulacionResponse[]),
+        ])
         setMatches(page.content)
         // La bandeja nueva se activa al desplegar el backend con el módulo de
         // postulaciones; las recomendaciones no quedan bloqueadas antes.
-        try {
-          setHistorial(await postulacionesApi.mias())
-        } catch {
-          setHistorial([])
-        }
+        setHistorial(postulaciones)
       } catch (e) {
         setError(
           e instanceof ApiCallError
