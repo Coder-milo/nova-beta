@@ -23,6 +23,7 @@ type Message = {
   author: Author
   text: string
   accionNavegacion?: AccionNavegacion | null
+  sugerencias?: string[]
   createdAt: number
 }
 
@@ -42,15 +43,15 @@ export function AdminAssistantChat() {
             title: 'Nova AI, Admin Assistant',
             subtitle: 'Navigation & Support · Online',
             greeting:
-              'Hello! I am Nova AI, your administration assistant. How can I help you manage NOVA-CRM today?',
-            placeholder: 'Ask a question or request a page...',
+              'Hello! I am Nova AI. I can take you to any module, explain how each CRM field should be filled in and why it matters, and help you read what the reports are telling you. How can I help?',
+            placeholder: 'Ask about a section, a field or your data...',
             send: 'Send',
             clear: 'Clear chat',
             quickActions: 'Quick Shortcuts',
             suggestions: [
+              'What goes in the target role field?',
+              'Why does matching recommend so few vacancies?',
               'How do I import students from Excel?',
-              'Where can I view active job vacancies?',
-              'How do I configure email and WhatsApp?',
             ],
             typingText: 'Nova AI is thinking...',
           }
@@ -58,15 +59,15 @@ export function AdminAssistantChat() {
             title: 'Nova AI, Asistente de Administración',
             subtitle: 'Navegación y Soporte · En línea',
             greeting:
-              '¡Hola! Soy Nova AI, tu asistente administrativo. ¿En qué puedo ayudarte a gestionar o a qué sección deseas ir hoy?',
-            placeholder: 'Haz una pregunta o solicita una sección...',
+              '¡Hola! Soy Nova AI. Puedo llevarte a cualquier módulo, explicarte cómo se llena cada campo del CRM y por qué importa, y ayudarte a interpretar lo que muestran los informes. ¿En qué te ayudo?',
+            placeholder: 'Pregunta por una sección, un campo o tus datos...',
             send: 'Enviar',
             clear: 'Limpiar conversación',
             quickActions: 'Accesos Rápidos',
             suggestions: [
+              '¿Qué pongo en cargo objetivo?',
+              '¿Por qué el matching recomienda pocas vacantes?',
               '¿Cómo importo estudiantes desde Excel?',
-              '¿Dónde veo las vacantes activas?',
-              '¿Dónde configuro el correo y WhatsApp?',
             ],
             typingText: 'Nova AI está pensando...',
           },
@@ -77,7 +78,7 @@ export function AdminAssistantChat() {
     () => [
       { id: 'students', icon: Users, label: english ? 'Students' : 'Estudiantes', route: '/estudiantes' },
       { id: 'vacancies', icon: Buildings, label: english ? 'Vacancies' : 'Vacantes', route: '/vacantes' },
-      { id: 'import', icon: FileCsv, label: english ? 'Excel Import' : 'Importar Excel', route: '/importar' },
+      { id: 'import', icon: FileCsv, label: english ? 'Excel Import' : 'Importar Excel', route: '/importaciones' },
       { id: 'config', icon: Gear, label: english ? 'Settings' : 'Configuración', route: '/configuracion' },
     ],
     [english],
@@ -157,6 +158,7 @@ export function AdminAssistantChat() {
           author: 'bot',
           text: data.respuesta || labels.greeting,
           accionNavegacion: data.accionNavegacion,
+          sugerencias: data.sugerencias,
           createdAt: Date.now(),
         },
       ])
@@ -182,7 +184,7 @@ export function AdminAssistantChat() {
         botResponse = english
           ? 'The Excel Importer maps columns dynamically to load students and vacancies.'
           : 'El Importador Excel mapea columnas dinámicamente para cargar estudiantes y vacantes.'
-        navAction = { etiqueta: english ? 'Open Importer' : 'Abrir Importador', url: '/importar' }
+        navAction = { etiqueta: english ? 'Open Importer' : 'Abrir Importaciones', url: '/importaciones' }
       } else if (textLower.includes('configur') || textLower.includes('correo') || textLower.includes('whatsapp')) {
         botResponse = english
           ? 'Go to Settings to adjust branding, SMTP/SES email credentials, and integrations.'
@@ -216,171 +218,209 @@ export function AdminAssistantChat() {
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 sm:bottom-7 sm:right-7">
-      {open && (
-        <section
-          ref={chatRef}
-          aria-label={labels.title}
-          className="mb-3 flex h-[min(72dvh,620px)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-3xl border border-border bg-popover shadow-[0_28px_70px_rgba(0,0,0,0.32)] dark:bg-[#090d16]"
-        >
-          {/* Header */}
-          <header className="relative overflow-hidden border-b border-primary/15 bg-[linear-gradient(125deg,color-mix(in_srgb,var(--primary)_22%,transparent),transparent_65%)] px-4 py-3.5 dark:bg-[#0f172a]">
-            <div className="absolute -right-5 -top-8 size-28 rounded-full bg-primary/10 blur-2xl dark:hidden" />
-            <div className="relative flex items-center gap-3">
-              <span
-                aria-hidden="true"
-                className="flex size-10 items-center justify-center overflow-hidden rounded-2xl bg-primary/15 text-primary shadow-lg ring-1 ring-primary/20"
-              >
-                <Sparkle className="size-5 animate-pulse" weight="fill" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">{labels.title}</p>
-                <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <span className="size-1.5 rounded-full bg-emerald-500" />
-                  {labels.subtitle}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={limpiar}
-                title={labels.clear}
-                aria-label={labels.clear}
-                className="rounded-xl p-2 text-muted-foreground transition hover:bg-background/70 hover:text-foreground dark:hover:bg-[#090d16]"
-              >
-                <Trash className="size-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close"
-                className="rounded-xl p-2 text-muted-foreground transition hover:bg-background/70 hover:text-foreground dark:hover:bg-[#090d16]"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-          </header>
-
-          {/* Mensajes */}
-          <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,color-mix(in_srgb,var(--primary)_3%,transparent),transparent_34%)] p-4 dark:bg-[#090d16]">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn('flex flex-col', message.author === 'user' ? 'items-end' : 'items-start')}
-              >
-                <div
-                  className={cn(
-                    'max-w-[86%] rounded-2xl px-3.5 py-2.5 text-sm leading-5 shadow-sm',
-                    message.author === 'bot'
-                      ? 'rounded-tl-md border border-border bg-card text-foreground dark:bg-[#0f172a]'
-                      : 'rounded-tr-md bg-primary text-primary-foreground',
-                  )}
-                >
-                  {message.text}
-                </div>
-
-                {/* Botón de acción de navegación en la respuesta de la IA */}
-                {message.author === 'bot' && message.accionNavegacion && (
-                  <button
-                    type="button"
-                    onClick={() => navegar(message.accionNavegacion!.url)}
-                    className="mt-2 inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20 hover:shadow-md"
-                  >
-                    <span>{message.accionNavegacion.etiqueta}</span>
-                    <ArrowRight className="size-3.5" />
-                  </button>
-                )}
-              </div>
-            ))}
-
-            {typing && (
-              <div className="flex">
-                <div className="flex items-center gap-2 rounded-2xl rounded-tl-md border border-border bg-card px-3.5 py-2.5 text-xs text-muted-foreground dark:bg-[#0f172a]">
-                  <CircleNotch className="size-3.5 animate-spin text-primary" />
-                  {labels.typingText}
-                </div>
-              </div>
-            )}
-
-            {/* Atajos Rápidos */}
-            {messages.length <= 2 && (
-              <div className="space-y-2 pt-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                  {labels.quickActions}
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {quickShortcuts.map((item) => {
-                    const Icon = item.icon
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => navegar(item.route)}
-                        className="flex items-center gap-2 rounded-xl border border-border bg-card p-2.5 text-left text-xs font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/[0.05]"
-                      >
-                        <Icon className="size-4 text-primary shrink-0" />
-                        <span className="truncate">{item.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {labels.suggestions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      onClick={() => enviar(suggestion)}
-                      className="rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[11px] font-medium text-primary transition hover:bg-primary/15"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div ref={endRef} />
-          </div>
-
-          {/* Formulario de Entrada */}
-          <div className="border-t border-border bg-card p-3 dark:bg-[#0f172a]">
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(event) => {
-                event.preventDefault()
-                enviar()
-              }}
+    <div className="fixed right-5 bottom-5 z-50 flex flex-col items-end sm:right-6 sm:bottom-6">
+      {/* Ventana Chat con Animación Gota / macOS Spring Scale */}
+      <section
+        ref={chatRef}
+        aria-label={labels.title}
+        className={cn(
+          'absolute bottom-14 right-0 flex h-[min(72dvh,620px)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] origin-bottom-right transform-gpu dark:bg-[#090d16]/95 dark:border-primary/20',
+          open
+            ? 'pointer-events-auto scale-100 opacity-100 translate-y-0 translate-x-0 blur-none'
+            : 'pointer-events-none scale-0 opacity-0 translate-y-12 translate-x-4 blur-sm',
+        )}
+      >
+        {/* Header */}
+        <header className="relative overflow-hidden border-b border-primary/15 bg-[linear-gradient(125deg,color-mix(in_srgb,var(--primary)_22%,transparent),transparent_65%)] px-4 py-3.5 dark:bg-[#0f172a]">
+          <div className="absolute -right-5 -top-8 size-28 rounded-full bg-primary/10 blur-2xl dark:hidden" />
+          <div className="relative flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="flex size-10 items-center justify-center overflow-hidden rounded-2xl bg-primary/15 text-primary shadow-lg ring-1 ring-primary/20"
             >
-              <input
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder={labels.placeholder}
-                maxLength={500}
-                className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15 dark:bg-[#090d16]"
-              />
-              <button
-                type="submit"
-                disabled={!draft.trim() || typing}
-                aria-label={labels.send}
-                className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition hover:brightness-105 disabled:opacity-45"
-              >
-                <PaperPlaneTilt className="size-4" weight="fill" />
-              </button>
-            </form>
+              <Sparkle className="size-5 animate-pulse" weight="fill" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">{labels.title}</p>
+              <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
+                <span className="size-1.5 rounded-full bg-emerald-500 -ml-3" />
+                {labels.subtitle}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={limpiar}
+              title={labels.clear}
+              aria-label={labels.clear}
+              className="rounded-xl p-2 text-muted-foreground transition hover:bg-background/70 hover:text-foreground dark:hover:bg-[#090d16]"
+            >
+              <Trash className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close"
+              className="rounded-xl p-2 text-muted-foreground transition hover:bg-background/70 hover:text-foreground dark:hover:bg-[#090d16]"
+            >
+              <X className="size-4" />
+            </button>
           </div>
-        </section>
-      )}
+        </header>
 
-      {/* Botón Flotante de Activación */}
+        {/* Mensajes */}
+        <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,color-mix(in_srgb,var(--primary)_3%,transparent),transparent_34%)] p-4 dark:bg-[#090d16]">
+          {messages.map((message, indice) => (
+            <div
+              key={message.id}
+              className={cn('flex flex-col', message.author === 'user' ? 'items-end' : 'items-start')}
+            >
+              <div
+                className={cn(
+                  'max-w-[86%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-5 shadow-sm',
+                  message.author === 'bot'
+                    ? 'rounded-tl-md border border-border bg-card text-foreground dark:bg-[#0f172a]'
+                    : 'rounded-tr-md bg-primary text-primary-foreground',
+                )}
+              >
+                {message.text}
+              </div>
+
+              {/* Botón de acción de navegación en la respuesta de la IA */}
+              {message.author === 'bot' && message.accionNavegacion && (
+                <button
+                  type="button"
+                  onClick={() => navegar(message.accionNavegacion!.url)}
+                  className="mt-2 inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20 hover:shadow-md"
+                >
+                  <span>{message.accionNavegacion.etiqueta}</span>
+                  <ArrowRight className="size-3.5" />
+                </button>
+              )}
+
+              {/* Solo las del último mensaje: las de mensajes viejos ya no
+                  vienen a cuento y llenarían el hilo de botones muertos. */}
+              {message.author === 'bot' &&
+                indice === messages.length - 1 &&
+                !!message.sugerencias?.length && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {message.sugerencias.map((sugerencia) => (
+                      <button
+                        key={sugerencia}
+                        type="button"
+                        onClick={() => enviar(sugerencia)}
+                        className="rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[11px] font-medium text-primary transition hover:bg-primary/15"
+                      >
+                        {sugerencia}
+                      </button>
+                    ))}
+                  </div>
+                )}
+            </div>
+          ))}
+
+          {typing && (
+            <div className="flex">
+              <div className="flex items-center gap-2 rounded-2xl rounded-tl-md border border-border bg-card px-3.5 py-2.5 text-xs text-muted-foreground dark:bg-[#0f172a]">
+                <CircleNotch className="size-3.5 animate-spin text-primary" />
+                {labels.typingText}
+              </div>
+            </div>
+          )}
+
+          {/* Atajos Rápidos */}
+          {messages.length <= 2 && (
+            <div className="space-y-2 pt-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                {labels.quickActions}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {quickShortcuts.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => navegar(item.route)}
+                      className="flex items-center gap-2 rounded-xl border border-border bg-card p-2.5 text-left text-xs font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/[0.05]"
+                    >
+                      <Icon className="size-4 text-primary shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {labels.suggestions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => enviar(suggestion)}
+                    className="rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[11px] font-medium text-primary transition hover:bg-primary/15"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div ref={endRef} />
+        </div>
+
+        {/* Formulario de Entrada */}
+        <div className="border-t border-border bg-card p-3 dark:bg-[#0f172a]">
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(event) => {
+              event.preventDefault()
+              enviar()
+            }}
+          >
+            <input
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder={labels.placeholder}
+              maxLength={500}
+              className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15 dark:bg-[#090d16]"
+            />
+            <button
+              type="submit"
+              disabled={!draft.trim() || typing}
+              aria-label={labels.send}
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition hover:brightness-105 disabled:opacity-45"
+            >
+              <PaperPlaneTilt className="size-4" weight="fill" />
+            </button>
+          </form>
+        </div>
+      </section>
+
+      {/* Botón Flotante / Gota macOS (Compacto & Elegante) */}
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((val) => !val)}
         aria-label={open ? 'Close Assistant' : labels.title}
         title={open ? 'Close Assistant' : labels.title}
-        className="group relative flex size-14 items-center justify-center overflow-hidden rounded-[1.15rem] bg-primary text-primary-foreground shadow-[0_16px_34px_-12px_color-mix(in_srgb,var(--primary)_80%,transparent)] ring-1 ring-primary/25 transition hover:scale-105 hover:ring-primary/45 active:scale-95"
+        className={cn(
+          'group relative flex h-11 items-center gap-2.5 rounded-full border border-primary/25 bg-card/90 px-3.5 text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.15)] backdrop-blur-xl transition-all duration-300 hover:scale-105 hover:border-primary/50 hover:shadow-primary/20 active:scale-95 dark:bg-[#090d16]/90',
+          open && 'bg-primary text-primary-foreground border-primary hover:bg-primary',
+        )}
       >
-        <span className="absolute inset-0 rounded-[1.15rem] bg-primary/30 blur-lg transition group-hover:blur-xl" />
-        <Compass className="relative size-7 text-primary-foreground transition-transform duration-300 group-hover:rotate-45" weight="duotone" />
+        <span className="absolute inset-0 rounded-full bg-primary/20 blur-md transition group-hover:blur-lg" />
+        {open ? (
+          <X className="relative size-5 text-primary-foreground transition-transform duration-300 rotate-0 group-hover:rotate-90" />
+        ) : (
+          <>
+            <span className="relative flex size-6 items-center justify-center rounded-full bg-primary/15 text-primary transition group-hover:scale-110">
+              <Compass className="size-4 text-primary transition-transform duration-300 group-hover:rotate-45" weight="duotone" />
+            </span>
+            <span className="relative text-xs font-semibold tracking-wide text-foreground group-hover:text-primary">
+              {english ? 'Nova AI' : 'Asistente AI'}
+            </span>
+          </>
+        )}
       </button>
     </div>
   )
