@@ -17,6 +17,20 @@ services:
       # Render genera un secreto aleatorio y seguro automaticamente.
       - key: NOVA_JWT_SECRET
         generateValue: true
+      # Contrasena del administrador en un entorno recien levantado.
+      #
+      # V1__init.sql siembra admin@novacrm.com con el hash de "admin123" y lo
+      # dice en un comentario del propio archivo. Esa migracion ya se aplico en
+      # todas partes y no se puede corregir donde esta —cambiarla altera su
+      # checksum y Flyway se niega a arrancar—, asi que al arrancar se cambia
+      # cualquier cuenta que siga con esa contrasena. Quien ya la cambio no se
+      # ve afectado.
+      #
+      # Si se deja vacia, se genera una aleatoria y se escribe una vez en el log
+      # de arranque para poder entrar. Ponerla aqui evita tener que ir a buscarla
+      # al log.
+      - key: ADMIN_INITIAL_PASSWORD
+        sync: false
       # Datos de la base PostgreSQL / Supabase (pegar en el panel de Render — no se versionan).
       - key: DB_HOST
         sync: false
