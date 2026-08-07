@@ -21,7 +21,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { FilePreview, FilePreviewSheet } from '@/components/ui/file-preview'
-import { documentosApi, programasApi, ApiCallError } from '@/lib/api'
+import { documentosApi, programasApi, ApiCallError, mensajeDeError } from '@/lib/api'
+import { useAvisos } from '@/components/ui/avisos'
+import { useConfirmar } from '@/components/ui/confirmar'
 import type { DocumentoResponse, ProgramaResponse, Page, ApiError } from '@/lib/types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -62,6 +64,8 @@ function formatoFecha(fecha: string): string {
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export default function DocumentosPage() {
+  const { confirmar, dialogo } = useConfirmar()
+  const { mostrarError, avisos } = useAvisos()
   const [page, setPage]           = useState<Page<DocumentoResponse> | null>(null)
   const [currentPage, setCurrent] = useState(0)
   const [loading, setLoading]     = useState(true)
@@ -146,14 +150,18 @@ export default function DocumentosPage() {
   // ── Acciones de fila ──────────────────────────────────────────────────────
   const handleDownload = async (doc: DocumentoResponse) => {
     try { await documentosApi.descargar(doc.id, doc.nombre) }
-    catch { alert('No se pudo descargar el documento.') }
+    catch { mostrarError('No se pudo descargar el documento.') }
   }
 
   const handleDelete = async (doc: DocumentoResponse) => {
-    if (!confirm(`¿Eliminar el documento "${doc.nombre}"?`)) return
+    if (!(await confirmar({
+      titulo: 'Eliminar documento',
+      descripcion: `Se eliminará el documento "${doc.nombre}". Esta acción no se puede deshacer.`,
+      textoConfirmar: 'Eliminar',
+    }))) return
     setRowBusy(true)
     try { await documentosApi.eliminar(doc.id); load(currentPage, q, tipoFiltro) }
-    catch { alert('No se pudo eliminar el documento.') }
+    catch { mostrarError('No se pudo eliminar el documento.') }
     finally { setRowBusy(false) }
   }
 
@@ -178,7 +186,7 @@ export default function DocumentosPage() {
       await reemplazarDocumento(reemplazoId, file)
       load(currentPage, q, tipoFiltro)
     } catch (err) {
-      alert(err instanceof ApiCallError ? `Error al reemplazar (HTTP ${err.status}).` : 'Error de conexión al reemplazar el documento.')
+      mostrarError(mensajeDeError(err, 'Error de conexión al reemplazar el documento.'))
     } finally {
       setReemplazoId(null); setRowBusy(false)
     }
@@ -395,7 +403,7 @@ export default function DocumentosPage() {
                             <span className="text-sm font-medium text-foreground tabular-nums">v{v.numeroVersion}{v.actual ? ' · actual' : ''}</span>
                             <span className="text-xs text-muted-foreground tabular-nums">{formatoFecha(v.createdAt)} · {formatoTamano(v.tamano)}</span>
                           </div>
-                          <button type="button" onClick={() => documentosApi.descargar(v.id, v.nombre).catch(() => alert('No se pudo descargar la versión.'))}
+                          <button type="button" onClick={() => documentosApi.descargar(v.id, v.nombre).catch(() => mostrarError('No se pudo descargar la versión.'))}
                             title="Descargar versión" aria-label={`Descargar versión ${v.numeroVersion}`}
                             className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
                             <DownloadSimple className="size-4" />
@@ -422,6 +430,8 @@ export default function DocumentosPage() {
         contentType={previewDoc.contentType}
         onDownload={() => handleDownload(previewDoc)}
       />}
+      {dialogo}
+      {avisos}
     </div>
   )
 }

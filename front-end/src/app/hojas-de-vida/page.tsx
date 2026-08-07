@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { VistaPreviaPdf } from '@/components/ui/vista-previa-pdf'
 import { hvApi, programasApi, estudiantesApi, perfilApi } from '@/lib/api'
+import { useConfirmar } from '@/components/ui/confirmar'
 import type {
   ProgramaResponse, PlantillaResponse, GeneracionMasivaResponse,
   CampoExtraido, EstudianteRequest, EstudianteResponse,
@@ -97,6 +98,7 @@ const ETIQUETAS_CAMPOS_ES: Record<string, string> = {
 }
 
 export default function HojasDeVidaPage() {
+  const { confirmar, dialogo } = useConfirmar()
   const [tab, setTab] = useState<TabId>('generacion')
 
   // Comunes
@@ -337,7 +339,11 @@ export default function HojasDeVidaPage() {
   }
 
   const handleEliminarPlantilla = async (pl: PlantillaResponse) => {
-    if (!confirm(`¿Eliminar la plantilla "${pl.nombre}"?`)) return
+    if (!(await confirmar({
+      titulo: 'Eliminar plantilla',
+      descripcion: `Se eliminará la plantilla "${pl.nombre}". Esta acción no se puede deshacer.`,
+      textoConfirmar: 'Eliminar',
+    }))) return
     try { await hvApi.eliminarPlantilla(pl.id); loadPlantillas() }
     catch (err) { setPlError(errorDe(err, 'Error al eliminar la plantilla')) }
   }
@@ -1455,6 +1461,7 @@ export default function HojasDeVidaPage() {
           )}
         </div>
       )}
+      {dialogo}
     </div>
   )
 }

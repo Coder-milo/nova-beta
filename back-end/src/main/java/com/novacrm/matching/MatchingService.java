@@ -106,6 +106,14 @@ public class MatchingService {
                 v.getRangoSalarial(),
                 v.getModalidadTrabajo(),
                 v.getRequisitos(),
+                v.getDescripcion(),
+                v.getCiudad(),
+                v.getTipoContrato(),
+                v.getJornada(),
+                v.getNivelInglesRequerido(),
+                v.getAniosExperienciaRequeridos(),
+                v.getFechaExpiracion(),
+                v.getFuente(),
                 m.getPuntaje(),
                 m.isNotificado(),
                 m.isPostulado(),
@@ -171,16 +179,27 @@ public class MatchingService {
             return;
         }
         try {
+            String empresaNombre = vacante.getEmpresa() != null && vacante.getEmpresa().getNombre() != null && !vacante.getEmpresa().getNombre().isBlank()
+                    ? vacante.getEmpresa().getNombre()
+                    : "Sin registrar";
+            String cargo = vacante.getTitulo() != null && !vacante.getTitulo().isBlank()
+                    ? vacante.getTitulo()
+                    : "Vacante";
+            String rawUrl = vacante.getUrlAplicar() != null && !vacante.getUrlAplicar().isBlank()
+                    ? vacante.getUrlAplicar()
+                    : vacante.getUrlOrigen();
+            String urlOferta = sanitizarUrl(rawUrl);
+
             postulacionService.crear(estudianteId,
                     new com.novacrm.postulacion.dto.PostulacionDtos.CrearPostulacion(
                             estudianteId,
                             vacante.getId(),
-                            vacante.getEmpresa() != null ? vacante.getEmpresa().getNombre() : "Sin registrar",
-                            vacante.getTitulo(),
+                            empresaNombre,
+                            cargo,
                             vacante.getFuente(),
                             java.time.LocalDate.now(),
                             com.novacrm.postulacion.EstadoPostulacion.ENVIADA,
-                            vacante.getUrlAplicar() != null ? vacante.getUrlAplicar() : vacante.getUrlOrigen(),
+                            urlOferta,
                             null),
                     autor, loHaceElEstudiante);
         } catch (com.novacrm.exception.BusinessException e) {
@@ -191,6 +210,20 @@ public class MatchingService {
                 throw e;
             }
         }
+    }
+
+    private static String sanitizarUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        String trimmed = url.trim();
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+            return trimmed;
+        }
+        if (trimmed.startsWith("www.") || trimmed.contains(".")) {
+            return "https://" + trimmed;
+        }
+        return null;
     }
 
     /** Una vacante del pool con sus tokens ya resueltos, para no repetirlo. */

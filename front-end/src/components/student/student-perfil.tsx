@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { BriefcaseIcon as Briefcase, CheckIcon as Check, CircleNotchIcon as CircleNotch, GraduationCapIcon as GraduationCap, PencilSimpleIcon as PencilSimple, UserIcon as User, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
-import { ApiCallError, estudiantesApi, perfilApi } from '@/lib/api'
+import { ApiCallError, estudiantesApi, mensajeDeError, perfilApi } from '@/lib/api'
+import { useAvisos } from '@/components/ui/avisos'
 import type { EstudianteRequest, EstudianteResponse, FormacionResponse, ExperienciaResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -48,6 +49,7 @@ function buildEditableFields(p: EstudianteResponse): EditableFields {
 }
 
 export function StudentPerfil({ perfil, onUpdate }: Props) {
+  const { mostrarError, avisos } = useAvisos()
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -132,7 +134,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                   const res = await estudiantesApi.subirFoto(perfil.id, file)
                   onUpdate(res)
                 } catch (err) {
-                  alert(err instanceof Error ? err.message : 'Error al subir la foto')
+                  mostrarError(mensajeDeError(err, 'Error al subir la foto'))
                 }
               }}
             />
@@ -468,6 +470,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
           )}
         </CardContent>
       </Card>
+      {avisos}
     </div>
   )
 }

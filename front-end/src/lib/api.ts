@@ -37,6 +37,19 @@ export class ApiCallError extends Error {
   }
 }
 
+/**
+ * Mensaje legible de un error, para mostrarlo al usuario.
+ *
+ * Prefiere el mensaje que envió el backend (`ApiCallError.body.message`); si no
+ * es un error de API, cae al mensaje del `Error`; y si no, al respaldo. Evita
+ * que un 409/422 con detalle útil se muestre como un texto genérico.
+ */
+export function mensajeDeError(e: unknown, respaldo: string): string {
+  if (e instanceof ApiCallError) return e.body.message ?? `Error ${e.status}`
+  if (e instanceof Error && e.message) return e.message
+  return respaldo
+}
+
 interface FetchOptions extends Omit<RequestInit, 'body'> {
   // Cuerpo tipado (se serializa como JSON automáticamente).
   data?: unknown
@@ -100,12 +113,19 @@ async function apiFetch<T>(
     throw new ApiCallError(response.status, errorBody)
   }
 
-  // 204 No Content: devolver undefined tipado como T
+  // Respuesta sin cuerpo: no hay JSON que parsear. Ocurre con el 204 No
+  // Content y también con un 200 de cuerpo vacío, que es lo que devuelve un
+  // endpoint `void` de Spring (p. ej. PATCH /matches/{id}/postular). Llamar
+  // response.json() sobre un cuerpo vacío lanza "Unexpected end of JSON input"
+  // y hacía que una postulación registrada correctamente pareciera fallar.
   if (response.status === 204) {
     return undefined as unknown as T
   }
-
-  return response.json() as Promise<T>
+  const texto = await response.text()
+  if (!texto) {
+    return undefined as unknown as T
+  }
+  return JSON.parse(texto) as T
 }
 
 /**

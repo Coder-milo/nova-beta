@@ -18,7 +18,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { EstadoDot } from '@/components/ui/estado-dot'
-import { programasApi, ApiCallError } from '@/lib/api'
+import { programasApi, mensajeDeError, ApiCallError } from '@/lib/api'
+import { useAvisos } from '@/components/ui/avisos'
+import { useConfirmar } from '@/components/ui/confirmar'
 import type { ProgramaResponse, ProgramaRequest, ProgramaEstado } from '@/lib/types'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -53,6 +55,8 @@ const emptyForm: ProgramaForm = {
 }
 
 export default function ProyectosPage() {
+  const { confirmar, dialogo } = useConfirmar()
+  const { mostrarError, avisos } = useAvisos()
   const [programas, setProgramas]     = useState<ProgramaResponse[]>([])
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)
@@ -129,22 +133,24 @@ export default function ProyectosPage() {
         await programasApi.cambiarEstado(id, estado)
         load()
       } catch (err) {
-        if (err instanceof ApiCallError) alert(`Error: ${err.body.message ?? `HTTP ${err.status}`}`)
-        else alert('Error de conexión.')
+        mostrarError(mensajeDeError(err, 'Error de conexión.'))
       }
     })
   }
 
   // ── Eliminar ──────────────────────────────────────────────────────────────
-  const handleDelete = (p: ProgramaResponse) => {
-    if (!confirm(`¿Eliminar el proyecto "${p.nombre}"? Esta acción no se puede deshacer.`)) return
+  const handleDelete = async (p: ProgramaResponse) => {
+    if (!(await confirmar({
+      titulo: 'Eliminar proyecto',
+      descripcion: `Se eliminará el proyecto "${p.nombre}". Esta acción no se puede deshacer.`,
+      textoConfirmar: 'Eliminar',
+    }))) return
     startTransition(async () => {
       try {
         await programasApi.eliminar(p.id)
         load()
       } catch (err) {
-        if (err instanceof ApiCallError) alert(`Error: ${err.body.message ?? `HTTP ${err.status}`}`)
-        else alert('Error de conexión.')
+        mostrarError(mensajeDeError(err, 'Error de conexión.'))
       }
     })
   }
@@ -321,6 +327,8 @@ export default function ProyectosPage() {
           )}
         </>
       )}
+      {dialogo}
+      {avisos}
     </div>
   )
 }

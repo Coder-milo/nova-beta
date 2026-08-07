@@ -368,6 +368,14 @@ export interface MatchResponse {
   vacanteRangoSalarial: string | null
   vacanteModalidadTrabajo: string | null
   vacanteRequisitos: string | null
+  vacanteDescripcion: string | null
+  vacanteCiudad: string | null
+  vacanteTipoContrato: string | null
+  vacanteJornada: string | null
+  vacanteNivelInglesRequerido: string | null
+  vacanteAniosExperienciaRequeridos: number | null
+  vacanteFechaExpiracion: string | null
+  vacanteFuente: string | null
   puntaje: number
   notificado: boolean
   postulado: boolean

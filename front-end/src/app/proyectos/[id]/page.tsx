@@ -29,8 +29,10 @@ import { Input } from '@/components/ui/input'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import {
   programasApi, estudiantesApi, documentosApi, hvApi, actividadesApi,
-  auditoriaApi, plataformasApi, ApiCallError,
+  auditoriaApi, plataformasApi, ApiCallError, mensajeDeError,
 } from '@/lib/api'
+import { useAvisos } from '@/components/ui/avisos'
+import { useConfirmar } from '@/components/ui/confirmar'
 import type {
   ProgramaResponse, ProgramaRequest, ProgramaEstado, ProgramaResumenResponse,
   EstudianteResponse, DocumentoResponse, GeneracionMasivaResponse,
@@ -257,6 +259,8 @@ function TabEstudiantes({ programaId }: { programaId: string }) {
 // ─── Pestaña: Documentos ──────────────────────────────────────────────────────
 
 function TabDocumentos({ programaId }: { programaId: string }) {
+  const { confirmar, dialogo } = useConfirmar()
+  const { mostrarError, avisos } = useAvisos()
   const [page, setPage]         = useState<Page<DocumentoResponse> | null>(null)
   const [currentPage, setCurrent] = useState(0)
   const [loading, setLoading]   = useState(true)
@@ -293,20 +297,22 @@ function TabDocumentos({ programaId }: { programaId: string }) {
   }
 
   const handleDelete = async (doc: DocumentoResponse) => {
-    if (!confirm(`¿Eliminar el documento "${doc.nombre}"?`)) return
+    if (!(await confirmar({ titulo: 'Eliminar documento', descripcion: `Se eliminará el documento "${doc.nombre}". Esta acción no se puede deshacer.`, textoConfirmar: 'Eliminar' }))) return
     setBusy(true)
     try { await documentosApi.eliminar(doc.id); load(currentPage) }
-    catch { alert('No se pudo eliminar el documento.') }
+    catch { mostrarError('No se pudo eliminar el documento.') }
     finally { setBusy(false) }
   }
 
   const handleDownload = async (doc: DocumentoResponse) => {
     try { await documentosApi.descargar(doc.id, doc.nombre) }
-    catch { alert('No se pudo descargar el documento.') }
+    catch { mostrarError('No se pudo descargar el documento.') }
   }
 
   return (
     <div className="flex flex-col gap-4">
+      {dialogo}
+      {avisos}
       {/* Subir documento */}
       <Card className="rounded-lg border-border shadow-none">
         <CardContent className="flex flex-wrap items-end gap-3 py-4">
@@ -507,6 +513,8 @@ const estadoActividadLabels: Record<string, { label: string; dot: string; text: 
 }
 
 function TabActividades({ programaId }: { programaId: string }) {
+  const { confirmar, dialogo } = useConfirmar()
+  const { mostrarError, avisos } = useAvisos()
   const [actividades, setActividades] = useState<ActividadResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
@@ -540,16 +548,18 @@ function TabActividades({ programaId }: { programaId: string }) {
     })
   }
 
-  const handleDelete = (act: ActividadResponse) => {
-    if (!confirm(`¿Eliminar la actividad "${act.nombre}"?`)) return
+  const handleDelete = async (act: ActividadResponse) => {
+    if (!(await confirmar({ titulo: 'Eliminar actividad', descripcion: `Se eliminará la actividad "${act.nombre}".`, textoConfirmar: 'Eliminar' }))) return
     startTransition(async () => {
       try { await actividadesApi.eliminar(programaId, act.id); load() }
-      catch { alert('No se pudo eliminar la actividad.') }
+      catch { mostrarError('No se pudo eliminar la actividad.') }
     })
   }
 
   return (
     <div className="flex flex-col gap-4">
+      {dialogo}
+      {avisos}
       {/* Crear actividad */}
       <Card className="rounded-lg border-border shadow-none">
         <CardContent className="py-4">
@@ -815,6 +825,8 @@ const tabs: { id: TabId; label: string; icon: typeof Users }[] = [
 ]
 
 export default function ProyectoDetallePage() {
+  const { confirmar, dialogo } = useConfirmar()
+  const { mostrarError, avisos } = useAvisos()
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const id = params.id
@@ -898,25 +910,25 @@ export default function ProyectoDetallePage() {
     })
   }
 
-  const handleFinalizar = () => {
-    if (!confirm('¿Finalizar este proyecto? El estado cambiará a "Finalizado".')) return
+  const handleFinalizar = async () => {
+    if (!(await confirmar({ titulo: 'Finalizar proyecto', descripcion: 'El estado del proyecto cambiará a "Finalizado".', textoConfirmar: 'Finalizar', destructivo: false }))) return
     startTransition(async () => {
       try { await programasApi.cambiarEstado(id, 'FINALIZADO'); load() }
       catch (err) {
-        alert(err instanceof ApiCallError ? `Error: ${err.body.message ?? `HTTP ${err.status}`}` : 'Error de conexión.')
+        mostrarError(mensajeDeError(err, 'Error de conexión.'))
       }
     })
   }
 
-  const handleEliminar = () => {
+  const handleEliminar = async () => {
     if (!programa) return
-    if (!confirm(`¿Eliminar el proyecto "${programa.nombre}"? Esta acción no se puede deshacer.`)) return
+    if (!(await confirmar({ titulo: 'Eliminar proyecto', descripcion: `Se eliminará el proyecto "${programa.nombre}". Esta acción no se puede deshacer.`, textoConfirmar: 'Eliminar' }))) return
     startTransition(async () => {
       try {
         await programasApi.eliminar(id)
         router.push('/proyectos')
       } catch (err) {
-        alert(err instanceof ApiCallError ? `Error: ${err.body.message ?? `HTTP ${err.status}`}` : 'Error de conexión.')
+        mostrarError(mensajeDeError(err, 'Error de conexión.'))
       }
     })
   }
@@ -940,6 +952,8 @@ export default function ProyectoDetallePage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {dialogo}
+      {avisos}
       {/* Cabecera */}
       <div className="flex flex-col gap-4">
         <Link href="/proyectos" className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">

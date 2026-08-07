@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { FilePreview, FilePreviewSheet } from '@/components/ui/file-preview'
+import { useConfirmar } from '@/components/ui/confirmar'
 import {
   estudiantesApi, perfilApi, seguimientosApi, hvApi, documentosApi,
   auditoriaApi, pipelineApi, postulacionesApi, colocacionesApi, plataformasApi, ApiCallError,
@@ -104,6 +105,7 @@ type TabId = 'resumen' | 'personal' | 'academico' | 'formacion' | 'experiencia' 
 // ─── Componente principal ────────────────────────────────────────────────────
 
 export default function PerfilEstudiantePage() {
+  const { confirmar, dialogo } = useConfirmar()
   const params = useParams<{ id: string }>()
   const id = params.id
 
@@ -381,7 +383,7 @@ export default function PerfilEstudiantePage() {
   }
 
   const handleEliminarFormacion = async (fid: string) => {
-    if (!confirm('¿Eliminar esta formación?')) return
+    if (!(await confirmar({ titulo: 'Eliminar formación', descripcion: 'Se eliminará esta formación. Esta acción no se puede deshacer.', textoConfirmar: 'Eliminar' }))) return
     try { await perfilApi.eliminarFormacion(id, fid); loadFormaciones() }
     catch (err) { flash('error', errorDe(err, 'Error al eliminar la formación')) }
   }
@@ -407,7 +409,7 @@ export default function PerfilEstudiantePage() {
   }
 
   const handleEliminarExperiencia = async (eid: string) => {
-    if (!confirm('¿Eliminar esta experiencia?')) return
+    if (!(await confirmar({ titulo: 'Eliminar experiencia', descripcion: 'Se eliminará esta experiencia. Esta acción no se puede deshacer.', textoConfirmar: 'Eliminar' }))) return
     try { await perfilApi.eliminarExperiencia(id, eid); loadExperiencias() }
     catch (err) { flash('error', errorDe(err, 'Error al eliminar la experiencia')) }
   }
@@ -418,7 +420,7 @@ export default function PerfilEstudiantePage() {
   }
 
   const handleEliminarHv = async (hv: HojaDeVidaResponse) => {
-    if (!confirm(`¿Eliminar definitivamente la hoja de vida versión ${hv.numeroVersion}?`)) return
+    if (!(await confirmar({ titulo: 'Eliminar hoja de vida', descripcion: `Se eliminará definitivamente la hoja de vida versión ${hv.numeroVersion}. Esta acción no se puede deshacer.`, textoConfirmar: 'Eliminar' }))) return
     try {
       await hvApi.eliminar(hv.id)
       loadHvs()
@@ -441,7 +443,7 @@ export default function PerfilEstudiantePage() {
   }
 
   const handleEliminarDocumento = async (did: string) => {
-    if (!confirm('¿Eliminar este documento?')) return
+    if (!(await confirmar({ titulo: 'Eliminar documento', descripcion: 'Se eliminará este documento. Esta acción no se puede deshacer.', textoConfirmar: 'Eliminar' }))) return
     try { await documentosApi.eliminar(did); loadDocumentos() }
     catch (err) { flash('error', errorDe(err, 'Error al eliminar el documento')) }
   }
@@ -482,7 +484,7 @@ export default function PerfilEstudiantePage() {
   }
 
   const handleEliminarSeguimiento = async (sid: string) => {
-    if (!confirm('¿Eliminar este seguimiento?')) return
+    if (!(await confirmar({ titulo: 'Eliminar seguimiento', descripcion: 'Se eliminará este seguimiento. Esta acción no se puede deshacer.', textoConfirmar: 'Eliminar' }))) return
     try { await seguimientosApi.eliminar(id, sid); loadSeguimientos() }
     catch (err) { flash('error', errorDe(err, 'Error al eliminar el seguimiento')) }
   }
@@ -1488,6 +1490,7 @@ export default function PerfilEstudiantePage() {
           )}
         </div>
       )}
+      {dialogo}
     </div>
   )
 }

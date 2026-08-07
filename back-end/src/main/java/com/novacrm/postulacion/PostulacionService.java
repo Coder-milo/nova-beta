@@ -96,7 +96,7 @@ public class PostulacionService {
         postulacion.setFechaPostulacion(fecha);
         postulacion.setEstado(datos.estado() == null ? EstadoPostulacion.ENVIADA : datos.estado());
         postulacion.setObservaciones(datos.observaciones());
-        postulacion.setUrlOferta(vacio(datos.urlOferta()) ? null : datos.urlOferta().trim());
+        postulacion.setUrlOferta(sanitizarUrl(datos.urlOferta()));
         postulacion.setGestionadaPor(autor);
         postulacion.setRegistradaPorEstudiante(laRegistraElEstudiante);
 
@@ -112,8 +112,8 @@ public class PostulacionService {
                 postulacion.setEmpresa(vacante.getEmpresa());
             }
             if (postulacion.getUrlOferta() == null) {
-                postulacion.setUrlOferta(vacante.getUrlAplicar() != null
-                        ? vacante.getUrlAplicar() : vacante.getUrlOrigen());
+                postulacion.setUrlOferta(sanitizarUrl(vacante.getUrlAplicar() != null
+                        ? vacante.getUrlAplicar() : vacante.getUrlOrigen()));
             }
         }
         if (postulacion.getEmpresa() == null) {
@@ -317,6 +317,18 @@ public class PostulacionService {
 
     private static boolean vacio(String s) {
         return s == null || s.isBlank();
+    }
+
+    private static String sanitizarUrl(String url) {
+        if (vacio(url)) return null;
+        String trimmed = url.trim();
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+            return trimmed;
+        }
+        if (trimmed.startsWith("www.") || trimmed.contains(".")) {
+            return "https://" + trimmed;
+        }
+        return null;
     }
 
     /** Empresa asociada a una postulacion, para el CRM. Puede no existir. */

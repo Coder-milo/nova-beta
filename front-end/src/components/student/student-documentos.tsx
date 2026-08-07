@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ArrowCounterClockwiseIcon as ArrowCounterClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CloudArrowUpIcon as CloudArrowUp, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileIcon as File, FilePdfIcon as FilePdf, FileTextIcon as FileText, TrashIcon as Trash, WarningCircleIcon as WarningCircle, XCircleIcon as XCircle } from '@phosphor-icons/react'
-import { ApiCallError, documentosApi, estudiantesApi } from '@/lib/api'
+import { ApiCallError, documentosApi, estudiantesApi, mensajeDeError } from '@/lib/api'
 import type { DocumentoResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAvisos } from '@/components/ui/avisos'
+import { useConfirmar } from '@/components/ui/confirmar'
 import { useAuth } from '@/lib/auth'
 import { FilePreview, FilePreviewSheet } from '@/components/ui/file-preview'
 import {
@@ -44,6 +46,8 @@ function FileIcon({ contentType }: { contentType: string | null }) {
 
 export function StudentDocumentos() {
   const { user } = useAuth()
+  const { confirmar, dialogo } = useConfirmar()
+  const { mostrarError, avisos } = useAvisos()
   const [documentos, setDocumentos] = useState<DocumentoResponse[]>([])
   const [tipos, setTipos] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -122,21 +126,24 @@ export function StudentDocumentos() {
     try {
       await documentosApi.descargarMio(doc.id, doc.nombre)
     } catch {
-      alert('No se pudo descargar el archivo.')
+      mostrarError('No se pudo descargar el archivo.')
     }
   }
 
   const handleDelete = async (doc: DocumentoResponse) => {
-    if (!confirm(`¿Eliminar "${doc.nombre}"?`)) return
+    if (
+      !(await confirmar({
+        titulo: 'Eliminar documento',
+        descripcion: `Se eliminará "${doc.nombre}". Esta acción no se puede deshacer.`,
+        textoConfirmar: 'Eliminar',
+      }))
+    )
+      return
     try {
       await documentosApi.eliminarMio(doc.id)
       setDocumentos((prev) => prev.filter((d) => d.id !== doc.id))
     } catch (e) {
-      alert(
-        e instanceof ApiCallError
-          ? (e.body.message ?? 'No se pudo eliminar.')
-          : 'No se pudo eliminar el documento.',
-      )
+      mostrarError(mensajeDeError(e, 'No se pudo eliminar el documento.'))
     }
   }
 
@@ -145,7 +152,7 @@ export function StudentDocumentos() {
     try {
       await estudiantesApi.descargarMiHvPdf()
     } catch {
-      alert('No se pudo preparar tu hoja de vida.')
+      mostrarError('No se pudo preparar tu hoja de vida.')
     } finally { setDownloadingCv(false) }
   }
 
@@ -373,6 +380,8 @@ export function StudentDocumentos() {
         contentType={previewDoc.contentType}
         onDownload={() => handleDownload(previewDoc)}
       />}
+      {dialogo}
+      {avisos}
     </div>
   )
 }

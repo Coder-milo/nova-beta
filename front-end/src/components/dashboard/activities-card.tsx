@@ -16,6 +16,7 @@ import { actividadesApi, programasApi, ApiCallError } from '@/lib/api'
 import { hoyLocal } from '@/lib/utils'
 import type { ActividadRequest, ActividadResponse, ProgramaResponse } from '@/lib/types'
 import { Textarea } from '@/components/ui/textarea'
+import { useConfirmar } from '@/components/ui/confirmar'
 
 const categoryStyles: Record<string, string> = {
   REUNION: 'bg-blue-500/12 text-blue-700 dark:text-blue-300',
@@ -67,6 +68,7 @@ function formatDate(activity: ActividadResponse): string {
 }
 
 export function ActivitiesCard() {
+  const { confirmar, dialogo } = useConfirmar()
   const [activities, setActivities] = useState<ActividadResponse[]>([])
   const [programs, setPrograms] = useState<ProgramaResponse[]>([])
   const [loading, setLoading] = useState(true)
@@ -159,7 +161,14 @@ export function ActivitiesCard() {
   }
 
   const remove = async (activity: ActividadResponse) => {
-    if (!confirm(`¿Eliminar "${activity.nombre}" de la agenda?`)) return
+    if (
+      !(await confirmar({
+        titulo: 'Eliminar actividad',
+        descripcion: `Se eliminará "${activity.nombre}" de la agenda.`,
+        textoConfirmar: 'Eliminar',
+      }))
+    )
+      return
     setBusyId(activity.id); setError(null)
     try {
       await actividadesApi.eliminarAgenda(activity.id)
@@ -319,6 +328,7 @@ export function ActivitiesCard() {
           </Card>
         </div>
       )}
+      {dialogo}
     </>
   )
 }
