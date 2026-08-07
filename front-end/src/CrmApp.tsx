@@ -133,11 +133,12 @@ function resolvePage(pathname: string): ComponentType {
  */
 function CurrentRoute() {
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, cargando } = useAuth()
   const esEstudiante = soloEsEstudiante(user?.roles)
 
   useEffect(() => {
     if (
+      !cargando &&
       esEstudiante &&
       !estudiantePuedeVer(pathname) &&
       typeof window !== 'undefined'
@@ -145,7 +146,14 @@ function CurrentRoute() {
       window.history.replaceState(null, '', RUTA_INICIO_ESTUDIANTE)
       window.dispatchEvent(new PopStateEvent('popstate'))
     }
-  }, [esEstudiante, pathname])
+  }, [cargando, esEstudiante, pathname])
+
+  // Hasta que se sepa quien entro no se monta ninguna pantalla. La sesion se
+  // lee en un efecto, asi que en el primer render `user` es null y
+  // `soloEsEstudiante` responde false: pintar ya habria montado el dashboard
+  // de administracion —con sus llamadas a datos de todos los proyectos— en la
+  // pantalla de un estudiante, que es de donde salian los 403 del arranque.
+  if (cargando) return <PageSpinner />
 
   // Mientras el efecto corrige la URL ya se pinta el portal, para que no
   // llegue a montarse el dashboard y disparar las llamadas que dan 403.

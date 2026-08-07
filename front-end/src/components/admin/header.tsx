@@ -151,10 +151,16 @@ function IconButton({
 export function Header({ onOpenMobile }: HeaderProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, cargando: cargandoSesion } = useAuth()
   const { branding } = useBranding()
   const { locale, setLocale, t } = usePreferences()
   const esEstudiante = soloEsEstudiante(user?.roles)
+  /**
+   * Solo entonces `esEstudiante` significa algo. Antes de que la sesión se
+   * lea, un estudiante todavía no tiene roles y pasa por gestor: llamar aquí
+   * a un endpoint de administración le devuelve un 403 legítimo.
+   */
+  const sesionLista = !cargandoSesion && user !== null
 
   const [studentNotifications, setStudentNotifications] = useState<NotificacionResponse[]>([])
   const [studentUnreadNotifications, setStudentUnreadNotifications] = useState(0)
@@ -196,6 +202,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   )
 
   useEffect(() => {
+    if (!sesionLista) return
     let active = true
     const cargarNotificaciones = async () => {
       try {
@@ -224,7 +231,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
     void cargarNotificaciones()
     const refreshId = window.setInterval(() => { void cargarNotificaciones() }, 45_000)
     return () => { active = false; window.clearInterval(refreshId) }
-  }, [esEstudiante])
+  }, [sesionLista, esEstudiante])
 
   useEffect(() => {
     if (!esEstudiante) return
@@ -288,6 +295,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   }, [directContact, esEstudiante])
 
   const cargarMensajes = useCallback(async () => {
+    if (!sesionLista) return
     setMessagesLoading(true)
     setMessageError('')
     try {
@@ -304,17 +312,17 @@ export function Header({ onOpenMobile }: HeaderProps) {
       setSelectedMessage(null)
       setMessageError(error instanceof Error ? error.message : 'No se pudieron cargar los mensajes.')
     } finally { setMessagesLoading(false) }
-  }, [esEstudiante])
+  }, [sesionLista, esEstudiante])
 
   useEffect(() => { void cargarMensajes() }, [cargarMensajes])
   useEffect(() => { if (messageSheetOpen) void cargarMensajes() }, [messageSheetOpen, cargarMensajes])
   useEffect(() => {
-    if (esEstudiante) return
+    if (!sesionLista || esEstudiante) return
     const refreshId = window.setInterval(() => {
       void mensajesApi.listar().then(setMessages).catch(() => undefined)
     }, 45_000)
     return () => window.clearInterval(refreshId)
-  }, [esEstudiante])
+  }, [sesionLista, esEstudiante])
   useEffect(() => {
     const abrirBandeja = () => setMessageSheetOpen(true)
     window.addEventListener('nova:open-messages', abrirBandeja)

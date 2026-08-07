@@ -29,9 +29,16 @@ function aplicarCabecerasDeSeguridad(response: Response): Response {
   
   // En desarrollo (y produccion con bundle React/Astro) permitimos unsafe-inline y unsafe-eval
   // para que Vite HMR, Astro e hidratación de React funcionen correctamente sin bloquear scripts.
+  //
+  // Las imagenes de marca las sirve el backend: en desarrollo desde
+  // http://localhost:8080 (un origen http distinto que ni 'self' ni https:
+  // cubren) y en produccion desde https. Por eso el esquema http: solo se
+  // habilita en desarrollo; en produccion se omite para no relajar la politica
+  // en vivo, donde todas las fuentes legitimas ya son https.
+  const esquemaLocal = import.meta.env.DEV ? ' http:' : ''
   response.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; frame-src 'self' data: blob:; worker-src 'self' blob:; object-src 'self' data: blob:; connect-src 'self' ws: wss: http: https:; frame-ancestors 'self';",
+    `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:${esquemaLocal} https:; media-src 'self' blob:${esquemaLocal} https:; frame-src 'self' data: blob:; worker-src 'self' blob:; object-src 'self' data: blob:; connect-src 'self' ws: wss:${esquemaLocal} https:; frame-ancestors 'self';`,
   )
   return response
 }
