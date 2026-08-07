@@ -185,17 +185,13 @@ public class ExcelService {
                 estudiante.setPrograma(programa);
                 estudiante.setActivo(true);
 
-                // construirEstudiante ya exige email no vacio (lanza BusinessException si
-                // falta), asi que llegado aqui el email siempre esta presente: no hace
-                // falta una rama alterna por numeroDocumento.
-                var existente = estudianteRepository.findByEmail(estudiante.getEmail());
+                var existente = buscarExistente(estudiante);
                 if (existente.isPresent()) {
                     aplicarActualizacion(existente.get(), estudiante);
                     estudianteRepository.save(existente.get());
                     actualizados++;
-                } else if (upsertPorDocumentoOInsertar(estudiante)) {
-                    actualizados++;
                 } else {
+                    estudianteRepository.save(estudiante);
                     creados++;
                 }
                 importados++;
@@ -396,19 +392,36 @@ public class ExcelService {
         importacionHistorialRepository.save(historial);
     }
 
-    private boolean upsertPorDocumentoOInsertar(Estudiante estudiante) {
-        if (estudiante.getNumeroDocumento() != null
-                && !estudiante.getNumeroDocumento().isBlank()) {
-            var existenteDoc = estudianteRepository
-                    .findByNumeroDocumento(estudiante.getNumeroDocumento());
-            if (existenteDoc.isPresent()) {
-                aplicarActualizacion(existenteDoc.get(), estudiante);
-                estudianteRepository.save(existenteDoc.get());
-                return true;
-            }
+    /**
+     * A quien de la base se refiere esta fila, si es que ya esta.
+     *
+     * <p>Se prueban tres llaves, de la mas fiable a la menos: documento, correo
+     * y nombre completo. Las tres comparan normalizado, que es lo que faltaba:
+     * la busqueda era de igualdad exacta, asi que el mismo participante escrito
+     * «PEREZ GOMEZ» en un archivo y «Pérez Gómez» en el siguiente entraba dos
+     * veces, y un correo con una mayuscula distinta creaba otro duplicado mas.
+     *
+     * <p>El nombre va el ultimo y solo cuenta si hay una unica coincidencia.
+     * Con dos homonimos no se elige: se crea la ficha nueva, que es un duplicado
+     * visible y corregible, en vez de escribir los datos de una persona encima
+     * de los de otra, que es una perdida silenciosa.
+     */
+    private Optional<Estudiante> buscarExistente(Estudiante estudiante) {
+        String documento = estudiante.getNumeroDocumento();
+        if (documento != null && !documento.isBlank()) {
+            var porDocumento = estudianteRepository.findByDocumentoNormalizado(documento);
+            if (porDocumento.isPresent()) return porDocumento;
         }
-        estudianteRepository.save(estudiante);
-        return false;
+
+        // construirEstudiante ya exige correo, asi que aqui siempre hay uno.
+        var porCorreo = estudianteRepository.findByEmailIgnoreCase(estudiante.getEmail());
+        if (porCorreo.isPresent()) return porCorreo;
+
+        String nombreCompleto = (estudiante.getNombre() + " " + estudiante.getApellido()).trim();
+        var porNombre = estudianteRepository.buscarPorNombreCompletoNormalizado(nombreCompleto);
+        if (porNombre.size() == 1) return Optional.of(porNombre.get(0));
+
+        return Optional.empty();
     }
 
     private record DatosArchivo(List<String> columnasDetectadas, List<FilaImportada> filas) {}

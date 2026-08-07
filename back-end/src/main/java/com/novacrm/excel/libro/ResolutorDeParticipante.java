@@ -110,15 +110,7 @@ public class ResolutorDeParticipante {
      * apellidos y quitarlas juntaria personas distintas.
      */
     static String normalizar(String texto) {
-        if (texto == null) {
-            return "";
-        }
-        return java.text.Normalizer.normalize(texto.trim(), java.text.Normalizer.Form.NFD)
-                .replaceAll("\\p{InCombiningDiacriticalMarks}", "")
-                .replaceAll("[^\\p{Alnum}\\s]", " ")
-                .toLowerCase(Locale.ROOT)
-                .replaceAll("\\s+", " ")
-                .trim();
+        return com.novacrm.shared.ClaveNormalizada.de(texto);
     }
 
     /** Cuantos participantes activos se cargaron. Util para el informe. */

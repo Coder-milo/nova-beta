@@ -19,6 +19,7 @@ import com.novacrm.excel.libro.HojaLeida;
 import com.novacrm.excel.libro.LectorDeLibro;
 import com.novacrm.excel.libro.ResolutorDeParticipante;
 import com.novacrm.ia.ReconocimientoConIa;
+import com.novacrm.shared.ClaveNormalizada;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -94,7 +95,10 @@ public class ImportacionCrmService {
                 errores.add(new FilaConError(fila.numeroFila(), "Sin nombre de empresa"));
                 continue;
             }
-String clave = nombre.trim().toLowerCase(Locale.ROOT);
+            // Misma normalizacion que usa la consulta de duplicados: si aqui se
+            // comparara solo en minusculas, «Solvo S.A.S.» y «SOLVO SAS» se
+            // contarian como dos empresas dentro del mismo archivo.
+            String clave = ClaveNormalizada.deEmpresa(nombre);
             // `nombre` recortado para que tope con la columna de la base; el
             // resto de campos con tope se recortan en la construccion de abajo.
             nombre = cortar(nombre, 255);
@@ -236,15 +240,17 @@ String clave = nombre.trim().toLowerCase(Locale.ROOT);
     private Optional<Estudiante> buscarEstudiante(String documento, String email) {
         if (documento != null && !documento.isBlank()) {
             // Los documentos vienen de Excel con puntos de miles y, si la celda
-            // era numérica, a veces con ",0" al final.
-            String limpio = documento.replaceAll("[^0-9A-Za-z]", "");
-            var porDocumento = estudianteRepository.findByNumeroDocumento(limpio);
+            // era numérica, a veces con ",0" al final. La consulta compara ya
+            // sin signos, así que no hace falta probar dos formas del mismo
+            // número como se hacía antes.
+            var porDocumento = estudianteRepository.findByDocumentoNormalizado(documento);
             if (porDocumento.isPresent()) return porDocumento;
-            var original = estudianteRepository.findByNumeroDocumento(documento.trim());
-            if (original.isPresent()) return original;
         }
         if (email != null && !email.isBlank()) {
-            return estudianteRepository.findByEmail(email.trim().toLowerCase(Locale.ROOT));
+            // Ignorando la caja: el correo se guarda tal cual venga del archivo,
+            // así que buscarlo en minúsculas no encontraba al que se cargó con
+            // una mayúscula y creaba un duplicado.
+            return estudianteRepository.findByEmailIgnoreCase(email);
         }
         return Optional.empty();
     }

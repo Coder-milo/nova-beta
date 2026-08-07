@@ -120,25 +120,88 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
         long getTotal();
     }
 
-    @org.springframework.data.jpa.repository.Query("""
+    /**
+     * Busqueda de estudiantes por texto libre y filtros.
+     *
+     * <p>Compara con {@code novacrm_normalizar} (V38): asi "jose perez"
+     * encuentra a «José Pérez» y "PEREZ" encuentra a «Pérez». Antes comparaba
+     * con LOWER(), que ignora la caja pero no las tildes, y en esta cohorte
+     * —donde 48 de 108 nombres llevan tilde— eso dejaba fuera a casi la mitad
+     * de la lista.
+     *
+     * <p>Las funciones se invocan por su nombre y no con {@code FUNCTION('..')}:
+     * esa forma generica no consulta el registro de funciones, asi que Hibernate
+     * da el resultado por {@code Object} y rechaza el LIKE al crear el
+     * repositorio. Estan registradas en {@code FuncionesDeNormalizacion}.
+     *
+     * <p>El nombre se compara completo y en los dos ordenes —"nombre apellidos"
+     * y "apellidos nombre"— porque las dos columnas estan separadas y quien
+     * busca escribe el nombre entero: comparando columna por columna, "Juan
+     * Perez" no coincidia con nada.
+     */
+    @Query("""
             SELECT e FROM Estudiante e
             WHERE e.activo = true
-              AND (:q IS NULL OR LOWER(e.nombre) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
-                   OR LOWER(e.apellido) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
-                   OR LOWER(e.email) LIKE LOWER(CONCAT('%', CAST(:q AS string), '%'))
-                   OR e.numeroDocumento LIKE CONCAT('%', CAST(:q AS string), '%'))
+              AND (:q IS NULL
+                   OR novacrm_normalizar(CONCAT(e.nombre, ' ', e.apellido))
+                        LIKE CONCAT('%', novacrm_normalizar(CAST(:q AS string)), '%')
+                   OR novacrm_normalizar(CONCAT(e.apellido, ' ', e.nombre))
+                        LIKE CONCAT('%', novacrm_normalizar(CAST(:q AS string)), '%')
+                   OR novacrm_normalizar(e.email)
+                        LIKE CONCAT('%', novacrm_normalizar(CAST(:q AS string)), '%')
+                   OR novacrm_normalizar(e.ciudad)
+                        LIKE CONCAT('%', novacrm_normalizar(CAST(:q AS string)), '%')
+                   OR novacrm_solo_alfanumerico(e.numeroDocumento)
+                        LIKE CONCAT('%', novacrm_solo_alfanumerico(CAST(:q AS string)), '%'))
               AND (:programaId IS NULL OR e.programa.id = :programaId)
-              AND (:ciudad IS NULL OR LOWER(e.ciudad) = LOWER(CAST(:ciudad AS string)))
+              AND (:ciudad IS NULL
+                   OR novacrm_normalizar(e.ciudad) = novacrm_normalizar(CAST(:ciudad AS string)))
               AND (:estadoAcademico IS NULL OR e.estadoAcademico = :estadoAcademico)
               AND (:estadoEmpleabilidad IS NULL OR e.estadoEmpleabilidad = :estadoEmpleabilidad)
             """)
     @EntityGraph(attributePaths = "programa")
-    Page<Estudiante> buscarAvanzado(@org.springframework.data.repository.query.Param("q") String q,
-                                    @org.springframework.data.repository.query.Param("programaId") UUID programaId,
-                                    @org.springframework.data.repository.query.Param("ciudad") String ciudad,
-                                    @org.springframework.data.repository.query.Param("estadoAcademico") EstadoAcademico estadoAcademico,
-                                    @org.springframework.data.repository.query.Param("estadoEmpleabilidad") EstadoEmpleabilidad estadoEmpleabilidad,
+    Page<Estudiante> buscarAvanzado(@Param("q") String q,
+                                    @Param("programaId") UUID programaId,
+                                    @Param("ciudad") String ciudad,
+                                    @Param("estadoAcademico") EstadoAcademico estadoAcademico,
+                                    @Param("estadoEmpleabilidad") EstadoEmpleabilidad estadoEmpleabilidad,
                                     Pageable pageable);
+
+    /**
+     * Participantes activos cuyo nombre completo normaliza igual que el dado.
+     *
+     * <p>Es la ultima red de la deduplicacion al importar: cuando la fila no
+     * trae documento y el correo esta escrito distinto, lo unico que queda para
+     * reconocer a la persona es el nombre. Devuelve lista y no un opcional a
+     * proposito —hay homonimos— para que quien llama pueda negarse a elegir en
+     * vez de fusionar a dos personas distintas.
+     */
+    @Query(value = """
+            SELECT e.* FROM estudiante e
+            WHERE e.activo = true
+              AND novacrm_normalizar(CAST(:nombreCompleto AS text)) IN (
+                    novacrm_normalizar(e.nombre || ' ' || e.apellidos),
+                    novacrm_normalizar(e.apellidos || ' ' || e.nombre))
+            """, nativeQuery = true)
+    List<Estudiante> buscarPorNombreCompletoNormalizado(@Param("nombreCompleto") String nombreCompleto);
+
+    /** El estudiante con ese correo, sin importar como este escrita la caja. */
+    @Query(value = """
+            SELECT e.* FROM estudiante e
+            WHERE lower(btrim(e.email)) = lower(btrim(CAST(:email AS text)))
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<Estudiante> findByEmailIgnoreCase(@Param("email") String email);
+
+    /** El estudiante con ese documento, ignorando puntos, guiones y espacios. */
+    @Query(value = """
+            SELECT e.* FROM estudiante e
+            WHERE novacrm_solo_alfanumerico(e.numero_documento) IS NOT NULL
+              AND novacrm_solo_alfanumerico(e.numero_documento)
+                  = novacrm_solo_alfanumerico(CAST(:documento AS text))
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<Estudiante> findByDocumentoNormalizado(@Param("documento") String documento);
 
     // --- Insumos para la busqueda de vacantes -------------------------------
     // Los terminos con los que se rastrean los portales salen de lo que los

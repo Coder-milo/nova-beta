@@ -12,9 +12,21 @@ import java.util.UUID;
 
 public interface EmpresaRepository extends JpaRepository<Empresa, UUID> {
 
-    /** Solo activas: una empresa eliminada (soft) no puede reengancharse ni
-     *  bloquear el nombre, y una vacante no puede colgar de ella. */
-    @Query("SELECT e FROM Empresa e WHERE LOWER(e.nombre) = LOWER(:nombre) AND e.activo = true")
+    /**
+     * Solo activas: una empresa eliminada (soft) no puede reengancharse ni
+     * bloquear el nombre, y una vacante no puede colgar de ella.
+     *
+     * <p>Compara normalizado y no con LOWER(): la hoja de contactos trae la
+     * misma empresa como «Solvo S.A.S.», «SOLVO SAS» y «Solvo sas», y con
+     * igualdad exacta cada variante creaba un empleador distinto. Al
+     * normalizar, las tres son la misma.
+     */
+    @Query("""
+            SELECT e FROM Empresa e
+            WHERE novacrm_normalizar_empresa(e.nombre)
+                = novacrm_normalizar_empresa(CAST(:nombre AS string))
+              AND e.activo = true
+            """)
     Optional<Empresa> findByNombreIgnoreCaseActiva(@Param("nombre") String nombre);
 
     @Query("SELECT e FROM Empresa e WHERE e.id = :id AND e.activo = true")

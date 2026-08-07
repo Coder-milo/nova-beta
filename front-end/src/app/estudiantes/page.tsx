@@ -23,7 +23,9 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
-import { estudiantesApi, programasApi, matchesApi, ApiCallError } from '@/lib/api'
+import { estudiantesApi, programasApi, matchesApi, ApiCallError, mensajeDeError } from '@/lib/api'
+import { useAvisos } from '@/components/ui/avisos'
+import { useConfirmar } from '@/components/ui/confirmar'
 import type {
   EstudianteResponse,
   ProgramaResponse,
@@ -99,6 +101,25 @@ function studentToForm(s: EstudianteResponse): EstudianteRequest {
   }
 }
 
+/**
+ * Texto comparable, con las mismas reglas que usa el servidor.
+ *
+ * Espeja a `novacrm_normalizar` (migración V38): minúsculas, sin tildes y los
+ * signos como espacio. Solo la usan la papelera y el listado de incompletos,
+ * que filtran lo ya cargado; el listado normal lo filtra el servidor. Si las
+ * dos no coincidieran, buscar «Pérez» daría resultados distintos según la
+ * pestaña en la que estés.
+ */
+function normalizarParaBuscar(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 // Componente auxiliar para campos de detalle
 function DetailField({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
@@ -112,6 +133,8 @@ function DetailField({ label, value }: { label: string; value: string | number |
 // ─── Componente principal ────────────────────────────────────────────────────
 
 export default function EstudiantesPage() {
+  const { confirmar, dialogo } = useConfirmar()
+  const { mostrarExito, mostrarError, avisos } = useAvisos()
   const [programas, setProgramas]     = useState<ProgramaResponse[]>([])
   const [selectedPgm, setSelectedPgm] = useState('')
   const [page, setPage]               = useState<Page<EstudianteResponse> | null>(null)
@@ -125,8 +148,29 @@ export default function EstudiantesPage() {
 
   // Filtros
   const [searchQuery, setSearchQuery]             = useState('')
+  /**
+   * Lo que se le pide al servidor, con retardo respecto a lo que se teclea.
+   *
+   * Sin esto cada pulsación dispararía una consulta —y con ella un `setPage`
+   * fuera de orden, porque las respuestas no vuelven necesariamente en el
+   * orden en que salieron—.
+   */
+  const [busquedaAplicada, setBusquedaAplicada]   = useState('')
   const [academicFilter, setAcademicFilter]       = useState('ALL')
   const [employabilityFilter, setEmployabilityFilter] = useState('ALL')
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setBusquedaAplicada(searchQuery.trim()), 300)
+    return () => window.clearTimeout(id)
+  }, [searchQuery])
+
+  /**
+   * La papelera y el listado de incompletos son vistas aparte y no tienen
+   * búsqueda en el servidor, así que ahí se sigue filtrando lo ya cargado.
+   */
+  const filtradoEnElCliente = verPapelera || incompleteOnly
+  const hayFiltrosDeServidor = !filtradoEnElCliente
+    && (busquedaAplicada !== '' || academicFilter !== 'ALL' || employabilityFilter !== 'ALL')
 
   // Formulario
   const [showForm, setShowForm]         = useState(false)
@@ -168,6 +212,15 @@ export default function EstudiantesPage() {
   }, [selectedPgm, verPapelera, incompleteOnly, searchQuery, academicFilter, employabilityFilter, currentPage])
 
   // ── Cargar estudiantes ────────────────────────────────────────────────────
+  /**
+   * Los filtros los aplica el servidor.
+   *
+   * <p>Antes se filtraba `page.content` en el navegador, que son los 20 de la
+   * página cargada: buscar a alguien solo lo encontraba si ya estaba a la
+   * vista, y con 108 participantes eso deja fuera al 80% de la lista. La
+   * papelera y el listado de incompletos siguen filtrando en el cliente porque
+   * son vistas aparte, sin endpoint de búsqueda propio.
+   */
   const loadEstudiantes = useCallback(async (pgmId: string, pg: number, pap = false) => {
     if (!pgmId) return
     setLoading(true); setError(null)
@@ -176,6 +229,14 @@ export default function EstudiantesPage() {
         setPage(await estudiantesApi.listarPapelera(pgmId, pg))
       } else if (incompleteOnly) {
         setPage(await estudiantesApi.listarIncompletos(pg))
+      } else if (hayFiltrosDeServidor) {
+        setPage(await estudiantesApi.buscarAvanzado({
+          q: busquedaAplicada || undefined,
+          programaId: pgmId,
+          estadoAcademico: academicFilter === 'ALL' ? undefined : academicFilter,
+          estadoEmpleabilidad: employabilityFilter === 'ALL' ? undefined : employabilityFilter,
+          page: pg,
+        }))
       } else {
         setPage(await estudiantesApi.listar(pgmId, pg))
       }
@@ -190,8 +251,10 @@ export default function EstudiantesPage() {
     } finally {
       setLoading(false)
     }
-  }, [incompleteOnly])
+  }, [incompleteOnly, hayFiltrosDeServidor, busquedaAplicada, academicFilter, employabilityFilter])
 
+  // Cambiar de programa, de vista o de filtro devuelve a la primera página: la
+  // 4 de un listado sin filtrar no existe en el listado filtrado.
   useEffect(() => {
     if (selectedPgm) { setCurrentPage(0); loadEstudiantes(selectedPgm, 0, verPapelera) }
   }, [selectedPgm, loadEstudiantes, verPapelera])
@@ -211,15 +274,20 @@ export default function EstudiantesPage() {
     finally { setLoadingMatches(false) }
   }
 
-  // ── Filtrado local ────────────────────────────────────────────────────────
-  const filtered = (page?.content ?? []).filter((est) => {
-    const q = searchQuery.toLowerCase().trim()
+  // ── Filtrado ──────────────────────────────────────────────────────────────
+  /**
+   * En la vista normal ya viene filtrado del servidor y aquí no se toca:
+   * volver a filtrar lo recibido escondería resultados legítimos, porque el
+   * servidor compara sin tildes y esta comparación de abajo no.
+   */
+  const contenido = page?.content ?? []
+  const filtered = !filtradoEnElCliente ? contenido : contenido.filter((est) => {
+    const q = normalizarParaBuscar(busquedaAplicada)
     const matchQ = !q ||
-      est.nombre.toLowerCase().includes(q) ||
-      est.apellido.toLowerCase().includes(q) ||
-      est.email.toLowerCase().includes(q) ||
-      (est.numeroDocumento?.includes(q)) ||
-      (est.ciudad?.toLowerCase().includes(q))
+      normalizarParaBuscar(`${est.nombre} ${est.apellido}`).includes(q) ||
+      normalizarParaBuscar(est.email).includes(q) ||
+      (est.numeroDocumento ?? '').replace(/[^0-9A-Za-z]/g, '').includes(q.replace(/\s/g, '')) ||
+      normalizarParaBuscar(est.ciudad ?? '').includes(q)
     const matchAcad = academicFilter === 'ALL' || est.estadoAcademico === academicFilter
     const matchEmp  = employabilityFilter === 'ALL' || est.estadoEmpleabilidad === employabilityFilter
     return matchQ && matchAcad && matchEmp
@@ -281,8 +349,7 @@ export default function EstudiantesPage() {
       await estudiantesApi.eliminar(deleting.id)
       setDeleting(null); loadEstudiantes(selectedPgm, currentPage, verPapelera)
     } catch (err) {
-      if (err instanceof ApiCallError) alert(`Error: ${err.body.message ?? `HTTP ${err.status}`}`)
-      else alert('No se pudo conectar con el backend.')
+      mostrarError(mensajeDeError(err, 'No se pudo conectar con el backend.'))
     } finally { setDeletingBusy(false) }
   }
 
@@ -293,7 +360,7 @@ export default function EstudiantesPage() {
       await estudiantesApi.restaurar(id)
       loadEstudiantes(selectedPgm, currentPage, verPapelera)
     } catch (err) {
-      alert('No se pudo restaurar el estudiante.')
+      mostrarError('No se pudo restaurar el estudiante.')
     }
   }
 
@@ -302,12 +369,12 @@ export default function EstudiantesPage() {
     setExecutingMatching(true)
     try {
       const res = await matchesApi.ejecutarMatching()
-      alert(`Matching ejecutado exitosamente. Se crearon ${res.matchesCreados} matches nuevos.`)
+      mostrarExito(`Matching ejecutado exitosamente. Se crearon ${res.matchesCreados} matches nuevos.`)
       if (selected) {
         loadMatches(selected.id)
       }
     } catch (err) {
-      alert('Error al ejecutar el matching.')
+      mostrarError('Error al ejecutar el matching.')
     } finally {
       setExecutingMatching(false)
     }
@@ -321,7 +388,7 @@ export default function EstudiantesPage() {
         loadMatches(selected.id)
       }
     } catch (err) {
-      alert('Error al registrar la postulación.')
+      mostrarError('Error al registrar la postulación.')
     }
   }
 
@@ -342,15 +409,20 @@ export default function EstudiantesPage() {
 
   const handleBulkRestore = async () => {
     if (selectedIds.length === 0) return
-    if (!confirm(`¿Deseas restaurar los ${selectedIds.length} estudiantes seleccionados?`)) return
+    if (!(await confirmar({
+      titulo: 'Restaurar estudiantes',
+      descripcion: `Se restaurarán los ${selectedIds.length} estudiantes seleccionados.`,
+      textoConfirmar: 'Restaurar',
+      destructivo: false,
+    }))) return
     setBulkBusy(true)
     try {
       await Promise.all(selectedIds.map(id => estudiantesApi.restaurar(id)))
-      alert('Estudiantes restaurados exitosamente.')
+      mostrarExito('Estudiantes restaurados exitosamente.')
       setSelectedIds([])
       loadEstudiantes(selectedPgm, currentPage, verPapelera)
     } catch {
-      alert('Ocurrió un error al restaurar algunos estudiantes.')
+      mostrarError('Ocurrió un error al restaurar algunos estudiantes.')
     } finally {
       setBulkBusy(false)
     }
@@ -359,18 +431,22 @@ export default function EstudiantesPage() {
   const handleBulkDelete = async (permanente: boolean) => {
     if (selectedIds.length === 0) return
     const msg = permanente
-      ? `¡ADVERTENCIA CRÍTICA! ¿Estás seguro de eliminar permanentemente a los ${selectedIds.length} estudiantes seleccionados?\nEsta acción es irreversible y removerá todos sus registros asociados.`
-      : `¿Deseas mover a la papelera a los ${selectedIds.length} estudiantes seleccionados?`
-    
-    if (!confirm(msg)) return
+      ? `Se eliminarán permanentemente los ${selectedIds.length} estudiantes seleccionados. Es irreversible y removerá todos sus registros asociados.`
+      : `Se moverán a la papelera los ${selectedIds.length} estudiantes seleccionados.`
+
+    if (!(await confirmar({
+      titulo: permanente ? 'Eliminar definitivamente' : 'Mover a la papelera',
+      descripcion: msg,
+      textoConfirmar: permanente ? 'Eliminar definitivamente' : 'Mover a la papelera',
+    }))) return
     setBulkBusy(true)
     try {
       await estudiantesApi.eliminarMasivo(selectedIds, permanente)
-      alert(permanente ? 'Estudiantes eliminados definitivamente.' : 'Estudiantes enviados a la papelera.')
+      mostrarExito(permanente ? 'Estudiantes eliminados definitivamente.' : 'Estudiantes enviados a la papelera.')
       setSelectedIds([])
       loadEstudiantes(selectedPgm, currentPage, verPapelera)
     } catch {
-      alert('Ocurrió un error al realizar la eliminación masiva.')
+      mostrarError('Ocurrió un error al realizar la eliminación masiva.')
     } finally {
       setBulkBusy(false)
     }
@@ -378,13 +454,17 @@ export default function EstudiantesPage() {
 
   const handleSinglePermanentDelete = async (est: EstudianteResponse, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm(`¡ADVERTENCIA! ¿Estás seguro de eliminar permanentemente a ${est.nombre} ${est.apellido}?\nEsta acción es irreversible.`)) return
+    if (!(await confirmar({
+      titulo: 'Eliminar definitivamente',
+      descripcion: `Se eliminará permanentemente a ${est.nombre} ${est.apellido}. Esta acción es irreversible.`,
+      textoConfirmar: 'Eliminar definitivamente',
+    }))) return
     try {
       await estudiantesApi.eliminarMasivo([est.id], true)
-      alert('Estudiante eliminado permanentemente.')
+      mostrarExito('Estudiante eliminado permanentemente.')
       loadEstudiantes(selectedPgm, currentPage, verPapelera)
     } catch {
-      alert('No se pudo eliminar al estudiante.')
+      mostrarError('No se pudo eliminar al estudiante.')
     }
   }
 
@@ -1156,6 +1236,8 @@ export default function EstudiantesPage() {
           </div>
         </div>
       )}
+      {dialogo}
+      {avisos}
     </div>
   )
 }
