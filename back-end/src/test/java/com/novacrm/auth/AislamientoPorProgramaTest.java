@@ -54,7 +54,7 @@ class AislamientoPorProgramaTest {
         estudiante.setEmail(email);
         estudiante.setPrograma(programa);
 
-        when(estudianteRepository.findByEmail(email)).thenReturn(Optional.of(estudiante));
+        when(estudianteRepository.findByEmailIgnoreCase(email)).thenReturn(Optional.of(estudiante));
     }
 
     @Test
@@ -79,7 +79,7 @@ class AislamientoPorProgramaTest {
         // buscarla, para que un coordinador sin ficha no reciba un 404.
         assertDoesNotThrow(() -> ownershipService.verificarAccesoPrograma(
                 autenticado("coord@novacrm.com", "COORDINADOR"), PROGRAMA_AJENO));
-        verify(estudianteRepository, never()).findByEmail(anyString());
+        verify(estudianteRepository, never()).findByEmailIgnoreCase(anyString());
     }
 
     @Test

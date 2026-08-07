@@ -50,7 +50,13 @@ public class OwnershipService {
      */
     public com.novacrm.estudiante.Estudiante obtenerEstudianteAutenticado(Authentication auth) {
         String email = auth.getName();
-        return estudianteRepository.findByEmail(email)
+        // Ignorando la caja: los correos se cargan desde Excel tal y como
+        // vengan escritos —7 de los 108 participantes tienen mayusculas— y el
+        // subject del JWT sale de la tabla de usuarios. Con igualdad exacta,
+        // una sola letra distinta entre las dos tablas deja a esa persona sin
+        // acceso a NADA de su portal, porque todo el area del estudiante pasa
+        // por aqui, y ademas con un mensaje que culpa a un dato que si existe.
+        return estudianteRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new com.novacrm.exception.ResourceNotFoundException(
                         "El usuario " + email + " no tiene una ficha de estudiante asociada. "
                                 + "Debe crearse desde la gestion de estudiantes o importarse."));

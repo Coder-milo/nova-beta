@@ -1,6 +1,16 @@
 spring:
   application:
     name: nova-crm
+  data:
+    web:
+      pageable:
+        # El tope por defecto de Spring son 2000 registros por peticion, sobre
+        # listas con datos personales de participantes reales. Se baja a 500,
+        # que es red de seguridad y no un filtro fino: la peticion mas grande
+        # que hace hoy la interfaz pide 250 —los desplegables de colocaciones,
+        # que se traen la cohorte entera para elegir— y bajar de ahi le
+        # esconderia participantes sin avisar.
+        max-page-size: 500
   datasource:
     # Nombre canonico primero (el que inyectan docker-compose y render.yaml);
     # se acepta el prefijo NOVA_* como alias para no romper entornos antiguos.

@@ -148,6 +148,56 @@ public class EstudianteService {
         return toResponse(actualizado);
     }
 
+    /**
+     * Lo que el propio estudiante puede cambiar de su ficha.
+     *
+     * <p>Existe aparte de {@link #actualizar} porque {@code /mi-perfil} recibe
+     * el mismo DTO completo, y aplicarlo entero convertia el formulario del
+     * portal en una via para autocertificarse: el estudiante podia escribir su
+     * propio {@code resultadoPruebaEscrita} y {@code resultadoPruebaOral} —de
+     * donde sale el nivel de ingles que pesa en el matching y que decide la
+     * elegibilidad para las vacantes remotas en ingles—, darse por GRADUADO o
+     * por COLOCADO, y mover los contadores de postulaciones enviadas y empresas
+     * contactadas, que son los numeros con los que se mide el programa.
+     *
+     * <p>La lista es la de datos que la persona conoce mejor que nadie:
+     * contacto, ubicacion y el contenido de su hoja de vida. Todo lo que sea
+     * una <em>valoracion</em> —nivel medido, estado, vinculacion a un programa,
+     * documento de identidad, correo de acceso— lo sigue escribiendo quien
+     * gestiona, por {@code PUT /estudiantes/{id}}.
+     *
+     * <p>La restriccion es del endpoint y no del rol: un coordinador que edite
+     * <em>su propia</em> ficha por aqui tambien pasa por esta lista, y para lo
+     * demas tiene la ruta de gestion. Asi no hay que preguntarle a la sesion
+     * quien es para saber que se puede tocar.
+     */
+    @Transactional
+    public EstudianteResponse actualizarMiPerfil(UUID id, EstudianteRequest r) {
+        var e = buscar(id);
+
+        if (r.telefono() != null) e.setTelefono(r.telefono());
+        if (r.celular() != null) e.setCelular(r.celular());
+        if (r.ciudad() != null) e.setCiudad(r.ciudad());
+        if (r.barrio() != null) e.setBarrio(r.barrio());
+        if (r.direccion() != null) e.setDireccion(r.direccion());
+        if (r.perfilProfesional() != null) e.setPerfilProfesional(r.perfilProfesional());
+        if (r.cargoObjetivo() != null) e.setCargoObjetivo(r.cargoObjetivo());
+        if (r.sectorObjetivo() != null) e.setSectorObjetivo(r.sectorObjetivo());
+        if (r.competencias() != null) e.setCompetencias(r.competencias());
+        if (r.idiomas() != null) e.setIdiomas(r.idiomas());
+        if (r.referencias() != null) e.setReferencias(r.referencias());
+        if (r.disponibilidad() != null) e.setDisponibilidad(r.disponibilidad());
+        if (r.disponibilidadLaboral() != null) e.setDisponibilidadLaboral(r.disponibilidadLaboral());
+        if (r.disponibilidadMovilidad() != null) e.setDisponibilidadMovilidad(r.disponibilidadMovilidad());
+        if (r.motivacion() != null) e.setMotivacion(r.motivacion());
+        if (r.linkedinUrl() != null) e.setLinkedinUrl(vacioANulo(r.linkedinUrl()));
+
+        var actualizado = estudianteRepository.save(e);
+        auditoriaService.registrar("Estudiantes", "Actualización de perfil propio", "Estudiante",
+                id.toString(), actualizado.getNombre() + " " + actualizado.getApellido(), null, null);
+        return toResponse(actualizado);
+    }
+
     @Transactional
     public void softDelete(UUID id) {
         var estudiante = buscar(id);

@@ -49,7 +49,10 @@ public class EstudianteController {
     @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
     public EstudianteResponse actualizarMiPerfil(@Valid @RequestBody EstudianteRequest request, Authentication auth) {
         var est = ownershipService.obtenerEstudianteAutenticado(auth);
-        return estudianteService.actualizar(est.getId(), request);
+        // Autoedicion, no edicion completa: el DTO es el mismo que usa la
+        // gestion, y aplicarlo entero dejaba que cada quien se pusiera su propio
+        // nivel de ingles medido y su estado de empleabilidad.
+        return estudianteService.actualizarMiPerfil(est.getId(), request);
     }
 
     @GetMapping("/mi-perfil/hv-vista-previa")
@@ -283,12 +286,20 @@ public class EstudianteController {
         return estudianteService.crear(request);
     }
 
+    /**
+     * Edicion completa de una ficha. Solo gestion.
+     *
+     * <p>Admitia tambien al rol ESTUDIANTE con la comprobacion de que la ficha
+     * fuera la suya, y eso volvia inutil la lista blanca de {@code /mi-perfil}:
+     * bastaba con llamar aqui con el propio identificador para escribir la
+     * ficha entera, incluidos el nivel de ingles medido y el estado de
+     * empleabilidad. El portal nunca uso esta ruta —su formulario va por
+     * {@code /mi-perfil}—, asi que cerrarla no le quita nada al estudiante.
+     */
     @PutMapping("/{id}")
     @Operation(summary = "Actualizar estudiante")
-    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
-    public EstudianteResponse actualizar(@PathVariable UUID id, @Valid @RequestBody EstudianteRequest request,
-                                          Authentication auth) {
-        ownershipService.verificarAccesoEstudiante(auth, id);
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public EstudianteResponse actualizar(@PathVariable UUID id, @Valid @RequestBody EstudianteRequest request) {
         return estudianteService.actualizar(id, request);
     }
 
