@@ -29,6 +29,9 @@ type Message = {
 
 const STORAGE_KEY = 'cac_admin_help_chat'
 
+/** Se distingue del resto de fallos para no responderle con texto local. */
+class SesionCaducada extends Error {}
+
 export function AdminAssistantChat() {
   const router = useRouter()
   const pathname = usePathname()
@@ -148,6 +151,10 @@ export function AdminAssistantChat() {
         body: JSON.stringify({ pregunta: question, rutaActual: pathname }),
       })
 
+      // Una sesión caducada no se puede tapar con la respuesta local: el
+      // fallback de abajo contestaría como si nada y quien administra seguiría
+      // escribiendo a un panel en el que ya no está dentro.
+      if (res.status === 401) throw new SesionCaducada()
       if (!res.ok) throw new Error('API Error')
       const data: RespuestaBackend = await res.json()
 
@@ -162,7 +169,23 @@ export function AdminAssistantChat() {
           createdAt: Date.now(),
         },
       ])
-    } catch {
+    } catch (error) {
+      if (error instanceof SesionCaducada) {
+        setMessages((actual) => [
+          ...actual,
+          {
+            id: `bot-${Date.now()}`,
+            author: 'bot',
+            text: english
+              ? 'Your session expired. Sign in again to keep using the assistant.'
+              : 'Tu sesión expiró. Vuelve a iniciar sesión para seguir usando el asistente.',
+            createdAt: Date.now(),
+          },
+        ])
+        // El `finally` de abajo apaga el indicador de escritura.
+        return
+      }
+
       // Fallback local en frontend si la API del proxy o red falla
       const textLower = question.toLowerCase()
       let navAction: AccionNavegacion | null = null
