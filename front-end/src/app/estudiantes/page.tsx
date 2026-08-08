@@ -757,6 +757,23 @@ export default function EstudiantesPage() {
         )}
 
         <div className="flex gap-2 shrink-0">
+          {/* La revisión de datos incompletos existía entera —endpoint,
+              consulta y esta misma pantalla— pero sólo se alcanzaba escribiendo
+              ?incompletos=1 en la barra de direcciones: nada enlazaba a ella.
+              Con 108 fichas cargadas desde Excel, saber a quién le falta
+              celular, correo o documento es justo lo que decide si se le puede
+              contactar. */}
+          {!verPapelera && (
+            <Button
+              variant={incompleteOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => { setIncompleteOnly((v) => !v); setCurrentPage(0) }}
+              title="Estudiantes activos a los que les falta celular, correo o documento"
+            >
+              <WarningCircle className="size-3.5 mr-1" />
+              {incompleteOnly ? 'Ver todos' : 'Datos incompletos'}
+            </Button>
+          )}
           <Button
             variant={verPapelera ? 'destructive' : 'outline'}
             size="sm"
@@ -786,8 +803,11 @@ export default function EstudiantesPage() {
           <div className="flex items-start gap-2">
             <WarningCircle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
             <div>
-              <p className="text-sm font-semibold text-foreground">Mostrando estudiantes con datos incompletos</p>
-              <p className="text-xs text-muted-foreground">Falta celular, correo o número de documento. Abre el perfil para completar la información.</p>
+              <p className="text-sm font-semibold text-foreground">Mostrando estudiantes con datos incompletos, de todos los proyectos</p>
+              {/* Decirlo importa: el selector de proyecto sigue arriba y aquí
+                  no aplica, así que sin esta línea la lista parece la del
+                  proyecto elegido y no lo es. */}
+              <p className="text-xs text-muted-foreground">Falta celular, correo o número de documento. Esta vista no filtra por el proyecto seleccionado. Abre el perfil para completar la información.</p>
             </div>
           </div>
           <Button
