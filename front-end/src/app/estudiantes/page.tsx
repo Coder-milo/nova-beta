@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { estudiantesApi, programasApi, matchesApi, ApiCallError, mensajeDeError } from '@/lib/api'
+import { normalizarParaBuscar, normalizarDocumento } from '@/lib/texto'
 import { useAvisos } from '@/components/ui/avisos'
 import { useConfirmar } from '@/components/ui/confirmar'
 import type {
@@ -99,25 +100,6 @@ function studentToForm(s: EstudianteResponse): EstudianteRequest {
     estadoEmpleabilidad: s.estadoEmpleabilidad ?? 'SIN_INFO',
     programaId: s.programaId,
   }
-}
-
-/**
- * Texto comparable, con las mismas reglas que usa el servidor.
- *
- * Espeja a `novacrm_normalizar` (migración V38): minúsculas, sin tildes y los
- * signos como espacio. Solo la usan la papelera y el listado de incompletos,
- * que filtran lo ya cargado; el listado normal lo filtra el servidor. Si las
- * dos no coincidieran, buscar «Pérez» daría resultados distintos según la
- * pestaña en la que estés.
- */
-function normalizarParaBuscar(texto: string): string {
-  return texto
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
 }
 
 // Componente auxiliar para campos de detalle
@@ -286,7 +268,7 @@ export default function EstudiantesPage() {
     const matchQ = !q ||
       normalizarParaBuscar(`${est.nombre} ${est.apellido}`).includes(q) ||
       normalizarParaBuscar(est.email).includes(q) ||
-      (est.numeroDocumento ?? '').replace(/[^0-9A-Za-z]/g, '').includes(q.replace(/\s/g, '')) ||
+      normalizarDocumento(est.numeroDocumento ?? '').includes(normalizarDocumento(q)) ||
       normalizarParaBuscar(est.ciudad ?? '').includes(q)
     const matchAcad = academicFilter === 'ALL' || est.estadoAcademico === academicFilter
     const matchEmp  = employabilityFilter === 'ALL' || est.estadoEmpleabilidad === employabilityFilter
