@@ -32,9 +32,30 @@ public class MensajeAdjunto extends BaseEntity {
     @Column(name = "tamano", nullable = false)
     private long tamano;
 
-    /** Distingue los archivos enviados por el equipo de los del estudiante. */
+    /**
+     * Distingue los archivos enviados por el equipo de los del estudiante.
+     *
+     * @deprecated Solo sabe decir "de la pregunta" o "de la respuesta", que
+     *     deja de servir en cuanto un hilo tiene mas de dos turnos. Lo
+     *     sustituye {@link #turno}. Se conserva mientras queden filas antiguas
+     *     y codigo que lo lea; se retira junto con la columna.
+     */
+    @Deprecated
     @Column(name = "es_respuesta", nullable = false)
     private boolean respuesta;
+
+    /**
+     * El turno al que pertenece el archivo.
+     *
+     * <p>Nulo en los adjuntos anteriores a que existieran los turnos que la
+     * migracion no pudiera reubicar; el codigo nuevo siempre lo llena.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "turno_id")
+    private MensajeTurno turno;
+
+    public MensajeTurno getTurno() { return turno; }
+    public void setTurno(MensajeTurno turno) { this.turno = turno; }
 
     public MensajeEstudiante getMensaje() { return mensaje; }
     public void setMensaje(MensajeEstudiante mensaje) { this.mensaje = mensaje; }
