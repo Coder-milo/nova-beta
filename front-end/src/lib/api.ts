@@ -460,11 +460,23 @@ export const vacantesApi = {
   eliminar: (id: string, token?: string) =>
     apiFetch<void>(`/api/v1/vacantes/${id}`, { method: 'DELETE', token }),
   /**
-   * Registra una oferta que encontró un estudiante. Queda pendiente de que el
-   * equipo la valide, así que no entra al listado general.
+   * Registra una oferta que encontró un estudiante.
+   *
+   * Entra con `revisada: false`. Sigue apareciendo en el listado —para que el
+   * equipo pueda verla y validarla— pero el motor de matching la excluye, así
+   * que no se le recomienda a nadie hasta que alguien la dé por buena con
+   * {@link revisar}.
    */
   sugerir: (datos: VacanteRequest, token?: string) =>
     apiFetch<VacanteResponse>('/api/v1/vacantes/sugeridas', { method: 'POST', data: datos, token }),
+  /**
+   * Da por buena una oferta sugerida y la deja entrar al matching.
+   *
+   * Es la barrera que impide que una estafa de empleo llegue a toda la
+   * cohorte de una sola corrida, así que sólo la cruza alguien del equipo.
+   */
+  revisar: (id: string, token?: string) =>
+    apiFetch<VacanteResponse>(`/api/v1/vacantes/${id}/revisar`, { method: 'POST', token }),
   /** Escanea los portales de empleo bajo demanda (COORDINADOR/ADMIN). */
   escanear: (token?: string) =>
     apiFetch<{ vacantesNuevas: number }>('/api/v1/vacantes/scraping', { method: 'POST', token }),

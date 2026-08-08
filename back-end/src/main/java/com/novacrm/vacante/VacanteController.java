@@ -60,12 +60,29 @@ public class VacanteController {
                 .orElse(Map.of("mensaje", "Todavia no se ha ejecutado ninguna actualizacion"));
     }
 
+    /**
+     * El estudiante ve el anuncio; no ve como lo gestiona el equipo.
+     *
+     * <p>{@code creadaPor} y {@code motivoCierre} sólo viajan hacia gestión. El
+     * detalle por identificador ya estaba restringido por ese motivo, pero este
+     * listado devolvía los mismos campos y sí lo alcanza el estudiante: en una
+     * oferta sugerida, {@code creadaPor} es el correo de otro participante.
+     */
     @GetMapping
     @Operation(summary = "Listar vacantes vigentes (paginado)")
     public Page<VacanteResponse> listar(
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
-            Pageable pageable) {
-        return vacanteService.listarActivas(pageable);
+            Pageable pageable,
+            Authentication auth) {
+        return vacanteService.listarActivas(pageable, esGestion(auth));
+    }
+
+    /** ADMIN o COORDINADOR. Un estudiante nunca lo es, aunque tenga sesión. */
+    private static boolean esGestion(Authentication auth) {
+        if (auth == null) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
+                        || a.getAuthority().equals("ROLE_COORDINADOR"));
     }
 
     @GetMapping("/{id}")

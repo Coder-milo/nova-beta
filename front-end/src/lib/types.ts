@@ -335,6 +335,22 @@ export interface VacanteResponse {
   empresaNombre: string | null
   fechaPublicacion: string | null
   createdAt: string
+  /** Si sigue abierta. Una oferta cerrada se conserva pero no se recomienda. */
+  activa?: boolean
+  fechaExpiracion?: string | null
+  /**
+   * Falso en las que registró un estudiante y nadie ha validado. Hasta que se
+   * validen, el matching las excluye: es la barrera que impide que una estafa
+   * de empleo llegue a toda la cohorte.
+   */
+  revisada?: boolean
+  /**
+   * Campos internos de gestión: el servidor los envía nulos cuando quien
+   * pregunta es un estudiante, porque en una oferta sugerida `creadaPor` es el
+   * correo de otro participante.
+   */
+  motivoCierre?: string | null
+  creadaPor?: string | null
 }
 
 /** Datos que el equipo registra cuando crea una vacante sin importar un enlace. */

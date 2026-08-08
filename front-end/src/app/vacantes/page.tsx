@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
-import { vacantesApi, matchesApi, ApiCallError } from '@/lib/api'
+import { vacantesApi, matchesApi, ApiCallError, mensajeDeError } from '@/lib/api'
 import type { VacanteRequest, VacanteResponse, Page } from '@/lib/types'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -59,6 +59,8 @@ export default function VacantesPage() {
   const [guardando, setGuardando]     = useState(false)
   const [formError, setFormError]     = useState<string | null>(null)
   const [formVacante, setFormVacante] = useState<VacanteForm>(formularioVacio)
+  const [revisando, setRevisando]     = useState(false)
+  const [revisarError, setRevisarError] = useState<string | null>(null)
 
   const actualizarFormulario = (campo: keyof VacanteForm, valor: string) => {
     setFormVacante((anterior) => ({ ...anterior, [campo]: valor }))
@@ -148,6 +150,27 @@ export default function VacantesPage() {
 
   useEffect(() => { load(0) }, [load])
 
+  /**
+   * Da por buena una oferta sugerida por un participante.
+   *
+   * Se actualiza la tarjeta en la lista y el panel abierto con lo que
+   * devuelve el servidor, en vez de recargar la página entera: recargar
+   * cerraría el panel y quien está revisando varias perdería el sitio.
+   */
+  const validarOferta = async (id: string) => {
+    setRevisando(true); setRevisarError(null)
+    try {
+      const actualizada = await vacantesApi.revisar(id)
+      setPage((actual) => actual && {
+        ...actual,
+        content: actual.content.map((v) => (v.id === id ? actualizada : v)),
+      })
+      setSelected((actual) => (actual?.id === id ? actualizada : actual))
+    } catch (err) {
+      setRevisarError(mensajeDeError(err, 'No se pudo validar la oferta.'))
+    } finally { setRevisando(false) }
+  }
+
   const filtered = (page?.content ?? []).filter((v) => {
     const q = searchQuery.toLowerCase().trim()
     if (!q) return true
@@ -233,6 +256,15 @@ export default function VacantesPage() {
                         <Buildings className="size-3 shrink-0" />
                         {v.empresaNombre ?? 'Empresa no especificada'}
                       </CardDescription>
+                      {/* La sugerida por un estudiante se ve pero no se
+                          recomienda a nadie hasta que alguien la valide. Sin
+                          este aviso quedaba indistinguible del resto y no había
+                          forma de saber que estaba esperando. */}
+                      {!v.revisada && (
+                        <Badge variant="outline" className="mt-1 w-fit gap-1 border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] text-amber-700 dark:text-amber-400">
+                          <WarningCircle className="size-2.5" />Sin revisar
+                        </Badge>
+                      )}
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3 pt-0">
                       <div className="flex flex-wrap gap-1.5">
@@ -378,6 +410,40 @@ export default function VacantesPage() {
               </SheetHeader>
 
               <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
+                {/* Validación de una oferta sugerida por un estudiante.
+                    Mientras no se valide, el matching la excluye: es la barrera
+                    que impide que una estafa de empleo llegue a toda la cohorte
+                    en una sola corrida. El endpoint existía desde el principio;
+                    lo que faltaba era poder llegar a él desde aquí. */}
+                {!selected.revisada && (
+                  <section className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 flex flex-col gap-3">
+                    <div className="flex items-start gap-2">
+                      <WarningCircle className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                      <div className="text-xs leading-5">
+                        <p className="font-semibold text-foreground">Esta oferta está sin revisar</p>
+                        <p className="text-muted-foreground">
+                          La registró un participante. No se le recomienda a nadie hasta que
+                          alguien del equipo compruebe que es real. Revisa la empresa y el
+                          enlace antes de validarla.
+                        </p>
+                      </div>
+                    </div>
+                    {revisarError && (
+                      <p className="text-xs text-destructive">{revisarError}</p>
+                    )}
+                    <Button
+                      size="sm"
+                      onClick={() => void validarOferta(selected.id)}
+                      disabled={revisando}
+                      className="w-fit"
+                    >
+                      {revisando
+                        ? <><CircleNotch className="size-3.5 animate-spin" /> Validando…</>
+                        : <><CheckCircle className="size-3.5" /> Dar por buena</>}
+                    </Button>
+                  </section>
+                )}
+
                 {/* Info principal */}
                 <section className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-3">
                   <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">Información General</h4>
