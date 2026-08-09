@@ -35,29 +35,110 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { usePreferences } from '@/lib/preferences'
 import { Campo, Selector, Aviso } from '@/components/ui/campo'
 import { VistaPreviaPdf } from '@/components/ui/vista-previa-pdf'
 
-/** Tipos de formación que entiende el generador de la plantilla CAC. */
-const TIPOS_FORMACION = [
-  { valor: 'EDUCACION', etiqueta: 'Educación formal' },
-  { valor: 'CURSO', etiqueta: 'Curso' },
-  { valor: 'CERTIFICACION', etiqueta: 'Certificación' },
-] as const
+/**
+ * Los textos de esta pantalla, en los dos idiomas.
+ *
+ * Cada subcomponente del archivo la llama por su cuenta en vez de recibir los
+ * textos como propiedad: son cuatro niveles y enhebrar una prop por todos
+ * ellos solo para traducir es mas ruido que provecho.
+ */
+export function textosHv(english: boolean) {
+  return english
+    ? {
+        educacionFormal: 'Formal education', curso: 'Course', certificacion: 'Certificate',
+        inmediata: 'Immediate', noDisponible: 'Not available',
+        perfilProfesional: 'Professional summary',
+        perfilAyuda: 'Three or four lines: what you can do and what you are looking for.',
+        perfilPie: 'It is the headline shown under your name.',
+        cargoObjetivo: 'Target role', habilidades: 'Skills and competencies',
+        idiomas: 'Languages', idiomasEjemplo: 'Native Spanish, English B2',
+        celular: 'Mobile / WhatsApp', ciudad: 'City of residence', ciudadEjemplo: 'Barranquilla',
+        ciudadPie: 'It appears on the contact line.',
+        pais: 'Country', paisPie: 'If you leave it empty only the city is printed.',
+        linkedin: 'LinkedIn link', portafolio: 'Portfolio or work folder',
+        disponibilidad: 'Availability', nivelEducativo: 'Education level',
+        nivelEducativoEjemplo: 'Technical, Technologist, Professional\u2026',
+        tituloPrincipal: 'Main academic qualification',
+        tituloEjemplo: 'Systems Technician',
+        guardarDatos: 'Save details', guardarCambios: 'Save changes', guardando: 'Saving\u2026',
+        anadirExperiencia: 'Add experience', anadirFormacion: 'Add education',
+        empresa: 'Company', cargo: 'Role', cargoEjemplo: 'Data analyst',
+        funciones: 'Duties and achievements',
+        funcionesAyuda: 'One per line. Start with a verb.',
+        fechaInicio: 'Start date', fechaFin: 'End date', fechaFinalizacion: 'Completion date',
+        empleoActual: 'Not applicable: this is your current job.',
+        institucion: 'Institution', institucionEducativa: 'Educational institution',
+        programa: 'Programme or course name',
+        selecciona: 'Choose\u2026', cargando: 'Loading\u2026',
+        vistaPrevia: 'Preview of your r\u00e9sum\u00e9', comoQueda: 'How it will look',
+        descargarAviso: 'Downloading saves a new version in your history.',
+        anoImpreso: 'This is where the printed year comes from.',
+        errorExperiencia: 'Company and role are required.',
+        errorFormacion: 'Institution and programme are required.',
+        errorConexion: 'Could not reach the server.',
+      }
+    : {
+        educacionFormal: 'Educaci\u00f3n formal', curso: 'Curso', certificacion: 'Certificaci\u00f3n',
+        inmediata: 'Inmediata', noDisponible: 'No disponible',
+        perfilProfesional: 'Perfil profesional',
+        perfilAyuda: 'Tres o cuatro l\u00edneas: qu\u00e9 sabes hacer y qu\u00e9 buscas.',
+        perfilPie: 'Es el titular que se lee bajo tu nombre.',
+        cargoObjetivo: 'Cargo objetivo', habilidades: 'Habilidades y competencias',
+        idiomas: 'Idiomas', idiomasEjemplo: 'Espa\u00f1ol nativo, Ingl\u00e9s B2',
+        celular: 'Celular / WhatsApp', ciudad: 'Ciudad de residencia', ciudadEjemplo: 'Barranquilla',
+        ciudadPie: 'Sale en la l\u00ednea de contacto.',
+        pais: 'Pa\u00eds', paisPie: 'Si lo dejas vac\u00edo solo se imprime la ciudad.',
+        linkedin: 'Enlace de LinkedIn', portafolio: 'Portafolio o carpeta de trabajos',
+        disponibilidad: 'Disponibilidad laboral', nivelEducativo: 'Nivel educativo',
+        nivelEducativoEjemplo: 'T\u00e9cnico, Tecn\u00f3logo, Profesional\u2026',
+        tituloPrincipal: 'T\u00edtulo acad\u00e9mico principal',
+        tituloEjemplo: 'T\u00e9cnico en Sistemas',
+        guardarDatos: 'Guardar datos', guardarCambios: 'Guardar cambios', guardando: 'Guardando\u2026',
+        anadirExperiencia: 'A\u00f1adir experiencia', anadirFormacion: 'A\u00f1adir formaci\u00f3n',
+        empresa: 'Empresa', cargo: 'Cargo', cargoEjemplo: 'Analista de datos',
+        funciones: 'Funciones y logros',
+        funcionesAyuda: 'Una por l\u00ednea. Empieza con un verbo.',
+        fechaInicio: 'Fecha de inicio', fechaFin: 'Fecha de fin', fechaFinalizacion: 'Fecha de finalizaci\u00f3n',
+        empleoActual: 'No aplica: es tu empleo actual.',
+        institucion: 'Instituci\u00f3n', institucionEducativa: 'Instituci\u00f3n educativa',
+        programa: 'Programa o nombre del curso',
+        selecciona: 'Selecciona\u2026', cargando: 'Cargando\u2026',
+        vistaPrevia: 'Vista previa de tu hoja de vida', comoQueda: 'C\u00f3mo va a quedar',
+        descargarAviso: 'Descargar guarda una versi\u00f3n nueva en tu historial.',
+        anoImpreso: 'De aqu\u00ed sale el a\u00f1o que se imprime.',
+        errorExperiencia: 'La empresa y el cargo son obligatorios.',
+        errorFormacion: 'La instituci\u00f3n y el programa son obligatorios.',
+        errorConexion: 'No se pudo conectar con el servidor.',
+      }
+}
 
-const DISPONIBILIDAD = [
-  { valor: 'INMEDIATA', etiqueta: 'Inmediata' },
+export type TextosHv = ReturnType<typeof textosHv>
+
+/** Tipos de formación que entiende el generador de la plantilla CAC. */
+const tiposFormacion = (T: TextosHv) => [
+  { valor: 'EDUCACION', etiqueta: T.educacionFormal },
+  { valor: 'CURSO', etiqueta: T.curso },
+  { valor: 'CERTIFICACION', etiqueta: T.certificacion },
+]
+
+const disponibilidades = (T: TextosHv) => [
+  { valor: 'INMEDIATA', etiqueta: T.inmediata },
   { valor: '15_DIAS', etiqueta: '15 días' },
   { valor: '30_DIAS', etiqueta: '30 días' },
   { valor: '60_DIAS', etiqueta: '60 días' },
-  { valor: 'NO_DISPONIBLE', etiqueta: 'No disponible' },
-] as const
+  { valor: 'NO_DISPONIBLE', etiqueta: T.noDisponible },
+]
 
-function mensajeDe(error: unknown): string {
+/** @param respaldo texto para cuando el error no trae mensaje propio. */
+function mensajeDe(error: unknown, respaldo: string): string {
   if (error instanceof ApiCallError) {
     return error.body.message ?? `Error del servidor (HTTP ${error.status}).`
   }
-  return error instanceof Error ? error.message : 'No se pudo conectar con el servidor.'
+  return error instanceof Error ? error.message : respaldo
 }
 
 // ── Datos personales y profesionales ────────────────────────────────────────
@@ -107,6 +188,7 @@ function DatosHv({
   onUpdate: (p: EstudianteResponse) => void
   onGuardado: () => void
 }) {
+  const T = textosHv(usePreferences().locale === 'en')
   const [form, setForm] = useState<CamposHv>(() => camposDe(perfil))
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -140,7 +222,7 @@ function DatosHv({
       setOk(true)
       onGuardado()
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     } finally {
       setGuardando(false)
     }
@@ -159,7 +241,7 @@ function DatosHv({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Campo etiqueta="Celular / WhatsApp" ayuda="Sale en la línea de contacto.">
+          <Campo etiqueta={T.celular} ayuda={T.ciudadPie}>
             <Input
               type="tel"
               placeholder="+57 300 000 0000"
@@ -168,15 +250,15 @@ function DatosHv({
             />
           </Campo>
 
-          <Campo etiqueta="Ciudad de residencia">
+          <Campo etiqueta={T.ciudad}>
             <Input
-              placeholder="Barranquilla"
+              placeholder={T.ciudadEjemplo}
               value={form.ciudad}
               onChange={(e) => cambiar('ciudad', e.target.value)}
             />
           </Campo>
 
-          <Campo etiqueta="País" ayuda="Si lo dejas vacío solo se imprime la ciudad.">
+          <Campo etiqueta="País" ayuda={T.paisPie}>
             <Input
               placeholder="Colombia"
               value={form.nacionalidad}
@@ -184,16 +266,16 @@ function DatosHv({
             />
           </Campo>
 
-          <Campo etiqueta="Disponibilidad laboral">
+          <Campo etiqueta={T.disponibilidad}>
             <Selector
               value={form.disponibilidadLaboral}
               onChange={(valor) => cambiar('disponibilidadLaboral', valor)}
-              opciones={DISPONIBILIDAD}
-              vacio="Selecciona…"
+              opciones={disponibilidades(T)}
+              vacio={T.selecciona}
             />
           </Campo>
 
-          <Campo etiqueta="Enlace de LinkedIn" ancho>
+          <Campo etiqueta={T.linkedin} ancho>
             <Input
               type="url"
               placeholder="https://www.linkedin.com/in/tu-perfil"
@@ -203,7 +285,7 @@ function DatosHv({
           </Campo>
 
           <Campo
-            etiqueta="Portafolio o carpeta de trabajos"
+            etiqueta={T.portafolio}
             ancho
             ayuda="Opcional. Aparece como «Portafolio» junto a tus datos de contacto."
           >
@@ -215,19 +297,19 @@ function DatosHv({
             />
           </Campo>
 
-          <Campo etiqueta="Cargo objetivo" ancho requerido ayuda="Es el titular que se lee bajo tu nombre.">
+          <Campo etiqueta={T.cargoObjetivo} ancho requerido ayuda={T.perfilPie}>
             <Input
-              placeholder="Analista de datos"
+              placeholder={T.cargoEjemplo}
               value={form.cargoObjetivo}
               onChange={(e) => cambiar('cargoObjetivo', e.target.value)}
             />
           </Campo>
 
           <Campo
-            etiqueta="Perfil profesional"
+            etiqueta={T.perfilProfesional}
             ancho
             requerido
-            ayuda="Tres o cuatro líneas: qué sabes hacer y qué buscas."
+            ayuda={T.perfilAyuda}
           >
             <Textarea
               minRows={4}
@@ -238,7 +320,7 @@ function DatosHv({
           </Campo>
 
           <Campo
-            etiqueta="Habilidades y competencias"
+            etiqueta={T.habilidades}
             ancho
             ayuda="Una por línea, o separadas por comas. Puedes agrupar con «Ofimática: Excel, Word»."
           >
@@ -250,23 +332,23 @@ function DatosHv({
             />
           </Campo>
 
-          <Campo etiqueta="Idiomas" ancho ayuda="Tu nivel de inglés registrado se añade solo si no lo mencionas aquí.">
+          <Campo etiqueta={T.idiomas} ancho ayuda="Tu nivel de inglés registrado se añade solo si no lo mencionas aquí.">
             <Input
-              placeholder="Español nativo, Inglés B2"
+              placeholder={T.idiomasEjemplo}
               value={form.idiomas}
               onChange={(e) => cambiar('idiomas', e.target.value)}
             />
           </Campo>
 
-          <Campo etiqueta="Título académico principal">
+          <Campo etiqueta={T.tituloPrincipal}>
             <Input
-              placeholder="Técnico en Sistemas"
+              placeholder={T.tituloEjemplo}
               value={form.titulo}
               onChange={(e) => cambiar('titulo', e.target.value)}
             />
           </Campo>
 
-          <Campo etiqueta="Institución educativa">
+          <Campo etiqueta={T.institucionEducativa}>
             <Input
               placeholder="SENA"
               value={form.institucionEducativa}
@@ -274,9 +356,9 @@ function DatosHv({
             />
           </Campo>
 
-          <Campo etiqueta="Nivel educativo" ancho>
+          <Campo etiqueta={T.nivelEducativo} ancho>
             <Input
-              placeholder="Técnico, Tecnólogo, Profesional…"
+              placeholder={T.nivelEducativoEjemplo}
               value={form.nivelEducativo}
               onChange={(e) => cambiar('nivelEducativo', e.target.value)}
             />
@@ -289,7 +371,7 @@ function DatosHv({
         <div className="flex justify-end">
           <Button onClick={guardar} disabled={guardando}>
             {guardando ? <CircleNotch className="size-4 animate-spin" /> : <Check className="size-4" />}
-            {guardando ? 'Guardando…' : 'Guardar datos'}
+            {guardando ? T.guardando : T.guardarDatos}
           </Button>
         </div>
       </CardContent>
@@ -317,6 +399,7 @@ function Experiencias({
   estudianteId: string
   onCambio: () => void
 }) {
+  const T = textosHv(usePreferences().locale === 'en')
   const [items, setItems] = useState<ExperienciaResponse[]>([])
   const [cargando, setCargando] = useState(true)
   const [form, setForm] = useState<ExperienciaRequest>(EXPERIENCIA_VACIA)
@@ -330,7 +413,7 @@ function Experiencias({
     try {
       setItems(await perfilApi.experiencias(estudianteId))
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     } finally {
       setCargando(false)
     }
@@ -364,7 +447,7 @@ function Experiencias({
 
   const guardar = async () => {
     if (!form.empresa.trim() || !form.cargo.trim()) {
-      setError('La empresa y el cargo son obligatorios.')
+      setError(T.errorExperiencia)
       return
     }
     setGuardando(true)
@@ -387,7 +470,7 @@ function Experiencias({
       await recargar()
       onCambio()
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     } finally {
       setGuardando(false)
     }
@@ -400,7 +483,7 @@ function Experiencias({
       await recargar()
       onCambio()
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     }
   }
 
@@ -427,23 +510,23 @@ function Experiencias({
 
         {abierto && (
           <div className="grid gap-4 rounded-xl border border-border bg-secondary/20 p-4 sm:grid-cols-2">
-            <Campo etiqueta="Empresa" requerido>
+            <Campo etiqueta={T.empresa} requerido>
               <Input value={form.empresa} onChange={(e) => setForm({ ...form, empresa: e.target.value })} />
             </Campo>
             <Campo etiqueta="Cargo" requerido>
               <Input value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
             </Campo>
             <Campo etiqueta="Ciudad">
-              <Input value={form.ciudad ?? ''} onChange={(e) => setForm({ ...form, ciudad: e.target.value })} placeholder="Ej: Bogotá" />
+              <Input value={form.ciudad ?? ''} onChange={(e) => setForm({ ...form, ciudad: e.target.value })} placeholder={T.ciudadEjemplo} />
             </Campo>
-            <Campo etiqueta="Fecha de inicio">
+            <Campo etiqueta={T.fechaInicio}>
               <Input
                 type="date"
                 value={form.fechaInicio ?? ''}
                 onChange={(e) => setForm({ ...form, fechaInicio: e.target.value })}
               />
             </Campo>
-            <Campo etiqueta="Fecha de fin" ayuda={form.actual ? 'No aplica: es tu empleo actual.' : undefined}>
+            <Campo etiqueta={T.fechaFin} ayuda={form.actual ? T.empleoActual : undefined}>
               <Input
                 type="date"
                 disabled={form.actual}
@@ -472,7 +555,7 @@ function Experiencias({
               </label>
             </div>
             <Campo
-              etiqueta="Funciones y logros"
+              etiqueta={T.funciones}
               ancho
               ayuda="Una por línea. Empieza con un verbo: «Atendí…», «Coordiné…»."
             >
@@ -489,14 +572,14 @@ function Experiencias({
               </Button>
               <Button onClick={guardar} disabled={guardando}>
                 {guardando ? <CircleNotch className="size-4 animate-spin" /> : <Check className="size-4" />}
-                {editandoId ? 'Guardar cambios' : 'Añadir experiencia'}
+                {editandoId ? T.guardarCambios : T.anadirExperiencia}
               </Button>
             </div>
           </div>
         )}
 
         {cargando ? (
-          <p className="text-sm text-muted-foreground">Cargando…</p>
+          <p className="text-sm text-muted-foreground">{T.cargando}</p>
         ) : items.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
             Todavía no has registrado experiencia. Si nunca has trabajado, puedes dejarlo vacío:
@@ -555,6 +638,7 @@ function Formaciones({
   estudianteId: string
   onCambio: () => void
 }) {
+  const T = textosHv(usePreferences().locale === 'en')
   const [items, setItems] = useState<FormacionResponse[]>([])
   const [cargando, setCargando] = useState(true)
   const [form, setForm] = useState<FormacionRequest>(FORMACION_VACIA)
@@ -568,7 +652,7 @@ function Formaciones({
     try {
       setItems(await perfilApi.formaciones(estudianteId))
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     } finally {
       setCargando(false)
     }
@@ -600,7 +684,7 @@ function Formaciones({
 
   const guardar = async () => {
     if (!form.institucion.trim() || !form.programa.trim()) {
-      setError('La institución y el programa son obligatorios.')
+      setError(T.errorFormacion)
       return
     }
     setGuardando(true)
@@ -620,7 +704,7 @@ function Formaciones({
       await recargar()
       onCambio()
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     } finally {
       setGuardando(false)
     }
@@ -633,7 +717,7 @@ function Formaciones({
       await recargar()
       onCambio()
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     }
   }
 
@@ -665,26 +749,26 @@ function Formaciones({
               <Selector
                 value={form.tipo}
                 onChange={(valor) => setForm({ ...form, tipo: valor })}
-                opciones={TIPOS_FORMACION}
+                opciones={tiposFormacion(T)}
               />
             </Campo>
-            <Campo etiqueta="Institución" requerido>
+            <Campo etiqueta={T.institucion} requerido>
               <Input
                 value={form.institucion}
                 onChange={(e) => setForm({ ...form, institucion: e.target.value })}
               />
             </Campo>
-            <Campo etiqueta="Programa o nombre del curso" ancho requerido>
+            <Campo etiqueta={T.programa} ancho requerido>
               <Input value={form.programa} onChange={(e) => setForm({ ...form, programa: e.target.value })} />
             </Campo>
-            <Campo etiqueta="Fecha de inicio">
+            <Campo etiqueta={T.fechaInicio}>
               <Input
                 type="date"
                 value={form.fechaInicio ?? ''}
                 onChange={(e) => setForm({ ...form, fechaInicio: e.target.value })}
               />
             </Campo>
-            <Campo etiqueta="Fecha de finalización" ayuda="De aquí sale el año que se imprime.">
+            <Campo etiqueta={T.fechaFinalizacion} ayuda={T.anoImpreso}>
               <Input
                 type="date"
                 value={form.fechaFin ?? ''}
@@ -697,14 +781,14 @@ function Formaciones({
               </Button>
               <Button onClick={guardar} disabled={guardando}>
                 {guardando ? <CircleNotch className="size-4 animate-spin" /> : <Check className="size-4" />}
-                {editandoId ? 'Guardar cambios' : 'Añadir formación'}
+                {editandoId ? T.guardarCambios : T.anadirFormacion}
               </Button>
             </div>
           </div>
         )}
 
         {cargando ? (
-          <p className="text-sm text-muted-foreground">Cargando…</p>
+          <p className="text-sm text-muted-foreground">{T.cargando}</p>
         ) : items.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
             Añade aquí los cursos y certificaciones que hayas hecho, dentro o fuera del programa.
@@ -718,7 +802,7 @@ function Formaciones({
                   <p className="text-sm text-muted-foreground">
                     {item.institucion}
                     {item.fechaFin ? ` · ${item.fechaFin.slice(0, 4)}` : ''}
-                    {` · ${TIPOS_FORMACION.find((t) => t.valor === item.tipo)?.etiqueta ?? item.tipo}`}
+                    {` · ${tiposFormacion(T).find((t) => t.valor === item.tipo)?.etiqueta ?? item.tipo}`}
                   </p>
                 </div>
                 <div className="flex gap-1">
@@ -748,6 +832,7 @@ export function StudentHojaDeVida({
   perfil: EstudianteResponse
   onUpdate: (p: EstudianteResponse) => void
 }) {
+  const T = textosHv(usePreferences().locale === 'en')
   const [revision, setRevision] = useState(0)
   const [idioma, setIdioma] = useState<'es' | 'en'>('es')
   const [plantillas, setPlantillas] = useState<PlantillaResponse[]>([])
@@ -802,7 +887,7 @@ export function StudentHojaDeVida({
 
       <Card className="h-fit shadow-none xl:sticky xl:top-24">
         <CardHeader>
-          <CardTitle>Cómo va a quedar</CardTitle>
+          <CardTitle>{T.comoQueda}</CardTitle>
           <CardDescription>
             Elige el diseño y el idioma de tu hoja de vida. Tu selección se guardará automáticamente.
           </CardDescription>
@@ -866,8 +951,8 @@ export function StudentHojaDeVida({
           <VistaPreviaPdf
             cargar={cargar}
             onDescargar={descargar}
-            titulo="Vista previa de tu hoja de vida"
-            descripcion="Descargar guarda una versión nueva en tu historial."
+            titulo={T.vistaPrevia}
+            descripcion={T.descargarAviso}
             altura="32rem"
           />
         </CardContent>
