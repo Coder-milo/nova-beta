@@ -28,6 +28,7 @@ import { StudentDocumentos } from './student-documentos'
 import { StudentPostulaciones } from './student-postulaciones'
 import { StudentHojaDeVida } from './student-hoja-de-vida'
 import { usePreferences } from '@/lib/preferences'
+import { Conversacion } from '@/components/ui/conversacion'
 import { Textarea } from '@/components/ui/textarea'
 
 export type StudentArea =
@@ -62,6 +63,32 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
   const [archivosMensaje, setArchivosMensaje] = useState<File[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  /** Qué conversación está desplegada; sólo una a la vez. */
+  const [hiloAbierto, setHiloAbierto] = useState<string | null>(null)
+
+  const { locale } = usePreferences()
+  const english = locale === 'en'
+
+  /**
+   * Textos del hilo.
+   *
+   * El componente no traduce por su cuenta: recibe las cadenas ya resueltas,
+   * de modo que sirve igual en el portal y en la bandeja del equipo sin
+   * arrastrar un diccionario propio.
+   */
+  const textosConversacion = english
+    ? {
+        escribir: 'Write a message…', enviar: 'Send', adjuntar: 'Attach a file',
+        responder: 'Reply to this message', reaccionar: 'React', cancelar: 'Remove',
+        vacio: 'No messages in this conversation yet.', cargando: 'Loading conversation…',
+        respondiendoA: 'Replying to', maxArchivos: 'Up to 5 files',
+      }
+    : {
+        escribir: 'Escribe un mensaje…', enviar: 'Enviar', adjuntar: 'Adjuntar un archivo',
+        responder: 'Responder a este mensaje', reaccionar: 'Reaccionar', cancelar: 'Quitar',
+        vacio: 'Todavía no hay mensajes en esta conversación.', cargando: 'Cargando conversación…',
+        respondiendoA: 'Respondiendo a', maxArchivos: 'Hasta 5 archivos',
+      }
 
   useEffect(() => {
     ;(async () => {
@@ -362,31 +389,61 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                       {mensaje.estado === 'RESPONDIDO' ? 'Respondido' : 'En seguimiento'}
                     </Badge>
                   </div>
-                  <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{mensaje.contenido}</p>
-                  {mensaje.adjuntos && mensaje.adjuntos.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {mensaje.adjuntos.map((adj) => (
-                        <a
-                          key={adj.id}
-                          href={`/api/v1/mensajes/adjuntos/${adj.id}/archivo`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-2.5 py-1 text-xs hover:bg-muted"
-                        >
-                          <Paperclip className="size-3.5" />
-                          {adj.nombre}
-                        </a>
-                      ))}
+                  {/* El hilo se carga al desplegarlo y no con la tarjeta:
+                      montarlo en todas dispararía una consulta por mensaje
+                      sólo para enseñar el resumen. */}
+                  {hiloAbierto === mensaje.id ? (
+                    <div className="h-[26rem] overflow-hidden rounded-xl border border-border">
+                      <Conversacion
+                        mensajeId={mensaje.id}
+                        soyEstudiante
+                        locale={locale}
+                        textos={textosConversacion}
+                        // Al escribir cambia el estado del hilo (vuelve a
+                        // abrirse), así que se refresca el resumen de la lista.
+                        onTurnoNuevo={() => { void mensajesApi.mios().then(setMensajes).catch(() => undefined) }}
+                      />
                     </div>
+                  ) : (
+                    <>
+                      <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{mensaje.contenido}</p>
+                      {mensaje.adjuntos && mensaje.adjuntos.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {mensaje.adjuntos.map((adj) => (
+                            <a
+                              key={adj.id}
+                              href={`/api/v1/mensajes/adjuntos/${adj.id}/archivo`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-2.5 py-1 text-xs hover:bg-muted"
+                            >
+                              <Paperclip className="size-3.5" />
+                              {adj.nombre}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {mensaje.respuesta && (
+                        <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
+                          <p className="text-sm font-semibold text-primary">
+                            Respuesta del equipo{mensaje.respondidoPor ? ` · ${mensaje.respondidoPor}` : ''}
+                          </p>
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{mensaje.respuesta}</p>
+                        </div>
+                      )}
+                    </>
                   )}
-                  {mensaje.respuesta && (
-                    <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
-                      <p className="text-sm font-semibold text-primary">
-                        Respuesta del equipo{mensaje.respondidoPor ? ` · ${mensaje.respondidoPor}` : ''}
-                      </p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{mensaje.respuesta}</p>
-                    </div>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-fit px-2"
+                    onClick={() => setHiloAbierto(hiloAbierto === mensaje.id ? null : mensaje.id)}
+                  >
+                    <ChatCircle className="size-3.5" />
+                    {hiloAbierto === mensaje.id
+                      ? (english ? 'Close conversation' : 'Cerrar conversación')
+                      : (english ? 'Open conversation' : 'Ver conversación')}
+                  </Button>
                 </CardContent>
               </Card>
             )) : (

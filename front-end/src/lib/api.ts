@@ -504,7 +504,7 @@ export const matchesApi = {
 
 // ─── Notificaciones ──────────────────────────────────────────────────────────
 
-import type { NotificacionResponse, MensajeResponse } from './types'
+import type { NotificacionResponse, MensajeResponse, MensajeTurnoResponse, ReaccionResumen } from './types'
 
 export const notificacionesApi = {
   listarPorEstudiante: (estudianteId: string, page = 0, size = 20, token?: string) =>
@@ -543,7 +543,51 @@ export const mensajesApi = {
         }),
   eliminar: (id: string, token?: string) =>
     apiFetch<void>(`/api/v1/mensajes/${id}`, { method: 'DELETE', token }),
+
+  // ── Conversación por turnos ───────────────────────────────────────────────
+
+  /** El hilo completo, en orden, con adjuntos y reacciones de cada turno. */
+  turnos: (mensajeId: string, token?: string) =>
+    apiFetch<MensajeTurnoResponse[]>(`/api/v1/mensajes/${mensajeId}/turnos`, { token }),
+
+  /**
+   * Añade una intervención al hilo.
+   *
+   * Sirve a las dos partes: el servidor deduce de quién es la sesión para
+   * saber de qué lado se pinta, así que no hay que decírselo.
+   */
+  escribirEnHilo: (
+    mensajeId: string,
+    body: { contenido: string; enRespuestaA?: string; archivos?: File[] },
+    token?: string,
+  ) =>
+    body.archivos?.length
+      ? apiUpload<MensajeTurnoResponse>(`/api/v1/mensajes/${mensajeId}/turnos`, {
+          contenido: body.contenido,
+          enRespuestaA: body.enRespuestaA,
+          archivos: body.archivos,
+        }, token)
+      : apiFetch<MensajeTurnoResponse>(`/api/v1/mensajes/${mensajeId}/turnos`, {
+          method: 'POST',
+          data: { contenido: body.contenido, enRespuestaA: body.enRespuestaA ?? null },
+          token,
+        }),
+
+  /**
+   * Pone o quita tu emoji sobre un turno y devuelve el recuento ya resuelto.
+   *
+   * Alterna: pulsar el mismo dos veces lo retira. Devolver sólo el recuento de
+   * ese turno evita recargar el hilo entero para repintar un botón.
+   */
+  alternarReaccion: (turnoId: string, emoji: string, token?: string) =>
+    apiFetch<ReaccionResumen[]>(
+      `/api/v1/mensajes/turnos/${turnoId}/reacciones?emoji=${encodeURIComponent(emoji)}`,
+      { method: 'POST', token },
+    ),
 }
+
+/** La paleta que acepta el servidor. Cualquier otro emoji se rechaza. */
+export const EMOJIS_REACCION = ['👍', '❤️', '🎉', '👏', '😀', '😮', '😢', '🙏'] as const
 
 // ─── Admin ───────────────────────────────────────────────────────────────────
 

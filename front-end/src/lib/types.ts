@@ -453,6 +453,40 @@ export interface MensajeResponse {
   respuestaAdjuntos: MensajeAdjuntoResponse[]
 }
 
+/**
+ * Una intervención dentro de una conversación.
+ *
+ * Sustituye al par `contenido`/`respuesta` de `MensajeResponse`, que sólo
+ * admitía un intercambio por hilo. Aquél sigue existiendo mientras la bandeja
+ * antigua se apoye en él.
+ */
+export interface MensajeTurnoResponse {
+  id: string
+  autorNombre: string
+  autorEsEstudiante: boolean
+  contenido: string
+  createdAt: string
+  /** Turno citado, si esta intervención responde a uno concreto. */
+  enRespuestaA: string | null
+  /** Primeras palabras del citado, para dibujar la cita sin buscarlo. */
+  enRespuestaAExtracto: string | null
+  adjuntos: MensajeAdjuntoResponse[]
+  reacciones: ReaccionResumen[]
+}
+
+/**
+ * Cuántos pusieron cada emoji y si uno fue quien mira.
+ *
+ * No llega la lista de quiénes reaccionaron: para el contador y el estado del
+ * botón basta con esto, y enviar los correos convertiría el hilo en un
+ * directorio de la cohorte.
+ */
+export interface ReaccionResumen {
+  emoji: string
+  total: number
+  mia: boolean
+}
+
 export interface MensajeAdjuntoResponse {
   id: string
   nombre: string
