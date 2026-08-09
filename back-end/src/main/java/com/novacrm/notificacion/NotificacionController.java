@@ -84,15 +84,28 @@ public class NotificacionController {
         if (mensaje.isBlank()) {
             throw new com.novacrm.exception.BusinessException("El mensaje es obligatorio");
         }
-        int destinatarios = notificacionService.publicarAnuncio(
+        boolean pidioWhatsapp = Boolean.TRUE.equals(request.porWhatsapp());
+        var resultado = notificacionService.publicarAnuncio(
                 request.titulo(), mensaje, request.programaId(), mediaUrl,
                 normalizarTipoMedia(request.mediaTipo(), mediaUrl),
-                Boolean.TRUE.equals(request.porWhatsapp()));
+                pidioWhatsapp);
+
+        // Los dos numeros por separado, y no solo el de destinatarios. Si el
+        // proyecto no tiene canal de WhatsApp configurado no sale ni uno, y
+        // decir "enviado a 108" dejaba a quien publica esperando respuestas que
+        // nadie iba a recibir.
+        String aviso = resultado.destinatarios() == 0
+                ? "No hay estudiantes activos a quienes avisar"
+                : "Anuncio enviado a " + resultado.destinatarios() + " estudiante(s)";
+        if (pidioWhatsapp) {
+            aviso += resultado.porWhatsapp() == 0
+                    ? ". Por WhatsApp no salio ninguno: revisa el canal del proyecto"
+                    : ". Por WhatsApp salieron " + resultado.porWhatsapp() + ".";
+        }
         return java.util.Map.of(
-                "destinatarios", destinatarios,
-                "mensaje", destinatarios == 0
-                        ? "No hay estudiantes activos a quienes avisar"
-                        : "Anuncio enviado a " + destinatarios + " estudiante(s)");
+                "destinatarios", resultado.destinatarios(),
+                "porWhatsapp", resultado.porWhatsapp(),
+                "mensaje", aviso);
     }
 
     @PostMapping(value = "/anuncio/adjunto", consumes = "multipart/form-data")

@@ -48,6 +48,11 @@ import { errorDe } from '@/lib/errores'
 function textos(english: boolean) {
   return english
     ? {
+        destinatarios: 'Recipients',
+        soloElPrograma: (n: string) => `Only the programme: ${n}`,
+        avisarPorWhatsapp: 'Also send it by WhatsApp',
+        requiereCanal: 'Needs an active channel on the project. The result says how many actually went out.',
+
         lesLlegaA: 'It reaches students in their notifications. Use it for job fairs, calls for applications or programme notices.',
         eventoProgramadoLos: 'Event scheduled. Students on the project will see it in their calendar.',
         losEventosDel: "Programme events are published automatically in the students' calendar.",
@@ -67,6 +72,11 @@ function textos(english: boolean) {
         titulo: 'Title',
       }
     : {
+        destinatarios: 'Destinatarios',
+        soloElPrograma: (n: string) => `Solo el programa: ${n}`,
+        avisarPorWhatsapp: 'Avisar además por WhatsApp',
+        requiereCanal: 'Requiere canal activo en el proyecto. El resultado dice cuántos salieron de verdad.',
+
         lesLlegaA: 'Les llega a los estudiantes en sus notificaciones. Úsalo para ferias de empleo, convocatorias o avisos del programa.',
         eventoProgramadoLos: 'Evento programado. Los estudiantes del proyecto lo verán en su calendario.',
         losEventosDel: 'Los eventos del programa se publican automáticamente en el calendario de sus estudiantes.',
@@ -94,6 +104,7 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
   const [titulo, setTitulo] = useState('')
   const [mensaje, setMensaje] = useState('')
   const [programaId, setProgramaId] = useState('')
+  const [porWhatsapp, setPorWhatsapp] = useState(false)
   const [archivo, setArchivo] = useState<File | null>(null)
   const [enlace, setEnlace] = useState('')
   const [tipoEnlace, setTipoEnlace] = useState<'LINK' | 'IMAGE' | 'VIDEO'>('LINK')
@@ -122,6 +133,7 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
         programaId: programaId || undefined,
         mediaUrl,
         mediaTipo,
+        porWhatsapp,
       })
       setResultado(r.mensaje)
       setTitulo('')
@@ -187,7 +199,7 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
 
         <div className="space-y-1.5">
           <label className="text-sm font-medium" htmlFor="anuncio-programa">
-            Destinatarios
+            {T.destinatarios}
           </label>
           <select
             id="anuncio-programa"
@@ -198,11 +210,28 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
             <option value="">{T.todosLosEstudiantes}</option>
             {programas.map((p) => (
               <option key={p.id} value={p.id}>
-                Solo el programa: {p.nombre}
+                {T.soloElPrograma(p.nombre)}
               </option>
             ))}
           </select>
         </div>
+
+        {/* El aviso por WhatsApp existía en el backend y ninguna pantalla lo
+            pedía, así que un anuncio sólo llegaba a la campana. Va sin marcar:
+            el panel es gratis, el mensaje al celular consume plantilla y llega
+            a la gente fuera de la aplicación. */}
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4"
+            checked={porWhatsapp}
+            onChange={(e) => setPorWhatsapp(e.target.checked)}
+          />
+          <span className="text-sm">
+            {T.avisarPorWhatsapp}
+            <span className="block text-xs text-muted-foreground">{T.requiereCanal}</span>
+          </span>
+        </label>
 
         {error && (
           <p className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">

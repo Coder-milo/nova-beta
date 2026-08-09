@@ -94,20 +94,30 @@ public class WhatsappAvisosService {
         }
     }
 
-    /** Aviso de anuncio, cuando el coordinador lo pidió al publicarlo. */
+    /**
+     * Aviso de anuncio, cuando el coordinador lo pidió al publicarlo.
+     *
+     * <p>Devuelve si salió. Antes no devolvía nada y los fallos quedaban en el
+     * log: si el proyecto no tenía canal configurado no se enviaba ni uno, y la
+     * pantalla seguía diciendo «anuncio enviado a 108 estudiantes». Quien lo
+     * publicaba se quedaba esperando respuestas que nadie iba a recibir.
+     *
+     * @return true si el mensaje salió de verdad
+     */
     @Transactional
-    public void avisarAnuncio(Estudiante estudiante, String titulo, String mensaje) {
+    public boolean avisarAnuncio(Estudiante estudiante, String titulo, String mensaje) {
         UUID programaId = programaDe(estudiante);
-        if (programaId == null) return;
-        if (!whatsappSender.estaConfigurado(programaId)) return;
+        if (programaId == null) return false;
+        if (!whatsappSender.estaConfigurado(programaId)) return false;
 
         var resultado = whatsappSender.enviarPlantilla(programaId, estudiante.getCelular(),
                 PLANTILLA_ANUNCIO, List.of(titulo, mensaje), null);
         if (resultado.enviado()) {
             registrarSaliente(estudiante, titulo + ": " + mensaje);
-        } else {
-            log.info("Aviso de anuncio a {} no enviado: {}", estudiante.getEmail(), resultado.motivoFallo());
+            return true;
         }
+        log.info("Aviso de anuncio a {} no enviado: {}", estudiante.getEmail(), resultado.motivoFallo());
+        return false;
     }
 
     private void registrarSaliente(Estudiante estudiante, String texto) {

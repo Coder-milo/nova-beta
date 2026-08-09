@@ -975,13 +975,21 @@ export type TipoMediaAnuncio = 'IMAGE' | 'VIDEO' | 'LINK' | 'FILE'
 export const comunicacionesApi = {
   /** Publica un anuncio que llega a los estudiantes como notificación. */
   publicarAnuncio: (
-    body: { titulo: string; mensaje: string; programaId?: string; mediaUrl?: string; mediaTipo?: TipoMediaAnuncio },
+    body: {
+      titulo: string
+      mensaje: string
+      programaId?: string
+      mediaUrl?: string
+      mediaTipo?: TipoMediaAnuncio
+      /** Avisar además por WhatsApp; requiere canal activo en el proyecto. */
+      porWhatsapp?: boolean
+    },
     token?: string,
   ) =>
     apiFetch<{
       destinatarios: number
-      correosEnviados: number
-      correosFallidos: number
+      /** Cuántos salieron de verdad por WhatsApp, que no tiene por qué ser todos. */
+      porWhatsapp: number
       mensaje: string
     }>(
       '/api/v1/notificaciones/anuncio',

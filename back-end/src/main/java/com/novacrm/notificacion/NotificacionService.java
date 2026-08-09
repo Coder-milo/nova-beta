@@ -49,17 +49,20 @@ public class NotificacionService {
      *
      * @param porWhatsapp si ademas se avisa por WhatsApp; solo cuando el canal
      *                    del programa esta activo y la plantilla aprobada
-     * @return cuantos destinatarios recibieron el anuncio
+     * @return cuantos recibieron el anuncio en el panel y cuantos ademas por
+     *         WhatsApp, que no tienen por que coincidir
      */
+    public record ResultadoAnuncio(int destinatarios, int porWhatsapp) {}
+
     @Transactional
-    public int publicarAnuncio(String titulo, String mensaje, UUID programaId,
+    public ResultadoAnuncio publicarAnuncio(String titulo, String mensaje, UUID programaId,
                                String mediaUrl, String mediaTipo, boolean porWhatsapp) {
         var destinatarios = programaId == null
                 ? estudianteRepository.findAllByActivoTrue()
                 : estudianteRepository.findAllByProgramaIdAndActivoTrue(programaId);
 
         if (destinatarios.isEmpty()) {
-            return 0;
+            return new ResultadoAnuncio(0, 0);
         }
 
         var notificaciones = destinatarios.stream().map(estudiante -> {
@@ -77,14 +80,17 @@ public class NotificacionService {
 
         // Opt-in por anuncio: el coordinador decide en cada publicacion si
         // ademas del panel quiere llegar al celular de la gente.
+        int enviadosPorWhatsapp = 0;
         if (porWhatsapp) {
             for (var estudiante : destinatarios) {
-                whatsappAvisosService.avisarAnuncio(estudiante, titulo,
-                        com.novacrm.config.TextoPlano.deHtml(mensaje));
+                if (whatsappAvisosService.avisarAnuncio(estudiante, titulo,
+                        com.novacrm.config.TextoPlano.deHtml(mensaje))) {
+                    enviadosPorWhatsapp++;
+                }
             }
         }
 
-        return notificaciones.size();
+        return new ResultadoAnuncio(notificaciones.size(), enviadosPorWhatsapp);
     }
 
     public Page<NotificacionResponse> obtenerNotificaciones(UUID estudianteId, Pageable pageable) {
