@@ -5,6 +5,7 @@ import { ArrowRightIcon as ArrowRight, ArrowSquareOutIcon as ArrowSquareOut, Bri
 import type { ComponentType } from 'react'
 import { ApiCallError, matchesApi, mensajeDeError, postulacionesApi } from '@/lib/api'
 import { hoyLocal } from '@/lib/utils'
+import { usePreferences } from '@/lib/preferences'
 import type { MatchResponse, PostulacionResponse, RazonDeMatch } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -126,27 +127,102 @@ function Hecho({
  * original es un ancla real: funciona siempre, aunque el navegador bloquee la
  * apertura automática al postularse.
  */
-function DetalleVacante({ m }: { m: MatchResponse }) {
+/**
+ * Los textos de esta pantalla, en los dos idiomas.
+ *
+ * Junto al componente y no en el diccionario global, igual que en la pantalla
+ * de documentos: `preferences` guarda lo que se repite en toda la aplicacion,
+ * no las cadenas de una sola vista.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        pago: 'Pay', ciudad: 'City', modalidad: 'Work mode', jornada: 'Schedule',
+        contrato: 'Contract', ingles: 'English', experiencia: 'Experience',
+        aplicaAntes: 'Apply before', sinExperiencia: 'No previous experience',
+        anio: 'year', anios: 'years',
+        requisitos: 'Requirements', descripcionOferta: 'Job description',
+        verOriginal: 'View original posting', sinEnlace: 'This posting has no direct link.',
+        fuente: 'Source',
+        seguimiento: 'My application tracker', misPostulaciones: 'My applications',
+        oportunidades: 'Recommended opportunities', compatibilidad: 'Match:',
+        verOferta: 'View posting', postularme: 'Apply', postulando: 'Applying…',
+        registrar: 'Log an application',
+        registrarPie: 'Include processes that did not come from the portal.',
+        vacioHistorial: 'Log your own application or apply from a recommended opportunity.',
+        vacioSinVacantes: 'There are no openings matching your profile yet. The system looks for opportunities automatically.',
+        vacioTodasHechas: 'You have applied to every available opportunity. Well done!',
+        empresa: 'Company *', cargo: 'Role you applied for *',
+        canal: 'Channel (LinkedIn, Computrabajo…)', urlOferta: 'Posting URL (optional)',
+        observaciones: 'Notes',
+        eliminarPostulacion: 'Delete application', eliminar: 'Delete',
+        cerrarAviso: 'Close notification',
+        estados: { ENVIADA: 'Sent', EN_PROCESO: 'In progress', ENTREVISTA_AGENDADA: 'Interview scheduled', ENTREVISTA_REALIZADA: 'Interview done', RECHAZADO: 'Did not continue', CONTRATADO: 'Hired' },
+        errorCargar: 'Opportunities could not be loaded.',
+        errorPostular: 'The application could not be logged.',
+        errorEliminar: 'The application could not be deleted.',
+        errorEstado: 'The status could not be updated.',
+        okPostulada: 'Application logged.', okEliminada: 'Application deleted.',
+        okEstado: 'Status updated.',
+        confirmarEliminar: 'This application will be removed from your tracker. This cannot be undone.',
+      }
+    : {
+        pago: 'Pago', ciudad: 'Ciudad', modalidad: 'Modalidad', jornada: 'Jornada',
+        contrato: 'Contrato', ingles: 'Inglés', experiencia: 'Experiencia',
+        aplicaAntes: 'Aplica antes de', sinExperiencia: 'Sin experiencia previa',
+        anio: 'año', anios: 'años',
+        requisitos: 'Requisitos', descripcionOferta: 'Descripción de la oferta',
+        verOriginal: 'Ver oferta original', sinEnlace: 'Esta oferta no trae enlace directo.',
+        fuente: 'Fuente',
+        seguimiento: 'Seguimiento de mis postulaciones', misPostulaciones: 'Mis postulaciones',
+        oportunidades: 'Oportunidades recomendadas', compatibilidad: 'Compatibilidad:',
+        verOferta: 'Ver oferta', postularme: 'Postularme', postulando: 'Postulando…',
+        registrar: 'Registrar postulación',
+        registrarPie: 'Incluye procesos que no salieron del portal.',
+        vacioHistorial: 'Registra una postulación propia o postúlate desde una oportunidad recomendada.',
+        vacioSinVacantes: 'Aún no hay vacantes compatibles con tu perfil. El sistema busca oportunidades automáticamente.',
+        vacioTodasHechas: 'Ya te postulaste a todas las oportunidades disponibles. ¡Bien hecho!',
+        empresa: 'Empresa *', cargo: 'Cargo al que aplicaste *',
+        canal: 'Canal (LinkedIn, Computrabajo...)', urlOferta: 'URL de la oferta (opcional)',
+        observaciones: 'Observaciones o notas',
+        eliminarPostulacion: 'Eliminar postulación', eliminar: 'Eliminar',
+        cerrarAviso: 'Cerrar notificación',
+        estados: { ENVIADA: 'Enviada', EN_PROCESO: 'En proceso', ENTREVISTA_AGENDADA: 'Entrevista agendada', ENTREVISTA_REALIZADA: 'Entrevista realizada', RECHAZADO: 'No continuó', CONTRATADO: 'Contratado' },
+        errorCargar: 'No se pudieron cargar las oportunidades.',
+        errorPostular: 'No se pudo registrar la postulación.',
+        errorEliminar: 'No se pudo eliminar la postulación.',
+        errorEstado: 'No se pudo actualizar el estado.',
+        okPostulada: 'Postulación registrada exitosamente.', okEliminada: 'Postulación eliminada.',
+        okEstado: 'Estado actualizado.',
+        confirmarEliminar: 'Esta postulación se quitará de tu seguimiento. No se puede deshacer.',
+      }
+}
+
+export type TextosPostulaciones = ReturnType<typeof textos>
+
+function DetalleVacante({ m, T }: { m: MatchResponse; T: TextosPostulaciones }) {
   const ciudad = m.vacanteCiudad || m.vacanteUbicacion
   const experiencia =
     m.vacanteAniosExperienciaRequeridos == null
       ? null
       : m.vacanteAniosExperienciaRequeridos === 0
-        ? 'Sin experiencia previa'
-        : `${m.vacanteAniosExperienciaRequeridos} año${m.vacanteAniosExperienciaRequeridos === 1 ? '' : 's'}`
+        ? T.sinExperiencia
+        : `${m.vacanteAniosExperienciaRequeridos} ${m.vacanteAniosExperienciaRequeridos === 1 ? T.anio : T.anios}`
   const expira = m.vacanteFechaExpiracion
-    ? new Date(m.vacanteFechaExpiracion).toLocaleDateString()
+    // Con el idioma de la aplicacion y no el del navegador: si no, la fecha
+    // limite salia en el formato del sistema dentro de una pantalla traducida.
+    ? new Date(m.vacanteFechaExpiracion).toLocaleDateString(T.anio === 'year' ? 'en-US' : 'es-CO')
     : null
 
   const hechos = [
-    m.vacanteRangoSalarial && { icon: CurrencyDollar, etiqueta: 'Pago', valor: m.vacanteRangoSalarial },
-    ciudad && { icon: MapPin, etiqueta: 'Ciudad', valor: ciudad },
-    m.vacanteModalidadTrabajo && { icon: Laptop, etiqueta: 'Modalidad', valor: m.vacanteModalidadTrabajo },
-    m.vacanteJornada && { icon: Clock, etiqueta: 'Jornada', valor: m.vacanteJornada },
-    m.vacanteTipoContrato && { icon: Briefcase, etiqueta: 'Contrato', valor: m.vacanteTipoContrato },
-    m.vacanteNivelInglesRequerido && { icon: Translate, etiqueta: 'Inglés', valor: m.vacanteNivelInglesRequerido },
-    experiencia && { icon: GraduationCap, etiqueta: 'Experiencia', valor: experiencia },
-    expira && { icon: Calendar, etiqueta: 'Aplica antes de', valor: expira },
+    m.vacanteRangoSalarial && { icon: CurrencyDollar, etiqueta: T.pago, valor: m.vacanteRangoSalarial },
+    ciudad && { icon: MapPin, etiqueta: T.ciudad, valor: ciudad },
+    m.vacanteModalidadTrabajo && { icon: Laptop, etiqueta: T.modalidad, valor: m.vacanteModalidadTrabajo },
+    m.vacanteJornada && { icon: Clock, etiqueta: T.jornada, valor: m.vacanteJornada },
+    m.vacanteTipoContrato && { icon: Briefcase, etiqueta: T.contrato, valor: m.vacanteTipoContrato },
+    m.vacanteNivelInglesRequerido && { icon: Translate, etiqueta: T.ingles, valor: m.vacanteNivelInglesRequerido },
+    experiencia && { icon: GraduationCap, etiqueta: T.experiencia, valor: experiencia },
+    expira && { icon: Calendar, etiqueta: T.aplicaAntes, valor: expira },
   ].filter(Boolean) as { icon: ComponentType<{ className?: string }>; etiqueta: string; valor: string }[]
 
   const descripcion = m.vacanteDescripcion?.trim()
@@ -167,7 +243,7 @@ function DetalleVacante({ m }: { m: MatchResponse }) {
       {requisitos && (
         <details>
           <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
-            Requisitos
+            {T.requisitos}
           </summary>
           <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{requisitos}</p>
         </details>
@@ -175,7 +251,7 @@ function DetalleVacante({ m }: { m: MatchResponse }) {
       {descripcion && (
         <details>
           <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
-            Descripción de la oferta
+            {T.descripcionOferta}
           </summary>
           <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{descripcion}</p>
         </details>
@@ -189,13 +265,13 @@ function DetalleVacante({ m }: { m: MatchResponse }) {
             className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-2"
           >
             <ArrowSquareOut className="size-3.5" />
-            Ver oferta original
+            {T.verOriginal}
           </a>
         ) : (
-          <span className="text-xs text-muted-foreground">Esta oferta no trae enlace directo.</span>
+          <span className="text-xs text-muted-foreground">{T.sinEnlace}</span>
         )}
         {m.vacanteFuente && (
-          <span className="text-[11px] text-muted-foreground">Fuente: {m.vacanteFuente}</span>
+          <span className="text-[11px] text-muted-foreground">{T.fuente}: {m.vacanteFuente}</span>
         )}
       </div>
     </div>
@@ -203,6 +279,8 @@ function DetalleVacante({ m }: { m: MatchResponse }) {
 }
 
 export function StudentPostulaciones() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   const [matches, setMatches] = useState<MatchResponse[]>([])
   const [historial, setHistorial] = useState<PostulacionResponse[]>([])
   const [loading, setLoading] = useState(true)
@@ -240,7 +318,7 @@ export function StudentPostulaciones() {
         setError(
           e instanceof ApiCallError
             ? (e.body.message ?? `Error ${e.status}`)
-            : 'No se pudieron cargar las oportunidades.',
+            : T.errorCargar,
         )
       } finally {
         setLoading(false)
@@ -281,7 +359,7 @@ export function StudentPostulaciones() {
           : `Postulación a "${match.vacanteTitulo}" registrada. Esta oferta no trae enlace directo; búscala como "${match.vacanteEmpresa}" en el portal o consulta a tu coordinador.`,
       )
     } catch (e) {
-      mostrarNotificacion('error', mensajeDeError(e, 'No se pudo registrar la postulación.'))
+      mostrarNotificacion('error', mensajeDeError(e, T.errorPostular))
     } finally {
       setPostulando(null)
     }
@@ -308,9 +386,9 @@ export function StudentPostulaciones() {
       setCanalManual('')
       setUrlOfertaManual('')
       setObservacionesManual('')
-      mostrarNotificacion('exito', 'Postulación registrada exitosamente.')
+      mostrarNotificacion('exito', T.okPostulada)
     } catch (e) {
-      mostrarNotificacion('error', mensajeDeError(e, 'No se pudo registrar la postulación.'))
+      mostrarNotificacion('error', mensajeDeError(e, T.errorPostular))
     } finally {
       setRegistrando(false)
     }
@@ -325,9 +403,9 @@ export function StudentPostulaciones() {
     try {
       await postulacionesApi.eliminar(objetivo.id)
       setHistorial((items) => items.filter((item) => item.id !== objetivo.id))
-      mostrarNotificacion('exito', 'Postulación eliminada.')
+      mostrarNotificacion('exito', T.okEliminada)
     } catch (e) {
-      mostrarNotificacion('error', mensajeDeError(e, 'No se pudo eliminar la postulación.'))
+      mostrarNotificacion('error', mensajeDeError(e, T.errorEliminar))
       throw e
     }
   }
@@ -336,9 +414,9 @@ export function StudentPostulaciones() {
     try {
       const actualizada = await postulacionesApi.actualizar(id, { estado })
       setHistorial((items) => items.map((item) => item.id === id ? actualizada : item))
-      mostrarNotificacion('exito', 'Estado actualizado.')
+      mostrarNotificacion('exito', T.okEstado)
     } catch (e) {
-      mostrarNotificacion('error', mensajeDeError(e, 'No se pudo actualizar el estado.'))
+      mostrarNotificacion('error', mensajeDeError(e, T.errorEstado))
     }
   }
 
@@ -376,7 +454,7 @@ export function StudentPostulaciones() {
             type="button"
             onClick={() => setNotificacion(null)}
             className="rounded-md p-1 opacity-70 hover:opacity-100"
-            aria-label="Cerrar notificación"
+            aria-label={T.cerrarAviso}
           >
             ✕
           </button>
@@ -393,11 +471,11 @@ export function StudentPostulaciones() {
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Seguimiento de mis postulaciones ({historial.length})
+            {T.seguimiento} ({historial.length})
           </h2>
           {historial.length === 0 ? (
             <Card className="border-dashed shadow-none">
-              <CardContent className="p-5 text-sm text-muted-foreground">Registra una postulación propia o postúlate desde una oportunidad recomendada.</CardContent>
+              <CardContent className="p-5 text-sm text-muted-foreground">{T.vacioHistorial}</CardContent>
             </Card>
           ) : historial.map((postulacion) => (
             <Card key={postulacion.id} className="shadow-none">
@@ -415,7 +493,7 @@ export function StudentPostulaciones() {
                       rel="noreferrer"
                       className="mt-0.5 inline-block text-xs text-primary underline truncate max-w-xs"
                     >
-                      Ver oferta
+                      {T.verOferta}
                     </a>
                   )}
                   {postulacion.observaciones && (
@@ -431,12 +509,12 @@ export function StudentPostulaciones() {
                     onChange={(event) => void actualizarEstado(postulacion.id, event.target.value)}
                     className="h-8 rounded-md border border-input bg-background px-2 text-xs"
                   >
-                    <option value="ENVIADA">Enviada</option>
-                    <option value="EN_PROCESO">En proceso</option>
-                    <option value="ENTREVISTA_AGENDADA">Entrevista agendada</option>
-                    <option value="ENTREVISTA_REALIZADA">Entrevista realizada</option>
-                    <option value="RECHAZADO">No continuó</option>
-                    <option value="CONTRATADO">Contratado</option>
+                    <option value="ENVIADA">{T.estados.ENVIADA}</option>
+                    <option value="EN_PROCESO">{T.estados.EN_PROCESO}</option>
+                    <option value="ENTREVISTA_AGENDADA">{T.estados.ENTREVISTA_AGENDADA}</option>
+                    <option value="ENTREVISTA_REALIZADA">{T.estados.ENTREVISTA_REALIZADA}</option>
+                    <option value="RECHAZADO">{T.estados.RECHAZADO}</option>
+                    <option value="CONTRATADO">{T.estados.CONTRATADO}</option>
                   </select>
                   <Button
                     type="button"
@@ -444,7 +522,7 @@ export function StudentPostulaciones() {
                     size="icon"
                     className="size-8 text-muted-foreground hover:text-destructive"
                     onClick={() => setPorEliminar(postulacion)}
-                    title="Eliminar postulación"
+                    title={T.eliminarPostulacion}
                   >
                     <Trash className="size-4" />
                   </Button>
@@ -454,14 +532,14 @@ export function StudentPostulaciones() {
           ))}
         </div>
         <Card className="h-fit shadow-none">
-          <CardHeader><CardTitle className="text-base">Registrar postulación</CardTitle><CardDescription>Incluye procesos que no salieron del portal.</CardDescription></CardHeader>
+          <CardHeader><CardTitle className="text-base">{T.registrar}</CardTitle><CardDescription>{T.registrarPie}</CardDescription></CardHeader>
           <CardContent>
             <form className="space-y-3" onSubmit={registrarManual}>
-              <Input required placeholder="Empresa *" value={empresaManual} onChange={(event) => setEmpresaManual(event.target.value)} />
-              <Input required placeholder="Cargo al que aplicaste *" value={cargoManual} onChange={(event) => setCargoManual(event.target.value)} />
-              <Input placeholder="Canal (LinkedIn, Computrabajo...)" value={canalManual} onChange={(event) => setCanalManual(event.target.value)} />
-              <Input placeholder="URL de la oferta (opcional)" value={urlOfertaManual} onChange={(event) => setUrlOfertaManual(event.target.value)} />
-              <Input placeholder="Observaciones o notas" value={observacionesManual} onChange={(event) => setObservacionesManual(event.target.value)} />
+              <Input required placeholder={T.empresa} value={empresaManual} onChange={(event) => setEmpresaManual(event.target.value)} />
+              <Input required placeholder={T.cargo} value={cargoManual} onChange={(event) => setCargoManual(event.target.value)} />
+              <Input placeholder={T.canal} value={canalManual} onChange={(event) => setCanalManual(event.target.value)} />
+              <Input placeholder={T.urlOferta} value={urlOfertaManual} onChange={(event) => setUrlOfertaManual(event.target.value)} />
+              <Input placeholder={T.observaciones} value={observacionesManual} onChange={(event) => setObservacionesManual(event.target.value)} />
               <Button type="submit" className="w-full" disabled={registrando}>{registrando ? 'Registrando…' : 'Registrar proceso'}</Button>
             </form>
           </CardContent>
@@ -472,7 +550,7 @@ export function StudentPostulaciones() {
       {postuladas.length > 0 && (
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Mis postulaciones ({postuladas.length})
+            {T.misPostulaciones} ({postuladas.length})
           </h2>
           <div className="grid gap-4 md:grid-cols-2">
             {postuladas.map((m) => (
@@ -490,11 +568,11 @@ export function StudentPostulaciones() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <DetalleVacante m={m} />
+                  <DetalleVacante m={m} T={T} />
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <Sparkle className="size-3.5 text-primary" />
-                      <span className="text-xs text-muted-foreground">Compatibilidad:</span>
+                      <span className="text-xs text-muted-foreground">{T.compatibilidad}</span>
                       <MatchScore score={m.puntaje} />
                     </div>
                     <RazonesDelMatch razones={m.razones} cobertura={m.cobertura} />
@@ -513,7 +591,7 @@ export function StudentPostulaciones() {
       {/* ── Oportunidades disponibles ── */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Oportunidades recomendadas ({disponibles.length})
+          {T.oportunidades} ({disponibles.length})
         </h2>
 
         {disponibles.length === 0 ? (
@@ -524,8 +602,8 @@ export function StudentPostulaciones() {
               </span>
               <p className="max-w-md text-sm">
                 {matches.length === 0
-                  ? 'Aún no hay vacantes compatibles con tu perfil. El sistema busca oportunidades automáticamente.'
-                  : 'Ya te postulaste a todas las oportunidades disponibles. ¡Bien hecho!'}
+                  ? T.vacioSinVacantes
+                  : T.vacioTodasHechas}
               </p>
             </CardContent>
           </Card>
@@ -546,11 +624,11 @@ export function StudentPostulaciones() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <DetalleVacante m={m} />
+                  <DetalleVacante m={m} T={T} />
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <Sparkle className="size-3.5 text-primary" />
-                      <span className="text-xs text-muted-foreground">Compatibilidad:</span>
+                      <span className="text-xs text-muted-foreground">{T.compatibilidad}</span>
                       <MatchScore score={m.puntaje} />
                     </div>
                     <RazonesDelMatch razones={m.razones} cobertura={m.cobertura} />
@@ -564,11 +642,11 @@ export function StudentPostulaciones() {
                     {postulando === m.id ? (
                       <>
                         <CircleNotch className="size-4 animate-spin" />
-                        Registrando…
+                        {T.postulando}
                       </>
                     ) : (
                       <>
-                        Postularme
+                        {T.postularme}
                         <ArrowRight className="size-4" />
                       </>
                     )}
@@ -585,13 +663,13 @@ export function StudentPostulaciones() {
         onOpenChange={(abierto) => {
           if (!abierto) setPorEliminar(null)
         }}
-        titulo="Eliminar postulación"
+        titulo={T.eliminarPostulacion}
         descripcion={
           porEliminar
             ? `Se eliminará el seguimiento de "${porEliminar.cargo}" en ${porEliminar.empresaNombre}. Esta acción no se puede deshacer.`
             : undefined
         }
-        textoConfirmar="Eliminar"
+        textoConfirmar={T.eliminar}
         onConfirmar={eliminarPostulacion}
       />
     </div>
