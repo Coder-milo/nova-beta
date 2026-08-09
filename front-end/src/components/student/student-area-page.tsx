@@ -49,6 +49,101 @@ function estadoHito(valor: string | null | undefined) {
   return { texto: 'Pendiente', clase: 'border-border bg-muted/50 text-muted-foreground' }
 }
 
+/**
+ * Los textos del armazon del portal, en los dos idiomas.
+ *
+ * Completa lo que ya traducian `t()` y los ternarios sueltos de este
+ * archivo: quedaban 39 cadenas fijas en espanol, de modo que poner la
+ * aplicacion en ingles dejaba la mitad de cada pantalla sin cambiar.
+ */
+function textosArea(english: boolean) {
+  return english
+    ? {
+        accesosAsociadosATu: 'Links tied to your employability process.',
+        agregarEnlaceDeLinkedin: 'Add LinkedIn link',
+        asiVaTuPerfil: 'This is how your profile looks before you apply.',
+        aunNoHasEnviado: 'You have not sent any messages to the support team yet.',
+        cvEnIngles: 'Résumé in English',
+        canalSinRegistrar: 'Channel not recorded',
+        canalesDeAtencion: 'Support channels',
+        cargoPendienteDeRegistrar: 'Role not recorded yet',
+        cargosALosQue: 'Roles you can apply for',
+        carpetaDeDocumentos: 'Document folder',
+        cuentanosEnQueNecesitas: 'Tell us what you need help with…',
+        comoFuncionaMiProceso: 'How my process works',
+        comoMejorarMiHoja: 'How to improve my résumé',
+        elEquipoAunNo: 'The team has not scheduled any events for your project yet.',
+        eventosYActividadesProgramados: 'Events and activities scheduled for your project.',
+        informacionVerificadaPorEl: 'Information verified by the employability team.',
+        misEnlacesDeTrabajo: 'My work links',
+        noFuePosibleCargar: 'This section could not be loaded',
+        noFuePosibleEnviar: 'The message could not be sent.',
+        noHayEventosPara: 'No events on this date.',
+        perfilDeLinkedin: 'LinkedIn profile',
+        preparacionParaEntrevistas: 'Interview preparation',
+        preparacionParaLaEmpleabilidad: 'Employability preparation',
+        proximoPaso: 'Next step:',
+        proximosEventos: 'Upcoming events',
+        rutaDeEmpleabilidad: 'Employability path',
+        seleccionaOtroDiaPara: 'Pick another day to see its events.',
+        tuEquipoAunNo: 'Your team has not suggested any roles yet.',
+        tuMensajeFueEnviado: 'Your message was sent to the support team.',
+        tuProcesoEstaActualizado: 'Your process is up to date.',
+        tuSolicitudLlegaraAl: 'Your request will reach the support team.',
+        tuVinculacionLaboral: 'Your employment',
+        verComoCompletarlo: 'See how to complete it',
+        verPerfilDeLinkedin: 'View LinkedIn profile',
+        abrirEnlaceDelAnuncio: 'Open announcement link',
+        descargarDocumentoAdjunto: 'Download attachment',
+        documentosRequeridos: 'Required documents',
+        completarPerfil: 'Complete profile',
+        verConversacion: 'Open conversation',
+        cerrarConversacion: 'Close conversation',
+      }
+    : {
+        accesosAsociadosATu: 'Accesos asociados a tu proceso de empleabilidad.',
+        agregarEnlaceDeLinkedin: 'Agregar enlace de LinkedIn',
+        asiVaTuPerfil: 'Así va tu perfil antes de postularte a oportunidades.',
+        aunNoHasEnviado: 'Aún no has enviado mensajes al equipo de acompañamiento.',
+        cvEnIngles: 'CV en inglés',
+        canalSinRegistrar: 'Canal sin registrar',
+        canalesDeAtencion: 'Canales de atención',
+        cargoPendienteDeRegistrar: 'Cargo pendiente de registrar',
+        cargosALosQue: 'Cargos a los que puedes aplicar',
+        carpetaDeDocumentos: 'Carpeta de documentos',
+        cuentanosEnQueNecesitas: 'Cuéntanos en qué necesitas ayuda...',
+        comoFuncionaMiProceso: 'Cómo funciona mi proceso',
+        comoMejorarMiHoja: 'Cómo mejorar mi hoja de vida',
+        elEquipoAunNo: 'El equipo aún no ha programado eventos para tu proyecto.',
+        eventosYActividadesProgramados: 'Eventos y actividades programados para tu proyecto.',
+        informacionVerificadaPorEl: 'Información verificada por el equipo de empleabilidad.',
+        misEnlacesDeTrabajo: 'Mis enlaces de trabajo',
+        noFuePosibleCargar: 'No fue posible cargar esta sección',
+        noFuePosibleEnviar: 'No fue posible enviar el mensaje.',
+        noHayEventosPara: 'No hay eventos para esta fecha.',
+        perfilDeLinkedin: 'Perfil de LinkedIn',
+        preparacionParaEntrevistas: 'Preparación para entrevistas',
+        preparacionParaLaEmpleabilidad: 'Preparación para la empleabilidad',
+        proximoPaso: 'Próximo paso:',
+        proximosEventos: 'Próximos eventos',
+        rutaDeEmpleabilidad: 'Ruta de empleabilidad',
+        seleccionaOtroDiaPara: 'Selecciona otro día para consultar los eventos.',
+        tuEquipoAunNo: 'Tu equipo aún no ha definido cargos sugeridos.',
+        tuMensajeFueEnviado: 'Tu mensaje fue enviado al equipo de acompañamiento.',
+        tuProcesoEstaActualizado: 'Tu proceso está actualizado.',
+        tuSolicitudLlegaraAl: 'Tu solicitud llegará al equipo de acompañamiento.',
+        tuVinculacionLaboral: 'Tu vinculación laboral',
+        verComoCompletarlo: 'Ver cómo completarlo',
+        verPerfilDeLinkedin: 'Ver perfil de LinkedIn',
+        abrirEnlaceDelAnuncio: 'Abrir enlace del anuncio',
+        descargarDocumentoAdjunto: 'Descargar documento adjunto',
+        documentosRequeridos: 'Documentos requeridos',
+        completarPerfil: 'Completar perfil',
+        verConversacion: 'Ver conversación',
+        cerrarConversacion: 'Cerrar conversación',
+      }
+}
+
 export function StudentAreaPage({ area }: { area: StudentArea }) {
   const [perfil, setPerfil] = useState<EstudianteResponse | null>(null)
   const [seguimientos, setSeguimientos] = useState<SeguimientoResponse[]>([])
@@ -67,6 +162,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
   const [hiloAbierto, setHiloAbierto] = useState<string | null>(null)
 
   const { locale } = usePreferences()
+  const A = textosArea(locale === 'en')
   const english = locale === 'en'
 
   /**
@@ -121,7 +217,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
           )
         if (area === 'mensajes') setMensajes(await mensajesApi.mios())
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'No fue posible cargar esta sección')
+        setError(e instanceof Error ? e.message : A.noFuePosibleCargar)
       } finally {
         setLoading(false)
       }
@@ -153,9 +249,9 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
       setMensajes((items) => [nuevo, ...items])
       setContenidoMensaje('')
       setArchivosMensaje([])
-      setMensajeExito('Tu mensaje fue enviado al equipo de acompañamiento.')
+      setMensajeExito(A.tuMensajeFueEnviado)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No fue posible enviar el mensaje.')
+      setError(e instanceof Error ? e.message : A.noFuePosibleEnviar)
     } finally {
       setEnviandoMensaje(false)
     }
@@ -188,9 +284,9 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
               <CardContent className="space-y-4 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">Ruta de empleabilidad</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">{A.rutaDeEmpleabilidad}</p>
                     <p className="mt-1 text-lg font-semibold">{pipeline.etapa.replaceAll('_', ' ')}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{pipeline.proximaAccion || 'Tu proceso está actualizado.'}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{pipeline.proximaAccion || A.tuProcesoEstaActualizado}</p>
                   </div>
                   <Badge>{pipeline.porcentajeAvance}% de avance</Badge>
                 </div>
@@ -209,24 +305,24 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
             </Card>
           )}
           {perfil && <Card className="shadow-none">
-            <CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle>Preparación para la empleabilidad</CardTitle><CardDescription>Así va tu perfil antes de postularte a oportunidades.</CardDescription></div><Badge variant="outline">{perfil.hitosCumplidos}/5 hitos</Badge></div></CardHeader>
+            <CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle>{A.preparacionParaLaEmpleabilidad}</CardTitle><CardDescription>{A.asiVaTuPerfil}</CardDescription></div><Badge variant="outline">{perfil.hitosCumplidos}/5 hitos</Badge></div></CardHeader>
             <CardContent className="space-y-4"><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{[
-              ['CV listo', perfil.hitoCvListo], ['CV en inglés', perfil.hitoCvIngles], ['LinkedIn creado', perfil.hitoLinkedinCreado], ['LinkedIn optimizado', perfil.hitoLinkedinOptimizado], ['Perfil ocupacional', perfil.hitoPerfilOcupacional],
+              ['CV listo', perfil.hitoCvListo], [A.cvEnIngles, perfil.hitoCvIngles], ['LinkedIn creado', perfil.hitoLinkedinCreado], ['LinkedIn optimizado', perfil.hitoLinkedinOptimizado], ['Perfil ocupacional', perfil.hitoPerfilOcupacional],
             ].map(([nombre, estado]) => {
               const hito = estadoHito(estado)
               const pendiente = estado !== 'SI'
               const esLinkedin = nombre === 'LinkedIn optimizado' || nombre === 'LinkedIn creado'
               const abrirLinkedin = esLinkedin && Boolean(perfil.linkedinUrl)
               const etiquetaAccion = nombre === 'LinkedIn optimizado'
-                ? (abrirLinkedin ? 'Optimizar en LinkedIn' : 'Agregar enlace de LinkedIn')
+                ? (abrirLinkedin ? 'Optimizar en LinkedIn' : A.agregarEnlaceDeLinkedin)
                 : nombre === 'LinkedIn creado'
-                  ? (abrirLinkedin ? 'Ver perfil de LinkedIn' : 'Registrar LinkedIn')
+                  ? (abrirLinkedin ? A.verPerfilDeLinkedin : 'Registrar LinkedIn')
                   : nombre === 'Perfil ocupacional'
-                    ? 'Completar perfil'
-                    : 'Ver cómo completarlo'
+                    ? A.completarPerfil
+                    : A.verComoCompletarlo
               return <div key={nombre} className={`rounded-xl border p-3 ${hito.clase}`}><p className="text-[11px] font-medium uppercase tracking-wide">{nombre}</p><p className="mt-1 text-sm font-semibold">{hito.texto}</p>{pendiente && (abrirLinkedin ? <a href={perfil.linkedinUrl!} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline">{etiquetaAccion} ↗</a> : <Link href={nombre.startsWith('CV') ? '/mis-documentos' : '/configuracion-estudiante'} className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline">{etiquetaAccion} →</Link>)}</div>
             })}</div>
-              <div className="grid gap-3 lg:grid-cols-2"><div className="rounded-xl border border-border/70 p-3"><p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cargos a los que puedes aplicar</p><p className="mt-2 whitespace-pre-line text-sm leading-6">{perfil.cargoObjetivo || 'Tu equipo aún no ha definido cargos sugeridos.'}</p></div><div className="rounded-xl border border-border/70 p-3"><p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sector objetivo</p><p className="mt-2 text-sm">{perfil.sectorObjetivo || perfil.sectorExperiencia || 'Por definir'}</p>{perfil.competencias && <p className="mt-2 whitespace-pre-line text-xs leading-5 text-muted-foreground">{perfil.competencias}</p>}</div></div>
+              <div className="grid gap-3 lg:grid-cols-2"><div className="rounded-xl border border-border/70 p-3"><p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{A.cargosALosQue}</p><p className="mt-2 whitespace-pre-line text-sm leading-6">{perfil.cargoObjetivo || A.tuEquipoAunNo}</p></div><div className="rounded-xl border border-border/70 p-3"><p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sector objetivo</p><p className="mt-2 text-sm">{perfil.sectorObjetivo || perfil.sectorExperiencia || 'Por definir'}</p>{perfil.competencias && <p className="mt-2 whitespace-pre-line text-xs leading-5 text-muted-foreground">{perfil.competencias}</p>}</div></div>
               {perfil.pendientesPreparacion.length > 0 && <p className="text-xs text-muted-foreground">Próximos pendientes: {perfil.pendientesPreparacion.join(' · ')}</p>}
             </CardContent>
           </Card>}
@@ -246,10 +342,10 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
 
           {(perfil?.carpetaUrl || perfil?.linkedinUrl) && (
             <Card className="shadow-none">
-              <CardHeader><CardTitle>Mis enlaces de trabajo</CardTitle><CardDescription>Accesos asociados a tu proceso de empleabilidad.</CardDescription></CardHeader>
+              <CardHeader><CardTitle>{A.misEnlacesDeTrabajo}</CardTitle><CardDescription>{A.accesosAsociadosATu}</CardDescription></CardHeader>
               <CardContent className="flex flex-wrap gap-3 text-sm">
-                {perfil.carpetaUrl && <a href={perfil.carpetaUrl} target="_blank" rel="noreferrer" className="rounded-lg border border-border px-3 py-2 font-medium text-primary hover:bg-primary/5">Carpeta de documentos</a>}
-                {perfil.linkedinUrl && <a href={perfil.linkedinUrl} target="_blank" rel="noreferrer" className="rounded-lg border border-border px-3 py-2 font-medium text-primary hover:bg-primary/5">Perfil de LinkedIn</a>}
+                {perfil.carpetaUrl && <a href={perfil.carpetaUrl} target="_blank" rel="noreferrer" className="rounded-lg border border-border px-3 py-2 font-medium text-primary hover:bg-primary/5">{A.carpetaDeDocumentos}</a>}
+                {perfil.linkedinUrl && <a href={perfil.linkedinUrl} target="_blank" rel="noreferrer" className="rounded-lg border border-border px-3 py-2 font-medium text-primary hover:bg-primary/5">{A.perfilDeLinkedin}</a>}
               </CardContent>
             </Card>
           )}
@@ -257,14 +353,14 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
           {colocaciones.length > 0 && (
             <Card className="border-emerald-500/20 shadow-none">
               <CardHeader>
-                <CardTitle>Tu vinculación laboral</CardTitle>
-                <CardDescription>Información verificada por el equipo de empleabilidad.</CardDescription>
+                <CardTitle>{A.tuVinculacionLaboral}</CardTitle>
+                <CardDescription>{A.informacionVerificadaPorEl}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {colocaciones.map((colocacion) => (
                   <div key={colocacion.id} className="rounded-xl border border-border/70 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-semibold">{colocacion.empresaNombre}</p><p className="mt-1 text-sm text-muted-foreground">{colocacion.cargo || 'Cargo pendiente de registrar'} · {colocacion.fechaInicio || 'Fecha por confirmar'}</p></div><Badge variant="outline">{colocacion.tipoVinculacionEtiqueta}</Badge></div>
-                    <p className="mt-2 text-xs text-muted-foreground">{colocacion.canalConsecucionEtiqueta || 'Canal sin registrar'} · Checklist de ingreso: {colocacion.checklistVerificados}/{colocacion.checklistTotal}</p>
+                    <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-semibold">{colocacion.empresaNombre}</p><p className="mt-1 text-sm text-muted-foreground">{colocacion.cargo || A.cargoPendienteDeRegistrar} · {colocacion.fechaInicio || 'Fecha por confirmar'}</p></div><Badge variant="outline">{colocacion.tipoVinculacionEtiqueta}</Badge></div>
+                    <p className="mt-2 text-xs text-muted-foreground">{colocacion.canalConsecucionEtiqueta || A.canalSinRegistrar} · Checklist de ingreso: {colocacion.checklistVerificados}/{colocacion.checklistTotal}</p>
                     {colocacion.observaciones && <p className="mt-2 text-sm text-muted-foreground">{colocacion.observaciones}</p>}
                   </div>
                 ))}
@@ -290,7 +386,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                     )}
                     {s.proximaAccion && (
                       <p className="mt-2 text-sm">
-                        <b>Próximo paso:</b> {s.proximaAccion}
+                        <b>{A.proximoPaso}</b> {s.proximaAccion}
                       </p>
                     )}
                     {s.fechaProxima && (
@@ -441,20 +537,20 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                   >
                     <ChatCircle className="size-3.5" />
                     {hiloAbierto === mensaje.id
-                      ? (english ? 'Close conversation' : 'Cerrar conversación')
-                      : (english ? 'Open conversation' : 'Ver conversación')}
+                      ? (english ? 'Close conversation' : A.cerrarConversacion)
+                      : (english ? 'Open conversation' : A.verConversacion)}
                   </Button>
                 </CardContent>
               </Card>
             )) : (
-              <Empty icon={<ChatCircle />} text="Aún no has enviado mensajes al equipo de acompañamiento." />
+              <Empty icon={<ChatCircle />} text={A.aunNoHasEnviado} />
             )}
           </section>
 
           <Card className="h-fit shadow-none lg:sticky lg:top-24">
             <CardHeader>
               <CardTitle>Escribir un mensaje</CardTitle>
-              <CardDescription>Tu solicitud llegará al equipo de acompañamiento.</CardDescription>
+              <CardDescription>{A.tuSolicitudLlegaraAl}</CardDescription>
             </CardHeader>
             <CardContent>
               <form className="space-y-4" onSubmit={enviarMensaje}>
@@ -464,7 +560,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                   maxLength={5000}
                   required
                   minRows={7}
-                  placeholder="Cuéntanos en qué necesitas ayuda..."
+                  placeholder={A.cuentanosEnQueNecesitas}
                   className="flex w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
                 <div>
@@ -493,11 +589,11 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
       {area === 'ayuda' && (
         <div className="grid gap-4 md:grid-cols-2">
           {[
-            'Cómo funciona mi proceso',
-            'Documentos requeridos',
-            'Preparación para entrevistas',
-            'Cómo mejorar mi hoja de vida',
-            'Canales de atención',
+            A.comoFuncionaMiProceso,
+            A.documentosRequeridos,
+            A.preparacionParaEntrevistas,
+            A.comoMejorarMiHoja,
+            A.canalesDeAtencion,
             'Preguntas frecuentes',
           ].map((x) => (
             <Card key={x} className="shadow-none">
@@ -531,6 +627,7 @@ function fechaLocalYyyyMmDd(d: Date): string {
 }
 
 function CalendarioEstudiante({ actividades }: { actividades: ActividadResponse[] }) {
+  const A = textosArea(usePreferences().locale === 'en')
   const hoy = new Date()
   const [mes, setMes] = useState(() => new Date(hoy.getFullYear(), hoy.getMonth(), 1))
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => fechaLocalYyyyMmDd(hoy))
@@ -554,7 +651,7 @@ function CalendarioEstudiante({ actividades }: { actividades: ActividadResponse[
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
       <Card className="shadow-none">
         <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <div><CardTitle>Mi calendario</CardTitle><CardDescription>Eventos y actividades programados para tu proyecto.</CardDescription></div>
+          <div><CardTitle>Mi calendario</CardTitle><CardDescription>{A.eventosYActividadesProgramados}</CardDescription></div>
           <div className="flex items-center gap-1"><button type="button" onClick={() => cambiarMes(-1)} aria-label="Mes anterior" className="rounded-lg border border-border p-2 hover:bg-secondary"><CaretLeft className="size-4" /></button><button type="button" onClick={() => cambiarMes(1)} aria-label="Mes siguiente" className="rounded-lg border border-border p-2 hover:bg-secondary"><CaretRight className="size-4" /></button></div>
         </CardHeader>
         <CardContent>
@@ -573,8 +670,8 @@ function CalendarioEstudiante({ actividades }: { actividades: ActividadResponse[
           </div>
         </CardContent>
       </Card>
-      <Card className="shadow-none"><CardHeader><CardTitle className="text-base">{new Date(`${diaSeleccionado}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}</CardTitle><CardDescription>{eventosDia.length ? `${eventosDia.length} evento${eventosDia.length === 1 ? '' : 's'} programado${eventosDia.length === 1 ? '' : 's'}` : 'No hay eventos para esta fecha.'}</CardDescription></CardHeader><CardContent className="space-y-3">{eventosDia.length ? eventosDia.map((actividad) => <div key={actividad.id} className="rounded-xl border border-border p-3"><p className="font-semibold">{actividad.nombre}</p><p className="mt-1 text-xs text-muted-foreground">{actividad.hora ? `${actividad.hora} · ` : ''}{actividad.categoria}{actividad.responsable ? ` · ${actividad.responsable}` : ''}</p>{actividad.descripcion && <p className="mt-2 text-sm text-muted-foreground">{actividad.descripcion}</p>}</div>) : <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground"><CalendarBlank className="mx-auto mb-2 size-5" />Selecciona otro día para consultar los eventos.</div>}</CardContent></Card>
-      <Card className="shadow-none xl:col-span-2"><CardHeader><CardTitle className="text-base">Próximos eventos</CardTitle></CardHeader><CardContent>{eventosProximos.length ? <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">{eventosProximos.map((actividad) => <button key={actividad.id} type="button" onClick={() => { const [year, month] = actividad.fecha.split('-').map(Number); setMes(new Date(year, month - 1, 1)); setDiaSeleccionado(actividad.fecha) }} className="rounded-xl border border-border p-3 text-left hover:border-primary/40 hover:bg-primary/[0.03]"><p className="font-semibold">{actividad.nombre}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(`${actividad.fecha}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}{actividad.hora ? ` · ${actividad.hora}` : ''}</p></button>)}</div> : <p className="text-sm text-muted-foreground">El equipo aún no ha programado eventos para tu proyecto.</p>}</CardContent></Card>
+      <Card className="shadow-none"><CardHeader><CardTitle className="text-base">{new Date(`${diaSeleccionado}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}</CardTitle><CardDescription>{eventosDia.length ? `${eventosDia.length} evento${eventosDia.length === 1 ? '' : 's'} programado${eventosDia.length === 1 ? '' : 's'}` : A.noHayEventosPara}</CardDescription></CardHeader><CardContent className="space-y-3">{eventosDia.length ? eventosDia.map((actividad) => <div key={actividad.id} className="rounded-xl border border-border p-3"><p className="font-semibold">{actividad.nombre}</p><p className="mt-1 text-xs text-muted-foreground">{actividad.hora ? `${actividad.hora} · ` : ''}{actividad.categoria}{actividad.responsable ? ` · ${actividad.responsable}` : ''}</p>{actividad.descripcion && <p className="mt-2 text-sm text-muted-foreground">{actividad.descripcion}</p>}</div>) : <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground"><CalendarBlank className="mx-auto mb-2 size-5" />{A.seleccionaOtroDiaPara}</div>}</CardContent></Card>
+      <Card className="shadow-none xl:col-span-2"><CardHeader><CardTitle className="text-base">{A.proximosEventos}</CardTitle></CardHeader><CardContent>{eventosProximos.length ? <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">{eventosProximos.map((actividad) => <button key={actividad.id} type="button" onClick={() => { const [year, month] = actividad.fecha.split('-').map(Number); setMes(new Date(year, month - 1, 1)); setDiaSeleccionado(actividad.fecha) }} className="rounded-xl border border-border p-3 text-left hover:border-primary/40 hover:bg-primary/[0.03]"><p className="font-semibold">{actividad.nombre}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(`${actividad.fecha}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}{actividad.hora ? ` · ${actividad.hora}` : ''}</p></button>)}</div> : <p className="text-sm text-muted-foreground">{A.elEquipoAunNo}</p>}</CardContent></Card>
     </div>
   )
 }
@@ -588,6 +685,7 @@ function MediaNotificacion({
   mediaTipo?: string
   titulo: string
 }) {
+  const A = textosArea(usePreferences().locale === 'en')
   const [errorImagen, setErrorImagen] = useState(false)
 
   if (!mediaUrl || mediaUrl.trim() === '') return null
@@ -634,7 +732,7 @@ function MediaNotificacion({
       className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/30 px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-secondary/60"
     >
       <FileText className="size-4" />
-      {mediaTipo === 'FILE' ? 'Descargar documento adjunto' : 'Abrir enlace del anuncio'}
+      {mediaTipo === 'FILE' ? A.descargarDocumentoAdjunto : A.abrirEnlaceDelAnuncio}
     </a>
   )
 }
