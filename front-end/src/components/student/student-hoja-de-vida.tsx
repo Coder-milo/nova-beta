@@ -49,6 +49,32 @@ import { VistaPreviaPdf } from '@/components/ui/vista-previa-pdf'
 export function textosHv(english: boolean) {
   return english
     ? {
+        todaviaNoHas: 'You have not added any experience yet. If you have never worked, you can leave it empty: the section will not appear in the PDF.',
+        empiezaPorEl: 'Start with the most recent job. Each line of duties comes out as a bullet.',
+        completaElCargo: 'Fill in the target role and the professional summary: they are the first thing a recruiter reads.',
+        eligeElDiseno: 'Choose the design and language of your résumé. Your choice is saved automatically.',
+        anadeAquiLos: 'Add here the courses and certificates you have taken, inside or outside the programme.',
+        estoEsLo: 'This is what appears in the header and the professional summary of the PDF.',
+        datosGuardadosActualiza: 'Details saved. Refresh the preview to see them in the PDF.',
+        experienciaRelacionadaCon: 'Experience related to my profile / degree',
+        educacionYCertificaciones: 'Education and certificates',
+        datosDeTu: 'Your résumé details',
+        sigoTrabajandoAqui: 'I still work here',
+        disenoDePlantilla: 'Template design',
+        idiomaDelPdf: 'PDF language',
+        anadir: 'Add',
+        editar: 'Edit',
+        opcionalApareceComo: 'Optional. Shows as “Portfolio” next to your contact details.',
+        describeTuExperiencia: 'Describe your experience, your strengths and your career goal…',
+        unaPorLinea: 'One per line, or separated by commas. You can group them as “Office: Excel, Word”.',
+        ejemploCompetencias: 'Advanced Excel\nCustomer service\nLanguages: English B2',
+        tuNivelDe: 'Your recorded English level is added automatically if you do not mention it here.',
+        unaPorLineaVerbo: 'One per line. Start with a verb: “Handled…”, “Coordinated…”.',
+        ejemploLogros: 'Handled around 60 customers a day\nTrained 4 new team members',
+        quinceDias: '15 days',
+        treintaDias: '30 days',
+        sesentaDias: '60 days',
+
         educacionFormal: 'Formal education', curso: 'Course', certificacion: 'Certificate',
         inmediata: 'Immediate', noDisponible: 'Not available',
         perfilProfesional: 'Professional summary',
@@ -82,6 +108,32 @@ export function textosHv(english: boolean) {
         errorConexion: 'Could not reach the server.',
       }
     : {
+        todaviaNoHas: 'Todavía no has registrado experiencia. Si nunca has trabajado, puedes dejarlo vacío: la sección no aparecerá en el PDF.',
+        empiezaPorEl: 'Empieza por el empleo más reciente. Cada línea de funciones sale como una viñeta.',
+        completaElCargo: 'Completa el cargo objetivo y el perfil profesional: son lo primero que lee un reclutador.',
+        eligeElDiseno: 'Elige el diseño y el idioma de tu hoja de vida. Tu selección se guardará automáticamente.',
+        anadeAquiLos: 'Añade aquí los cursos y certificaciones que hayas hecho, dentro o fuera del programa.',
+        estoEsLo: 'Esto es lo que aparece en la cabecera y en el perfil profesional del PDF.',
+        datosGuardadosActualiza: 'Datos guardados. Actualiza la vista previa para verlos en el PDF.',
+        experienciaRelacionadaCon: 'Experiencia relacionada con mi perfil / carrera',
+        educacionYCertificaciones: 'Educación y certificaciones',
+        datosDeTu: 'Datos de tu hoja de vida',
+        sigoTrabajandoAqui: 'Sigo trabajando aquí',
+        disenoDePlantilla: 'Diseño de plantilla',
+        idiomaDelPdf: 'Idioma del PDF',
+        anadir: 'Añadir',
+        editar: 'Editar',
+        opcionalApareceComo: 'Opcional. Aparece como «Portafolio» junto a tus datos de contacto.',
+        describeTuExperiencia: 'Describe tu experiencia, tus fortalezas y tu objetivo profesional…',
+        unaPorLinea: 'Una por línea, o separadas por comas. Puedes agrupar con «Ofimática: Excel, Word».',
+        ejemploCompetencias: 'Excel avanzado\nAtención al cliente\nIdiomas: inglés B2',
+        tuNivelDe: 'Tu nivel de inglés registrado se añade solo si no lo mencionas aquí.',
+        unaPorLineaVerbo: 'Una por línea. Empieza con un verbo: «Atendí…», «Coordiné…».',
+        ejemploLogros: 'Atendí en promedio 60 clientes diarios\nCapacité a 4 personas nuevas del equipo',
+        quinceDias: '15 días',
+        treintaDias: '30 días',
+        sesentaDias: '60 días',
+
         educacionFormal: 'Educaci\u00f3n formal', curso: 'Curso', certificacion: 'Certificaci\u00f3n',
         inmediata: 'Inmediata', noDisponible: 'No disponible',
         perfilProfesional: 'Perfil profesional',
@@ -127,9 +179,9 @@ const tiposFormacion = (T: TextosHv) => [
 
 const disponibilidades = (T: TextosHv) => [
   { valor: 'INMEDIATA', etiqueta: T.inmediata },
-  { valor: '15_DIAS', etiqueta: '15 días' },
-  { valor: '30_DIAS', etiqueta: '30 días' },
-  { valor: '60_DIAS', etiqueta: '60 días' },
+  { valor: '15_DIAS', etiqueta: T.quinceDias },
+  { valor: '30_DIAS', etiqueta: T.treintaDias },
+  { valor: '60_DIAS', etiqueta: T.sesentaDias },
   { valor: 'NO_DISPONIBLE', etiqueta: T.noDisponible },
 ]
 
@@ -233,10 +285,10 @@ function DatosHv({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <User className="size-5 text-primary" weight="duotone" />
-          Datos de tu hoja de vida
+          {T.datosDeTu}
         </CardTitle>
         <CardDescription>
-          Esto es lo que aparece en la cabecera y en el perfil profesional del PDF.
+          {T.estoEsLo}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -258,7 +310,7 @@ function DatosHv({
             />
           </Campo>
 
-          <Campo etiqueta="País" ayuda={T.paisPie}>
+          <Campo etiqueta={T.pais} ayuda={T.paisPie}>
             <Input
               placeholder="Colombia"
               value={form.nacionalidad}
@@ -287,7 +339,7 @@ function DatosHv({
           <Campo
             etiqueta={T.portafolio}
             ancho
-            ayuda="Opcional. Aparece como «Portafolio» junto a tus datos de contacto."
+            ayuda={T.opcionalApareceComo}
           >
             <Input
               type="url"
@@ -313,7 +365,7 @@ function DatosHv({
           >
             <Textarea
               minRows={4}
-              placeholder="Describe tu experiencia, tus fortalezas y tu objetivo profesional…"
+              placeholder={T.describeTuExperiencia}
               value={form.perfilProfesional}
               onChange={(e) => cambiar('perfilProfesional', e.target.value)}
             />
@@ -322,17 +374,17 @@ function DatosHv({
           <Campo
             etiqueta={T.habilidades}
             ancho
-            ayuda="Una por línea, o separadas por comas. Puedes agrupar con «Ofimática: Excel, Word»."
+            ayuda={T.unaPorLinea}
           >
             <Textarea
               minRows={3}
-              placeholder={'Excel avanzado\nAtención al cliente\nIdiomas: inglés B2'}
+              placeholder={T.ejemploCompetencias}
               value={form.competencias}
               onChange={(e) => cambiar('competencias', e.target.value)}
             />
           </Campo>
 
-          <Campo etiqueta={T.idiomas} ancho ayuda="Tu nivel de inglés registrado se añade solo si no lo mencionas aquí.">
+          <Campo etiqueta={T.idiomas} ancho ayuda={T.tuNivelDe}>
             <Input
               placeholder={T.idiomasEjemplo}
               value={form.idiomas}
@@ -366,7 +418,7 @@ function DatosHv({
         </div>
 
         {error && <Aviso tipo="error">{error}</Aviso>}
-        {ok && <Aviso tipo="ok">Datos guardados. Actualiza la vista previa para verlos en el PDF.</Aviso>}
+        {ok && <Aviso tipo="ok">{T.datosGuardadosActualiza}</Aviso>}
 
         <div className="flex justify-end">
           <Button onClick={guardar} disabled={guardando}>
@@ -496,12 +548,12 @@ function Experiencias({
             Experiencia laboral
           </CardTitle>
           <CardDescription>
-            Empieza por el empleo más reciente. Cada línea de funciones sale como una viñeta.
+            {T.empiezaPorEl}
           </CardDescription>
         </div>
         {!abierto && (
           <Button variant="outline" size="sm" onClick={() => setAbierto(true)}>
-            <Plus className="size-4" /> Añadir
+            <Plus className="size-4" /> {T.anadir}
           </Button>
         )}
       </CardHeader>
@@ -542,7 +594,7 @@ function Experiencias({
                   checked={form.actual ?? false}
                   onChange={(e) => setForm({ ...form, actual: e.target.checked })}
                 />
-                Sigo trabajando aquí
+                {T.sigoTrabajandoAqui}
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -551,19 +603,19 @@ function Experiencias({
                   checked={form.relacionada ?? false}
                   onChange={(e) => setForm({ ...form, relacionada: e.target.checked })}
                 />
-                Experiencia relacionada con mi perfil / carrera
+                {T.experienciaRelacionadaCon}
               </label>
             </div>
             <Campo
               etiqueta={T.funciones}
               ancho
-              ayuda="Una por línea. Empieza con un verbo: «Atendí…», «Coordiné…»."
+              ayuda={T.unaPorLineaVerbo}
             >
               <Textarea
                 minRows={4}
                 value={form.funciones ?? ''}
                 onChange={(e) => setForm({ ...form, funciones: e.target.value })}
-                placeholder={'Atendí en promedio 60 clientes diarios\nCapacité a 4 personas nuevas del equipo'}
+                placeholder={T.ejemploLogros}
               />
             </Campo>
             <div className="flex justify-end gap-2 sm:col-span-2">
@@ -582,8 +634,7 @@ function Experiencias({
           <p className="text-sm text-muted-foreground">{T.cargando}</p>
         ) : items.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-            Todavía no has registrado experiencia. Si nunca has trabajado, puedes dejarlo vacío:
-            la sección no aparecerá en el PDF.
+            {T.todaviaNoHas}
           </p>
         ) : (
           <ul className="space-y-2">
@@ -600,7 +651,7 @@ function Experiencias({
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="sm" onClick={() => editar(item)}>
-                      Editar
+                      {T.editar}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => eliminar(item.id)}>
                       <Trash className="size-4 text-destructive" />
@@ -727,7 +778,7 @@ function Formaciones({
         <div>
           <CardTitle className="flex items-center gap-2">
             <GraduationCap className="size-5 text-primary" weight="duotone" />
-            Educación y certificaciones
+            {T.educacionYCertificaciones}
           </CardTitle>
           <CardDescription>
             Lo marcado como curso o certificación va a su propia sección del PDF; el resto
@@ -736,7 +787,7 @@ function Formaciones({
         </div>
         {!abierto && (
           <Button variant="outline" size="sm" onClick={() => setAbierto(true)}>
-            <Plus className="size-4" /> Añadir
+            <Plus className="size-4" /> {T.anadir}
           </Button>
         )}
       </CardHeader>
@@ -791,7 +842,7 @@ function Formaciones({
           <p className="text-sm text-muted-foreground">{T.cargando}</p>
         ) : items.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-            Añade aquí los cursos y certificaciones que hayas hecho, dentro o fuera del programa.
+            {T.anadeAquiLos}
           </p>
         ) : (
           <ul className="space-y-2">
@@ -807,7 +858,7 @@ function Formaciones({
                 </div>
                 <div className="flex gap-1">
                   <Button variant="ghost" size="sm" onClick={() => editar(item)}>
-                    Editar
+                    {T.editar}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => eliminar(item.id)}>
                     <Trash className="size-4 text-destructive" />
@@ -877,7 +928,7 @@ export function StudentHojaDeVida({
         {faltan && (
           <p className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
             <WarningCircle className="size-4 shrink-0" />
-            Completa el cargo objetivo y el perfil profesional: son lo primero que lee un reclutador.
+            {T.completaElCargo}
           </p>
         )}
         <DatosHv perfil={perfil} onUpdate={onUpdate} onGuardado={() => setRevision((n) => n + 1)} />
@@ -889,14 +940,14 @@ export function StudentHojaDeVida({
         <CardHeader>
           <CardTitle>{T.comoQueda}</CardTitle>
           <CardDescription>
-            Elige el diseño y el idioma de tu hoja de vida. Tu selección se guardará automáticamente.
+            {T.eligeElDiseno}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {plantillas.length > 0 && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Diseño de plantilla
+                {T.disenoDePlantilla}
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {plantillas.map((p) => {
@@ -922,7 +973,7 @@ export function StudentHojaDeVida({
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Idioma del PDF
+              {T.idiomaDelPdf}
             </label>
             <div className="flex gap-2">
               {(

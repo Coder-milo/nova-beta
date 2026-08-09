@@ -58,6 +58,21 @@ function buildEditableFields(p: EstudianteResponse): EditableFields {
 function textos(english: boolean) {
   return english
     ? {
+        quinceDias: '15 days', treintaDias: '30 days', sesentaDias: '60 days',
+        completaTuPerfilCorto: 'Complete your profile for better job opportunities.',
+        completaTuPerfilLargo: 'Complete your profile to improve your job opportunities.',
+        soloElCoordinador: 'Only the coordinator can change them.',
+        esteEnlacePermite: 'This link lets your employability plan open your profile.',
+        gestionarEnHv: 'Manage in Résumé ↗',
+        noHasRegistradoCargos: 'You have not added any previous roles or work experience.',
+        noHasRegistradoTitulos: 'You have not added any academic qualifications or extra certificates.',
+        guardarCambios: 'Save changes',
+        editar: 'Edit',
+        certificacion: 'Certificate', curso: 'Course', educacion: 'Education',
+        ejemploCargoObjetivo: 'e.g. Frontend developer, data analyst…',
+        ejemploPerfil: 'Describe your experience, skills and career goals…',
+        ejemploCompetencias: 'Teamwork, leadership, assertive communication…',
+
         infoPersonal: 'Personal information', datosAdmin: 'Administrative data',
         experiencia: 'Professional experience', formacion: 'Education and certifications',
         competencias: 'Skills', idiomas: 'Languages', cargoObjetivo: 'Target role',
@@ -77,6 +92,21 @@ function textos(english: boolean) {
         errorFoto: 'The photo could not be uploaded',
       }
     : {
+        quinceDias: '15 días', treintaDias: '30 días', sesentaDias: '60 días',
+        completaTuPerfilCorto: 'Completa tu perfil para mejores oportunidades laborales.',
+        completaTuPerfilLargo: 'Completa tu perfil para mejorar tus oportunidades laborales.',
+        soloElCoordinador: 'Solo el coordinador puede modificarlos.',
+        esteEnlacePermite: 'Este enlace permite abrir tu perfil desde tu plan de empleabilidad.',
+        gestionarEnHv: 'Gestionar en Hoja de Vida ↗',
+        noHasRegistradoCargos: 'No has registrado cargos o experiencias laborales anteriores.',
+        noHasRegistradoTitulos: 'No has registrado títulos académicos o certificaciones adicionales.',
+        guardarCambios: 'Guardar cambios',
+        editar: 'Editar',
+        certificacion: 'Certificación', curso: 'Curso', educacion: 'Educación',
+        ejemploCargoObjetivo: 'Ej: Desarrollador Frontend, Analista de Datos...',
+        ejemploPerfil: 'Describe tu experiencia, habilidades y objetivos profesionales...',
+        ejemploCompetencias: 'Trabajo en equipo, liderazgo, comunicación asertiva...',
+
         infoPersonal: 'Información personal', datosAdmin: 'Datos administrativos',
         experiencia: 'Experiencia profesional', formacion: 'Formación académica y certificaciones',
         competencias: 'Competencias', idiomas: 'Idiomas', cargoObjetivo: 'Cargo objetivo',
@@ -220,9 +250,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                 />
               </div>
               {completitud < 80 && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Completa tu perfil para mejores oportunidades laborales.
-                </p>
+                <p className="mt-2 text-xs text-muted-foreground">{T.completaTuPerfilCorto}</p>
               )}
             </div>
           </CardContent>
@@ -232,19 +260,17 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
         <Card className="shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">{T.datosAdmin}</CardTitle>
-            <CardDescription className="text-xs">
-              Solo el coordinador puede modificarlos.
-            </CardDescription>
+            <CardDescription className="text-xs">{T.soloElCoordinador}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {[
               [
                 T.documento,
                 `${perfil.tipoDocumento ?? ''} ${perfil.numeroDocumento ?? ''}`.trim() ||
-                  'Sin registrar',
+                  T.sinRegistrar,
               ],
               [T.programa, perfil.programaNombre ?? T.sinAsignar],
-              [T.institucion, perfil.institucionEducativa ?? 'Sin registrar'],
+              [T.institucion, perfil.institucionEducativa ?? T.sinRegistrar],
             ].map(([label, value]) => (
               <div key={label}>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -262,14 +288,12 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
         <CardHeader className="flex flex-row items-start justify-between gap-3">
           <div>
             <CardTitle>{T.infoPersonal}</CardTitle>
-            <CardDescription>
-              Completa tu perfil para mejorar tus oportunidades laborales.
-            </CardDescription>
+            <CardDescription>{T.completaTuPerfilLargo}</CardDescription>
           </div>
           {!editing && (
             <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
               <PencilSimple className="size-4" />
-              Editar
+              {T.editar}
             </Button>
           )}
         </CardHeader>
@@ -314,9 +338,9 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                 >
                   <option value="">{T.selecciona}</option>
                   <option value="INMEDIATA">{T.inmediata}</option>
-                  <option value="15_DIAS">15 días</option>
-                  <option value="30_DIAS">30 días</option>
-                  <option value="60_DIAS">60 días</option>
+                  <option value="15_DIAS">{T.quinceDias}</option>
+                  <option value="30_DIAS">{T.treintaDias}</option>
+                  <option value="60_DIAS">{T.sesentaDias}</option>
                   <option value="NO_DISPONIBLE">{T.noDisponible}</option>
                 </select>
               </div>
@@ -333,7 +357,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
               <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <label className="text-xs font-medium text-muted-foreground">{T.cargoObjetivo}</label>
                 <Input
-                  placeholder="Ej: Desarrollador Frontend, Analista de Datos..."
+                  placeholder={T.ejemploCargoObjetivo}
                   value={form.cargoObjetivo}
                   onChange={(e) => setForm({ ...form, cargoObjetivo: e.target.value })}
                 />
@@ -345,7 +369,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                 </label>
                 <Textarea
                   className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-                  placeholder="Describe tu experiencia, habilidades y objetivos profesionales..."
+                  placeholder={T.ejemploPerfil}
                   value={form.perfilProfesional}
                   onChange={(e) => setForm({ ...form, perfilProfesional: e.target.value })}
                 />
@@ -359,14 +383,14 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                   value={form.linkedinUrl}
                   onChange={(e) => setForm({ ...form, linkedinUrl: e.target.value })}
                 />
-                <p className="text-xs text-muted-foreground">Este enlace permite abrir tu perfil desde tu plan de empleabilidad.</p>
+                <p className="text-xs text-muted-foreground">{T.esteEnlacePermite}</p>
               </div>
 
               <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <label className="text-xs font-medium text-muted-foreground">{T.competencias}</label>
                 <Textarea
                   className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-                  placeholder="Trabajo en equipo, liderazgo, comunicación asertiva..."
+                  placeholder={T.ejemploCompetencias}
                   value={form.competencias}
                   onChange={(e) => setForm({ ...form, competencias: e.target.value })}
                 />
@@ -383,8 +407,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                     </>
                   ) : (
                     <>
-                      <Check className="size-4" /> Guardar cambios
-                    </>
+                      <Check className="size-4" />{T.guardarCambios}</>
                   )}
                 </Button>
               </div>
@@ -441,9 +464,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
 
               {perfil.competencias && (
                 <div className="sm:col-span-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Competencias
-                  </p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{T.competencias}</p>
                   <p className="mt-1 text-sm">{perfil.competencias}</p>
                 </div>
               )}
@@ -459,15 +480,11 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
             <Briefcase className="size-4 text-primary" />
             <CardTitle className="text-base">{T.experiencia}</CardTitle>
           </div>
-          <a href="/mi-hoja-de-vida" className="text-xs font-medium text-primary hover:underline">
-            Gestionar en Hoja de Vida ↗
-          </a>
+          <a href="/mi-hoja-de-vida" className="text-xs font-medium text-primary hover:underline">{T.gestionarEnHv}</a>
         </CardHeader>
         <CardContent>
           {experiencias.length === 0 ? (
-            <p className="text-sm italic text-muted-foreground/70">
-              No has registrado cargos o experiencias laborales anteriores.
-            </p>
+            <p className="text-sm italic text-muted-foreground/70">{T.noHasRegistradoCargos}</p>
           ) : (
             <div className="space-y-4">
               {experiencias.map((exp) => (
@@ -494,22 +511,18 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
             <GraduationCap className="size-4 text-primary" />
             <CardTitle className="text-base">{T.formacion}</CardTitle>
           </div>
-          <a href="/mi-hoja-de-vida" className="text-xs font-medium text-primary hover:underline">
-            Gestionar en Hoja de Vida ↗
-          </a>
+          <a href="/mi-hoja-de-vida" className="text-xs font-medium text-primary hover:underline">{T.gestionarEnHv}</a>
         </CardHeader>
         <CardContent>
           {formaciones.length === 0 ? (
-            <p className="text-sm italic text-muted-foreground/70">
-              No has registrado títulos académicos o certificaciones adicionales.
-            </p>
+            <p className="text-sm italic text-muted-foreground/70">{T.noHasRegistradoTitulos}</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {formaciones.map((f) => (
                 <div key={f.id} className="rounded-lg border bg-muted/20 p-3 text-sm">
                   <div className="flex items-center justify-between gap-2">
                     <Badge variant="outline" className="text-[10px] uppercase">
-                      {f.tipo === 'CERTIFICACION' ? 'Certificación' : f.tipo === 'CURSO' ? 'Curso' : 'Educación'}
+                      {f.tipo === 'CERTIFICACION' ? T.certificacion : f.tipo === 'CURSO' ? T.curso : T.educacion}
                     </Badge>
                     <span className="text-[11px] text-muted-foreground">{f.fechaFin ?? f.fechaInicio ?? ''}</span>
                   </div>

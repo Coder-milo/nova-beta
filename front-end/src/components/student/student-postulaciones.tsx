@@ -61,10 +61,12 @@ function RazonesDelMatch({
   razones: RazonDeMatch[]
   cobertura: number | null
 }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   if (!razones || razones.length === 0) return null
 
   const etiqueta = (ratio: number) =>
-    ratio >= 0.85 ? 'cumple' : ratio >= 0.5 ? 'parcial' : 'bajo'
+    ratio >= 0.85 ? T.cumple : ratio >= 0.5 ? T.parcial : T.bajo
   const tono = (ratio: number) =>
     ratio >= 0.85
       ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
@@ -89,10 +91,7 @@ function RazonesDelMatch({
         ))}
       </ul>
       {pocaEvidencia && (
-        <p className="text-xs text-muted-foreground">
-          Esta oferta da poca información, así que la compatibilidad es
-          orientativa.
-        </p>
+        <p className="text-xs text-muted-foreground">{T.pocaEvidencia}</p>
       )}
     </div>
   )
@@ -137,6 +136,13 @@ function Hecho({
 function textos(english: boolean) {
   return english
     ? {
+        cumple: 'meets',
+        parcial: 'partial',
+        bajo: 'low',
+        registrando: 'Logging…',
+        pocaEvidencia: 'This advert gives little information, so the match score is only indicative.',
+        registrarProceso: 'Log the process',
+        postulacionRegistrada: 'Application logged',
         pago: 'Pay', ciudad: 'City', modalidad: 'Work mode', jornada: 'Schedule',
         contrato: 'Contract', ingles: 'English', experiencia: 'Experience',
         aplicaAntes: 'Apply before', sinExperiencia: 'No previous experience',
@@ -167,6 +173,13 @@ function textos(english: boolean) {
         confirmarEliminar: 'This application will be removed from your tracker. This cannot be undone.',
       }
     : {
+        cumple: 'cumple',
+        parcial: 'parcial',
+        bajo: 'bajo',
+        registrando: 'Registrando…',
+        pocaEvidencia: 'Esta oferta da poca información, así que la compatibilidad es orientativa.',
+        registrarProceso: 'Registrar proceso',
+        postulacionRegistrada: 'Postulación registrada',
         pago: 'Pago', ciudad: 'Ciudad', modalidad: 'Modalidad', jornada: 'Jornada',
         contrato: 'Contrato', ingles: 'Inglés', experiencia: 'Experiencia',
         aplicaAntes: 'Aplica antes de', sinExperiencia: 'Sin experiencia previa',
@@ -540,7 +553,7 @@ export function StudentPostulaciones() {
               <Input placeholder={T.canal} value={canalManual} onChange={(event) => setCanalManual(event.target.value)} />
               <Input placeholder={T.urlOferta} value={urlOfertaManual} onChange={(event) => setUrlOfertaManual(event.target.value)} />
               <Input placeholder={T.observaciones} value={observacionesManual} onChange={(event) => setObservacionesManual(event.target.value)} />
-              <Button type="submit" className="w-full" disabled={registrando}>{registrando ? 'Registrando…' : 'Registrar proceso'}</Button>
+              <Button type="submit" className="w-full" disabled={registrando}>{registrando ? T.registrando : T.registrarProceso}</Button>
             </form>
           </CardContent>
         </Card>
@@ -579,7 +592,7 @@ export function StudentPostulaciones() {
                   </div>
                   <div className="flex items-center gap-1.5 text-sm text-emerald-600">
                     <CheckCircle className="size-4" />
-                    Postulación registrada
+                    {T.postulacionRegistrada}
                   </div>
                 </CardContent>
               </Card>

@@ -59,6 +59,7 @@ function FileIcon({ contentType }: { contentType: string | null }) {
 function textos(english: boolean) {
   return english
     ? {
+        versionActual: 'Current version',
         hvTitulo: 'CAC résumé',
         hvDescripcion: 'Your official résumé is generated from the up-to-date information in your profile.',
         hvDescargar: 'Download résumé', hvPreparando: 'Preparing…',
@@ -81,6 +82,7 @@ function textos(english: boolean) {
         confirmarDescripcion: 'This document will be removed from your record. This cannot be undone.',
       }
     : {
+        versionActual: 'Versión actual',
         hvTitulo: 'Hoja de vida CAC',
         hvDescripcion: 'Tu hoja de vida oficial se genera con la información actualizada de tu perfil.',
         hvDescargar: 'Descargar hoja de vida', hvPreparando: 'Preparando…',
@@ -393,7 +395,7 @@ export function StudentDocumentos() {
                     </span>
                     {doc.actual && (
                       <span className="flex items-center gap-1 text-xs text-emerald-600">
-                        <CheckCircle className="size-3" /> Versión actual
+                        <CheckCircle className="size-3" /> {T.versionActual}
                       </span>
                     )}
                   </div>

@@ -43,10 +43,10 @@ export type StudentArea =
   | 'ayuda'
   | 'configuracion'
 
-function estadoHito(valor: string | null | undefined) {
-  if (valor === 'SI') return { texto: 'Completado', clase: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700' }
-  if (valor === 'EN_PROCESO') return { texto: 'En proceso', clase: 'border-amber-500/25 bg-amber-500/10 text-amber-700' }
-  return { texto: 'Pendiente', clase: 'border-border bg-muted/50 text-muted-foreground' }
+function estadoHito(valor: string | null | undefined, A: ReturnType<typeof textosArea>) {
+  if (valor === 'SI') return { texto: A.completado, clase: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700' }
+  if (valor === 'EN_PROCESO') return { texto: A.enProceso, clase: 'border-amber-500/25 bg-amber-500/10 text-amber-700' }
+  return { texto: A.pendiente, clase: 'border-border bg-muted/50 text-muted-foreground' }
 }
 
 /**
@@ -92,6 +92,24 @@ function textosArea(english: boolean) {
         tuSolicitudLlegaraAl: 'Your request will reach the support team.',
         tuVinculacionLaboral: 'Your employment',
         verComoCompletarlo: 'See how to complete it',
+        lista: 'Ready',
+        completado: 'Completed',
+        enProceso: 'In progress',
+        pendiente: 'Pending',
+        registrarLinkedin: 'Add LinkedIn',
+        porDefinir: 'To be defined',
+        sinInformacionMayus: 'NO INFORMATION',
+        fechaPorConfirmar: 'Date to be confirmed',
+        tuCoordinadorAun: 'Your coordinator has not logged any follow-up updates yet.',
+        noTienesNotificaciones: 'You have no notifications.',
+        enviarMensaje: 'Send message',
+        enviando: 'Sending…',
+        cargandoInformacion: 'Loading information…',
+        marcarComoLeida: 'Mark as read',
+        escribirUnMensaje: 'Write a message',
+        consultaInformacionY: 'Get information and recommendations from Academy CAC.',
+        verImagenDelAnuncio: 'View the announcement image',
+        diasCortos: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
         verPerfilDeLinkedin: 'View LinkedIn profile',
         abrirEnlaceDelAnuncio: 'Open announcement link',
         descargarDocumentoAdjunto: 'Download attachment',
@@ -134,6 +152,24 @@ function textosArea(english: boolean) {
         tuSolicitudLlegaraAl: 'Tu solicitud llegará al equipo de acompañamiento.',
         tuVinculacionLaboral: 'Tu vinculación laboral',
         verComoCompletarlo: 'Ver cómo completarlo',
+        lista: 'Lista',
+        completado: 'Completado',
+        enProceso: 'En proceso',
+        pendiente: 'Pendiente',
+        registrarLinkedin: 'Registrar LinkedIn',
+        porDefinir: 'Por definir',
+        sinInformacionMayus: 'SIN INFORMACIÓN',
+        fechaPorConfirmar: 'Fecha por confirmar',
+        tuCoordinadorAun: 'Tu coordinador aún no ha registrado actualizaciones de seguimiento.',
+        noTienesNotificaciones: 'No tienes notificaciones.',
+        enviarMensaje: 'Enviar mensaje',
+        enviando: 'Enviando…',
+        cargandoInformacion: 'Cargando información…',
+        marcarComoLeida: 'Marcar como leída',
+        escribirUnMensaje: 'Escribir un mensaje',
+        consultaInformacionY: 'Consulta información y recomendaciones de Academy CAC.',
+        verImagenDelAnuncio: 'Ver imagen del anuncio',
+        diasCortos: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
         verPerfilDeLinkedin: 'Ver perfil de LinkedIn',
         abrirEnlaceDelAnuncio: 'Abrir enlace del anuncio',
         descargarDocumentoAdjunto: 'Descargar documento adjunto',
@@ -261,7 +297,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
     return (
       <div className="flex min-h-80 items-center justify-center gap-2 text-sm text-muted-foreground">
         <CircleNotch className="size-5 animate-spin" />
-        Cargando información…
+        {A.cargandoInformacion}
       </div>
     )
   }
@@ -294,7 +330,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                   <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pipeline.porcentajeAvance}%` }} />
                 </div>
                 <div className="grid gap-2 text-sm sm:grid-cols-3">
-                  <span>HV: {pipeline.hvGenerada ? 'Lista' : 'Pendiente'}</span>
+                  <span>HV: {pipeline.hvGenerada ? A.lista : A.pendiente}</span>
                   <span>Postulaciones: {pipeline.postulacionesEnviadas}</span>
                   <span>Empresas: {pipeline.empresasContactadas}</span>
                 </div>
@@ -309,20 +345,20 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
             <CardContent className="space-y-4"><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{[
               ['CV listo', perfil.hitoCvListo], [A.cvEnIngles, perfil.hitoCvIngles], ['LinkedIn creado', perfil.hitoLinkedinCreado], ['LinkedIn optimizado', perfil.hitoLinkedinOptimizado], ['Perfil ocupacional', perfil.hitoPerfilOcupacional],
             ].map(([nombre, estado]) => {
-              const hito = estadoHito(estado)
+              const hito = estadoHito(estado, A)
               const pendiente = estado !== 'SI'
               const esLinkedin = nombre === 'LinkedIn optimizado' || nombre === 'LinkedIn creado'
               const abrirLinkedin = esLinkedin && Boolean(perfil.linkedinUrl)
               const etiquetaAccion = nombre === 'LinkedIn optimizado'
                 ? (abrirLinkedin ? 'Optimizar en LinkedIn' : A.agregarEnlaceDeLinkedin)
                 : nombre === 'LinkedIn creado'
-                  ? (abrirLinkedin ? A.verPerfilDeLinkedin : 'Registrar LinkedIn')
+                  ? (abrirLinkedin ? A.verPerfilDeLinkedin : A.registrarLinkedin)
                   : nombre === 'Perfil ocupacional'
                     ? A.completarPerfil
                     : A.verComoCompletarlo
               return <div key={nombre} className={`rounded-xl border p-3 ${hito.clase}`}><p className="text-[11px] font-medium uppercase tracking-wide">{nombre}</p><p className="mt-1 text-sm font-semibold">{hito.texto}</p>{pendiente && (abrirLinkedin ? <a href={perfil.linkedinUrl!} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline">{etiquetaAccion} ↗</a> : <Link href={nombre.startsWith('CV') ? '/mis-documentos' : '/configuracion-estudiante'} className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline">{etiquetaAccion} →</Link>)}</div>
             })}</div>
-              <div className="grid gap-3 lg:grid-cols-2"><div className="rounded-xl border border-border/70 p-3"><p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{A.cargosALosQue}</p><p className="mt-2 whitespace-pre-line text-sm leading-6">{perfil.cargoObjetivo || A.tuEquipoAunNo}</p></div><div className="rounded-xl border border-border/70 p-3"><p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sector objetivo</p><p className="mt-2 text-sm">{perfil.sectorObjetivo || perfil.sectorExperiencia || 'Por definir'}</p>{perfil.competencias && <p className="mt-2 whitespace-pre-line text-xs leading-5 text-muted-foreground">{perfil.competencias}</p>}</div></div>
+              <div className="grid gap-3 lg:grid-cols-2"><div className="rounded-xl border border-border/70 p-3"><p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{A.cargosALosQue}</p><p className="mt-2 whitespace-pre-line text-sm leading-6">{perfil.cargoObjetivo || A.tuEquipoAunNo}</p></div><div className="rounded-xl border border-border/70 p-3"><p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sector objetivo</p><p className="mt-2 text-sm">{perfil.sectorObjetivo || perfil.sectorExperiencia || A.porDefinir}</p>{perfil.competencias && <p className="mt-2 whitespace-pre-line text-xs leading-5 text-muted-foreground">{perfil.competencias}</p>}</div></div>
               {perfil.pendientesPreparacion.length > 0 && <p className="text-xs text-muted-foreground">Próximos pendientes: {perfil.pendientesPreparacion.join(' · ')}</p>}
             </CardContent>
           </Card>}
@@ -332,7 +368,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center gap-3">
-                <Badge>{perfil?.estadoEmpleabilidad || 'SIN INFORMACIÓN'}</Badge>
+                <Badge>{perfil?.estadoEmpleabilidad || A.sinInformacionMayus}</Badge>
                 <span className="text-sm text-muted-foreground">
                   {seguimientos.length} actualizaciones registradas
                 </span>
@@ -359,7 +395,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
               <CardContent className="space-y-3">
                 {colocaciones.map((colocacion) => (
                   <div key={colocacion.id} className="rounded-xl border border-border/70 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-semibold">{colocacion.empresaNombre}</p><p className="mt-1 text-sm text-muted-foreground">{colocacion.cargo || A.cargoPendienteDeRegistrar} · {colocacion.fechaInicio || 'Fecha por confirmar'}</p></div><Badge variant="outline">{colocacion.tipoVinculacionEtiqueta}</Badge></div>
+                    <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-semibold">{colocacion.empresaNombre}</p><p className="mt-1 text-sm text-muted-foreground">{colocacion.cargo || A.cargoPendienteDeRegistrar} · {colocacion.fechaInicio || A.fechaPorConfirmar}</p></div><Badge variant="outline">{colocacion.tipoVinculacionEtiqueta}</Badge></div>
                     <p className="mt-2 text-xs text-muted-foreground">{colocacion.canalConsecucionEtiqueta || A.canalSinRegistrar} · Checklist de ingreso: {colocacion.checklistVerificados}/{colocacion.checklistTotal}</p>
                     {colocacion.observaciones && <p className="mt-2 text-sm text-muted-foreground">{colocacion.observaciones}</p>}
                   </div>
@@ -369,7 +405,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
           )}
 
           {seguimientos.length === 0 ? (
-            <Empty icon={<Info />} text="Tu coordinador aún no ha registrado actualizaciones de seguimiento." />
+            <Empty icon={<Info />} text={A.tuCoordinadorAun} />
           ) : (
             seguimientos.map((s) => (
               <Card key={s.id} className="shadow-none">
@@ -454,7 +490,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                         onClick={() => marcarLeida(n)}
                         className="text-xs font-semibold text-primary hover:underline"
                       >
-                        Marcar como leída
+                        {A.marcarComoLeida}
                       </button>
                     )}
                   </div>
@@ -462,7 +498,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
               </article>
             ))
           ) : (
-            <Empty icon={<Bell />} text="No tienes notificaciones." />
+            <Empty icon={<Bell />} text={A.noTienesNotificaciones} />
           )}
         </div>
       )}
@@ -549,7 +585,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
 
           <Card className="h-fit shadow-none lg:sticky lg:top-24">
             <CardHeader>
-              <CardTitle>Escribir un mensaje</CardTitle>
+              <CardTitle>{A.escribirUnMensaje}</CardTitle>
               <CardDescription>{A.tuSolicitudLlegaraAl}</CardDescription>
             </CardHeader>
             <CardContent>
@@ -577,7 +613,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                 {mensajeExito && <p className="text-sm text-emerald-600">{mensajeExito}</p>}
                 <Button className="w-full" type="submit" disabled={enviandoMensaje}>
                   {enviandoMensaje ? <CircleNotch className="animate-spin" /> : <PaperPlaneTilt />}
-                  {enviandoMensaje ? 'Enviando...' : 'Enviar mensaje'}
+                  {enviandoMensaje ? A.enviando : A.enviarMensaje}
                 </Button>
               </form>
             </CardContent>
@@ -600,7 +636,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
               <CardHeader>
                 <CardTitle className="text-base">{x}</CardTitle>
                 <CardDescription>
-                  Consulta información y recomendaciones de Academy CAC.
+                  {A.consultaInformacionY}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -656,7 +692,7 @@ function CalendarioEstudiante({ actividades }: { actividades: ActividadResponse[
         </CardHeader>
         <CardContent>
           <h2 className="mb-4 text-center text-base font-semibold capitalize">{etiquetaMes}</h2>
-          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span></div>
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{A.diasCortos.map((d) => <span key={d}>{d}</span>)}</div>
           <div className="mt-2 grid grid-cols-7 gap-1">
             {Array.from({ length: primerDia }).map((_, index) => <span key={`blank-${index}`} className="aspect-square" />)}
             {Array.from({ length: diasMes }, (_, index) => {
@@ -700,7 +736,7 @@ function MediaNotificacion({
           className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/30 px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-secondary/60"
         >
           <FileText className="size-4" />
-          Ver imagen del anuncio
+          {A.verImagenDelAnuncio}
         </a>
       )
     }
