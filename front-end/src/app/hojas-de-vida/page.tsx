@@ -8,7 +8,7 @@ import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { usePreferences } from '@/lib/preferences'
-import { textosAdmin } from '@/lib/textos-admin'
+import { textosAdmin, type TextosAdmin } from '@/lib/textos-admin'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { EstadoDot } from '@/components/ui/estado-dot'
@@ -34,69 +34,73 @@ type TabId = 'generacion' | 'plantillas' | 'extraccion' | 'edicion'
  * etiqueta y por marcador, más abajo) porque el analizador devuelve unos u otros
  * según de dónde salga la plantilla.
  */
-const TITULOS_SECCIONES_ES: Record<string, string> = {
-  Header: 'Cabecera / Encabezado',
-  header: 'Cabecera / Encabezado',
-  Encabezado: 'Cabecera / Encabezado',
-  Contact: 'Información de Contacto',
-  contact: 'Información de Contacto',
-  'Professional Summary': 'Perfil Profesional',
-  summary: 'Perfil Profesional',
-  'Professional Experience': 'Experiencia Profesional',
-  experience: 'Experiencia Profesional',
-  Education: 'Educación Académica',
-  education: 'Educación Académica',
-  'Continuing Education & Certifications': 'Certificaciones y Formación Adicional',
-  certifications: 'Certificaciones y Formación Adicional',
-  Achievements: 'Logros Destacados',
-  achievements: 'Logros Destacados',
-  'Technical Skills': 'Habilidades Técnicas',
-  skills: 'Habilidades Técnicas',
-  Languages: 'Idiomas',
-  languages: 'Idiomas',
+function titulosDeSeccion(T: ReturnType<typeof textos>): Record<string, string> {
+  return {
+    Header: T.cabeceraEncabezado,
+    header: T.cabeceraEncabezado,
+    Encabezado: T.cabeceraEncabezado,
+    Contact: T.informacionDeContacto,
+    contact: T.informacionDeContacto,
+    'Professional Summary': T.perfilProfesional,
+    summary: T.perfilProfesional,
+    'Professional Experience': T.experienciaProfesional,
+    experience: T.experienciaProfesional,
+    Education: T.educacionAcademica,
+    education: T.educacionAcademica,
+    'Continuing Education & Certifications': T.certificacionesYFormacion,
+    certifications: T.certificacionesYFormacion,
+    Achievements: T.logrosDestacados,
+    achievements: T.logrosDestacados,
+    'Technical Skills': T.habilidadesTecnicas,
+    skills: T.habilidadesTecnicas,
+    Languages: T.idiomas,
+    languages: T.idiomas,
+  }
 }
 
-const ETIQUETAS_CAMPOS_ES: Record<string, string> = {
-  'Full Name': 'Nombre Completo',
-  FULL_NAME: 'Nombre Completo',
-  'Professional Title': 'Cargo / Título Profesional',
-  PROFESSIONAL_TITLE: 'Cargo / Título Profesional',
-  'City, Country': 'Ciudad y País',
-  CITY_COUNTRY: 'Ciudad y País',
-  Phone: 'Teléfono / Celular',
-  PHONE: 'Teléfono / Celular',
-  'LinkedIn URL': 'Perfil de LinkedIn',
-  LINKEDIN_URL: 'Perfil de LinkedIn',
-  'Portfolio URL': 'Portafolio Web',
-  PORTFOLIO_URL: 'Portafolio Web',
-  Email: 'Correo Electrónico',
-  EMAIL: 'Correo Electrónico',
-  'Professional Summary': 'Resumen Profesional',
-  SUMMARY: 'Resumen Profesional',
-  'Job Title': 'Cargo Desempeñado',
-  JOB_TITLE: 'Cargo Desempeñado',
-  Organization: 'Empresa / Organización',
-  ORGANIZATION: 'Empresa / Organización',
-  City: 'Ciudad',
-  CITY: 'Ciudad',
-  'Date Range': 'Rango de Fechas (Inicio - Fin)',
-  DATES: 'Rango de Fechas (Inicio - Fin)',
-  'Accomplishment Bullets': 'Logros y Funciones',
-  BULLETS: 'Logros y Funciones',
-  'Degree / Program': 'Título / Programa Académico',
-  DEGREE: 'Título / Programa Académico',
-  Institution: 'Institución Educativa',
-  INSTITUTION: 'Institución Educativa',
-  Year: 'Año de Graduación',
-  YEAR: 'Año de Graduación',
-  'Certification / Course': 'Certificación / Curso',
-  CERTIFICATION: 'Certificación / Curso',
-  Achievement: 'Logro Destacado',
-  ACHIEVEMENT: 'Logro Destacado',
-  Skills: 'Habilidades Técnicas y Herramientas',
-  SKILLS: 'Habilidades Técnicas y Herramientas',
-  Languages: 'Idiomas y Niveles',
-  LANGUAGES: 'Idiomas y Niveles',
+function etiquetasDeCampo(T: ReturnType<typeof textos>, C: TextosAdmin): Record<string, string> {
+  return {
+    'Full Name': T.nombreCompleto,
+    FULL_NAME: T.nombreCompleto,
+    'Professional Title': T.cargoTituloProfesional,
+    PROFESSIONAL_TITLE: T.cargoTituloProfesional,
+    'City, Country': T.ciudadYPais,
+    CITY_COUNTRY: T.ciudadYPais,
+    Phone: T.telefonoCelular,
+    PHONE: T.telefonoCelular,
+    'LinkedIn URL': T.perfilDeLinkedin,
+    LINKEDIN_URL: T.perfilDeLinkedin,
+    'Portfolio URL': T.portafolioWeb,
+    PORTFOLIO_URL: T.portafolioWeb,
+    Email: T.correoElectronico,
+    EMAIL: T.correoElectronico,
+    'Professional Summary': T.resumenProfesional,
+    SUMMARY: T.resumenProfesional,
+    'Job Title': T.cargoDesempenado,
+    JOB_TITLE: T.cargoDesempenado,
+    Organization: T.empresaOrganizacionX,
+    ORGANIZATION: T.empresaOrganizacionX,
+    City: C.ciudad,
+    CITY: C.ciudad,
+    'Date Range': T.rangoDeFechas,
+    DATES: T.rangoDeFechas,
+    'Accomplishment Bullets': T.logrosYFunciones,
+    BULLETS: T.logrosYFunciones,
+    'Degree / Program': T.tituloProgramaAcademico,
+    DEGREE: T.tituloProgramaAcademico,
+    Institution: T.institucionEducativa,
+    INSTITUTION: T.institucionEducativa,
+    Year: T.anoDeGraduacion,
+    YEAR: T.anoDeGraduacion,
+    'Certification / Course': T.certificacionCurso,
+    CERTIFICATION: T.certificacionCurso,
+    Achievement: T.logroDestacado,
+    ACHIEVEMENT: T.logroDestacado,
+    Skills: T.habilidadesTecnicasY,
+    SKILLS: T.habilidadesTecnicasY,
+    Languages: T.idiomasYNiveles,
+    LANGUAGES: T.idiomasYNiveles,
+  }
 }
 
 /**
@@ -215,6 +219,38 @@ function textos(english: boolean) {
         fallidas: 'Failed',
         resultado: 'Result',
         detalle: 'Detail',
+        plantillaCargadaEl: 'Template uploaded. Its design and sections are ready to take student data.',
+        reflejaLosDatos: 'Shows the data saved for the student. Any section you remove below applies when the final PDF is generated.',
+        plantillaDelSistema: '— System template —',
+        soloEstudiantesCon: 'Only students with complete information',
+        generarHojasDe: 'Generate résumés',
+        subeCualquierHoja: 'Upload any résumé in Word or PDF. The system keeps its style and works out on its own where each student’s data goes.',
+        puedesCargarloTal: 'You can upload it exactly as you received it. Name, contact, summary, experience, education, skills and languages are detected from the content and the document headings.',
+        losMarcadoresSon: 'Placeholders are optional and only help if you want to control an exact position. Also accepted:',
+        tamanoMaximo: '. Maximum size: 10 MB.',
+        crearPlantilla: 'Create template',
+        subeCualquierHojaPdf: 'Upload any résumé in PDF to pull out its data automatically and generate it on the official CAC ATS template, without saving students to the database.',
+        extraerYMapear: 'Extract and map to CAC',
+        idiomaDelPdf: 'PDF language:',
+        espanolEs: '🇪🇸 Spanish (ES)',
+        inglesEn: '🇬🇧 English (EN)',
+        datosPersonalesYContacto: '1. Personal details and contact',
+        perfilProfesionalNum: '2. Professional summary',
+        experienciaProfesionalNum: '3. Professional experience',
+        educacionYCertificaciones: '4. Education and certificates',
+        agregarFormacion: 'Add education',
+        seleccionaUnEstudiantePara: 'Choose a student to review their profile, fill in what is missing and generate their résumé on the CAC ATS template.',
+        volverAGenerar: 'Generate the preview again',
+        seccionRetiradaDel: 'Section removed from the PDF',
+        confirmarEliminarPlantilla: (n: string) => `Template "${n}" will be deleted. This cannot be undone.`,
+        mapeoAutomatico: (n: number) => `Automatic mapping · ${n} fields`,
+        vistaPreviaDeX: (n: string) => `Preview of ${n}`,
+        agregarMasElementos: (t: string) => `Add more items to ${t} (+)`,
+        incluirSeccion: (t: string) => `Include the whole ${t} section (+)`,
+        retirarSeccion: (t: string) => `Remove the whole ${t} section (-)`,
+        incluirCampo: (t: string) => `Include ${t} in the PDF (+)`,
+        retirarCampo: (t: string) => `Remove ${t} from the PDF (-)`,
+        ingresaX: (t: string) => `Enter ${t}`,
         edicion: 'Editing',
         plantillas: 'Templates',
         plantilla: 'Template',
@@ -356,6 +392,38 @@ function textos(english: boolean) {
         fallidas: 'Fallidas',
         resultado: 'Resultado',
         detalle: 'Detalle',
+        plantillaCargadaEl: 'Plantilla cargada. El diseño y sus secciones están listos para usar los datos de los estudiantes.',
+        reflejaLosDatos: 'Refleja los datos guardados del estudiante. Las secciones que retires abajo se aplican al generar el PDF definitivo.',
+        plantillaDelSistema: '— Plantilla del sistema —',
+        soloEstudiantesCon: 'Solo estudiantes con información completa',
+        generarHojasDe: 'Generar hojas de vida',
+        subeCualquierHoja: 'Sube cualquier hoja de vida en Word o PDF. El sistema conservará su estilo y reconocerá automáticamente dónde ubicar los datos de cada estudiante.',
+        puedesCargarloTal: 'Puedes cargarlo tal como lo recibiste. Se detectan nombre, contacto, perfil, experiencia, educación, habilidades e idiomas a partir del contenido y los títulos del documento.',
+        losMarcadoresSon: 'Los marcadores son opcionales y solo sirven si deseas controlar una posición exacta. También se aceptan',
+        tamanoMaximo: '. Tamaño máximo: 10 MB.',
+        crearPlantilla: 'Crear plantilla',
+        subeCualquierHojaPdf: 'Sube cualquier hoja de vida en PDF para extraer sus datos automáticamente y generarla en la plantilla oficial CAC ATS sin guardar estudiantes en la BD.',
+        extraerYMapear: 'Extraer y Mapear a CAC',
+        idiomaDelPdf: 'Idioma del PDF:',
+        espanolEs: '🇪🇸 Español (ES)',
+        inglesEn: '🇬🇧 Inglés (EN)',
+        datosPersonalesYContacto: '1. Datos Personales y Contacto',
+        perfilProfesionalNum: '2. Perfil Profesional',
+        experienciaProfesionalNum: '3. Experiencia Profesional',
+        educacionYCertificaciones: '4. Educación y Certificaciones',
+        agregarFormacion: 'Agregar formación',
+        seleccionaUnEstudiantePara: 'Selecciona un estudiante para analizar su perfil, completar campos faltantes y generar su HV con la plantilla CAC ATS.',
+        volverAGenerar: 'Volver a generar la vista previa',
+        seccionRetiradaDel: 'Sección retirada del PDF',
+        confirmarEliminarPlantilla: (n: string) => `Se eliminará la plantilla "${n}". Esta acción no se puede deshacer.`,
+        mapeoAutomatico: (n: number) => `Mapeo automático · ${n} datos`,
+        vistaPreviaDeX: (n: string) => `Vista previa de ${n}`,
+        agregarMasElementos: (t: string) => `Agregar más elementos a ${t} (+)`,
+        incluirSeccion: (t: string) => `Incluir sección ${t} completa (+)`,
+        retirarSeccion: (t: string) => `Retirar sección ${t} completa (-)`,
+        incluirCampo: (t: string) => `Incluir campo ${t} en el PDF (+)`,
+        retirarCampo: (t: string) => `Retirar campo ${t} del PDF (-)`,
+        ingresaX: (t: string) => `Ingresa ${t}`,
         edicion: 'Edición',
         plantillas: 'Plantillas',
         plantilla: 'Plantilla',
@@ -395,6 +463,8 @@ export default function HojasDeVidaPage() {
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
+  const TITULOS = titulosDeSeccion(T)
+  const ETIQUETAS = etiquetasDeCampo(T, C)
   const { confirmar, dialogo } = useConfirmar()
   const [tab, setTab] = useState<TabId>('generacion')
 
@@ -602,7 +672,7 @@ export default function HojasDeVidaPage() {
       await hvApi.crearPlantilla(plNombre.trim(), plColor, plArchivo ?? undefined)
       setPlNombre(''); setPlColor('#1C315E'); setPlArchivo(null)
       if (plFileRef.current) plFileRef.current.value = ''
-      setPlSuccess('Plantilla cargada. El diseño y sus secciones están listos para usar los datos de los estudiantes.')
+      setPlSuccess(T.plantillaCargadaEl)
       await loadPlantillas()
     } catch (err) { setPlError(errorDe(err, T.errorAlCrear)) }
     finally { setCreandoPlantilla(false) }
@@ -638,7 +708,7 @@ export default function HojasDeVidaPage() {
   const handleEliminarPlantilla = async (pl: PlantillaResponse) => {
     if (!(await confirmar({
       titulo: T.eliminarPlantilla,
-      descripcion: `Se eliminará la plantilla "${pl.nombre}". Esta acción no se puede deshacer.`,
+      descripcion: T.confirmarEliminarPlantilla(pl.nombre),
       textoConfirmar: C.eliminar,
     }))) return
     try { await hvApi.eliminarPlantilla(pl.id); loadPlantillas() }
@@ -737,7 +807,7 @@ export default function HojasDeVidaPage() {
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="gen-plantilla" className="text-[11px] uppercase tracking-wider text-muted-foreground">{T.plantilla}</label>
                   <select id="gen-plantilla" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={genPlantilla} onChange={(e) => setGenPlantilla(e.target.value)} disabled={generando || loadingPlantillas}>
-                    <option value="">— Plantilla del sistema —</option>
+                    <option value="">{T.plantillaDelSistema}</option>
                     {plantillas.map((p) => (
                       <option key={p.id} value={p.id}>{p.nombre}{p.predeterminada ? ' (predeterminada)' : ''}</option>
                     ))}
@@ -746,7 +816,7 @@ export default function HojasDeVidaPage() {
               </div>
               <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
                 <input type="checkbox" checked={soloCompletos} onChange={(e) => setSoloCompletos(e.target.checked)} disabled={generando} className="size-4 cursor-pointer" />
-                Solo estudiantes con información completa
+                {T.soloEstudiantesCon}
               </label>
 
               {genError && (
@@ -757,7 +827,7 @@ export default function HojasDeVidaPage() {
 
               <div>
                 <Button onClick={handleGenerar} disabled={generando || !genPrograma}>
-                  {generando ? <><CircleNotch className="size-4 animate-spin" /> Generando…</> : <><ReadCvLogo className="size-4" /> Generar hojas de vida</>}
+                  {generando ? <><CircleNotch className="size-4 animate-spin" /> Generando…</> : <><ReadCvLogo className="size-4" /> {T.generarHojasDe}</>}
                 </Button>
               </div>
             </CardContent>
@@ -834,7 +904,7 @@ export default function HojasDeVidaPage() {
             <CardHeader>
               <CardTitle className="text-base">{T.nuevaPlantilla}</CardTitle>
               <CardDescription>
-                Sube cualquier hoja de vida en Word o PDF. El sistema conservará su estilo y reconocerá automáticamente dónde ubicar los datos de cada estudiante.
+                {T.subeCualquierHoja}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
@@ -845,7 +915,7 @@ export default function HojasDeVidaPage() {
                     <div>
                       <p className="text-sm font-semibold text-foreground">{T.noNecesitasModificar}</p>
                       <p className="text-xs leading-relaxed text-muted-foreground">
-                        Puedes cargarlo tal como lo recibiste. Se detectan nombre, contacto, perfil, experiencia, educación, habilidades e idiomas a partir del contenido y los títulos del documento.
+                        {T.puedesCargarloTal}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
@@ -856,7 +926,7 @@ export default function HojasDeVidaPage() {
                       ))}
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Los marcadores son opcionales y solo sirven si deseas controlar una posición exacta. También se aceptan <code>{'{{NOMBRE_COMPLETO}}'}</code>, <code>{'{{CORREO}}'}</code> y <code>{'{{EXPERIENCIA}}'}</code>. Tamaño máximo: 10 MB.
+                      {T.losMarcadoresSon} <code>{'{{NOMBRE_COMPLETO}}'}</code>, <code>{'{{CORREO}}'}</code> y <code>{'{{EXPERIENCIA}}'}</code>{T.tamanoMaximo}
                     </p>
                   </div>
                 </div>
@@ -878,7 +948,7 @@ export default function HojasDeVidaPage() {
                     className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium" />
                 </div>
                 <Button type="submit" size="sm" disabled={creandoPlantilla}>
-                  {creandoPlantilla ? <><CircleNotch className="size-3.5 animate-spin" /> Creando…</> : <><Plus className="size-3.5" /> Crear plantilla</>}
+                  {creandoPlantilla ? <><CircleNotch className="size-3.5 animate-spin" /> Creando…</> : <><Plus className="size-3.5" /> {T.crearPlantilla}</>}
                 </Button>
               </form>
               {plError && (
@@ -945,7 +1015,7 @@ export default function HojasDeVidaPage() {
                             </span>
                             <span className="text-[10px] text-muted-foreground">
                               {pl.automatica
-                                ? `Mapeo automático · ${pl.camposDetectados} datos`
+                                ? T.mapeoAutomatico(pl.camposDetectados)
                                 : pl.camposDetectados > 0
                                   ? `${pl.camposDetectados} campos detectados`
                                   : pl.tieneHtml ? T.plantillaOficialCac : T.vistaOriginal}
@@ -955,7 +1025,7 @@ export default function HojasDeVidaPage() {
                         <td className="px-4 py-3 text-muted-foreground tabular-nums">{new Date(pl.createdAt).toLocaleDateString('es-CO')}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="inline-flex gap-1">
-                            <button type="button" onClick={() => handleVistaPrevia(pl)} title={T.verPlantillaCon} aria-label={`Vista previa de ${pl.nombre}`}
+                            <button type="button" onClick={() => handleVistaPrevia(pl)} title={T.verPlantillaCon} aria-label={T.vistaPreviaDeX(pl.nombre)}
                               className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary">
                               {previewLoading === pl.id ? <CircleNotch className="size-4 animate-spin" /> : <Eye className="size-4" />}
                             </button>
@@ -984,7 +1054,7 @@ export default function HojasDeVidaPage() {
               className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/75 p-3 backdrop-blur-md sm:p-6"
               role="dialog"
               aria-modal="true"
-              aria-label={`Vista previa de ${previewName}`}
+              aria-label={T.vistaPreviaDeX(previewName)}
               onMouseDown={(event) => {
                 if (event.currentTarget === event.target) closePreview()
               }}
@@ -1001,7 +1071,7 @@ export default function HojasDeVidaPage() {
                 </div>
                 <iframe
                   src={`${previewUrl}#view=FitH`}
-                  title={`Vista previa de ${previewName}`}
+                  title={T.vistaPreviaDeX(previewName)}
                   className="min-h-0 w-full flex-1 border-0 bg-slate-200"
                 />
               </div>
@@ -1017,7 +1087,7 @@ export default function HojasDeVidaPage() {
           <Card className="rounded-lg border-border shadow-none">
             <CardHeader>
               <CardTitle className="text-base">{T.conversionDePdf}</CardTitle>
-              <CardDescription>Sube cualquier hoja de vida en PDF para extraer sus datos automáticamente y generarla en la plantilla oficial CAC ATS sin guardar estudiantes en la BD.</CardDescription>
+              <CardDescription>{T.subeCualquierHojaPdf}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="flex flex-col gap-1.5 flex-1">
@@ -1026,7 +1096,7 @@ export default function HojasDeVidaPage() {
                   className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium" disabled={extrayendo} />
               </div>
               <Button onClick={handleExtraer} disabled={extrayendo || !extArchivo}>
-                {extrayendo ? <><CircleNotch className="size-4 animate-spin" /> Procesando PDF…</> : <><UploadSimple className="size-4" /> Extraer y Mapear a CAC</>}
+                {extrayendo ? <><CircleNotch className="size-4 animate-spin" /> Procesando PDF…</> : <><UploadSimple className="size-4" /> {T.extraerYMapear}</>}
               </Button>
             </CardContent>
           </Card>
@@ -1044,7 +1114,7 @@ export default function HojasDeVidaPage() {
                 <CardContent className="pt-4 pb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Globe className="size-4 text-primary" /> Idioma del PDF:
+                      <Globe className="size-4 text-primary" /> {T.idiomaDelPdf}
                     </span>
                     <div className="inline-flex rounded-lg border border-border p-0.5 bg-background gap-0.5">
                       <button
@@ -1054,7 +1124,7 @@ export default function HojasDeVidaPage() {
                           extIdioma === 'es' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        🇪🇸 Español (ES)
+                        {T.espanolEs}
                       </button>
                       <button
                         type="button"
@@ -1063,7 +1133,7 @@ export default function HojasDeVidaPage() {
                           extIdioma === 'en' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        🇬🇧 Inglés (EN)
+                        {T.inglesEn}
                       </button>
                     </div>
                   </div>
@@ -1079,7 +1149,7 @@ export default function HojasDeVidaPage() {
                 {/* Datos personales */}
                 <Card className="rounded-lg border-border shadow-none">
                   <CardHeader>
-                    <CardTitle className="text-sm font-semibold">1. Datos Personales y Contacto</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{T.datosPersonalesYContacto}</CardTitle>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-3">
                     <div className="grid grid-cols-2 gap-2">
@@ -1122,7 +1192,7 @@ export default function HojasDeVidaPage() {
                 {/* Perfil Profesional */}
                 <Card className="rounded-lg border-border shadow-none">
                   <CardHeader>
-                    <CardTitle className="text-sm font-semibold">2. Perfil Profesional</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{T.perfilProfesionalNum}</CardTitle>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-3">
                     <div>
@@ -1157,7 +1227,7 @@ export default function HojasDeVidaPage() {
               <Card className="rounded-lg border-border shadow-none">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle className="text-sm font-semibold">3. Experiencia Profesional</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{T.experienciaProfesionalNum}</CardTitle>
                     <CardDescription className="text-xs">{T.logrosYPuestos}</CardDescription>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => {
@@ -1165,7 +1235,7 @@ export default function HojasDeVidaPage() {
                     exps.push({ cargo: T.nuevoCargo, empresa: T.nuevaEmpresa, fechaInicio: '2023-01-01', fechaFin: null, actual: true, funciones: '' })
                     setDatosExt({ ...datosExt, experiencias: exps })
                   }}>
-                    <Plus className="size-3.5" /> Agregar experiencia
+                    <Plus className="size-3.5" /> {T.agregarExperiencia}
                   </Button>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3">
@@ -1242,7 +1312,7 @@ export default function HojasDeVidaPage() {
               <Card className="rounded-lg border-border shadow-none">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle className="text-sm font-semibold">4. Educación y Certificaciones</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{T.educacionYCertificaciones}</CardTitle>
                     <CardDescription className="text-xs">{T.titulosAcademicosY}</CardDescription>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => {
@@ -1250,7 +1320,7 @@ export default function HojasDeVidaPage() {
                     fms.push({ tipo: 'CERTIFICACION', programa: T.nuevaCertificacionCurso, institucion: C.institucion, fechaFin: '2024' })
                     setDatosExt({ ...datosExt, formaciones: fms })
                   }}>
-                    <Plus className="size-3.5" /> Agregar formación
+                    <Plus className="size-3.5" /> {T.agregarFormacion}
                   </Button>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3">
@@ -1319,7 +1389,7 @@ export default function HojasDeVidaPage() {
             <CardHeader>
               <CardTitle className="text-base">{T.edicionDeHoja}</CardTitle>
               <CardDescription>
-                Selecciona un estudiante para analizar su perfil, completar campos faltantes y generar su HV con la plantilla CAC ATS.
+                {T.seleccionaUnEstudiantePara}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
@@ -1375,7 +1445,7 @@ export default function HojasDeVidaPage() {
                 <CardContent className="pt-4 pb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Globe className="size-4 text-primary" /> Idioma del PDF:
+                      <Globe className="size-4 text-primary" /> {T.idiomaDelPdf}
                     </span>
                     <div className="inline-flex rounded-lg border border-border p-0.5 bg-background gap-0.5">
                       <button
@@ -1385,7 +1455,7 @@ export default function HojasDeVidaPage() {
                           editIdioma === 'es' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        🇪🇸 Español (ES)
+                        {T.espanolEs}
                       </button>
                       <button
                         type="button"
@@ -1394,7 +1464,7 @@ export default function HojasDeVidaPage() {
                           editIdioma === 'en' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        🇬🇧 Inglés (EN)
+                        {T.inglesEn}
                       </button>
                     </div>
                   </div>
@@ -1431,12 +1501,12 @@ export default function HojasDeVidaPage() {
                   <VistaPreviaPdf
                     cargar={cargarPreviewEstudiante}
                     titulo={T.vistaPreviaDe}
-                    descripcion="Refleja los datos guardados del estudiante. Las secciones que retires abajo se aplican al generar el PDF definitivo."
+                    descripcion={T.reflejaLosDatos}
                     altura="38rem"
                   />
                   <div className="mt-2 flex justify-end">
                     <Button variant="ghost" size="sm" onClick={() => setRevisionPreview((n) => n + 1)}>
-                      <ArrowsClockwise className="size-3.5" /> Volver a generar la vista previa
+                      <ArrowsClockwise className="size-3.5" /> {T.volverAGenerar}
                     </Button>
                   </div>
                 </CardContent>
@@ -1464,7 +1534,7 @@ export default function HojasDeVidaPage() {
                 const sectionKey = sec.id.toUpperCase()
                 const estaExcluidaSec = seccionesExcluidas.includes(sectionKey)
                 const esRepetible = ['experience', 'education', 'certifications', 'achievements', 'skills', 'languages'].includes(sec.id)
-                const tituloEs = TITULOS_SECCIONES_ES[sec.titulo] || TITULOS_SECCIONES_ES[sec.id] || sec.titulo
+                const tituloEs = TITULOS[sec.titulo] || TITULOS[sec.id] || sec.titulo
 
                 return (
                   <Card key={sec.id} className={`rounded-lg border-border shadow-none transition-colors ${estaExcluidaSec ? 'border-destructive/30 bg-destructive/5' : ''}`}>
@@ -1476,7 +1546,7 @@ export default function HojasDeVidaPage() {
                           </CardTitle>
                           {estaExcluidaSec && (
                             <Badge className="bg-destructive/10 text-destructive border-none text-[10px]">
-                              Sección retirada del PDF
+                              {T.seccionRetiradaDel}
                             </Badge>
                           )}
                         </div>
@@ -1491,7 +1561,7 @@ export default function HojasDeVidaPage() {
                               type="button"
                               onClick={() => setModalAgregar(sec.id as any)}
                               className="inline-flex size-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 transition-colors shadow-sm"
-                              title={`Agregar más elementos a ${tituloEs} (+)`}
+                              title={T.agregarMasElementos(tituloEs)}
                             >
                               <Plus className="size-4" />
                             </button>
@@ -1506,7 +1576,7 @@ export default function HojasDeVidaPage() {
                                 ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                                 : 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-950/40 dark:text-rose-400'
                             }`}
-                            title={estaExcluidaSec ? `Incluir sección ${tituloEs} completa (+)` : `Retirar sección ${tituloEs} completa (-)`}
+                            title={estaExcluidaSec ? T.incluirSeccion(tituloEs) : T.retirarSeccion(tituloEs)}
                           >
                             {estaExcluidaSec ? <Plus className="size-4" /> : <Minus className="size-4" />}
                           </button>
@@ -1523,7 +1593,7 @@ export default function HojasDeVidaPage() {
                       <CardContent className="flex flex-col gap-3">
                         {sec.campos.map((c) => {
                           const fieldKey = c.placeholder.toUpperCase()
-                          const labelEs = ETIQUETAS_CAMPOS_ES[c.label] || ETIQUETAS_CAMPOS_ES[c.placeholder] || c.label
+                          const labelEs = ETIQUETAS[c.label] || ETIQUETAS[c.placeholder] || c.label
                           const estaExcluidoFld = camposExcluidos.includes(fieldKey) ||
                             (fieldKey === 'LINKEDIN_URL' && camposExcluidos.includes('LINKEDIN')) ||
                             (fieldKey === 'CITY_COUNTRY' && camposExcluidos.includes('CITY'))
@@ -1546,7 +1616,7 @@ export default function HojasDeVidaPage() {
                                       ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400'
                                       : 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-950/40 dark:text-rose-400'
                                   }`}
-                                  title={estaExcluidoFld ? `Incluir campo ${labelEs} en el PDF (+)` : `Retirar campo ${labelEs} del PDF (-)`}
+                                  title={estaExcluidoFld ? T.incluirCampo(labelEs) : T.retirarCampo(labelEs)}
                                 >
                                   {estaExcluidoFld ? <Plus className="size-3.5" /> : <Minus className="size-3.5" />}
                                 </button>
@@ -1554,7 +1624,7 @@ export default function HojasDeVidaPage() {
                               <Input
                                 value={editFormData[c.placeholder] ?? c.valorActual ?? ''}
                                 onChange={(e) => setEditFormData((prev) => ({ ...prev, [c.placeholder]: e.target.value }))}
-                                placeholder={c.completo ? T.completadoAutomaticamente : `Ingresa ${labelEs.toLowerCase()}`}
+                                placeholder={c.completo ? T.completadoAutomaticamente : T.ingresaX(labelEs.toLowerCase())}
                                 className={`h-8 text-sm transition-all ${
                                   estaExcluidoFld
                                     ? 'opacity-40 bg-secondary/50 line-through'
