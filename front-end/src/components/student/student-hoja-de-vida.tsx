@@ -888,6 +888,7 @@ export function StudentHojaDeVida({
   const [idioma, setIdioma] = useState<'es' | 'en'>('es')
   const [plantillas, setPlantillas] = useState<PlantillaResponse[]>([])
   const [plantillaId, setPlantillaId] = useState<string | undefined>(perfil.plantillaPreferidaId ?? undefined)
+  const [errorPlantilla, setErrorPlantilla] = useState<string | null>(null)
 
   useEffect(() => {
     hvApi.plantillas().then((res) => {
@@ -896,15 +897,28 @@ export function StudentHojaDeVida({
         const pred = res.find((p) => p.predeterminada) ?? res[0]
         setPlantillaId(pred.id)
       }
-    }).catch(() => {})
-  }, [plantillaId])
+    }).catch((e) => setErrorPlantilla(mensajeDe(e, T.errorConexion)))
+  }, [plantillaId, T.errorConexion])
 
+  /**
+   * Guarda la plantilla elegida.
+   *
+   * Se marca antes de guardar para que la seleccion responda al instante, pero
+   * si el servidor la rechaza hay que deshacerla: dejarla marcada sin haberse
+   * guardado es peor que no marcarla, porque al volver aparece la anterior y
+   * nada explica por que.
+   */
   const seleccionarPlantilla = async (id: string) => {
+    const anterior = plantillaId
     setPlantillaId(id)
+    setErrorPlantilla(null)
     try {
       const nov = await estudiantesApi.guardarPlantillaPreferida(id)
       onUpdate(nov)
-    } catch {}
+    } catch (e) {
+      setPlantillaId(anterior)
+      setErrorPlantilla(mensajeDe(e, T.errorConexion))
+    }
   }
 
   const cargar = useCallback(
@@ -970,6 +984,11 @@ export function StudentHojaDeVida({
               </div>
             </div>
           )}
+
+          {/* Fuera del bloque de arriba a proposito: si las plantillas no se
+              pudieron cargar, ese bloque no se pinta y el aviso se habria ido
+              con el, que es justo cuando hace falta. */}
+          {errorPlantilla && <p className="text-xs text-destructive">{errorPlantilla}</p>}
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">

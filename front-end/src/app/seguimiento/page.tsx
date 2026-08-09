@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { estudiantesApi, mensajeDeError, tableroApi } from '@/lib/api'
 import { useAvisos } from '@/components/ui/avisos'
+import { useSearchParams } from '@/compat/next-navigation'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
 import type { EstadoContacto, EstudianteResponse, EtapaEmpleabilidad, Tablero, TarjetaTablero } from '@/lib/types'
@@ -140,6 +141,24 @@ export default function SeguimientoPage() {
   const [error, setError] = useState<string | null>(null)
   const [moviendo, setMoviendo] = useState<string | null>(null)
   const [filtroTablero, setFiltroTablero] = useState('')
+
+  /**
+   * La columna que se pidió al llegar, si se llegó desde otra pantalla.
+   *
+   * El asistente enlaza aquí con `?estado=ENTREVISTA` cuando alguien le pide
+   * mover a un estudiante. Sin leerlo, esa tarjeta prometía abrir el tablero
+   * «con esa columna a la vista» y dejaba al usuario buscándola entre cinco.
+   * Se valida contra la lista: un valor inventado en la URL no debe pintar
+   * nada raro, sólo ignorarse.
+   */
+  const parametros = useSearchParams()
+  const estadoPedido = ESTADOS.find((e) => e === parametros.get('estado')) ?? null
+  const columnaDestacada = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (!estadoPedido || cargando) return
+    columnaDestacada.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  }, [estadoPedido, cargando])
 
   // Mouse Panning ultrarrápido con inercia cinemática (fuerza de arrastre)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -471,10 +490,13 @@ export default function SeguimientoPage() {
                     if (id) void mover(id, estado)
                     setDraggedStudentId(null)
                   }}
+                  ref={estado === estadoPedido ? columnaDestacada : undefined}
                   className={`flex w-72 shrink-0 flex-col gap-3 rounded-2xl border p-2 transition-all ${
                     isOver
                       ? 'border-primary/50 bg-primary/[0.04] ring-2 ring-primary/30'
-                      : 'border-transparent bg-secondary/10 dark:bg-secondary/5'
+                      : estado === estadoPedido
+                        ? 'border-primary/40 bg-primary/[0.03]'
+                        : 'border-transparent bg-secondary/10 dark:bg-secondary/5'
                   }`}
                 >
                   <header className="flex items-center gap-2 rounded-xl border border-border bg-secondary/40 px-3 py-2">

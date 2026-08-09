@@ -151,6 +151,10 @@ function textos(english: boolean) {
         errorAlGenerar: 'The résumé could not be generated',
         errorAlGenerarX: 'The CAC ATS résumé could not be generated',
         errorAlGuardar: 'The new record could not be saved',
+        faltaCargoEmpresa: 'Fill in the role and the company.',
+        faltaProgramaInstitucion: 'Fill in the programme and the institution.',
+        faltaHabilidad: 'Type the skill you want to add.',
+        faltaIdioma: 'Type the language and level you want to add.',
         errorEnLa: 'Bulk generation failed',
         agregarExperienciaLaboral: 'Add work experience',
         agregarFormacionCertificacion: 'Add education / certificate',
@@ -324,6 +328,10 @@ function textos(english: boolean) {
         errorAlGenerar: 'Error al generar la HV',
         errorAlGenerarX: 'Error al generar la HV en formato CAC ATS',
         errorAlGuardar: 'Error al guardar el nuevo registro',
+        faltaCargoEmpresa: 'Completa el cargo y la empresa.',
+        faltaProgramaInstitucion: 'Completa el programa y la institución.',
+        faltaHabilidad: 'Escribe la habilidad que quieres agregar.',
+        faltaIdioma: 'Escribe el idioma y el nivel que quieres agregar.',
         errorEnLa: 'Error en la generación masiva',
         agregarExperienciaLaboral: 'Agregar Experiencia Laboral',
         agregarFormacionCertificacion: 'Agregar Formación / Certificación',
@@ -562,7 +570,7 @@ export default function HojasDeVidaPage() {
     setGuardandoItem(true)
     try {
       if (modalAgregar === 'experience') {
-        if (!nuevoCargo.trim() || !nuevaEmpresa.trim()) return
+        if (!nuevoCargo.trim() || !nuevaEmpresa.trim()) { setEditError(T.faltaCargoEmpresa); return }
         await perfilApi.crearExperiencia(editEstudianteId, {
           cargo: nuevoCargo,
           empresa: nuevaEmpresa,
@@ -571,7 +579,7 @@ export default function HojasDeVidaPage() {
           funciones: nuevasFunciones || undefined,
         })
       } else if (modalAgregar === 'education' || modalAgregar === 'certifications') {
-        if (!nuevoPrograma.trim() || !nuevaInstitucion.trim()) return
+        if (!nuevoPrograma.trim() || !nuevaInstitucion.trim()) { setEditError(T.faltaProgramaInstitucion); return }
         await perfilApi.crearFormacion(editEstudianteId, {
           tipo: modalAgregar === 'certifications' ? 'CERTIFICACION' : (nuevoTipoFormacion || 'CURSO'),
           programa: nuevoPrograma,
@@ -579,13 +587,13 @@ export default function HojasDeVidaPage() {
           fechaFin: nuevaFechaFin || undefined,
         })
       } else if (modalAgregar === 'skills') {
-        if (!nuevaSkill.trim()) return
+        if (!nuevaSkill.trim()) { setEditError(T.faltaHabilidad); return }
         const est = await estudiantesApi.obtener(editEstudianteId)
         const compsActuales = est.competencias?.trim()
         const nuevasComps = compsActuales ? `${compsActuales}, ${nuevaSkill.trim()}` : nuevaSkill.trim()
         await estudiantesApi.actualizar(editEstudianteId, { nombre: est.nombre, apellido: est.apellido, email: est.email, programaId: est.programaId, competencias: nuevasComps })
       } else if (modalAgregar === 'languages') {
-        if (!nuevoIdioma.trim()) return
+        if (!nuevoIdioma.trim()) { setEditError(T.faltaIdioma); return }
         const est = await estudiantesApi.obtener(editEstudianteId)
         const idiomasActuales = est.idiomas?.trim()
         const nuevosIdiomas = idiomasActuales ? `${idiomasActuales}, ${nuevoIdioma.trim()}` : nuevoIdioma.trim()
