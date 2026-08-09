@@ -31,17 +31,22 @@ public class ChatDirectoService {
     }
 
     /** Solo se muestran compañeros activos del mismo proyecto, nunca toda la base. */
+    /** Cuantos companeros se ofrecen al escribir. Mas de esto no se lee. */
+    private static final int MAXIMO_CONTACTOS = 20;
+
+    @Transactional(readOnly = true)
     public List<ChatContactoResponse> contactos(String consulta, Authentication auth) {
         Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
         UUID programaId = programaDe(propio).getId();
         String termino = consulta == null ? "" : consulta.trim().toLowerCase(Locale.ROOT);
         if (termino.length() < 2) return List.of();
 
-        return estudianteRepository.findAllByProgramaIdAndActivoTrue(programaId).stream()
-                .filter(estudiante -> !estudiante.getId().equals(propio.getId()))
-                .filter(estudiante -> nombreDe(estudiante).toLowerCase(Locale.ROOT).contains(termino))
-                .sorted((a, b) -> nombreDe(a).compareToIgnoreCase(nombreDe(b)))
-                .limit(20)
+        // La busqueda la hace la base, que es quien sabe comparar sin tildes.
+        // Antes se traia el programa entero y se filtraba con `contains()`
+        // sobre minusculas: escribir "jose" no encontraba a «José» ni "nunez" a
+        // «Núñez», y en esta cohorte 48 de 108 nombres llevan tilde.
+        return estudianteRepository.companerosQueCoinciden(programaId, propio.getId(), termino,
+                        org.springframework.data.domain.PageRequest.of(0, MAXIMO_CONTACTOS)).stream()
                 .map(estudiante -> new ChatContactoResponse(estudiante.getId(), nombreDe(estudiante), estudiante.getFotoUrl()))
                 .toList();
     }
