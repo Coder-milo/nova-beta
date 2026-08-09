@@ -198,6 +198,21 @@ export default function ImportacionesPage() {
     setFile(f); setError(null); setPreview(null); setResult(null)
   }
 
+  /**
+   * Cambiar el programa invalida lo validado.
+   *
+   * La previsualizacion dice cuantas filas son altas y cuantas actualizaciones
+   * *contra ese programa*: quien ya esta inscrito alli se actualiza y quien no,
+   * se crea. Si se cambia el destino y se conserva el resumen, la pantalla de
+   * confirmacion muestra el programa nuevo con los numeros del anterior, y se
+   * confirma una importacion sobre cifras que no le corresponden. Se limpia,
+   * igual que al cambiar de archivo.
+   */
+  function elegirPrograma(id: string) {
+    setProgramaId(id)
+    setPreview(null); setResult(null); setError(null)
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (f) pickFile(f)
@@ -346,7 +361,7 @@ export default function ImportacionesPage() {
                 id="imp-programa"
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                 value={programaId}
-                onChange={(e) => setProgramaId(e.target.value)}
+                onChange={(e) => elegirPrograma(e.target.value)}
                 disabled={programas.length === 0}
               >
                 <option value="">{T.seleccionaUnProgramaX}</option>
