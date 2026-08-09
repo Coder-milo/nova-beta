@@ -348,6 +348,19 @@ export const estudiantesApi = {
     ),
   restaurar: (id: string, token?: string) =>
     apiFetch<EstudianteResponse>(`/api/v1/estudiantes/${id}/restaurar`, { method: 'POST', token }),
+  /**
+   * Marca un hito de preparación en varios participantes de una vez.
+   *
+   * Un solo hito por llamada, como en el backend: en bloque, marcar varios a
+   * la vez casi siempre es un descuido. Ponerlos al día de uno en uno es lo
+   * que hace que el equipo vuelva a la hoja de cálculo.
+   */
+  actualizarPreparacionMasiva: (ids: string[], hito: HitoPreparacion, valor: EstadoHito, token?: string) =>
+    apiFetch<{ actualizados: number }>('/api/v1/estudiantes/preparacion-masiva', {
+      method: 'PATCH',
+      data: { ids, hito, valor },
+      token,
+    }),
   eliminarMasivo: (ids: string[], permanente = false, token?: string) =>
     apiFetch<void>('/api/v1/estudiantes/bulk-delete', {
       method: 'POST',
@@ -851,6 +864,12 @@ export const plantillasCorreoApi = {
  * Sólo COORDINADOR y ADMIN. El tablero muestra a toda la cohorte a la vez, que
  * es justo lo que un estudiante no puede ver.
  */
+/** Los hitos de preparación que se pueden marcar en bloque. */
+export type HitoPreparacion =
+  | 'CV_LISTO' | 'CV_INGLES' | 'LINKEDIN_CREADO' | 'LINKEDIN_OPTIMIZADO' | 'PERFIL_OCUPACIONAL'
+
+export type EstadoHito = 'NO' | 'EN_PROCESO' | 'SI'
+
 export const tableroApi = {
   obtener: (token?: string) => apiFetch<Tablero>('/api/v1/seguimiento/tablero', { token }),
   /**

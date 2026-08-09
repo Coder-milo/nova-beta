@@ -29,6 +29,7 @@ import { estudiantesApi, programasApi, matchesApi, ApiCallError, mensajeDeError 
 import { normalizarParaBuscar, normalizarDocumento } from '@/lib/texto'
 import { useAvisos } from '@/components/ui/avisos'
 import { useConfirmar } from '@/components/ui/confirmar'
+import type { HitoPreparacion, EstadoHito } from '@/lib/api'
 import type {
   EstudianteResponse,
   ProgramaResponse,
@@ -143,6 +144,19 @@ function textos(english: boolean) {
   return english
     ? {
         buscarNombreEmail: 'Search name, email, ID…',
+        marcarHito: 'Mark a milestone',
+        marcar: 'Mark',
+        hitoMarcado: (n: number) => `Milestone marked on ${n} participant(s).`,
+        seMarcaraHito: (n: number, hito: string, valor: string) => `“${hito}” will be set to “${valor}” on ${n} selected participant(s).`,
+        hitos: {
+          CV_LISTO: 'Résumé ready',
+          CV_INGLES: 'Résumé in English',
+          LINKEDIN_CREADO: 'LinkedIn created',
+          LINKEDIN_OPTIMIZADO: 'LinkedIn improved',
+          PERFIL_OCUPACIONAL: 'Occupational profile',
+        } as Record<HitoPreparacion, string>,
+        valoresHito: { NO: 'No', EN_PROCESO: 'In progress', SI: 'Yes' } as Record<EstadoHito, string>,
+        restaurarSeleccionados: 'Restore selected',
         buscarEnEstaPagina: 'Filter what is on this page…',
         seleccionados: (n: number) => `${n} student(s) selected`,
         restauradosParcialmente: (ok: number, mal: number) => `${ok} restored, ${mal} failed. The list shows how it actually ended up.`,
@@ -309,6 +323,19 @@ function textos(english: boolean) {
       }
     : {
         buscarNombreEmail: 'Buscar nombre, email, documento…',
+        marcarHito: 'Marcar un hito',
+        marcar: 'Marcar',
+        hitoMarcado: (n: number) => `Hito marcado en ${n} participante(s).`,
+        seMarcaraHito: (n: number, hito: string, valor: string) => `Se pondrá «${hito}» en «${valor}» a ${n} participante(s) seleccionado(s).`,
+        hitos: {
+          CV_LISTO: 'Hoja de vida lista',
+          CV_INGLES: 'Hoja de vida en inglés',
+          LINKEDIN_CREADO: 'LinkedIn creado',
+          LINKEDIN_OPTIMIZADO: 'LinkedIn optimizado',
+          PERFIL_OCUPACIONAL: 'Perfil ocupacional',
+        } as Record<HitoPreparacion, string>,
+        valoresHito: { NO: 'No', EN_PROCESO: 'En proceso', SI: 'Sí' } as Record<EstadoHito, string>,
+        restaurarSeleccionados: 'Restaurar seleccionados',
         buscarEnEstaPagina: 'Filtrar lo que hay en esta página…',
         seleccionados: (n: number) => `${n} estudiante(s) seleccionado(s)`,
         restauradosParcialmente: (ok: number, mal: number) => `Se restauraron ${ok} y fallaron ${mal}. La lista muestra cómo quedó de verdad.`,
@@ -543,6 +570,7 @@ export default function EstudiantesPage() {
   // Selección Masiva
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkBusy, setBulkBusy]       = useState(false)
+  const [hitoMasivo, setHitoMasivo]   = useState<HitoPreparacion>('CV_LISTO')
 
   // ── Cargar programas ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -751,6 +779,34 @@ export default function EstudiantesPage() {
     } else {
       setSelectedIds([])
     }
+  }
+
+  /**
+   * Marca un hito en todos los seleccionados.
+   *
+   * Es lo que evita volver a la hoja de cálculo: poner al día a treinta
+   * participantes de uno en uno no lo hace nadie. Un solo hito por vez, como
+   * el endpoint: marcar varios a la vez casi siempre es un descuido.
+   */
+  const handleBulkHito = async (valor: EstadoHito) => {
+    if (selectedIds.length === 0) return
+    if (!(await confirmar({
+      titulo: T.marcarHito,
+      descripcion: T.seMarcaraHito(selectedIds.length, T.hitos[hitoMasivo], T.valoresHito[valor]),
+      textoConfirmar: T.marcar,
+      destructivo: false,
+    }))) return
+    setBulkBusy(true)
+    try {
+      const { actualizados } = await estudiantesApi.actualizarPreparacionMasiva(selectedIds, hitoMasivo, valor)
+      // Se informa lo que dijo el servidor y no cuántos se habían marcado: si
+      // alguno ya no existía, el número es menor y eso hay que verlo.
+      mostrarExito(T.hitoMarcado(actualizados))
+      setSelectedIds([])
+      loadEstudiantes(selectedPgm, currentPage, verPapelera)
+    } catch (err) {
+      mostrarError(mensajeDeError(err, C.errorConexion))
+    } finally { setBulkBusy(false) }
   }
 
   const handleBulkRestore = async () => {
@@ -1244,7 +1300,7 @@ export default function EstudiantesPage() {
                   disabled={bulkBusy}
                   onClick={handleBulkRestore}
                 >
-                  <ArrowCounterClockwise className="size-3.5 mr-1" /> Restaurar Seleccionados
+                  <ArrowCounterClockwise className="size-3.5 mr-1" /> {T.restaurarSeleccionados}
                 </Button>
                 <Button
                   variant="destructive"
@@ -1257,15 +1313,43 @@ export default function EstudiantesPage() {
                 </Button>
               </>
             ) : (
-              <Button
-                variant="destructive"
-                size="sm"
-                className="text-xs"
-                disabled={bulkBusy}
-                onClick={() => handleBulkDelete(false)}
-              >
-                <Trash className="size-3.5 mr-1" /> {T.eliminarSeleccionados}
-              </Button>
+              <>
+                {/* Marcar un hito a los seleccionados. El endpoint existía desde
+                    el principio y ninguna pantalla lo llamaba: poner al día a
+                    treinta participantes de uno en uno no lo hace nadie. */}
+                <select
+                  aria-label={T.marcarHito}
+                  value={hitoMasivo}
+                  disabled={bulkBusy}
+                  onChange={(e) => setHitoMasivo(e.target.value as HitoPreparacion)}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                >
+                  {(Object.keys(T.hitos) as HitoPreparacion[]).map((h) => (
+                    <option key={h} value={h}>{T.hitos[h]}</option>
+                  ))}
+                </select>
+                {(['SI', 'EN_PROCESO', 'NO'] as EstadoHito[]).map((v) => (
+                  <Button
+                    key={v}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs bg-background hover:bg-secondary"
+                    disabled={bulkBusy}
+                    onClick={() => void handleBulkHito(v)}
+                  >
+                    {T.valoresHito[v]}
+                  </Button>
+                ))}
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="text-xs"
+                  disabled={bulkBusy}
+                  onClick={() => handleBulkDelete(false)}
+                >
+                  <Trash className="size-3.5 mr-1" /> {T.eliminarSeleccionados}
+                </Button>
+              </>
             )}
           </div>
         </div>
