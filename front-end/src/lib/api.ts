@@ -282,7 +282,7 @@ export const dashboardApi = {
 // ─── Programas ───────────────────────────────────────────────────────────────
 
 import type { ProgramaResponse, ProgramaRequest, ProgramaEstado, ProgramaResumenResponse } from './types'
-import type { MotivoCierre } from './types'
+import type { MotivoCierre, OpcionCatalogo, CatalogosColocacion } from './types'
 
 export const programasApi = {
   listar: () =>
@@ -815,6 +815,8 @@ export const empresasApi = {
   actualizar: (id: string, data: EmpresaRequest) => apiFetch<EmpresaResponse>(`/api/v1/empresas/${id}`, { method: 'PUT', data }),
   resumen: () => apiFetch<{ total: number; sinContactar: number; contactadas: number; enConversacion: number; aliadas: number; descartadas: number }>('/api/v1/empresas/resumen'),
   sectores: () => apiFetch<string[]>('/api/v1/empresas/sectores'),
+  /** Los estados de relación que existen, según el enum del backend. */
+  estadosRelacion: () => apiFetch<OpcionCatalogo[]>('/api/v1/empresas/estados-relacion'),
   obtener: (id: string, token?: string) => apiFetch<EmpresaResponse>(`/api/v1/empresas/${id}`, { token }),
   eliminar: (id: string, token?: string) => apiFetch<void>(`/api/v1/empresas/${id}`, { method: 'DELETE', token }),
   registrarContacto: (id: string, data: { estado?: EstadoRelacionEmpresa; proximoPaso?: string; nota?: string }) =>
@@ -1069,6 +1071,16 @@ export const colocacionesApi = {
     apiFetch<{ mensaje: string }>(`/api/v1/colocaciones/${id}/cerrar`, { method: 'POST', data: { motivo }, token }),
   eliminar: (id: string, token?: string) =>
     apiFetch<void>(`/api/v1/colocaciones/${id}`, { method: 'DELETE', token }),
+  /**
+   * Qué canales y tipos de vinculación existen, según el backend.
+   *
+   * La lista la mandan los enums de Java. Tenerla escrita a mano en la
+   * pantalla significaba que añadir un canal allí no lo hacía aparecer aquí:
+   * el desplegable se quedaba corto y nadie se enteraba hasta echar de menos
+   * el dato.
+   */
+  catalogos: (token?: string) =>
+    apiFetch<CatalogosColocacion>('/api/v1/colocaciones/catalogos', { token }),
 }
 
 // ─── Configuración de la instalación ─────────────────────────────────────────

@@ -354,6 +354,24 @@ export interface VacanteResponse {
 }
 
 /**
+ * Una opción de catálogo tal como la manda el backend.
+ *
+ * `valor` es el código que viaja de vuelta y no se traduce nunca; `etiqueta`
+ * es el texto en español que el servidor tiene para él, y sirve de respaldo
+ * cuando aparece un código que la pantalla todavía no conoce.
+ */
+export interface OpcionCatalogo {
+  valor: string
+  etiqueta: string
+}
+
+export interface CatalogosColocacion {
+  metaSalarial: number | null
+  canales: (OpcionCatalogo & { gestionadaPorElPrograma: boolean })[]
+  tiposVinculacion: (OpcionCatalogo & { esEmpleo: boolean })[]
+}
+
+/**
  * Por qué dejó de mostrarse una oferta. Refleja el enum del backend.
  *
  * Se guarda el motivo y no sólo que está cerrada porque la diferencia importa:
