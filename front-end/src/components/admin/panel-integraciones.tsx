@@ -19,7 +19,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CopyIcon as Copy, PlugsIcon as Plugs, PlugsConnectedIcon as PlugsConnected, ShieldWarningIcon as ShieldWarning, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
-import { configuracionApi } from '@/lib/api'
+import { ApiCallError, configuracionApi } from '@/lib/api'
 import type { EstadoIntegracion } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -67,11 +67,15 @@ export function PanelIntegraciones() {
     try {
       setEstados(await configuracionApi.integraciones())
     } catch (err) {
-      setError(errorDe(err))
+      // El endpoint es solo de ADMIN. Un coordinador que abra esta pestana
+      // recibia el "acceso denegado" crudo del servidor, que parece un fallo
+      // del sistema en vez de un permiso que no tiene. Se dice cual es.
+      const esDePermisos = err instanceof ApiCallError && (err.status === 401 || err.status === 403)
+      setError(esDePermisos ? C.errorPermisos : errorDe(err))
     } finally {
       setCargando(false)
     }
-  }, [])
+  }, [C.errorPermisos])
 
   useEffect(() => {
     void cargar()

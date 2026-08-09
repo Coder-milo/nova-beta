@@ -25,6 +25,7 @@ import { Badge } from '@/components/ui/badge'
 import { plantillasCorreoApi, mensajeDeError } from '@/lib/api'
 import { useAvisos } from '@/components/ui/avisos'
 import { useConfirmar } from '@/components/ui/confirmar'
+import { useAuth } from '@/lib/auth'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
 import type {
@@ -136,6 +137,11 @@ export function PanelPlantillasCorreo() {
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
   const { mostrarError, avisos } = useAvisos()
+  // Borrar una plantilla es solo de ADMIN en el servidor. Sin esto, un
+  // coordinador ve el boton, lo pulsa y recibe un 403: se le ofrece algo que
+  // no puede hacer y el fallo parece del sistema.
+  const { user } = useAuth()
+  const puedeEliminar = user?.roles?.includes('ADMIN') ?? false
   const { confirmar, dialogo } = useConfirmar()
 
   const [plantillas, setPlantillas] = useState<PlantillaCorreo[]>([])
@@ -319,14 +325,17 @@ export function PanelPlantillasCorreo() {
                 </div>
                 {!p.activa && <Badge variant="outline" className="text-[10px]">{C.inactivo}</Badge>}
                 <Button variant="outline" size="sm" onClick={() => abrirEdicion(p)}>{C.editar}</Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void eliminar(p)}
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash className="size-3.5" />
-                </Button>
+                {puedeEliminar && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void eliminar(p)}
+                    aria-label={`${C.eliminar} ${p.nombre}`}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash className="size-3.5" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
