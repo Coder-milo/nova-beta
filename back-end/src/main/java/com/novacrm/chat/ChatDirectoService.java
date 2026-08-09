@@ -46,10 +46,25 @@ public class ChatDirectoService {
                 .toList();
     }
 
+    /**
+     * Cuantos mensajes se traen al abrir un chat.
+     *
+     * <p>Bastante para no cortar una conversacion en curso y acotado para que
+     * abrirlo no dependa de cuanto lleven escribiendose.
+     */
+    private static final int MENSAJES_AL_ABRIR = 200;
+
+    @Transactional(readOnly = true)
     public List<ChatDirectoMensajeResponse> conversacion(UUID contactoId, Authentication auth) {
         Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
         Estudiante contacto = contactoDelMismoPrograma(contactoId, propio);
-        return repository.conversacion(propio.getId(), contacto.getId()).stream()
+        var recientes = repository.ultimosDeLaConversacion(propio.getId(), contacto.getId(),
+                org.springframework.data.domain.PageRequest.of(0, MENSAJES_AL_ABRIR));
+        // Llegan del mas nuevo al mas viejo, que es como se acota; se devuelven
+        // en orden de lectura.
+        var enOrden = new java.util.ArrayList<>(recientes);
+        java.util.Collections.reverse(enOrden);
+        return enOrden.stream()
                 .map(mensaje -> respuesta(mensaje, propio.getId()))
                 .toList();
     }
