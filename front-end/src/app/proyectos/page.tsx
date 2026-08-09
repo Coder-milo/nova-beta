@@ -16,6 +16,8 @@ import Link from '@/compat/next-link'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 import { Input } from '@/components/ui/input'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { programasApi, mensajeDeError, ApiCallError } from '@/lib/api'
@@ -54,7 +56,100 @@ const emptyForm: ProgramaForm = {
   cliente: '', responsable: '', observaciones: '', porcentajeAvance: undefined,
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        cargandoProgramas: 'Loading programmes…',
+        noHayProgramas: 'No programmes registered.',
+        nuevoPrograma: 'New programme',
+        editarPrograma: 'Edit programme',
+        eliminarProyecto: 'Delete project',
+        programaCreadoExitosamente: 'Programme created.',
+        programaActualizado: 'Programme updated.',
+        noTienesPermisos: 'You do not have permission to save this programme.',
+        elNombreEs: 'The name is required. Dates and duration are optional.',
+        laFechaFinal: 'The end date must be after the start date.',
+        errorDeConexion: 'Connection error.',
+        sinDescripcion: 'No description.',
+        descripcionDelPrograma: 'Programme description…',
+        observacionesInternas: 'Internal notes…',
+        entidadOCliente: 'Organisation or client',
+        nombreDelResponsable: 'Person in charge',
+        duracionDias: 'Duration (days)',
+        fechaInicio: 'Start date',
+        fechaFin: 'End date',
+        enEjecucion: 'Running',
+        planeacion: 'Planning',
+        finalizado: 'Finished',
+        cancelado: 'Cancelled',
+        archivado: 'Archived',
+        pausado: 'Paused',
+        borrador: 'Draft',
+        finalizar: 'Finish',
+        archivar: 'Archive',
+        activar: 'Activate',
+        actualizar: 'Update',
+        responsable: 'Person in charge',
+        observaciones: 'Notes',
+        descripcion: 'Description',
+        duracion: 'Duration',
+        cliente: 'Client',
+        inicio: 'Start',
+        fin: 'End',
+        rutaAccelerator: 'Ruta Accelerator',
+      }
+    : {
+        cargandoProgramas: 'Cargando programas…',
+        noHayProgramas: 'No hay programas registrados.',
+        nuevoPrograma: 'Nuevo Programa',
+        editarPrograma: 'Editar Programa',
+        eliminarProyecto: 'Eliminar proyecto',
+        programaCreadoExitosamente: 'Programa creado exitosamente.',
+        programaActualizado: 'Programa actualizado.',
+        noTienesPermisos: 'No tienes permisos para guardar este programa.',
+        elNombreEs: 'El nombre es obligatorio. Las fechas y duración son opcionales.',
+        laFechaFinal: 'La fecha final debe ser posterior a la fecha de inicio.',
+        errorDeConexion: 'Error de conexión.',
+        sinDescripcion: 'Sin descripción.',
+        descripcionDelPrograma: 'Descripción del programa…',
+        observacionesInternas: 'Observaciones internas…',
+        entidadOCliente: 'Entidad o cliente',
+        nombreDelResponsable: 'Nombre del responsable',
+        duracionDias: 'Duración (días)',
+        fechaInicio: 'Fecha inicio',
+        fechaFin: 'Fecha fin',
+        enEjecucion: 'En ejecución',
+        planeacion: 'Planeación',
+        finalizado: 'Finalizado',
+        cancelado: 'Cancelado',
+        archivado: 'Archivado',
+        pausado: 'Pausado',
+        borrador: 'Borrador',
+        finalizar: 'Finalizar',
+        archivar: 'Archivar',
+        activar: 'Activar',
+        actualizar: 'Actualizar',
+        responsable: 'Responsable',
+        observaciones: 'Observaciones',
+        descripcion: 'Descripción',
+        duracion: 'Duración',
+        cliente: 'Cliente',
+        inicio: 'Inicio',
+        fin: 'Fin',
+        rutaAccelerator: 'Ruta Accelerator',
+      }
+}
+
 export default function ProyectosPage() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const { confirmar, dialogo } = useConfirmar()
   const { mostrarError, avisos } = useAvisos()
   const [programas, setProgramas]     = useState<ProgramaResponse[]>([])
@@ -73,7 +168,7 @@ export default function ProyectosPage() {
   const load = async () => {
     setLoading(true); setError(null)
     try { setProgramas(await programasApi.listar()) }
-    catch { setError('No se pudieron cargar los programas.') }
+    catch { setError(C.errorProgramas) }
     finally { setLoading(false) }
   }
 
@@ -99,29 +194,29 @@ export default function ProyectosPage() {
   // ── Guardar ───────────────────────────────────────────────────────────────
   const handleSave = (e: React.SyntheticEvent) => {
     e.preventDefault(); setFormError(null); setFormSuccess(null)
-    if (!form.nombre.trim()) { setFormError('El nombre es obligatorio.'); return }
+    if (!form.nombre.trim()) { setFormError(C.errorNombre); return }
     if (form.fechaInicio && form.fechaFin && form.fechaFin < form.fechaInicio) {
-      setFormError('La fecha final debe ser posterior a la fecha de inicio.')
+      setFormError(T.laFechaFinal)
       return
     }
     startTransition(async () => {
       try {
         if (formMode === 'create') {
           await programasApi.crear(form)
-          setFormSuccess('Programa creado exitosamente.')
+          setFormSuccess(T.programaCreadoExitosamente)
         } else if (editingId) {
           await programasApi.actualizar(editingId, form)
-          setFormSuccess('Programa actualizado.')
+          setFormSuccess(T.programaActualizado)
         }
         setTimeout(() => { setShowForm(false); load() }, 800)
       } catch (err) {
         if (err instanceof ApiCallError) {
           if (err.status === 401 || err.status === 403) {
-            setFormError('No tienes permisos para guardar este programa.')
+            setFormError(T.noTienesPermisos)
           } else {
             setFormError(err.body.message || `No fue posible guardar el programa (HTTP ${err.status}).`)
           }
-        } else { setFormError('No se pudo conectar con el backend.') }
+        } else { setFormError(C.errorConexion) }
       }
     })
   }
@@ -133,7 +228,7 @@ export default function ProyectosPage() {
         await programasApi.cambiarEstado(id, estado)
         load()
       } catch (err) {
-        mostrarError(mensajeDeError(err, 'Error de conexión.'))
+        mostrarError(mensajeDeError(err, T.errorDeConexion))
       }
     })
   }
@@ -141,16 +236,16 @@ export default function ProyectosPage() {
   // ── Eliminar ──────────────────────────────────────────────────────────────
   const handleDelete = async (p: ProgramaResponse) => {
     if (!(await confirmar({
-      titulo: 'Eliminar proyecto',
+      titulo: T.eliminarProyecto,
       descripcion: `Se eliminará el proyecto "${p.nombre}". Esta acción no se puede deshacer.`,
-      textoConfirmar: 'Eliminar',
+      textoConfirmar: C.eliminar,
     }))) return
     startTransition(async () => {
       try {
         await programasApi.eliminar(p.id)
         load()
       } catch (err) {
-        mostrarError(mensajeDeError(err, 'Error de conexión.'))
+        mostrarError(mensajeDeError(err, T.errorDeConexion))
       }
     })
   }
@@ -171,47 +266,47 @@ export default function ProyectosPage() {
         <Card className="rounded-xl shadow-sm border-primary/30">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle>{formMode === 'create' ? 'Nuevo Programa' : 'Editar Programa'}</CardTitle>
+              <CardTitle>{formMode === 'create' ? T.nuevoPrograma : T.editarPrograma}</CardTitle>
               <button type="button" onClick={() => setShowForm(false)} className="p-1 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
             </div>
-            <CardDescription>El nombre es obligatorio. Las fechas y duración son opcionales.</CardDescription>
+            <CardDescription>{T.elNombreEs}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSave} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
-                <label htmlFor="p-nombre" className="text-xs font-medium">Nombre *</label>
-                <Input id="p-nombre" required value={form.nombre} onChange={(e) => f('nombre', e.target.value)} placeholder="Ruta Accelerator" disabled={isPending} />
+                <label htmlFor="p-nombre" className="text-xs font-medium">{C.nombreObligatorio}</label>
+                <Input id="p-nombre" required value={form.nombre} onChange={(e) => f('nombre', e.target.value)} placeholder={T.rutaAccelerator} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
-                <label htmlFor="p-desc" className="text-xs font-medium">Descripción</label>
-                <Textarea id="p-desc" minRows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.descripcion ?? ''} onChange={(e) => f('descripcion', e.target.value)} placeholder="Descripción del programa…" disabled={isPending} />
+                <label htmlFor="p-desc" className="text-xs font-medium">{T.descripcion}</label>
+                <Textarea id="p-desc" minRows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.descripcion ?? ''} onChange={(e) => f('descripcion', e.target.value)} placeholder={T.descripcionDelPrograma} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="p-cliente" className="text-xs font-medium">Cliente</label>
-                <Input id="p-cliente" value={form.cliente ?? ''} onChange={(e) => f('cliente', e.target.value)} placeholder="Entidad o cliente" disabled={isPending} />
+                <label htmlFor="p-cliente" className="text-xs font-medium">{T.cliente}</label>
+                <Input id="p-cliente" value={form.cliente ?? ''} onChange={(e) => f('cliente', e.target.value)} placeholder={T.entidadOCliente} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="p-responsable" className="text-xs font-medium">Responsable</label>
-                <Input id="p-responsable" value={form.responsable ?? ''} onChange={(e) => f('responsable', e.target.value)} placeholder="Nombre del responsable" disabled={isPending} />
+                <label htmlFor="p-responsable" className="text-xs font-medium">{T.responsable}</label>
+                <Input id="p-responsable" value={form.responsable ?? ''} onChange={(e) => f('responsable', e.target.value)} placeholder={T.nombreDelResponsable} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="p-avance" className="text-xs font-medium">% de avance</label>
                 <Input id="p-avance" type="number" min={0} max={100} value={form.porcentajeAvance ?? ''} onChange={(e) => f('porcentajeAvance', e.target.value === '' ? undefined : Math.min(100, Math.max(0, parseInt(e.target.value))))} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
-                <label htmlFor="p-obs" className="text-xs font-medium">Observaciones</label>
-                <Textarea id="p-obs" minRows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.observaciones ?? ''} onChange={(e) => f('observaciones', e.target.value)} placeholder="Observaciones internas…" disabled={isPending} />
+                <label htmlFor="p-obs" className="text-xs font-medium">{T.observaciones}</label>
+                <Textarea id="p-obs" minRows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={form.observaciones ?? ''} onChange={(e) => f('observaciones', e.target.value)} placeholder={T.observacionesInternas} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="p-duracion" className="text-xs font-medium">Duración (días)</label>
+                <label htmlFor="p-duracion" className="text-xs font-medium">{T.duracionDias}</label>
                 <Input id="p-duracion" type="number" min={1} value={form.duracionDias ?? ''} onChange={(e) => f('duracionDias', e.target.value ? parseInt(e.target.value) : undefined)} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="p-inicio" className="text-xs font-medium">Fecha inicio</label>
+                <label htmlFor="p-inicio" className="text-xs font-medium">{T.fechaInicio}</label>
                 <Input id="p-inicio" type="date" value={form.fechaInicio ?? ''} onChange={(e) => f('fechaInicio', e.target.value)} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="p-fin" className="text-xs font-medium">Fecha fin</label>
+                <label htmlFor="p-fin" className="text-xs font-medium">{T.fechaFin}</label>
                 <Input id="p-fin" type="date" value={form.fechaFin ?? ''} onChange={(e) => f('fechaFin', e.target.value)} disabled={isPending} />
               </div>
 
@@ -226,9 +321,9 @@ export default function ProyectosPage() {
                 </div>
               )}
               <div className="col-span-full flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setShowForm(false)} disabled={isPending}>Cancelar</Button>
+                <Button type="button" variant="outline" onClick={() => setShowForm(false)} disabled={isPending}>{C.cancelar}</Button>
                 <Button type="submit" disabled={isPending}>
-                  {isPending ? <><CircleNotch className="size-4 animate-spin" /> Guardando…</> : formMode === 'create' ? 'Crear' : 'Actualizar'}
+                  {isPending ? <><CircleNotch className="size-4 animate-spin" /> Guardando…</> : formMode === 'create' ? C.crear : T.actualizar}
                 </Button>
               </div>
             </form>
@@ -239,7 +334,7 @@ export default function ProyectosPage() {
       {/* Estados */}
       {loading && (
         <div className="flex items-center justify-center py-20">
-          <PageSpinner label="Cargando programas…" />
+          <PageSpinner label={T.cargandoProgramas} />
         </div>
       )}
       {error && !loading && (
@@ -257,7 +352,7 @@ export default function ProyectosPage() {
             <Card className="rounded-xl shadow-sm">
               <CardContent className="flex flex-col items-center gap-3 py-16">
                 <Kanban className="size-10 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">No hay programas registrados.</p>
+                <p className="text-sm text-muted-foreground">{T.noHayProgramas}</p>
                 <Button onClick={openCreate} variant="outline"><Plus className="size-4" /> Crear el primero</Button>
               </CardContent>
             </Card>
@@ -272,24 +367,24 @@ export default function ProyectosPage() {
                         <CardTitle className="text-sm leading-tight">{p.nombre}</CardTitle>
                         <EstadoDot {...si} className="shrink-0" />
                       </div>
-                      <CardDescription className="line-clamp-2 text-xs">{p.descripcion || 'Sin descripción.'}</CardDescription>
+                      <CardDescription className="line-clamp-2 text-xs">{p.descripcion || T.sinDescripcion}</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3">
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div>
-                          <span className="block text-muted-foreground text-[10px] uppercase">Duración</span>
+                          <span className="block text-muted-foreground text-[10px] uppercase">{T.duracion}</span>
                           <span className="font-medium">{p.duracionDias ? `${p.duracionDias} días` : '—'}</span>
                         </div>
                         <div>
-                          <span className="block text-muted-foreground text-[10px] uppercase">Estudiantes</span>
+                          <span className="block text-muted-foreground text-[10px] uppercase">{C.estudiantes}</span>
                           <span className="font-medium">{p.totalEstudiantes}</span>
                         </div>
                         <div>
-                          <span className="block text-muted-foreground text-[10px] uppercase">Inicio</span>
+                          <span className="block text-muted-foreground text-[10px] uppercase">{T.inicio}</span>
                           <span className="font-medium">{p.fechaInicio ?? '—'}</span>
                         </div>
                         <div>
-                          <span className="block text-muted-foreground text-[10px] uppercase">Fin</span>
+                          <span className="block text-muted-foreground text-[10px] uppercase">{T.fin}</span>
                           <span className="font-medium">{p.fechaFin ?? '—'}</span>
                         </div>
                       </div>
@@ -307,13 +402,13 @@ export default function ProyectosPage() {
                           <PencilSimple className="size-3" /> Editar
                         </Button>
                         {p.estado === 'BORRADOR' && (
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => changeStatus(p.id, 'ACTIVO')} disabled={isPending}>Activar</Button>
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => changeStatus(p.id, 'ACTIVO')} disabled={isPending}>{T.activar}</Button>
                         )}
                         {p.estado === 'ACTIVO' && (
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => changeStatus(p.id, 'FINALIZADO')} disabled={isPending}>Finalizar</Button>
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => changeStatus(p.id, 'FINALIZADO')} disabled={isPending}>{T.finalizar}</Button>
                         )}
                         {p.estado === 'FINALIZADO' && (
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => changeStatus(p.id, 'ARCHIVADO')} disabled={isPending}>Archivar</Button>
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => changeStatus(p.id, 'ARCHIVADO')} disabled={isPending}>{T.archivar}</Button>
                         )}
                         <Button variant="outline" size="sm" className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDelete(p)} disabled={isPending}>
                           <Trash className="size-3" /> Eliminar

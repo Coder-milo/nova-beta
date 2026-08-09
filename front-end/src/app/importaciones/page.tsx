@@ -18,6 +18,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 import { ImportadorCrm } from '@/components/admin/importador-crm'
 import { ImportadorLibro } from '@/components/admin/importador-libro'
 import { importarApi, importarExtApi, programasApi } from '@/lib/api'
@@ -29,7 +31,112 @@ import { errorDe } from '@/lib/errores'
 
 const pasos = ['Archivo', 'Validación', 'Confirmación', 'Resultado'] as const
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        paso1Archivo: 'Step 1 — File and programme',
+        paso2Validacion: 'Step 2 — Validation',
+        paso3Confirmacion: 'Step 3 — Confirmation',
+        paso4Resultado: 'Step 4 — Result',
+        arrastraTuArchivo: 'Drag your file here',
+        soloSeAceptan: 'Only Excel files (.xlsx or .xls) are accepted.',
+        seleccionaUnArchivo: 'Choose a file first.',
+        seleccionaUnPrograma: 'Choose a target programme.',
+        seleccionaUnProgramaX: 'Choose a programme',
+        programaDestino: 'Target programme *',
+        programaDestinoX: 'Target programme',
+        formatoDelArchivo: 'Excel file format',
+        revisaElResumen: 'Review the summary and confirm the final import.',
+        resumenDeLa: 'Summary of the import.',
+        importacionesRealizadasAnteriormente: 'Previous imports.',
+        aunNoSe: 'No imports have been made yet.',
+        cargandoHistorial: 'Loading history…',
+        importacionCompletadaSin: 'Import completed with no errors!',
+        erroresDetectados: 'Errors found:',
+        filasRechazadas: 'Rows rejected:',
+        advertencias: 'Warnings:',
+        filasAProcesar: 'Rows to process',
+        totalFilas: 'Total rows',
+        nuevosActualizados: 'New / updated',
+        conErrores: 'With errors',
+        actualizados: 'Updated',
+        importados: 'Imported',
+        creados: 'Created',
+        validos: 'Valid',
+        errores: 'Errors',
+        nuevos: 'New',
+        nombresDelEstudiante: 'Student first name',
+        numeroDeDocumento: 'ID number',
+        numeroDeCelular: 'Mobile number',
+        ciudadDeResidencia: 'City of residence',
+        correoUnico: 'Unique email',
+        requerida: 'Required',
+        confirmacion: 'Confirmation',
+        validacion: 'Validation',
+        resultado: 'Result',
+        columna: 'Column',
+        usuario: 'User',
+        apellidos: 'Last name',
+        descripcion: 'Description',
+      }
+    : {
+        paso1Archivo: 'Paso 1 — Archivo y programa',
+        paso2Validacion: 'Paso 2 — Validación',
+        paso3Confirmacion: 'Paso 3 — Confirmación',
+        paso4Resultado: 'Paso 4 — Resultado',
+        arrastraTuArchivo: 'Arrastra tu archivo aquí',
+        soloSeAceptan: 'Solo se aceptan archivos Excel (.xlsx o .xls).',
+        seleccionaUnArchivo: 'Selecciona un archivo primero.',
+        seleccionaUnPrograma: 'Selecciona un programa destino.',
+        seleccionaUnProgramaX: 'Selecciona un programa',
+        programaDestino: 'Programa destino *',
+        programaDestinoX: 'Programa destino',
+        formatoDelArchivo: 'Formato del archivo Excel',
+        revisaElResumen: 'Revisa el resumen y confirma la importación definitiva.',
+        resumenDeLa: 'Resumen de la importación realizada.',
+        importacionesRealizadasAnteriormente: 'Importaciones realizadas anteriormente.',
+        aunNoSe: 'Aún no se han realizado importaciones.',
+        cargandoHistorial: 'Cargando historial…',
+        importacionCompletadaSin: '¡Importación completada sin errores!',
+        erroresDetectados: 'Errores detectados:',
+        filasRechazadas: 'Filas rechazadas:',
+        advertencias: 'Advertencias:',
+        filasAProcesar: 'Filas a procesar',
+        totalFilas: 'Total filas',
+        nuevosActualizados: 'Nuevos / Actualizados',
+        conErrores: 'Con errores',
+        actualizados: 'Actualizados',
+        importados: 'Importados',
+        creados: 'Creados',
+        validos: 'Válidos',
+        errores: 'Errores',
+        nuevos: 'Nuevos',
+        nombresDelEstudiante: 'Nombres del estudiante',
+        numeroDeDocumento: 'Número de documento',
+        numeroDeCelular: 'Número de celular',
+        ciudadDeResidencia: 'Ciudad de residencia',
+        correoUnico: 'Correo único',
+        requerida: 'Requerida',
+        confirmacion: 'Confirmación',
+        validacion: 'Validación',
+        resultado: 'Resultado',
+        columna: 'Columna',
+        usuario: 'Usuario',
+        apellidos: 'Apellidos',
+        descripcion: 'Descripción',
+      }
+}
+
 export default function ImportacionesPage() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [seccion, setSeccion]       = useState<'libro' | 'estudiantes' | 'empresas' | 'colocaciones'>('libro')
   const [paso, setPaso]             = useState(1)
   const [programas, setProgramas]   = useState<ProgramaResponse[]>([])
@@ -55,7 +162,7 @@ export default function ImportacionesPage() {
     programasApi.listar().then((list) => {
       setProgramas(list)
       if (list.length > 0) setProgramaId(list[0].id)
-    }).catch(() => setError('No se pudieron cargar los programas.'))
+    }).catch(() => setError(C.errorProgramas))
   }, [])
 
   const loadHistorial = useCallback(async () => {
@@ -70,7 +177,7 @@ export default function ImportacionesPage() {
   // ── Selección de archivo ──────────────────────────────────────────────────
   function pickFile(f: File) {
     if (!f.name.endsWith('.xlsx') && !f.name.endsWith('.xls')) {
-      setError('Solo se aceptan archivos Excel (.xlsx o .xls).')
+      setError(T.soloSeAceptan)
       return
     }
     setFile(f); setError(null); setPreview(null); setResult(null)
@@ -90,8 +197,8 @@ export default function ImportacionesPage() {
   // ── Navegación ────────────────────────────────────────────────────────────
   const irAPaso2 = () => {
     setError(null)
-    if (!file) { setError('Selecciona un archivo primero.'); return }
-    if (!programaId) { setError('Selecciona un programa destino.'); return }
+    if (!file) { setError(T.seleccionaUnArchivo); return }
+    if (!programaId) { setError(T.seleccionaUnPrograma); return }
     setPaso(2)
   }
 
@@ -208,14 +315,14 @@ export default function ImportacionesPage() {
       {paso === 1 && (
         <Card className="rounded-lg border-border shadow-none">
           <CardHeader>
-            <CardTitle className="text-base">Paso 1 — Archivo y programa</CardTitle>
+            <CardTitle className="text-base">{T.paso1Archivo}</CardTitle>
             <CardDescription>
               El archivo debe tener columnas: nombre, apellido, email (mínimo). Descarga la plantilla desde el área de reportes o usa las columnas indicadas abajo.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
             <div className="flex flex-col gap-1.5 max-w-md">
-              <label htmlFor="imp-programa" className="text-[11px] uppercase tracking-wider text-muted-foreground">Programa destino *</label>
+              <label htmlFor="imp-programa" className="text-[11px] uppercase tracking-wider text-muted-foreground">{T.programaDestino}</label>
               <select
                 id="imp-programa"
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -223,7 +330,7 @@ export default function ImportacionesPage() {
                 onChange={(e) => setProgramaId(e.target.value)}
                 disabled={programas.length === 0}
               >
-                <option value="">Selecciona un programa</option>
+                <option value="">{T.seleccionaUnProgramaX}</option>
                 {programas.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
             </div>
@@ -260,7 +367,7 @@ export default function ImportacionesPage() {
                 <>
                   <UploadSimple className="size-10 text-muted-foreground/50" />
                   <div className="text-center">
-                    <p className="text-sm font-medium text-foreground">Arrastra tu archivo aquí</p>
+                    <p className="text-sm font-medium text-foreground">{T.arrastraTuArchivo}</p>
                     <p className="text-xs text-muted-foreground">o haz clic para seleccionarlo (.xlsx)</p>
                   </div>
                 </>
@@ -281,7 +388,7 @@ export default function ImportacionesPage() {
       {paso === 2 && (
         <Card className="rounded-lg border-border shadow-none">
           <CardHeader>
-            <CardTitle className="text-base">Paso 2 — Validación</CardTitle>
+            <CardTitle className="text-base">{T.paso2Validacion}</CardTitle>
             <CardDescription>
               Valida el archivo <span className="font-medium text-foreground">{file?.name}</span> contra el programa <span className="font-medium text-foreground">{programaNombre}</span> antes de importar.
             </CardDescription>
@@ -299,11 +406,11 @@ export default function ImportacionesPage() {
               <>
                 <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
                   {([
-                    ['Total filas', preview.totalFilas, 'text-foreground'],
-                    ['Válidos', preview.validos, 'text-[#0F6E56]'],
-                    ['Nuevos', preview.nuevos, 'text-navy-600'],
-                    ['Actualizados', preview.actualizados, 'text-navy-600'],
-                    ['Con errores', preview.conErrores, preview.conErrores > 0 ? 'text-destructive' : 'text-foreground'],
+                    [T.totalFilas, preview.totalFilas, 'text-foreground'],
+                    [T.validos, preview.validos, 'text-[#0F6E56]'],
+                    [T.nuevos, preview.nuevos, 'text-navy-600'],
+                    [T.actualizados, preview.actualizados, 'text-navy-600'],
+                    [T.conErrores, preview.conErrores, preview.conErrores > 0 ? 'text-destructive' : 'text-foreground'],
                   ] as const).map(([label, valor, color]) => (
                     <Card key={label} className="rounded-lg border-border shadow-none">
                       <CardContent className="pt-5 flex flex-col gap-1">
@@ -316,7 +423,7 @@ export default function ImportacionesPage() {
 
                 {preview.errores.length > 0 && (
                   <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-                    <p className="mb-2 text-xs font-medium text-destructive">Errores detectados:</p>
+                    <p className="mb-2 text-xs font-medium text-destructive">{T.erroresDetectados}</p>
                     <ul className="flex flex-col gap-1">
                       {preview.errores.map((e, i) => (
                         <li key={i} className="text-xs text-muted-foreground">• {e}</li>
@@ -327,7 +434,7 @@ export default function ImportacionesPage() {
 
                 {preview.advertencias.length > 0 && (
                   <div className="rounded-lg border border-amber-300/60 dark:border-amber-700/40 bg-amber-50 dark:bg-amber-950/10 p-3">
-                    <p className="mb-2 text-xs font-medium text-amber-700 dark:text-amber-400">Advertencias:</p>
+                    <p className="mb-2 text-xs font-medium text-amber-700 dark:text-amber-400">{T.advertencias}</p>
                     <ul className="flex flex-col gap-1">
                       {preview.advertencias.map((a, i) => (
                         <li key={i} className="text-xs text-muted-foreground">• {a}</li>
@@ -354,31 +461,31 @@ export default function ImportacionesPage() {
       {paso === 3 && (
         <Card className="rounded-lg border-border shadow-none">
           <CardHeader>
-            <CardTitle className="text-base">Paso 3 — Confirmación</CardTitle>
-            <CardDescription>Revisa el resumen y confirma la importación definitiva.</CardDescription>
+            <CardTitle className="text-base">{T.paso3Confirmacion}</CardTitle>
+            <CardDescription>{T.revisaElResumen}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
             <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
               <div>
-                <span className="block text-muted-foreground text-[11px] uppercase tracking-wider">Archivo</span>
+                <span className="block text-muted-foreground text-[11px] uppercase tracking-wider">{C.archivo}</span>
                 <span className="font-medium text-foreground text-xs">{file?.name}</span>
               </div>
               <div>
-                <span className="block text-muted-foreground text-[11px] uppercase tracking-wider">Programa destino</span>
+                <span className="block text-muted-foreground text-[11px] uppercase tracking-wider">{T.programaDestinoX}</span>
                 <span className="font-medium text-foreground text-xs">{programaNombre}</span>
               </div>
               {preview && (
                 <>
                   <div>
-                    <span className="block text-muted-foreground text-[11px] uppercase tracking-wider">Filas a procesar</span>
+                    <span className="block text-muted-foreground text-[11px] uppercase tracking-wider">{T.filasAProcesar}</span>
                     <span className="font-medium text-foreground text-xs tabular-nums">{preview.totalFilas} ({preview.validos} válidas)</span>
                   </div>
                   <div>
-                    <span className="block text-muted-foreground text-[11px] uppercase tracking-wider">Nuevos / Actualizados</span>
+                    <span className="block text-muted-foreground text-[11px] uppercase tracking-wider">{T.nuevosActualizados}</span>
                     <span className="font-medium text-foreground text-xs tabular-nums">{preview.nuevos} / {preview.actualizados}</span>
                   </div>
                   <div>
-                    <span className="block text-muted-foreground text-[11px] uppercase tracking-wider">Con errores</span>
+                    <span className="block text-muted-foreground text-[11px] uppercase tracking-wider">{T.conErrores}</span>
                     <span className={`font-medium text-xs tabular-nums ${preview.conErrores > 0 ? 'text-destructive' : 'text-foreground'}`}>{preview.conErrores}</span>
                   </div>
                 </>
@@ -401,26 +508,26 @@ export default function ImportacionesPage() {
       {paso === 4 && result && (
         <Card className="rounded-lg border-border shadow-none">
           <CardHeader>
-            <CardTitle className="text-base">Paso 4 — Resultado</CardTitle>
-            <CardDescription>Resumen de la importación realizada.</CardDescription>
+            <CardTitle className="text-base">{T.paso4Resultado}</CardTitle>
+            <CardDescription>{T.resumenDeLa}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex gap-4">
               <div className="flex flex-1 flex-col items-center gap-1 rounded-lg bg-green-50 py-4 dark:bg-green-900/20">
                 <CheckCircle className="size-7 text-green-600 dark:text-green-400" />
                 <span className="text-2xl font-bold tabular-nums text-green-700 dark:text-green-300">{result.importados}</span>
-                <span className="text-xs text-green-600 dark:text-green-400">Importados</span>
+                <span className="text-xs text-green-600 dark:text-green-400">{T.importados}</span>
               </div>
               <div className="flex flex-1 flex-col items-center gap-1 rounded-lg bg-destructive/10 py-4">
                 <WarningCircle className="size-7 text-destructive" />
                 <span className="text-2xl font-bold tabular-nums text-destructive">{result.errores}</span>
-                <span className="text-xs text-destructive">Con errores</span>
+                <span className="text-xs text-destructive">{T.conErrores}</span>
               </div>
             </div>
 
             {result.erroresDetalle.length > 0 && (
               <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-                <p className="mb-2 text-xs font-medium text-destructive">Filas rechazadas:</p>
+                <p className="mb-2 text-xs font-medium text-destructive">{T.filasRechazadas}</p>
                 <ul className="flex flex-col gap-1">
                   {result.erroresDetalle.map((e, i) => (
                     <li key={i} className="text-xs text-muted-foreground">• {e}</li>
@@ -430,7 +537,7 @@ export default function ImportacionesPage() {
             )}
 
             {result.importados > 0 && result.errores === 0 && (
-              <p className="text-center text-sm font-medium text-green-600">¡Importación completada sin errores!</p>
+              <p className="text-center text-sm font-medium text-green-600">{T.importacionCompletadaSin}</p>
             )}
 
             <div className="flex justify-end border-t border-border pt-4">
@@ -446,27 +553,27 @@ export default function ImportacionesPage() {
       {paso === 1 && (
         <Card className="rounded-lg border-border shadow-none">
           <CardHeader>
-            <CardTitle className="text-base">Formato del archivo Excel</CardTitle>
+            <CardTitle className="text-base">{T.formatoDelArchivo}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="py-2 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Columna</th>
-                    <th className="py-2 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Requerida</th>
-                    <th className="py-2 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Descripción</th>
+                    <th className="py-2 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.columna}</th>
+                    <th className="py-2 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.requerida}</th>
+                    <th className="py-2 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.descripcion}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {[
-                    ['nombre',          'Sí', 'Nombres del estudiante'],
-                    ['apellido',        'Sí', 'Apellidos'],
-                    ['email',           'Sí', 'Correo único'],
-                    ['celular',         'No', 'Número de celular'],
+                    ['nombre',          'Sí', T.nombresDelEstudiante],
+                    ['apellido',        'Sí', T.apellidos],
+                    ['email',           'Sí', T.correoUnico],
+                    ['celular',         'No', T.numeroDeCelular],
                     ['tipoDocumento',   'No', 'CC, CE, NIT, PASAPORTE'],
-                    ['numeroDocumento', 'No', 'Número de documento'],
-                    ['ciudad',          'No', 'Ciudad de residencia'],
+                    ['numeroDocumento', 'No', T.numeroDeDocumento],
+                    ['ciudad',          'No', T.ciudadDeResidencia],
                   ].map(([col, req, desc]) => (
                     <tr key={col}>
                       <td className="py-1.5 pr-4 font-mono text-foreground">{col}</td>
@@ -487,7 +594,7 @@ export default function ImportacionesPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-base"><ClockCounterClockwise className="size-4" /> Historial de importaciones</CardTitle>
-              <CardDescription>Importaciones realizadas anteriormente.</CardDescription>
+              <CardDescription>{T.importacionesRealizadasAnteriormente}</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={loadHistorial} disabled={loadingHist}>
               <ArrowsClockwise className="size-3.5" /> Refrescar
@@ -498,7 +605,7 @@ export default function ImportacionesPage() {
           {loadingHist ? (
             <div className="flex items-center justify-center py-10">
               <PageSpinner />
-              <span className="ml-2 text-sm text-muted-foreground">Cargando historial…</span>
+              <span className="ml-2 text-sm text-muted-foreground">{T.cargandoHistorial}</span>
             </div>
           ) : errorHist ? (
             <div className="flex flex-col items-center gap-3 py-8">
@@ -509,19 +616,19 @@ export default function ImportacionesPage() {
           ) : historial.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-8">
               <FileXls className="size-8 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">Aún no se han realizado importaciones.</p>
+              <p className="text-sm text-muted-foreground">{T.aunNoSe}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/50">
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Archivo</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Usuario</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Creados</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Actualizados</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Errores</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Fecha</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{C.archivo}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.usuario}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.creados}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.actualizados}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.errores}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{C.fecha}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
