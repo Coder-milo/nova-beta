@@ -143,6 +143,10 @@ function textos(english: boolean) {
   return english
     ? {
         buscarNombreEmail: 'Search name, email, ID…',
+        buscarEnEstaPagina: 'Filter what is on this page…',
+        seleccionados: (n: number) => `${n} student(s) selected`,
+        restauradosParcialmente: (ok: number, mal: number) => `${ok} restored, ${mal} failed. The list shows how it actually ended up.`,
+        soloEstaPagina: (p: number, total: number) => `This view has no search of its own: only page ${p} of ${total} is being filtered. Move through the pages to see the rest.`,
         cargandoEstudiantes: 'Loading students…',
         cargandoMatches: 'Loading matches…',
         noHayEstudiantes: 'No students match this search.',
@@ -305,6 +309,10 @@ function textos(english: boolean) {
       }
     : {
         buscarNombreEmail: 'Buscar nombre, email, documento…',
+        buscarEnEstaPagina: 'Filtrar lo que hay en esta página…',
+        seleccionados: (n: number) => `${n} estudiante(s) seleccionado(s)`,
+        restauradosParcialmente: (ok: number, mal: number) => `Se restauraron ${ok} y fallaron ${mal}. La lista muestra cómo quedó de verdad.`,
+        soloEstaPagina: (p: number, total: number) => `Esta vista no tiene búsqueda propia: se está filtrando sólo la página ${p} de ${total}. Recorre las páginas para ver el resto.`,
         cargandoEstudiantes: 'Cargando estudiantes…',
         cargandoMatches: 'Cargando matches…',
         noHayEstudiantes: 'No hay estudiantes que coincidan con la búsqueda.',
@@ -755,12 +763,16 @@ export default function EstudiantesPage() {
     }))) return
     setBulkBusy(true)
     try {
-      await Promise.all(selectedIds.map(id => estudiantesApi.restaurar(id)))
-      mostrarExito(T.estudiantesRestauradosExitosamente)
+      // `allSettled` y no `all`: con `all`, si falla uno se aborta el aviso y
+      // se decia que la operacion fallo, cuando los demas ya se habian
+      // restaurado. La lista quedaba distinta de lo que decia el mensaje.
+      const resultados = await Promise.allSettled(selectedIds.map((id) => estudiantesApi.restaurar(id)))
+      const fallidos = resultados.filter((r) => r.status === 'rejected').length
+      if (fallidos === 0) mostrarExito(T.estudiantesRestauradosExitosamente)
+      else if (fallidos === selectedIds.length) mostrarError(T.ocurrioUnErrorX)
+      else mostrarError(T.restauradosParcialmente(selectedIds.length - fallidos, fallidos))
       setSelectedIds([])
       loadEstudiantes(selectedPgm, currentPage, verPapelera)
-    } catch {
-      mostrarError(T.ocurrioUnErrorX)
     } finally {
       setBulkBusy(false)
     }
@@ -1166,7 +1178,23 @@ export default function EstudiantesPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="relative sm:col-span-1">
           <MagnifyingGlass className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input type="search" placeholder={T.buscarNombreEmail} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 bg-secondary/40" />
+          {/* La misma caja no busca lo mismo en las tres vistas: en el listado
+              normal pregunta al servidor por toda la cohorte, y en la papelera
+              y en los incompletos filtra sólo lo ya cargado, porque no tienen
+              búsqueda propia. Se dice, en vez de dejar creer que no hay más
+              resultados cuando sí los hay en otra página. */}
+          <Input
+            type="search"
+            placeholder={filtradoEnElCliente ? T.buscarEnEstaPagina : T.buscarNombreEmail}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 bg-secondary/40"
+          />
+          {filtradoEnElCliente && busquedaAplicada !== '' && (page?.totalPages ?? 0) > 1 && (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {T.soloEstaPagina((page?.number ?? 0) + 1, page?.totalPages ?? 1)}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Funnel className="size-3.5 text-muted-foreground shrink-0" />
@@ -1204,7 +1232,7 @@ export default function EstudiantesPage() {
       {selectedIds.length > 0 && (
         <div className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-200">
           <span className="text-xs font-medium text-destructive-foreground">
-            {selectedIds.length} estudiante(s) seleccionado(s)
+            {T.seleccionados(selectedIds.length)}
           </span>
           <div className="flex gap-2">
             {verPapelera ? (
