@@ -25,6 +25,7 @@ import { documentosApi, programasApi, ApiCallError, mensajeDeError } from '@/lib
 import { useAvisos } from '@/components/ui/avisos'
 import { useConfirmar } from '@/components/ui/confirmar'
 import type { DocumentoResponse, ProgramaResponse, Page, ApiError } from '@/lib/types'
+import { useSearchParams } from '@/compat/next-navigation'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
 
@@ -187,8 +188,27 @@ export default function DocumentosPage() {
   const [error, setError]         = useState<string | null>(null)
 
   // Filtros
-  const [q, setQ]           = useState('')
-  const [qInput, setQInput] = useState('')
+  /**
+   * El término que trae la URL, si se llegó desde la búsqueda global.
+   *
+   * La cabecera enlaza a `/documentos?q=…` al pulsar un resultado, y esta
+   * pantalla no lo leía: se aterrizaba en la lista completa y había que
+   * volver a escribir lo que ya se había escrito arriba. Se escucha el
+   * parámetro y no sólo el montaje, porque estando ya aquí la ruta no cambia
+   * y el componente no se vuelve a montar.
+   */
+  const parametros = useSearchParams()
+  const qDeLaUrl = parametros.get('q') ?? ''
+
+  const [q, setQ]           = useState(qDeLaUrl)
+  const [qInput, setQInput] = useState(qDeLaUrl)
+
+  useEffect(() => {
+    if (!qDeLaUrl) return
+    setQ(qDeLaUrl)
+    setQInput(qDeLaUrl)
+    setCurrent(0)
+  }, [qDeLaUrl])
   const [tipoFiltro, setTipoFiltro] = useState('')
   const [tipos, setTipos]   = useState<string[]>([])
 
