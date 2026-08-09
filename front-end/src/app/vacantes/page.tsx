@@ -17,6 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { vacantesApi, matchesApi, ApiCallError, mensajeDeError } from '@/lib/api'
 import type { VacanteRequest, VacanteResponse, Page } from '@/lib/types'
@@ -46,7 +48,134 @@ const formularioVacio: VacanteForm = {
   descripcion: '', requisitos: '',
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        buscarPorTitulo: 'Search by title, company or location…',
+        cargandoVacantes: 'Loading vacancies…',
+        noHayVacantes: 'No vacancies recorded.',
+        registrarVacante: 'Log a vacancy',
+        escaneandoPortalesDe: 'Scanning job boards…',
+        indicaElTitulo: 'Give the vacancy a title so it can be published.',
+        noSePudo: 'Could not reach the backend to create the vacancy.',
+        noSePudoX: 'The posting could not be validated.',
+        sinPermisosPara: 'No permission to run matching.',
+        sinPermisosParaX: 'No permission to scan vacancies.',
+        sinPermisosInicia: 'No permission. Please sign in.',
+        estaOfertaEsta: 'This posting has not been reviewed',
+        sinRevisar: 'Not reviewed',
+        filtrarPorFuente: 'Filter by source',
+        informacionPrincipal: 'Main details',
+        informacionGeneral: 'General information',
+        condicionesDeLa: 'Job conditions',
+        descripcionYPublicacion: 'Description and posting',
+        losDatosQue: 'What students will see when they find the opportunity.',
+        estaInformacionHace: 'This information makes matching more accurate.',
+        anadeDetallesPara: 'Add detail so the student understands the profile required.',
+        losCamposSin: 'Fields without an asterisk are optional.',
+        tituloDeLa: 'Vacancy title',
+        nombreDeLa: 'Company name',
+        empresaNoEspecificada: 'Company not specified',
+        ciudadOUbicacion: 'City or location',
+        rangoSalarial: 'Salary range',
+        tipoDeContrato: 'Contract type',
+        experienciaMinimaAnos: 'Minimum experience (years)',
+        inglesRequerido: 'English required',
+        nivelDeIngles: 'English level',
+        enlaceDeReferencia: 'Reference link',
+        fechaDeCierre: 'Closing date',
+        noEspecificado: 'Not specified',
+        ej2000: 'e.g. $2,000,000 - $2,500,000',
+        ejAnalistaDe: 'e.g. Technical support analyst',
+        noRequeridoB1: 'Not required, B1, B2…',
+        terminoIndefinidoPrestacion: 'Permanent, services contract…',
+        conocimientosHerramientasEstudios: 'Knowledge, tools, studies or certifications required…',
+        responsabilidadesObjetivoDel: 'Responsibilities, purpose of the role and context…',
+        tiempoCompleto: 'Full time',
+        medioTiempo: 'Part time',
+        porHoras: 'Hourly',
+        practica: 'Internship',
+        presencial: 'On site',
+        remoto: 'Remote',
+        hibrido: 'Hybrid',
+        requisitos: 'Requirements',
+        descripcion: 'Description',
+        experiencia: 'Experience',
+        jornada: 'Schedule',
+        modalidad: 'Work mode',
+        ubicacion: 'Location',
+        fuente: 'Source',
+        manual: 'Manual', opcional: 'optional',
+      }
+    : {
+        buscarPorTitulo: 'Buscar por título, empresa o ubicación…',
+        cargandoVacantes: 'Cargando vacantes…',
+        noHayVacantes: 'No hay vacantes registradas.',
+        registrarVacante: 'Registrar vacante',
+        escaneandoPortalesDe: 'Escaneando portales de empleo…',
+        indicaElTitulo: 'Indica el título de la vacante para poder publicarla.',
+        noSePudo: 'No se pudo conectar con el backend para crear la vacante.',
+        noSePudoX: 'No se pudo validar la oferta.',
+        sinPermisosPara: 'Sin permisos para ejecutar el matching.',
+        sinPermisosParaX: 'Sin permisos para escanear vacantes.',
+        sinPermisosInicia: 'Sin permisos. Inicia sesión.',
+        estaOfertaEsta: 'Esta oferta está sin revisar',
+        sinRevisar: 'Sin revisar',
+        filtrarPorFuente: 'Filtrar por fuente',
+        informacionPrincipal: 'Información principal',
+        informacionGeneral: 'Información General',
+        condicionesDeLa: 'Condiciones de la oportunidad',
+        descripcionYPublicacion: 'Descripción y publicación',
+        losDatosQue: 'Los datos que verán los estudiantes al encontrar la oportunidad.',
+        estaInformacionHace: 'Esta información hace más preciso el matching.',
+        anadeDetallesPara: 'Añade detalles para que el estudiante entienda el perfil solicitado.',
+        losCamposSin: 'Los campos sin asterisco son opcionales.',
+        tituloDeLa: 'Título de la vacante',
+        nombreDeLa: 'Nombre de la empresa',
+        empresaNoEspecificada: 'Empresa no especificada',
+        ciudadOUbicacion: 'Ciudad o ubicación',
+        rangoSalarial: 'Rango salarial',
+        tipoDeContrato: 'Tipo de contrato',
+        experienciaMinimaAnos: 'Experiencia mínima (años)',
+        inglesRequerido: 'Inglés requerido',
+        nivelDeIngles: 'Nivel de inglés',
+        enlaceDeReferencia: 'Enlace de referencia',
+        fechaDeCierre: 'Fecha de cierre',
+        noEspecificado: 'No especificado',
+        ej2000: 'Ej. $2.000.000 - $2.500.000',
+        ejAnalistaDe: 'Ej. Analista de soporte técnico',
+        noRequeridoB1: 'No requerido, B1, B2…',
+        terminoIndefinidoPrestacion: 'Término indefinido, prestación…',
+        conocimientosHerramientasEstudios: 'Conocimientos, herramientas, estudios o certificaciones requeridas…',
+        responsabilidadesObjetivoDel: 'Responsabilidades, objetivo del cargo y contexto de la oportunidad…',
+        tiempoCompleto: 'Tiempo completo',
+        medioTiempo: 'Medio tiempo',
+        porHoras: 'Por horas',
+        practica: 'Práctica',
+        presencial: 'Presencial',
+        remoto: 'Remoto',
+        hibrido: 'Híbrido',
+        requisitos: 'Requisitos',
+        descripcion: 'Descripción',
+        experiencia: 'Experiencia',
+        jornada: 'Jornada',
+        modalidad: 'Modalidad',
+        ubicacion: 'Ubicación',
+        fuente: 'Fuente',
+        manual: 'Manual', opcional: 'opcional',
+      }
+}
+
 export default function VacantesPage() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [page, setPage]               = useState<Page<VacanteResponse> | null>(null)
   const [currentPage, setCurrentPage] = useState(0)
   const [loading, setLoading]         = useState(true)
@@ -75,7 +204,7 @@ export default function VacantesPage() {
   const crearVacante = async (event: React.SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!formVacante.titulo.trim()) {
-      setFormError('Indica el título de la vacante para poder publicarla.')
+      setFormError(T.indicaElTitulo)
       return
     }
     setGuardando(true); setFormError(null)
@@ -105,7 +234,7 @@ export default function VacantesPage() {
     } catch (err) {
       setFormError(err instanceof ApiCallError
         ? (err.body.message ?? `No se pudo crear la vacante (HTTP ${err.status}).`)
-        : 'No se pudo conectar con el backend para crear la vacante.')
+        : T.noSePudo)
     } finally { setGuardando(false) }
   }
 
@@ -118,14 +247,14 @@ export default function VacantesPage() {
         : 'Matching completado: sin matches nuevos (los pares ya evaluados no se repiten).')
     } catch (err) {
       setMatchingMsg(err instanceof ApiCallError
-        ? (err.status === 401 || err.status === 403 ? 'Sin permisos para ejecutar el matching.' : `Error del servidor (HTTP ${err.status}).`)
-        : 'No se pudo conectar con el backend.')
+        ? (err.status === 401 || err.status === 403 ? T.sinPermisosPara : `Error del servidor (HTTP ${err.status}).`)
+        : C.errorConexion)
     } finally { setMatching(false) }
   }
 
   /** Flujo de un solo paso: escanea los portales y luego ejecuta el matching. */
   const runScanAndMatch = async () => {
-    setMatching(true); setMatchingMsg('Escaneando portales de empleo…')
+    setMatching(true); setMatchingMsg(T.escaneandoPortalesDe)
     try {
       const scan = await vacantesApi.escanear()
       setMatchingMsg(`${scan.vacantesNuevas} vacante(s) nuevas encontradas. Ejecutando matching…`)
@@ -136,8 +265,8 @@ export default function VacantesPage() {
       load(0); setCurrentPage(0)
     } catch (err) {
       setMatchingMsg(err instanceof ApiCallError
-        ? (err.status === 401 || err.status === 403 ? 'Sin permisos para escanear vacantes.' : `Error del servidor (HTTP ${err.status}).`)
-        : 'No se pudo conectar con el backend.')
+        ? (err.status === 401 || err.status === 403 ? T.sinPermisosParaX : `Error del servidor (HTTP ${err.status}).`)
+        : C.errorConexion)
     } finally { setMatching(false) }
   }
 
@@ -148,9 +277,9 @@ export default function VacantesPage() {
     } catch (err) {
       if (err instanceof ApiCallError) {
         setError(err.status === 401 || err.status === 403
-          ? 'Sin permisos. Inicia sesión.'
+          ? T.sinPermisosInicia
           : `Error al cargar vacantes (HTTP ${err.status}).`)
-      } else { setError('No se pudo conectar con el backend.') }
+      } else { setError(C.errorConexion) }
     } finally { setLoading(false) }
   }, [])
 
@@ -173,7 +302,7 @@ export default function VacantesPage() {
       })
       setSelected((actual) => (actual?.id === id ? actualizada : actual))
     } catch (err) {
-      setRevisarError(mensajeDeError(err, 'No se pudo validar la oferta.'))
+      setRevisarError(mensajeDeError(err, T.noSePudoX))
     } finally { setRevisando(false) }
   }
 
@@ -224,7 +353,7 @@ export default function VacantesPage() {
       <div className="grid gap-3 sm:grid-cols-[minmax(0,28rem)_auto]">
         <div className="relative">
           <MagnifyingGlass className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input type="search" placeholder="Buscar por título, empresa o ubicación…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 bg-secondary/40" />
+          <Input type="search" placeholder={T.buscarPorTitulo} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 bg-secondary/40" />
         </div>
         {/* Sólo con más de una fuente: un desplegable de un elemento es ruido. */}
         {fuentesDisponibles.length > 1 && (
@@ -234,7 +363,7 @@ export default function VacantesPage() {
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-56"
               value={fuenteFiltro}
               onChange={(e) => setFuenteFiltro(e.target.value)}
-              aria-label="Filtrar por fuente"
+              aria-label={T.filtrarPorFuente}
             >
               <option value="TODAS">Todas las fuentes ({page?.content.length ?? 0})</option>
               {fuentesDisponibles.map((f) => (
@@ -250,7 +379,7 @@ export default function VacantesPage() {
       {/* Estados */}
       {loading && (
         <div className="flex items-center justify-center py-20">
-          <PageSpinner label="Cargando vacantes…" />
+          <PageSpinner label={T.cargandoVacantes} />
         </div>
       )}
       {error && !loading && (
@@ -268,7 +397,7 @@ export default function VacantesPage() {
             <Card className="rounded-xl shadow-sm">
               <CardContent className="flex flex-col items-center gap-3 py-16">
                 <Briefcase className="size-10 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">No hay vacantes registradas.</p>
+                <p className="text-sm text-muted-foreground">{T.noHayVacantes}</p>
               </CardContent>
             </Card>
           ) : (
@@ -287,7 +416,7 @@ export default function VacantesPage() {
                       </div>
                       <CardDescription className="flex items-center gap-1.5 text-xs">
                         <Buildings className="size-3 shrink-0" />
-                        {v.empresaNombre ?? 'Empresa no especificada'}
+                        {v.empresaNombre ?? T.empresaNoEspecificada}
                       </CardDescription>
                       {/* La sugerida por un estudiante se ve pero no se
                           recomienda a nadie hasta que alguien la valide. Sin
@@ -295,7 +424,7 @@ export default function VacantesPage() {
                           forma de saber que estaba esperando. */}
                       {!v.revisada && (
                         <Badge variant="outline" className="mt-1 w-fit gap-1 border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] text-amber-700 dark:text-amber-400">
-                          <WarningCircle className="size-2.5" />Sin revisar
+                          <WarningCircle className="size-2.5" />{T.sinRevisar}
                         </Badge>
                       )}
                     </CardHeader>
@@ -378,47 +507,47 @@ export default function VacantesPage() {
         <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-2xl">
           <SheetHeader className="border-b border-border bg-muted/25 p-6">
             <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><Briefcase className="size-5" /></div>
-            <SheetTitle className="mt-3 text-lg">Registrar vacante</SheetTitle>
+            <SheetTitle className="mt-3 text-lg">{T.registrarVacante}</SheetTitle>
             <SheetDescription>Completa los datos esenciales. La oportunidad quedará lista para el matching y las postulaciones.</SheetDescription>
           </SheetHeader>
           <form onSubmit={crearVacante} className="space-y-6 p-6">
             {formError && <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"><WarningCircle className="mt-0.5 size-4 shrink-0" />{formError}</div>}
 
             <section className="space-y-4">
-              <div><p className="text-sm font-semibold">Información principal</p><p className="text-xs text-muted-foreground">Los datos que verán los estudiantes al encontrar la oportunidad.</p></div>
+              <div><p className="text-sm font-semibold">{T.informacionPrincipal}</p><p className="text-xs text-muted-foreground">{T.losDatosQue}</p></div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="space-y-1.5 sm:col-span-2"><span className="text-xs font-medium text-foreground">Título de la vacante <span className="text-destructive">*</span></span><Input autoFocus value={formVacante.titulo} onChange={(e) => actualizarFormulario('titulo', e.target.value)} placeholder="Ej. Analista de soporte técnico" disabled={guardando} /></label>
-                <label className="space-y-1.5"><span className="text-xs font-medium text-foreground">Empresa</span><Input value={formVacante.empresaNombre} onChange={(e) => actualizarFormulario('empresaNombre', e.target.value)} placeholder="Nombre de la empresa" disabled={guardando} /></label>
-                <label className="space-y-1.5"><span className="text-xs font-medium text-foreground">Ubicación</span><Input value={formVacante.ubicacion} onChange={(e) => actualizarFormulario('ubicacion', e.target.value)} placeholder="Ciudad o ubicación" disabled={guardando} /></label>
+                <label className="space-y-1.5 sm:col-span-2"><span className="text-xs font-medium text-foreground">{T.tituloDeLa} <span className="text-destructive">*</span></span><Input autoFocus value={formVacante.titulo} onChange={(e) => actualizarFormulario('titulo', e.target.value)} placeholder={T.ejAnalistaDe} disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium text-foreground">{C.empresa}</span><Input value={formVacante.empresaNombre} onChange={(e) => actualizarFormulario('empresaNombre', e.target.value)} placeholder={T.nombreDeLa} disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium text-foreground">{T.ubicacion}</span><Input value={formVacante.ubicacion} onChange={(e) => actualizarFormulario('ubicacion', e.target.value)} placeholder={T.ciudadOUbicacion} disabled={guardando} /></label>
               </div>
             </section>
 
             <section className="rounded-2xl border border-border bg-muted/20 p-4 space-y-4">
-              <div><p className="text-sm font-semibold">Condiciones de la oportunidad</p><p className="text-xs text-muted-foreground">Esta información hace más preciso el matching.</p></div>
+              <div><p className="text-sm font-semibold">{T.condicionesDeLa}</p><p className="text-xs text-muted-foreground">{T.estaInformacionHace}</p></div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="space-y-1.5"><span className="text-xs font-medium">Modalidad</span><select value={formVacante.modalidadTrabajo} onChange={(e) => actualizarFormulario('modalidadTrabajo', e.target.value)} disabled={guardando} className="h-10 w-full rounded-xl border border-input bg-card/90 px-3.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"><option>Presencial</option><option>Híbrido</option><option>Remoto</option></select></label>
-                <label className="space-y-1.5"><span className="text-xs font-medium">Tipo de contrato</span><Input value={formVacante.tipoContrato} onChange={(e) => actualizarFormulario('tipoContrato', e.target.value)} placeholder="Término indefinido, prestación…" disabled={guardando} /></label>
-                <label className="space-y-1.5"><span className="text-xs font-medium">Jornada</span><select value={formVacante.jornada} onChange={(e) => actualizarFormulario('jornada', e.target.value)} disabled={guardando} className="h-10 w-full rounded-xl border border-input bg-card/90 px-3.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"><option>Tiempo completo</option><option>Medio tiempo</option><option>Por horas</option><option>Práctica</option></select></label>
-                <label className="space-y-1.5"><span className="text-xs font-medium">Rango salarial</span><Input value={formVacante.rangoSalarial} onChange={(e) => actualizarFormulario('rangoSalarial', e.target.value)} placeholder="Ej. $2.000.000 - $2.500.000" disabled={guardando} /></label>
-                <label className="space-y-1.5"><span className="text-xs font-medium">Nivel de inglés</span><Input value={formVacante.nivelInglesRequerido} onChange={(e) => actualizarFormulario('nivelInglesRequerido', e.target.value)} placeholder="No requerido, B1, B2…" disabled={guardando} /></label>
-                <label className="space-y-1.5"><span className="text-xs font-medium">Experiencia mínima (años)</span><Input type="number" min="0" max="50" value={formVacante.aniosExperienciaRequeridos} onChange={(e) => actualizarFormulario('aniosExperienciaRequeridos', e.target.value)} placeholder="0" disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">{T.modalidad}</span><select value={formVacante.modalidadTrabajo} onChange={(e) => actualizarFormulario('modalidadTrabajo', e.target.value)} disabled={guardando} className="h-10 w-full rounded-xl border border-input bg-card/90 px-3.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"><option>{T.presencial}</option><option>{T.hibrido}</option><option>{T.remoto}</option></select></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">{T.tipoDeContrato}</span><Input value={formVacante.tipoContrato} onChange={(e) => actualizarFormulario('tipoContrato', e.target.value)} placeholder={T.terminoIndefinidoPrestacion} disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">{T.jornada}</span><select value={formVacante.jornada} onChange={(e) => actualizarFormulario('jornada', e.target.value)} disabled={guardando} className="h-10 w-full rounded-xl border border-input bg-card/90 px-3.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"><option>{T.tiempoCompleto}</option><option>{T.medioTiempo}</option><option>{T.porHoras}</option><option>{T.practica}</option></select></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">{T.rangoSalarial}</span><Input value={formVacante.rangoSalarial} onChange={(e) => actualizarFormulario('rangoSalarial', e.target.value)} placeholder={T.ej2000} disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">{T.nivelDeIngles}</span><Input value={formVacante.nivelInglesRequerido} onChange={(e) => actualizarFormulario('nivelInglesRequerido', e.target.value)} placeholder={T.noRequeridoB1} disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">{T.experienciaMinimaAnos}</span><Input type="number" min="0" max="50" value={formVacante.aniosExperienciaRequeridos} onChange={(e) => actualizarFormulario('aniosExperienciaRequeridos', e.target.value)} placeholder="0" disabled={guardando} /></label>
               </div>
             </section>
 
             <section className="space-y-4">
-              <div><p className="text-sm font-semibold">Descripción y publicación</p><p className="text-xs text-muted-foreground">Añade detalles para que el estudiante entienda el perfil solicitado.</p></div>
-              <label className="block space-y-1.5"><span className="text-xs font-medium">Descripción</span><Textarea minRows={4} value={formVacante.descripcion} onChange={(e) => actualizarFormulario('descripcion', e.target.value)} placeholder="Responsabilidades, objetivo del cargo y contexto de la oportunidad…" disabled={guardando} className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15" /></label>
-              <label className="block space-y-1.5"><span className="text-xs font-medium">Requisitos</span><Textarea minRows={3} value={formVacante.requisitos} onChange={(e) => actualizarFormulario('requisitos', e.target.value)} placeholder="Conocimientos, herramientas, estudios o certificaciones requeridas…" disabled={guardando} className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15" /></label>
+              <div><p className="text-sm font-semibold">{T.descripcionYPublicacion}</p><p className="text-xs text-muted-foreground">{T.anadeDetallesPara}</p></div>
+              <label className="block space-y-1.5"><span className="text-xs font-medium">{T.descripcion}</span><Textarea minRows={4} value={formVacante.descripcion} onChange={(e) => actualizarFormulario('descripcion', e.target.value)} placeholder={T.responsabilidadesObjetivoDel} disabled={guardando} className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15" /></label>
+              <label className="block space-y-1.5"><span className="text-xs font-medium">{T.requisitos}</span><Textarea minRows={3} value={formVacante.requisitos} onChange={(e) => actualizarFormulario('requisitos', e.target.value)} placeholder={T.conocimientosHerramientasEstudios} disabled={guardando} className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15" /></label>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="space-y-1.5"><span className="flex items-center gap-1 text-xs font-medium"><LinkSimple className="size-3" /> Enlace para postularse</span><Input type="url" value={formVacante.urlAplicar} onChange={(e) => actualizarFormulario('urlAplicar', e.target.value)} placeholder="https://…" disabled={guardando} /></label>
-                <label className="space-y-1.5"><span className="text-xs font-medium">Fecha de cierre</span><Input type="datetime-local" value={formVacante.fechaExpiracion} onChange={(e) => actualizarFormulario('fechaExpiracion', e.target.value)} disabled={guardando} /></label>
-                <label className="space-y-1.5 sm:col-span-2"><span className="text-xs font-medium">Enlace de referencia <span className="text-muted-foreground">(opcional)</span></span><Input type="url" value={formVacante.url} onChange={(e) => actualizarFormulario('url', e.target.value)} placeholder="https://sitio-de-la-empresa.com/vacante" disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="text-xs font-medium">{T.fechaDeCierre}</span><Input type="datetime-local" value={formVacante.fechaExpiracion} onChange={(e) => actualizarFormulario('fechaExpiracion', e.target.value)} disabled={guardando} /></label>
+                <label className="space-y-1.5 sm:col-span-2"><span className="text-xs font-medium">{T.enlaceDeReferencia} <span className="text-muted-foreground">({T.opcional})</span></span><Input type="url" value={formVacante.url} onChange={(e) => actualizarFormulario('url', e.target.value)} placeholder="https://sitio-de-la-empresa.com/vacante" disabled={guardando} /></label>
               </div>
             </section>
 
             <div className="sticky bottom-0 -mx-6 flex items-center justify-between border-t border-border bg-background/95 px-6 py-4 backdrop-blur">
-              <p className="hidden text-xs text-muted-foreground sm:block">Los campos sin asterisco son opcionales.</p>
-              <div className="ml-auto flex gap-2"><Button type="button" variant="outline" onClick={() => setCreando(false)} disabled={guardando}>Cancelar</Button><Button type="submit" disabled={guardando}>{guardando ? <><CircleNotch className="size-4 animate-spin" /> Publicando…</> : <><CheckCircle className="size-4" /> Publicar vacante</>}</Button></div>
+              <p className="hidden text-xs text-muted-foreground sm:block">{T.losCamposSin}</p>
+              <div className="ml-auto flex gap-2"><Button type="button" variant="outline" onClick={() => setCreando(false)} disabled={guardando}>{C.cancelar}</Button><Button type="submit" disabled={guardando}>{guardando ? <><CircleNotch className="size-4 animate-spin" /> Publicando…</> : <><CheckCircle className="size-4" /> Publicar vacante</>}</Button></div>
             </div>
           </form>
         </SheetContent>
@@ -432,7 +561,7 @@ export default function VacantesPage() {
               <SheetHeader className="p-6 border-b border-border shrink-0">
                 <SheetTitle className="text-base leading-tight">{selected.titulo}</SheetTitle>
                 <SheetDescription className="flex items-center gap-1.5 text-xs">
-                  <Buildings className="size-3" /> {selected.empresaNombre ?? 'Empresa no especificada'}
+                  <Buildings className="size-3" /> {selected.empresaNombre ?? T.empresaNoEspecificada}
                   {selected.fechaPublicacion && <> · <CalendarBlank className="size-3" /> {selected.fechaPublicacion}</>}
                 </SheetDescription>
                 <div className="flex flex-wrap gap-1.5 mt-2">
@@ -453,7 +582,7 @@ export default function VacantesPage() {
                     <div className="flex items-start gap-2">
                       <WarningCircle className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                       <div className="text-xs leading-5">
-                        <p className="font-semibold text-foreground">Esta oferta está sin revisar</p>
+                        <p className="font-semibold text-foreground">{T.estaOfertaEsta}</p>
                         <p className="text-muted-foreground">
                           La registró un participante. No se le recomienda a nadie hasta que
                           alguien del equipo compruebe que es real. Revisa la empresa y el
@@ -479,37 +608,37 @@ export default function VacantesPage() {
 
                 {/* Info principal */}
                 <section className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-3">
-                  <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">Información General</h4>
+                  <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">{T.informacionGeneral}</h4>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                     <div>
-                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">Rango salarial</span>
-                      <span className="font-medium">{selected.rangoSalarial ?? 'No especificado'}</span>
+                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.rangoSalarial}</span>
+                      <span className="font-medium">{selected.rangoSalarial ?? T.noEspecificado}</span>
                     </div>
                     <div>
-                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">Experiencia</span>
-                      <span className="font-medium">{selected.aniosExperienciaRequeridos != null ? `${selected.aniosExperienciaRequeridos} años` : 'No especificado'}</span>
+                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.experiencia}</span>
+                      <span className="font-medium">{selected.aniosExperienciaRequeridos != null ? `${selected.aniosExperienciaRequeridos} años` : T.noEspecificado}</span>
                     </div>
                     <div>
-                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">Inglés requerido</span>
-                      <span className="font-medium">{selected.nivelInglesRequerido ?? 'No especificado'}</span>
+                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.inglesRequerido}</span>
+                      <span className="font-medium">{selected.nivelInglesRequerido ?? T.noEspecificado}</span>
                     </div>
                     <div>
-                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">Fuente</span>
-                      <span className="font-medium">{selected.fuente ?? 'Manual'}</span>
+                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.fuente}</span>
+                      <span className="font-medium">{selected.fuente ?? T.manual}</span>
                     </div>
                   </div>
                 </section>
 
                 {selected.descripcion && (
                   <section className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-2">
-                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">Descripción</h4>
+                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">{T.descripcion}</h4>
                     <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{selected.descripcion}</p>
                   </section>
                 )}
 
                 {selected.requisitos && (
                   <section className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-2">
-                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">Requisitos</h4>
+                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">{T.requisitos}</h4>
                     <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{selected.requisitos}</p>
                   </section>
                 )}
@@ -534,7 +663,7 @@ export default function VacantesPage() {
                     <Globe className="size-4" /> Ver fuente
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={() => setSelected(null)}>Cerrar</Button>
+                <Button variant="outline" size="sm" onClick={() => setSelected(null)}>{C.cerrar}</Button>
               </div>
             </>
           )}
