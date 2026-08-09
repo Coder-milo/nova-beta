@@ -11,6 +11,11 @@ import java.util.UUID;
  * @param enRespuestaA       turno citado, o nulo
  * @param enRespuestaAExtracto primeras palabras del turno citado, para dibujar
  *                             la cita sin tener que buscarlo en la lista
+ * @param historico            true cuando la intervencion no existe como fila
+ *                             de {@code mensaje_turno} y se reconstruyo del
+ *                             mensaje antiguo. No se le puede reaccionar ni
+ *                             citar, porque no hay a que apuntar; la pantalla
+ *                             lo usa para no ofrecer lo que va a fallar
  */
 public record MensajeTurnoResponse(
         UUID id,
@@ -21,7 +26,17 @@ public record MensajeTurnoResponse(
         UUID enRespuestaA,
         String enRespuestaAExtracto,
         List<MensajeAdjuntoResponse> adjuntos,
-        List<ReaccionResumen> reacciones) {
+        List<ReaccionResumen> reacciones,
+        boolean historico) {
+
+    /** Un turno de verdad: existe en la base y admite reacciones y citas. */
+    public MensajeTurnoResponse(UUID id, String autorNombre, boolean autorEsEstudiante,
+                                String contenido, Instant createdAt, UUID enRespuestaA,
+                                String enRespuestaAExtracto, List<MensajeAdjuntoResponse> adjuntos,
+                                List<ReaccionResumen> reacciones) {
+        this(id, autorNombre, autorEsEstudiante, contenido, createdAt, enRespuestaA,
+                enRespuestaAExtracto, adjuntos, reacciones, false);
+    }
 
     /**
      * Cuantos pusieron cada emoji, y si uno de ellos fue quien mira.

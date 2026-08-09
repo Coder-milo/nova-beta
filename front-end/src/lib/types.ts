@@ -608,6 +608,12 @@ export interface MensajeTurnoResponse {
   enRespuestaAExtracto: string | null
   adjuntos: MensajeAdjuntoResponse[]
   reacciones: ReaccionResumen[]
+  /**
+   * Reconstruido de un mensaje anterior a que cada envío se guardara como
+   * turno. Se puede leer, pero no existe como fila: reaccionar o citarlo
+   * fallaría siempre, así que la pantalla no ofrece ninguna de las dos.
+   */
+  historico?: boolean
 }
 
 /**

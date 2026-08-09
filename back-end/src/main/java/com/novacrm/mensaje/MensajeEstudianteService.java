@@ -255,6 +255,12 @@ public class MensajeEstudianteService {
     public List<MensajeTurnoResponse> turnos(UUID mensajeId, Authentication auth) {
         var mensaje = hiloAlQuePuedeAcceder(mensajeId, auth);
         var listaTurnos = turnoRepository.findByMensajeIdOrderByCreatedAtAsc(mensaje.getId());
+        // Hilos anteriores a que cada envio se guardara como turno: se
+        // reconstruyen para poder leerlos, pero no existen como fila. Van
+        // marcados `historico` para que la pantalla no ofrezca reaccionar ni
+        // citar: no hay a que apuntar y la accion fallaria siempre. El id sale
+        // del propio mensaje y no de `randomUUID`, que cambiaba en cada
+        // consulta y hacia que React rehiciera el hilo entero cada vez.
         if (listaTurnos.isEmpty()) {
             List<MensajeTurnoResponse> sintetizados = new java.util.ArrayList<>();
             var estudiante = mensaje.getEstudiante();
@@ -272,12 +278,13 @@ public class MensajeEstudianteService {
                         null, null,
                         mensaje.getAdjuntos().stream().filter(a -> !a.isRespuesta())
                                 .map(a -> new MensajeAdjuntoResponse(a.getId(), a.getNombre(), a.getContentType(), a.getTamano(), "/api/v1/mensajes/adjuntos/" + a.getId() + "/archivo")).toList(),
-                        List.of()
+                        List.of(),
+                        true
                 ));
             }
             if (mensaje.getRespuesta() != null && !mensaje.getRespuesta().isBlank()) {
                 sintetizados.add(new MensajeTurnoResponse(
-                        UUID.randomUUID(),
+                        idDeRespuestaHistorica(mensaje.getId()),
                         mensaje.getRespondidoPor() == null ? "CAC Academic" : mensaje.getRespondidoPor(),
                         false,
                         mensaje.getRespuesta(),
@@ -285,7 +292,8 @@ public class MensajeEstudianteService {
                         null, null,
                         mensaje.getAdjuntos().stream().filter(MensajeAdjunto::isRespuesta)
                                 .map(a -> new MensajeAdjuntoResponse(a.getId(), a.getNombre(), a.getContentType(), a.getTamano(), "/api/v1/mensajes/adjuntos/" + a.getId() + "/archivo")).toList(),
-                        List.of()
+                        List.of(),
+                        true
                 ));
             }
             return sintetizados;
@@ -293,6 +301,18 @@ public class MensajeEstudianteService {
         return listaTurnos.stream()
                 .map(turno -> aRespuesta(turno, auth.getName()))
                 .toList();
+    }
+
+    /**
+     * Un id estable para la respuesta reconstruida de un hilo antiguo.
+     *
+     * <p>Se deriva del id del mensaje invirtiendo los bits altos, asi que sale
+     * siempre el mismo y no choca con el del mensaje. Antes era
+     * {@code randomUUID()}: cambiaba en cada consulta, y como la pantalla lo
+     * usa de clave, rehacia el hilo entero cada vez que se refrescaba.
+     */
+    private static UUID idDeRespuestaHistorica(UUID mensajeId) {
+        return new UUID(~mensajeId.getMostSignificantBits(), mensajeId.getLeastSignificantBits());
     }
 
     /**

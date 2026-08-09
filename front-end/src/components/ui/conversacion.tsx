@@ -214,7 +214,13 @@ export function Conversacion({ mensajeId, soyEstudiante, locale, textos, onTurno
               </div>
 
               {/* Acciones. Aparecen al pasar por encima para no llenar el hilo,
-                  pero siguen siendo alcanzables con el teclado. */}
+                  pero siguen siendo alcanzables con el teclado.
+
+                  En un turno histórico no se pintan: se reconstruyó de un
+                  mensaje antiguo y no hay ninguna fila a la que apuntar, así
+                  que responder o reaccionar daría error cada vez. Mejor no
+                  ofrecerlo que ofrecerlo roto. */}
+              {!turno.historico && (
               <div className="mt-1 flex items-center gap-1 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100">
                 <button
                   type="button"
@@ -251,6 +257,7 @@ export function Conversacion({ mensajeId, soyEstudiante, locale, textos, onTurno
                   )}
                 </div>
               </div>
+              )}
 
               {turno.reacciones.length > 0 && (
                 <div className={cn('mt-1 flex flex-wrap gap-1', mio ? 'justify-end' : 'justify-start')}>
