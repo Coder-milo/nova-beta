@@ -12,6 +12,8 @@ import { SampleDataBadge } from '@/components/dashboard/sample-data-badge'
 import { cn } from '@/lib/utils'
 import { importantAlerts } from '@/lib/mock-data'
 import type { AlertaResponse } from '@/lib/types'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 /** Mapeo de la severidad del backend a la UI. */
 const severityConfig: Record<
@@ -49,7 +51,28 @@ interface Props {
   alerts: AlertaResponse[] | null
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        situacionesQueRequieren: 'Situations that need your attention',
+        sinAlertasActivas: 'No active alerts. All good!',
+      }
+    : {
+        situacionesQueRequieren: 'Situaciones que requieren tu atención',
+        sinAlertasActivas: 'Sin alertas activas. ¡Todo en orden!',
+      }
+}
+
 export function AlertsCard({ alerts }: Props) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   // Convertir mock-data al mismo shape que AlertaResponse para reutilizar el render
   const items: AlertaResponse[] =
     alerts !== null
@@ -70,12 +93,12 @@ export function AlertsCard({ alerts }: Props) {
           <CardTitle>Alertas importantes</CardTitle>
           {alerts === null && <SampleDataBadge />}
         </div>
-        <CardDescription>Situaciones que requieren tu atención</CardDescription>
+        <CardDescription>{T.situacionesQueRequieren}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {items.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            Sin alertas activas. ¡Todo en orden!
+            {T.sinAlertasActivas}
           </p>
         ) : (
           items.map((alert, i) => {

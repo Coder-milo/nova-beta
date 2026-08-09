@@ -17,6 +17,8 @@ import {
 import { SampleDataBadge } from '@/components/dashboard/sample-data-badge'
 import { studentsByProject } from '@/lib/mock-data'
 import type { PuntoDato } from '@/lib/types'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 const chartConfig = {
   total: { label: 'Estudiantes', color: 'var(--chart-1)' },
@@ -27,7 +29,30 @@ interface Props {
   data: PuntoDato[] | null
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        sinDatosDe: 'No project data yet.',
+        estudiantesPorProyecto: 'Students by project',
+        inscritosEnCada: 'Enrolled on each programme',
+      }
+    : {
+        sinDatosDe: 'Sin datos de proyectos todavía.',
+        estudiantesPorProyecto: 'Estudiantes por proyecto',
+        inscritosEnCada: 'Inscritos en cada programa',
+      }
+}
+
 export function StudentsProjectChart({ data }: Props) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const chartData =
     data !== null
       ? data.map((p) => ({ proyecto: p.label, total: p.value }))
@@ -37,15 +62,15 @@ export function StudentsProjectChart({ data }: Props) {
     <Card className="rounded-xl shadow-sm">
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
-          <CardTitle>Estudiantes por proyecto</CardTitle>
+          <CardTitle>{T.estudiantesPorProyecto}</CardTitle>
           {data === null && <SampleDataBadge />}
         </div>
-        <CardDescription>Inscritos en cada programa</CardDescription>
+        <CardDescription>{T.inscritosEnCada}</CardDescription>
       </CardHeader>
       <CardContent>
         {chartData.length === 0 ? (
           <p className="py-16 text-center text-sm text-muted-foreground">
-            Sin datos de proyectos todavía.
+            {T.sinDatosDe}
           </p>
         ) : (
           <ChartContainer config={chartConfig} className="h-[260px] w-full">

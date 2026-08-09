@@ -9,6 +9,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { quickActions, type QuickAction } from '@/lib/mock-data'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 const iconMap: Record<QuickAction['icon'], PhosphorIcon> = {
   'add-student': UserPlus,
@@ -19,12 +21,33 @@ const iconMap: Record<QuickAction['icon'], PhosphorIcon> = {
   resume: ReadCvLogo,
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        tareasFrecuentesDel: 'Common panel tasks',
+        accesosRapidos: 'Quick links',
+      }
+    : {
+        tareasFrecuentesDel: 'Tareas frecuentes del panel',
+        accesosRapidos: 'Accesos rápidos',
+      }
+}
+
 export function QuickAccess() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   return (
     <Card className="rounded-xl shadow-sm">
       <CardHeader>
-        <CardTitle>Accesos rápidos</CardTitle>
-        <CardDescription>Tareas frecuentes del panel</CardDescription>
+        <CardTitle>{T.accesosRapidos}</CardTitle>
+        <CardDescription>{T.tareasFrecuentesDel}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
