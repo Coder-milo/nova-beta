@@ -28,6 +28,7 @@ export function textosAdmin(english: boolean) {
         telefono: 'Phone', ciudad: 'City', fecha: 'Date', archivo: 'File',
         estado: 'Status', programa: 'Programme', empresa: 'Company',
         estudiantes: 'Students', documentos: 'Documents', notas: 'Notes',
+        institucion: 'Institution', cargo: 'Role',
 
         // Estados de un estudiante
         activo: 'Active', inactivo: 'Inactive', enProceso: 'In progress',
@@ -54,6 +55,7 @@ export function textosAdmin(english: boolean) {
         telefono: 'Teléfono', ciudad: 'Ciudad', fecha: 'Fecha', archivo: 'Archivo',
         estado: 'Estado', programa: 'Programa', empresa: 'Empresa',
         estudiantes: 'Estudiantes', documentos: 'Documentos', notas: 'Notas',
+        institucion: 'Institución', cargo: 'Cargo',
 
         activo: 'Activo', inactivo: 'Inactivo', enProceso: 'En proceso',
         graduado: 'Graduado', retirado: 'Retirado',
