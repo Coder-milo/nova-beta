@@ -347,7 +347,20 @@ export function Header({ onOpenMobile }: HeaderProps) {
     setDirectLoading(true)
     setMessageError('')
     void chatsApi.conversacion(directContact.id)
-      .then((data) => { if (active) setDirectMessages(data) })
+      .then((data) => {
+        if (!active) return
+        setDirectMessages(data)
+        // El nombre real sale de la propia conversación. Al abrirla desde un
+        // aviso sólo se conoce el id, y ponerlo a mano recortando el título del
+        // aviso ataría la pantalla a cómo está redactado ese texto.
+        const suyo = data.find((mensaje) => !mensaje.enviadoPorMi)
+        if (suyo && suyo.remitenteNombre) {
+          setDirectContact((actual) =>
+            actual && actual.nombre !== suyo.remitenteNombre
+              ? { ...actual, nombre: suyo.remitenteNombre }
+              : actual)
+        }
+      })
       .catch((error) => {
         if (active) {
           setDirectMessages([])
@@ -514,6 +527,17 @@ export function Header({ onOpenMobile }: HeaderProps) {
         } catch {
           // La bandeja permite volver a intentar la acción si falla la red.
         }
+      }
+      // Un aviso de chat abre esa conversación, no la lista de avisos. La
+      // referencia es quien escribió, que es lo único que hace falta para
+      // llegar; el nombre sale del propio título. Sin esto el aviso decía
+      // «Mensaje de María» y llevaba a una lista donde había que volver a
+      // buscar a María.
+      if (notification?.tipo === 'CHAT' && notification.referenciaId) {
+        // El nombre se corrige solo al cargar la conversación, que lo trae en
+        // cada mensaje; el título del aviso sólo sirve de rótulo mientras tanto.
+        abrirChatDirecto({ id: notification.referenciaId, nombre: notification.titulo, fotoUrl: null })
+        return
       }
       router.push('/mis-notificaciones')
       return
