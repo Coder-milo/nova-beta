@@ -47,6 +47,16 @@ const BUSQUEDA_VACIA: BusquedaResponse = {
 function formatNotificationTime(value: string, locale: 'es' | 'en') {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return locale === 'es' ? 'Ahora' : 'Now'
+  const diffMs = Date.now() - date.getTime()
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffMins < 1) return locale === 'es' ? 'Hace un momento' : 'Just now'
+  if (diffMins < 60) return locale === 'es' ? `Hace ${diffMins}m` : `${diffMins}m ago`
+  if (diffHours < 24) return locale === 'es' ? `Hace ${diffHours}h` : `${diffHours}h ago`
+  if (diffDays < 7) return locale === 'es' ? `Hace ${diffDays}d` : `${diffDays}d ago`
+
   return new Intl.DateTimeFormat(locale === 'es' ? 'es-CO' : 'en-US', {
     day: 'numeric',
     month: 'short',

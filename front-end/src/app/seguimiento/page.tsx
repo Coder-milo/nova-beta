@@ -1,32 +1,28 @@
 'use client'
 
-import { ArrowsClockwiseIcon as ArrowsClockwise, ChatCircleIcon as ChatCircle, ClockIcon as Clock, UserIcon as User, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
-/**
- * Tablero de seguimiento.
- *
- * Consume:
- *   GET /api/v1/seguimiento/tablero        → columnas por estado de contacto
- *   PUT /api/v1/seguimiento/tablero/{id}   → mover a otra columna
- *
- * El backend llevaba tiempo sirviendo esto y ninguna pantalla lo pedía.
- *
- * <p>Se mueve con un desplegable y no arrastrando. Arrastrar se ve mejor en una
- * demostración, pero deja fuera a quien navega con teclado o lector de pantalla,
- * y en un móvil compite con el gesto de desplazar la página. El desplegable
- * funciona en los tres casos y no necesita ninguna librería.
- */
-
-import { useCallback, useEffect, useState } from 'react'
+import {
+  ArrowsClockwiseIcon as ArrowsClockwise,
+  ChatCircleIcon as ChatCircle,
+  ClockIcon as Clock,
+  MagnifyingGlassIcon as MagnifyingGlass,
+  PlusIcon as Plus,
+  UserIcon as User,
+  UserPlusIcon as UserPlus,
+  WarningCircleIcon as WarningCircle,
+  XIcon as X,
+} from '@phosphor-icons/react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from '@/compat/next-link'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { tableroApi, mensajeDeError } from '@/lib/api'
+import { Input } from '@/components/ui/input'
+import { estudiantesApi, mensajeDeError, tableroApi } from '@/lib/api'
 import { useAvisos } from '@/components/ui/avisos'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
-import type { EstadoContacto, EtapaEmpleabilidad, Tablero, TarjetaTablero } from '@/lib/types'
+import type { EstadoContacto, EstudianteResponse, EtapaEmpleabilidad, Tablero, TarjetaTablero } from '@/lib/types'
 
 /** El orden de las columnas es el del recorrido, no alfabético. */
 const ESTADOS: EstadoContacto[] = ['SIN_CONTACTO', 'EN_PROCESO', 'ENTREVISTA', 'COLOCADO', 'CERRADO']
@@ -40,17 +36,11 @@ const COLOR_ESTADO: Record<EstadoContacto, string> = {
   CERRADO: 'bg-red-600',
 }
 
-/**
- * Textos propios de esta pantalla.
- *
- * Lo que se repite en varias pantallas de gestion sale de
- * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
- */
 function textos(english: boolean) {
   return english
     ? {
         titulo: 'Follow-up board',
-        descripcion: 'Where each student stands in the conversation, with the stage the system infers next to it. Moving a card records a follow-up action in their history.',
+        descripcion: 'Where each student stands in the conversation, with the stage the system infers next to it. Drag columns horizontally, drop cards between stages, or search students to add them.',
         cargando: 'Loading the board…',
         noSePudoCargar: 'The board could not be loaded.',
         noSePudoMover: 'The student could not be moved.',
@@ -65,13 +55,21 @@ function textos(english: boolean) {
         accionesX: (n: number) => `${n} follow-up actions`,
         proximaAccion: 'Next action',
         totalEstudiantes: (n: number) => `${n} students on the board`,
-        // Estados de contacto
+        buscarEnTablero: 'Search student in board…',
+        agregarEstudiante: 'Add student',
+        modalTitulo: 'Add student to board',
+        modalSubtitulo: 'Search for any student in the system and assign their contact status.',
+        buscarEstudianteInput: 'Search by name, email or document…',
+        buscando: 'Searching students…',
+        sinResultados: 'No students found matching your search.',
+        seleccionarEstado: 'Target stage',
+        asignar: 'Assign to stage',
+        asignando: 'Assigning…',
         sinContacto: 'No contact',
         enProceso: 'In conversation',
         entrevista: 'Interviewing',
         colocado: 'Placed',
         cerrado: 'Closed',
-        // Etapas que deduce el sistema
         sinPerfil: 'No profile',
         perfilListo: 'Profile ready',
         preparado: 'Ready',
@@ -79,12 +77,12 @@ function textos(english: boolean) {
       }
     : {
         titulo: 'Tablero de seguimiento',
-        descripcion: 'En qué punto de la conversación está cada estudiante, con la etapa que deduce el sistema al lado. Mover una tarjeta deja registrada la acción en su historial.',
+        descripcion: 'En qué punto de la conversación está cada estudiante. Arrastra el tablero con clic para desplazarte, mueve tarjetas entre columnas o busca un estudiante para agregarlo.',
         cargando: 'Cargando el tablero…',
         noSePudoCargar: 'No se pudo cargar el tablero.',
         noSePudoMover: 'No se pudo mover al estudiante.',
         sinEstudiantes: 'No hay estudiantes en el tablero.',
-        columnaVacia: 'Nadie aquí.',
+        columnaVacia: 'Nadie aquí. Arrastra tarjetas o agrega un estudiante.',
         moverA: 'Mover a…',
         necesitanAtencion: (n: number) => `${n} necesitan atención`,
         sinContactoNunca: 'Nunca contactado',
@@ -94,6 +92,16 @@ function textos(english: boolean) {
         accionesX: (n: number) => `${n} acciones de seguimiento`,
         proximaAccion: 'Próxima acción',
         totalEstudiantes: (n: number) => `${n} estudiantes en el tablero`,
+        buscarEnTablero: 'Buscar estudiante en el tablero…',
+        agregarEstudiante: 'Agregar estudiante',
+        modalTitulo: 'Agregar estudiante al tablero',
+        modalSubtitulo: 'Busca a cualquier estudiante del sistema y asígnale su estado de seguimiento.',
+        buscarEstudianteInput: 'Buscar por nombre, correo o documento…',
+        buscando: 'Buscando estudiantes…',
+        sinResultados: 'No encontramos estudiantes con esa búsqueda.',
+        seleccionarEstado: 'Estado de seguimiento',
+        asignar: 'Asignar a columna',
+        asignando: 'Asignando…',
         sinContacto: 'Sin contacto',
         enProceso: 'En conversación',
         entrevista: 'En entrevistas',
@@ -120,14 +128,6 @@ function etiquetaEtapa(T: ReturnType<typeof textos>, etapa: EtapaEmpleabilidad):
   }[etapa] ?? etapa
 }
 
-/**
- * A partir de cuántos días sin noticias conviene mirar una tarjeta.
- *
- * Dos semanas, el mismo umbral que usa el backend para contar las que
- * necesitan atención. Duplicar el número aquí sería otra copia que puede
- * desviarse, pero el servidor no lo publica: si algún día lo hace, este
- * literal es lo que hay que cambiar por su valor.
- */
 const DIAS_PARA_ALERTAR = 14
 
 export default function SeguimientoPage() {
@@ -139,6 +139,26 @@ export default function SeguimientoPage() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [moviendo, setMoviendo] = useState<string | null>(null)
+  const [filtroTablero, setFiltroTablero] = useState('')
+
+  // Arrastre del contenedor por clic (mouse panning)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [isMouseDown, setIsMouseDown] = useState(false)
+  const [startX, setStartX] = useState(0)
+  const [scrollLeftPos, setScrollLeftPos] = useState(0)
+
+  // Drag and drop de tarjetas entre columnas
+  const [draggedStudentId, setDraggedStudentId] = useState<string | null>(null)
+  const [dragOverEstado, setDragOverEstado] = useState<EstadoContacto | null>(null)
+
+  // Modal para agregar estudiante
+  const [modalAgregarOpen, setModalAgregarOpen] = useState(false)
+  const [queryModal, setQueryModal] = useState('')
+  const [estudiantesResultados, setEstudiantesResultados] = useState<EstudianteResponse[]>([])
+  const [cargandoResultados, setCargandoResultados] = useState(false)
+  const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<EstudianteResponse | null>(null)
+  const [estadoSeleccionado, setEstadoSeleccionado] = useState<EstadoContacto>('SIN_CONTACTO')
+  const [guardandoAsignacion, setGuardandoAsignacion] = useState(false)
 
   const cargar = useCallback(async () => {
     setCargando(true); setError(null)
@@ -151,23 +171,78 @@ export default function SeguimientoPage() {
 
   useEffect(() => { void cargar() }, [cargar])
 
-  /**
-   * Mueve la tarjeta y recarga.
-   *
-   * Se recarga entero en vez de mover la tarjeta en memoria porque los
-   * contadores de cabecera —el total y cuántas necesitan atención— los calcula
-   * el servidor, y recalcularlos aquí sería una segunda implementación de la
-   * misma regla, lista para desviarse de la primera.
-   */
-  const mover = async (tarjeta: TarjetaTablero, estado: EstadoContacto) => {
-    if (estado === tarjeta.estadoContacto) return
-    setMoviendo(tarjeta.estudianteId)
+  const mover = async (estudianteId: string, estado: EstadoContacto, estadoActual?: EstadoContacto) => {
+    if (estadoActual && estado === estadoActual) return
+    setMoviendo(estudianteId)
     try {
-      await tableroApi.mover(tarjeta.estudianteId, estado)
+      await tableroApi.mover(estudianteId, estado)
       await cargar()
     } catch (e) {
       mostrarError(mensajeDeError(e, T.noSePudoMover))
     } finally { setMoviendo(null) }
+  }
+
+  // Mouse Panning event handlers
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!scrollRef.current) return
+    const target = e.target as HTMLElement
+    // Ignorar si se hace clic en elementos interactivos como selects, botones, links o inputs
+    if (['SELECT', 'BUTTON', 'A', 'INPUT', 'OPTION', 'TEXTAREA'].includes(target.tagName) || target.closest('select, button, a, input, option, article')) {
+      return
+    }
+    setIsMouseDown(true)
+    setStartX(e.pageX - scrollRef.current.offsetLeft)
+    setScrollLeftPos(scrollRef.current.scrollLeft)
+  }
+
+  const handleMouseLeave = () => {
+    setIsMouseDown(false)
+  }
+
+  const handleMouseUp = () => {
+    setIsMouseDown(false)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isMouseDown || !scrollRef.current) return
+    e.preventDefault()
+    const x = e.pageX - scrollRef.current.offsetLeft
+    const walk = (x - startX) * 1.6
+    scrollRef.current.scrollLeft = scrollLeftPos - walk
+  }
+
+  // Buscar estudiantes para agregar al tablero desde el modal
+  useEffect(() => {
+    if (!modalAgregarOpen || queryModal.trim().length < 2) {
+      setEstudiantesResultados([])
+      setCargandoResultados(false)
+      return
+    }
+    let active = true
+    setCargandoResultados(true)
+    const timer = window.setTimeout(() => {
+      void estudiantesApi.buscarAvanzado({ q: queryModal.trim(), size: 8 })
+        .then((data) => { if (active) setEstudiantesResultados(data.content) })
+        .catch(() => { if (active) setEstudiantesResultados([]) })
+        .finally(() => { if (active) setCargandoResultados(false) })
+    }, 220)
+    return () => { active = false; window.clearTimeout(timer) }
+  }, [modalAgregarOpen, queryModal])
+
+  const agregarEstudianteSeleccionado = async () => {
+    if (!estudianteSeleccionado) return
+    setGuardandoAsignacion(true)
+    try {
+      await tableroApi.mover(estudianteSeleccionado.id, estadoSeleccionado)
+      await cargar()
+      setModalAgregarOpen(false)
+      setEstudianteSeleccionado(null)
+      setQueryModal('')
+    } catch (e) {
+      mostrarError(mensajeDeError(e, T.noSePudoMover))
+    } finally {
+      setGuardandoAsignacion(false)
+    }
   }
 
   const columnaDe = (estado: EstadoContacto) =>
@@ -180,10 +255,39 @@ export default function SeguimientoPage() {
           <h1 className="text-lg font-semibold text-foreground">{T.titulo}</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{T.descripcion}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void cargar()} disabled={cargando}>
-          <ArrowsClockwise className="size-3.5" /> {C.refrescar}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="default" size="sm" onClick={() => setModalAgregarOpen(true)} className="gap-1.5 shadow-sm">
+            <UserPlus className="size-4" /> {T.agregarEstudiante}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void cargar()} disabled={cargando}>
+            <ArrowsClockwise className="size-3.5" /> {C.refrescar}
+          </Button>
+        </div>
       </div>
+
+      {!cargando && !error && tablero && tablero.totalEstudiantes > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground tabular-nums">{T.totalEstudiantes(tablero.totalEstudiantes)}</p>
+          <div className="relative w-full max-w-xs">
+            <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={filtroTablero}
+              onChange={(e) => setFiltroTablero(e.target.value)}
+              placeholder={T.buscarEnTablero}
+              className="h-8 rounded-xl bg-background pl-8 text-xs shadow-none"
+            />
+            {filtroTablero && (
+              <button
+                type="button"
+                onClick={() => setFiltroTablero('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {cargando && (
         <div className="flex items-center justify-center py-20">
@@ -205,105 +309,270 @@ export default function SeguimientoPage() {
       {!cargando && !error && tablero && (
         tablero.totalEstudiantes === 0 ? (
           <Card className="border-dashed shadow-none">
-            <CardContent className="py-14 text-center text-sm text-muted-foreground">{T.sinEstudiantes}</CardContent>
+            <CardContent className="flex flex-col items-center py-14 text-center">
+              <p className="text-sm text-muted-foreground">{T.sinEstudiantes}</p>
+              <Button variant="outline" size="sm" onClick={() => setModalAgregarOpen(true)} className="mt-4 gap-1.5">
+                <UserPlus className="size-4 text-primary" /> {T.agregarEstudiante}
+              </Button>
+            </CardContent>
           </Card>
         ) : (
-          <>
-            <p className="text-xs text-muted-foreground tabular-nums">{T.totalEstudiantes(tablero.totalEstudiantes)}</p>
+          <div
+            ref={scrollRef}
+            onMouseDown={handleMouseDown}
+            onMouseLeave={handleMouseLeave}
+            onMouseUp={handleMouseUp}
+            onMouseMove={handleMouseMove}
+            className={`flex gap-4 overflow-x-auto pb-6 pt-1 select-none ${
+              isMouseDown ? 'cursor-grabbing' : 'cursor-grab'
+            }`}
+          >
+            {ESTADOS.map((estado) => {
+              const columna = columnaDe(estado)
+              let tarjetas = columna?.tarjetas ?? []
+              if (filtroTablero.trim()) {
+                const q = filtroTablero.trim().toLowerCase()
+                tarjetas = tarjetas.filter((t) => t.nombre.toLowerCase().includes(q))
+              }
+              const isOver = dragOverEstado === estado
 
-            {/* Una columna por estado, con desplazamiento horizontal: con cinco
-                columnas y tarjetas de varias líneas, apilarlas en vertical en una
-                pantalla estrecha haría perder de vista la comparación, que es
-                justo para lo que sirve el tablero. */}
-            <div className="flex gap-4 overflow-x-auto pb-4">
-              {ESTADOS.map((estado) => {
-                const columna = columnaDe(estado)
-                const tarjetas = columna?.tarjetas ?? []
-                return (
-                  <section key={estado} className="flex w-72 shrink-0 flex-col gap-3">
-                    <header className="flex items-center gap-2 rounded-xl border border-border bg-secondary/40 px-3 py-2">
-                      <span className={`size-2 shrink-0 rounded-full ${COLOR_ESTADO[estado]}`} />
-                      <span className="text-sm font-semibold text-foreground">{etiquetaEstado(T, estado)}</span>
-                      <span className="ml-auto text-xs tabular-nums text-muted-foreground">{columna?.total ?? 0}</span>
-                    </header>
+              return (
+                <section
+                  key={estado}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                  }}
+                  onDragEnter={() => setDragOverEstado(estado)}
+                  onDragLeave={() => setDragOverEstado(null)}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    setDragOverEstado(null)
+                    const id = e.dataTransfer.getData('text/plain') || draggedStudentId
+                    if (id) void mover(id, estado)
+                    setDraggedStudentId(null)
+                  }}
+                  className={`flex w-72 shrink-0 flex-col gap-3 rounded-2xl border p-2 transition-all ${
+                    isOver
+                      ? 'border-primary/50 bg-primary/[0.04] ring-2 ring-primary/30'
+                      : 'border-transparent bg-secondary/10 dark:bg-secondary/5'
+                  }`}
+                >
+                  <header className="flex items-center gap-2 rounded-xl border border-border bg-secondary/40 px-3 py-2">
+                    <span className={`size-2 shrink-0 rounded-full ${COLOR_ESTADO[estado]}`} />
+                    <span className="text-sm font-semibold text-foreground">{etiquetaEstado(T, estado)}</span>
+                    <span className="ml-auto text-xs tabular-nums text-muted-foreground">{columna?.total ?? 0}</span>
+                  </header>
 
-                    {(columna?.necesitanAtencion ?? 0) > 0 && (
-                      <p className="flex items-center gap-1.5 px-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                        <Clock className="size-3" /> {T.necesitanAtencion(columna!.necesitanAtencion)}
-                      </p>
-                    )}
+                  {(columna?.necesitanAtencion ?? 0) > 0 && (
+                    <p className="flex items-center gap-1.5 px-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                      <Clock className="size-3" /> {T.necesitanAtencion(columna!.necesitanAtencion)}
+                    </p>
+                  )}
 
-                    {tarjetas.length === 0 ? (
-                      <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-                        {T.columnaVacia}
-                      </p>
-                    ) : tarjetas.map((tarjeta) => {
-                      const alerta = tarjeta.diasSinContacto == null || tarjeta.diasSinContacto >= DIAS_PARA_ALERTAR
-                      return (
-                        <article
-                          key={tarjeta.estudianteId}
-                          className={`flex flex-col gap-2 rounded-xl border bg-card p-3 shadow-none transition-opacity ${
-                            alerta ? 'border-amber-500/40' : 'border-border'
-                          } ${moviendo === tarjeta.estudianteId ? 'opacity-50' : ''}`}
-                        >
+                  {tarjetas.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-border/80 px-3 py-8 text-center text-xs text-muted-foreground">
+                      {T.columnaVacia}
+                    </p>
+                  ) : tarjetas.map((tarjeta) => {
+                    const alerta = tarjeta.diasSinContacto == null || tarjeta.diasSinContacto >= DIAS_PARA_ALERTAR
+                    const isBeingDragged = draggedStudentId === tarjeta.estudianteId
+
+                    return (
+                      <article
+                        key={tarjeta.estudianteId}
+                        draggable={moviendo === null}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', tarjeta.estudianteId)
+                          e.dataTransfer.effectAllowed = 'move'
+                          setDraggedStudentId(tarjeta.estudianteId)
+                        }}
+                        onDragEnd={() => setDraggedStudentId(null)}
+                        className={`flex flex-col gap-2 rounded-xl border bg-card p-3 shadow-sm transition-all duration-200 hover:border-primary/40 hover:shadow-md ${
+                          alerta ? 'border-amber-500/40' : 'border-border'
+                        } ${moviendo === tarjeta.estudianteId || isBeingDragged ? 'opacity-40 scale-95' : 'opacity-100'}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
                           <Link
                             href={`/estudiantes/${tarjeta.estudianteId}`}
                             className="text-sm font-semibold text-foreground hover:text-primary hover:underline"
                           >
                             {tarjeta.nombre}
                           </Link>
+                          <span className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground" title="Arrastrar tarjeta">
+                            ⋮⋮
+                          </span>
+                        </div>
 
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <Badge variant="outline" className="text-[10px]">{etiquetaEtapa(T, tarjeta.etapa)}</Badge>
-                            <span className="text-[10px] tabular-nums text-muted-foreground">{tarjeta.porcentajeAvance}%</span>
-                          </div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge variant="outline" className="text-[10px]">{etiquetaEtapa(T, tarjeta.etapa)}</Badge>
+                          <span className="text-[10px] tabular-nums text-muted-foreground">{tarjeta.porcentajeAvance}%</span>
+                        </div>
 
-                          <p className={`flex items-center gap-1.5 text-[11px] ${alerta ? 'font-medium text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
-                            <Clock className="size-3 shrink-0" />
-                            {tarjeta.diasSinContacto == null
-                              ? T.sinContactoNunca
-                              : tarjeta.diasSinContacto === 0
-                                ? T.contactadoHoy
-                                : T.diasSinContacto(tarjeta.diasSinContacto)}
+                        <p className={`flex items-center gap-1.5 text-[11px] ${alerta ? 'font-medium text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                          <Clock className="size-3 shrink-0" />
+                          {tarjeta.diasSinContacto == null
+                            ? T.sinContactoNunca
+                            : tarjeta.diasSinContacto === 0
+                              ? T.contactadoHoy
+                              : T.diasSinContacto(tarjeta.diasSinContacto)}
+                        </p>
+
+                        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                          <span className="flex items-center gap-1"><User className="size-3" />{T.postulacionesX(tarjeta.postulaciones)}</span>
+                          <span className="flex items-center gap-1"><ChatCircle className="size-3" />{T.accionesX(tarjeta.accionesSeguimiento)}</span>
+                        </p>
+
+                        {tarjeta.proximaAccion && (
+                          <p className="text-[11px] text-muted-foreground">
+                            <span className="font-medium text-foreground">{T.proximaAccion}: </span>
+                            {tarjeta.proximaAccion}
                           </p>
+                        )}
 
-                          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                            <span className="flex items-center gap-1"><User className="size-3" />{T.postulacionesX(tarjeta.postulaciones)}</span>
-                            <span className="flex items-center gap-1"><ChatCircle className="size-3" />{T.accionesX(tarjeta.accionesSeguimiento)}</span>
-                          </p>
-
-                          {tarjeta.proximaAccion && (
-                            <p className="text-[11px] text-muted-foreground">
-                              <span className="font-medium text-foreground">{T.proximaAccion}: </span>
-                              {tarjeta.proximaAccion}
-                            </p>
-                          )}
-
-                          <label className="mt-1">
-                            <span className="sr-only">{T.moverA}</span>
-                            <select
-                              aria-label={T.moverA}
-                              value={tarjeta.estadoContacto}
-                              disabled={moviendo !== null}
-                              onChange={(e) => void mover(tarjeta, e.target.value as EstadoContacto)}
-                              className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
-                            >
-                              {ESTADOS.map((e) => (
-                                <option key={e} value={e}>{etiquetaEstado(T, e)}</option>
-                              ))}
-                            </select>
-                          </label>
-                        </article>
-                      )
-                    })}
-                  </section>
-                )
-              })}
-            </div>
-          </>
+                        <label className="mt-1">
+                          <span className="sr-only">{T.moverA}</span>
+                          <select
+                            aria-label={T.moverA}
+                            value={tarjeta.estadoContacto}
+                            disabled={moviendo !== null}
+                            onChange={(e) => void mover(tarjeta.estudianteId, e.target.value as EstadoContacto, tarjeta.estadoContacto)}
+                            className="h-8 w-full rounded-lg border border-input bg-background px-2 text-xs transition-colors hover:border-primary/40 focus:border-primary"
+                          >
+                            {ESTADOS.map((e) => (
+                              <option key={e} value={e}>{etiquetaEstado(T, e)}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </article>
+                    )
+                  })}
+                </section>
+              )
+            })}
+          </div>
         )
       )}
+
+      {/* Modal para Agregar/Buscar Estudiante al Tablero */}
+      {modalAgregarOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-popover p-6 shadow-2xl dark:bg-[#0c1714]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-semibold text-foreground">{T.modalTitulo}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">{T.modalSubtitulo}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalAgregarOpen(false)
+                  setEstudianteSeleccionado(null)
+                  setQueryModal('')
+                }}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <div className="relative">
+                <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  autoFocus
+                  value={queryModal}
+                  onChange={(e) => setQueryModal(e.target.value)}
+                  placeholder={T.buscarEstudianteInput}
+                  className="pl-9 text-xs"
+                />
+              </div>
+
+              {queryModal.trim().length >= 2 && (
+                <div className="max-h-48 space-y-1.5 overflow-y-auto rounded-xl border border-border/70 p-1">
+                  {cargandoResultados ? (
+                    <p className="p-3 text-center text-xs text-muted-foreground">{T.buscando}</p>
+                  ) : estudiantesResultados.length === 0 ? (
+                    <p className="p-3 text-center text-xs text-muted-foreground">{T.sinResultados}</p>
+                  ) : (
+                    estudiantesResultados.map((est) => {
+                      const seleccionado = estudianteSeleccionado?.id === est.id
+                      return (
+                        <button
+                          key={est.id}
+                          type="button"
+                          onClick={() => setEstudianteSeleccionado(est)}
+                          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition ${
+                            seleccionado
+                              ? 'border border-primary/40 bg-primary/10 text-primary font-medium'
+                              : 'hover:bg-muted/50 text-foreground'
+                          }`}
+                        >
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                            {`${est.nombre[0] ?? ''}${est.apellido[0] ?? ''}`.toUpperCase()}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-semibold">{est.nombre} {est.apellido}</p>
+                            <p className="truncate text-[11px] opacity-75">{est.email}</p>
+                          </div>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              )}
+
+              {estudianteSeleccionado && (
+                <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                  <p className="text-xs font-medium text-foreground">
+                    Estudiante seleccionado: <span className="font-bold">{estudianteSeleccionado.nombre} {estudianteSeleccionado.apellido}</span>
+                  </p>
+                  <div>
+                    <label htmlFor="select-estado-modal" className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                      {T.seleccionarEstado}
+                    </label>
+                    <select
+                      id="select-estado-modal"
+                      value={estadoSeleccionado}
+                      onChange={(e) => setEstadoSeleccionado(e.target.value as EstadoContacto)}
+                      className="h-9 w-full rounded-lg border border-input bg-background px-3 text-xs"
+                    >
+                      {ESTADOS.map((e) => (
+                        <option key={e} value={e}>{etiquetaEstado(T, e)}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setModalAgregarOpen(false)
+                  setEstudianteSeleccionado(null)
+                  setQueryModal('')
+                }}
+              >
+                {C.cancelar}
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                disabled={!estudianteSeleccionado || guardandoAsignacion}
+                onClick={() => void agregarEstudianteSeleccionado()}
+              >
+                {guardandoAsignacion ? T.asignando : T.asignar}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {avisos}
     </div>
   )
 }
+

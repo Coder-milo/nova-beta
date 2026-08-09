@@ -24,6 +24,7 @@ import {
 import { EMOJIS_REACCION, mensajesApi, mensajeDeError } from '@/lib/api'
 import type { MensajeTurnoResponse, ReaccionResumen } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { Textarea } from '@/components/ui/textarea'
 
 /** Hasta cuántos archivos acepta el servidor por intervención. */
 const MAX_ARCHIVOS = 5
@@ -334,14 +335,22 @@ export function Conversacion({ mensajeId, soyEstudiante, locale, textos, onTurno
             <Paperclip className="size-4" />
           </button>
           {/* Enter envía y Shift+Enter salta línea, como en cualquier chat. */}
-          <textarea
+          <Textarea
             value={borrador}
             onChange={(e) => setBorrador(e.target.value)}
+            onPaste={(e) => {
+              const imagenes = Array.from(e.clipboardData.files).filter((archivo) => archivo.type.startsWith('image/'))
+              if (imagenes.length > 0) {
+                e.preventDefault()
+                setArchivos((actual) => [...actual, ...imagenes].slice(0, MAX_ARCHIVOS))
+              }
+            }}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar() } }}
             placeholder={textos.escribir}
             maxLength={5000}
-            rows={1}
-            className="max-h-40 min-h-10 min-w-0 flex-1 resize-y rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
+            minRows={1}
+            maxRows={4}
+            className="max-h-32 min-h-10 min-w-0 flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
           />
           <button
             type="submit"
