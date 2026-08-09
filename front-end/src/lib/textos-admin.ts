@@ -36,6 +36,7 @@ export function textosAdmin(english: boolean) {
         empleado: 'Employed', buscando: 'Job hunting', sinInfo: 'No information',
 
         // Estados de carga y vacíos
+        completado: 'Completed', pendiente: 'Pending',
         cargando: 'Loading…', sinResultados: 'No results',
         sinRegistrar: 'Not recorded', sinAsignar: 'Not assigned',
 
@@ -61,6 +62,7 @@ export function textosAdmin(english: boolean) {
         graduado: 'Graduado', retirado: 'Retirado',
         empleado: 'Empleado', buscando: 'Buscando', sinInfo: 'Sin información',
 
+        completado: 'Completado', pendiente: 'Pendiente',
         cargando: 'Cargando…', sinResultados: 'Sin resultados',
         sinRegistrar: 'Sin registrar', sinAsignar: 'Sin asignar',
 
