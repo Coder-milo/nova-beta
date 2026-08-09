@@ -30,6 +30,7 @@ public class DashboardService {
     private final ProgramaRepository programaRepository;
     private final com.novacrm.seguimiento.SeguimientoRepository seguimientoRepository;
     private final com.novacrm.vacante.VacanteRepository vacanteRepository;
+    private final com.novacrm.scraper.ScrapingEjecucionRepository scrapingEjecucionRepository;
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
@@ -37,11 +38,13 @@ public class DashboardService {
     public DashboardService(EstudianteRepository estudianteRepository,
                             ProgramaRepository programaRepository,
                             com.novacrm.seguimiento.SeguimientoRepository seguimientoRepository,
-                            com.novacrm.vacante.VacanteRepository vacanteRepository) {
+                            com.novacrm.vacante.VacanteRepository vacanteRepository,
+                            com.novacrm.scraper.ScrapingEjecucionRepository scrapingEjecucionRepository) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
         this.seguimientoRepository = seguimientoRepository;
         this.vacanteRepository = vacanteRepository;
+        this.scrapingEjecucionRepository = scrapingEjecucionRepository;
     }
 
     public DashboardSummaryResponse resumen() {
@@ -133,6 +136,18 @@ public class DashboardService {
                             + "Hasta validarlas no entran al matching.",
                     null, "/vacantes"));
         }
+
+        // La ultima corrida de scraping, si termino con fuentes caidas. El error
+        // se guardaba en `scraping_ejecucion` y no lo leia nadie: sin vacantes
+        // nuevas nadie sospecha que el escaneo lleva semanas fallando, porque
+        // una corrida rota y una tranquila se ven igual desde fuera.
+        scrapingEjecucionRepository.findFirstByFinIsNotNullOrderByInicioDesc()
+                .filter(e -> e.getError() != null && !e.getError().isBlank())
+                .ifPresent(e -> alertas.add(new AlertaResponse(
+                        "SCRAPING_CON_ERRORES", "MEDIA",
+                        "El ultimo escaneo de vacantes fallo",
+                        "Fuentes con problemas: " + e.getError(),
+                        null, "/vacantes")));
 
         LocalDate hoy = LocalDate.now(ZoneId.systemDefault());
         List<Programa> porFinalizar = programaRepository.findByEstadoAndFechaFinBetween(
