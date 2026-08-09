@@ -356,7 +356,7 @@ export function PanelPlantillasCorreo() {
               </label>
               <label className="space-y-1.5 sm:col-span-2">
                 <span className="text-xs font-medium">{T.asunto}</span>
-                <Input value={form.asunto} onChange={(e) => setForm({ ...form, asunto: e.target.value })} />
+                <Input value={form.asunto} onChange={(e) => setForm({ ...form, asunto: e.target.value })} maxLength={160} />
               </label>
               <label className="space-y-1.5 sm:col-span-2">
                 <span className="text-xs font-medium">{T.cuerpo}</span>

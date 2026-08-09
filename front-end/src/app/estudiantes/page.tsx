@@ -959,7 +959,7 @@ export default function EstudiantesPage() {
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="f-telefono" className="text-xs font-medium">{T.telefonoFijo}</label>
-                    <Input id="f-telefono" value={form.telefono ?? ''} onChange={(e) => f('telefono', e.target.value)} placeholder="601 000 0000" disabled={isPending} />
+                    <Input id="f-telefono" value={form.telefono ?? ''} onChange={(e) => f('telefono', e.target.value)} placeholder="601 000 0000" disabled={isPending} maxLength={50} />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="f-tipodoc" className="text-xs font-medium">{T.tipoDocumento}</label>

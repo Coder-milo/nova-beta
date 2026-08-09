@@ -341,7 +341,7 @@ export default function NuevoEstudiantePage() {
                 <Input id="n-celular" value={form.celular ?? ''} onChange={(e) => f('celular', e.target.value)} placeholder="300 000 0000" disabled={isPending} />
               </Campo>
               <Campo label={T.telefonoFijo} htmlFor="n-telefono">
-                <Input id="n-telefono" value={form.telefono ?? ''} onChange={(e) => f('telefono', e.target.value)} placeholder="601 000 0000" disabled={isPending} />
+                <Input id="n-telefono" value={form.telefono ?? ''} onChange={(e) => f('telefono', e.target.value)} placeholder="601 000 0000" disabled={isPending} maxLength={50} />
               </Campo>
               <Campo label={T.direccion} htmlFor="n-direccion">
                 <Input id="n-direccion" value={form.direccion ?? ''} onChange={(e) => f('direccion', e.target.value)} placeholder="Calle 1 # 2-34" disabled={isPending} />
