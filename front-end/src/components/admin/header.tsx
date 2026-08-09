@@ -134,6 +134,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
         subtituloPorDefecto: 'NOVA · Gestión académica',
         materialDelAnuncio: 'Material del anuncio',
         abrirInformacion: 'Abrir información del anuncio',
+        marcarTodasLeidas: 'Marcar todas como leídas',
       }
     : {
         consultaAlEquipo: 'Question for the support team',
@@ -144,6 +145,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
         subtituloPorDefecto: 'NOVA · Academic management',
         materialDelAnuncio: 'Announcement material',
         abrirInformacion: 'Open announcement details',
+        marcarTodasLeidas: 'Mark all as read',
       }
 
   const esEstudiante = soloEsEstudiante(user?.roles)
@@ -158,6 +160,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [alertas, setAlertas] = useState<AlertaResponse[]>([])
   const [studentNotifications, setStudentNotifications] = useState<NotificacionResponse[]>([])
   const [studentUnreadNotifications, setStudentUnreadNotifications] = useState(0)
+  // Se guarda al cargar las notificaciones: marcarlas todas necesita el id, y
+  // pedir el perfil otra vez sólo para eso sería una llamada de más.
+  const [profileId, setProfileId] = useState<string | null>(null)
   const [messages, setMessages] = useState<MensajeResponse[]>([])
   const [messageSheetOpen, setMessageSheetOpen] = useState(false)
   const [selectedMessage, setSelectedMessage] = useState<MensajeResponse | null>(null)
@@ -229,6 +234,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
             notificacionesApi.contarNoLeidas(profile.id),
           ])
           if (active) {
+            setProfileId(profile.id)
             setStudentNotifications(response.content)
             setStudentUnreadNotifications(unread)
             window.dispatchEvent(new CustomEvent('nova:notifications-updated', { detail: unread }))
@@ -414,6 +420,24 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const pendingMessages = hilos.filter((hilo) =>
     esEstudiante ? hilo.estado === 'RESPONDIDO' : hilo.estado === 'ABIERTO',
   ).length
+
+  /**
+   * Deja el contador a cero de una vez.
+   *
+   * Sólo para el estudiante: lo que ve el equipo en la campana son alertas
+   * calculadas del panel, no filas de `notificacion`, y no hay nada que marcar.
+   */
+  const marcarTodasLeidas = async () => {
+    if (!esEstudiante || !profileId || studentUnreadNotifications === 0) return
+    try {
+      await notificacionesApi.marcarTodasLeidas(profileId)
+      setStudentNotifications((items) => items.map((item) => ({ ...item, leida: true })))
+      setStudentUnreadNotifications(0)
+      window.dispatchEvent(new CustomEvent('nova:notifications-updated', { detail: 0 }))
+    } catch {
+      // Si falla la red el contador se queda como estaba y se puede reintentar.
+    }
+  }
 
   const openNotification = async (id: string) => {
     if (esEstudiante) {
@@ -688,6 +712,14 @@ export function Header({ onOpenMobile }: HeaderProps) {
               {esEstudiante && (
                 <>
                   <DropdownMenuSeparator className="bg-border/50" />
+                  {studentUnreadNotifications > 0 && (
+                    <DropdownMenuItem
+                      onClick={(event) => { event.preventDefault(); void marcarTodasLeidas() }}
+                      className="justify-center rounded-xl text-xs font-medium text-muted-foreground focus:bg-primary/10"
+                    >
+                      {avisos.marcarTodasLeidas}
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => router.push('/mis-notificaciones')} className="justify-center rounded-xl font-medium text-primary focus:bg-primary/10 focus:text-primary">
                     {t('viewAllNotifications')}
                   </DropdownMenuItem>

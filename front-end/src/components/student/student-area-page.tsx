@@ -10,6 +10,7 @@ import {
   notificacionesApi,
   pipelineApi,
   seguimientosApi,
+  mensajeDeError,
 } from '@/lib/api'
 import type {
   ActividadResponse,
@@ -106,6 +107,8 @@ function textosArea(english: boolean) {
         enviando: 'Sending…',
         cargandoInformacion: 'Loading information…',
         marcarComoLeida: 'Mark as read',
+        marcarTodasLeidas: 'Mark all as read',
+        noSePudoMarcar: 'The notifications could not be marked as read.',
         escribirUnMensaje: 'Write a message',
         consultaInformacionY: 'Get information and recommendations from Academy CAC.',
         verImagenDelAnuncio: 'View the announcement image',
@@ -166,6 +169,8 @@ function textosArea(english: boolean) {
         enviando: 'Enviando…',
         cargandoInformacion: 'Cargando información…',
         marcarComoLeida: 'Marcar como leída',
+        marcarTodasLeidas: 'Marcar todas como leídas',
+        noSePudoMarcar: 'No se pudieron marcar las notificaciones.',
         escribirUnMensaje: 'Escribir un mensaje',
         consultaInformacionY: 'Consulta información y recomendaciones de Academy CAC.',
         verImagenDelAnuncio: 'Ver imagen del anuncio',
@@ -189,6 +194,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
   const [notificaciones, setNotificaciones] = useState<NotificacionResponse[]>([])
   const [mensajes, setMensajes] = useState<MensajeResponse[]>([])
   const [contenidoMensaje, setContenidoMensaje] = useState('')
+  const [marcandoTodas, setMarcandoTodas] = useState(false)
   const [enviandoMensaje, setEnviandoMensaje] = useState(false)
   const [mensajeExito, setMensajeExito] = useState('')
   const [archivosMensaje, setArchivosMensaje] = useState<File[]>([])
@@ -274,6 +280,24 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
       const noLeidas = await notificacionesApi.contarNoLeidas(perfil.id)
       window.dispatchEvent(new CustomEvent('nova:notifications-updated', { detail: noLeidas }))
     }
+  }
+
+  /**
+   * Deja el contador a cero de una vez.
+   *
+   * Con avisos de matches, anuncios y mensajes acumulados, ir marcando de una
+   * en una no es viable. El endpoint existía y no había forma de llamarlo.
+   */
+  const marcarTodasLeidas = async () => {
+    if (!perfil) return
+    setMarcandoTodas(true)
+    try {
+      await notificacionesApi.marcarTodasLeidas(perfil.id)
+      setNotificaciones((v) => v.map((x) => ({ ...x, leida: true })))
+      window.dispatchEvent(new CustomEvent('nova:notifications-updated', { detail: 0 }))
+    } catch (e) {
+      setError(mensajeDeError(e, A.noSePudoMarcar))
+    } finally { setMarcandoTodas(false) }
   }
 
   const enviarMensaje = async (event: React.SyntheticEvent) => {
@@ -463,6 +487,18 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
       {/* ── Notificaciones ─────────────────────────────────────── */}
       {area === 'notificaciones' && (
         <div className="space-y-3">
+          {notificaciones.some((n) => !n.leida) && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => void marcarTodasLeidas()}
+                disabled={marcandoTodas}
+                className="text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+              >
+                {A.marcarTodasLeidas}
+              </button>
+            </div>
+          )}
           {notificaciones.length ? (
             notificaciones.map((n) => (
               // Un `<article>` y no un `<button>`: el cuerpo del anuncio llega
@@ -488,7 +524,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                   <MediaNotificacion mediaUrl={n.mediaUrl ?? undefined} mediaTipo={n.mediaTipo ?? undefined} titulo={n.titulo} />
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     <p className="text-xs text-muted-foreground">
-                      {new Date(n.createdAt).toLocaleString('es-CO')}
+                      {new Date(n.createdAt).toLocaleString(english ? 'en-GB' : 'es-CO')}
                     </p>
                     {!n.leida && (
                       <button

@@ -532,6 +532,18 @@ export const notificacionesApi = {
     apiFetch<number>(`/api/v1/notificaciones/no-leidas?estudianteId=${estudianteId}`, { token }),
   marcarLeida: (id: string, token?: string) =>
     apiFetch<void>(`/api/v1/notificaciones/${id}/leer`, { method: 'PUT', token }),
+  /**
+   * Marca de una vez todo lo que quede sin leer.
+   *
+   * Con una campana que acumula avisos de matches, anuncios y mensajes, dejar
+   * el contador a cero de una en una no es viable: el endpoint existía desde
+   * el principio y no había forma de llamarlo.
+   */
+  marcarTodasLeidas: (estudianteId: string, token?: string) =>
+    apiFetch<void>(
+      `/api/v1/notificaciones/marcar-todas-leidas?estudianteId=${estudianteId}`,
+      { method: 'PUT', token },
+    ),
   eliminar: (id: string, token?: string) =>
     apiFetch<void>(`/api/v1/notificaciones/${id}`, { method: 'DELETE', token }),
 }
