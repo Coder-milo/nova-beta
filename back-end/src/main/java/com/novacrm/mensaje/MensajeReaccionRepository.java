@@ -16,4 +16,17 @@ public interface MensajeReaccionRepository extends JpaRepository<MensajeReaccion
      */
     Optional<MensajeReaccion> findByTurnoIdAndAutorEmailAndEmoji(
             UUID turnoId, String autorEmail, String emoji);
+
+    /**
+     * Las reacciones de un turno, de la mas antigua a la mas nueva.
+     *
+     * <p>Se consulta la tabla en vez de leer {@code turno.getReacciones()}:
+     * esa coleccion es la que Hibernate cargo al principio de la transaccion y
+     * no refleja lo que se acaba de guardar, de modo que alternar una reaccion
+     * devolvia el estado anterior al cambio.
+     *
+     * <p>El orden por fecha da botones estables entre recargas; el conjunto de
+     * la entidad no garantiza ninguno.
+     */
+    java.util.List<MensajeReaccion> findByTurnoIdOrderByCreatedAtAsc(UUID turnoId);
 }

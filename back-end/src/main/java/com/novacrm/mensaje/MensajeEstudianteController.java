@@ -87,6 +87,65 @@ public class MensajeEstudianteController {
         service.eliminar(id);
     }
 
+    // ── Conversación por turnos ─────────────────────────────────────────────
+    //
+    // Conviven con los endpoints de arriba a propósito: aquéllos siguen
+    // sirviendo a la bandeja actual mientras la interfaz se pasa a los turnos.
+    // El acceso lo decide el servicio con la misma comprobación que el resto
+    // del portal —el estudiante sólo alcanza sus hilos, el equipo cualquiera—,
+    // así que aquí basta con exigir sesión.
+
+    @GetMapping("/{id}/turnos")
+    @PreAuthorize("isAuthenticated()")
+    public List<com.novacrm.mensaje.dto.MensajeTurnoResponse> turnos(@PathVariable UUID id,
+                                                                     Authentication auth) {
+        return service.turnos(id, auth);
+    }
+
+    @PostMapping(value = "/{id}/turnos", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+    public com.novacrm.mensaje.dto.MensajeTurnoResponse escribir(
+            @PathVariable UUID id,
+            @Valid @RequestBody TurnoRequest request,
+            Authentication auth) {
+        return service.escribirEnHilo(id, request.contenido(), request.enRespuestaA(), List.of(), auth);
+    }
+
+    @PostMapping(value = "/{id}/turnos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+    public com.novacrm.mensaje.dto.MensajeTurnoResponse escribirConAdjuntos(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String contenido,
+            @RequestParam(required = false) UUID enRespuestaA,
+            @RequestParam(required = false) List<MultipartFile> archivos,
+            Authentication auth) {
+        return service.escribirEnHilo(id, contenido, enRespuestaA,
+                archivos == null ? List.of() : archivos, auth);
+    }
+
+    /**
+     * Pone o quita el emoji de quien llama sobre un turno.
+     *
+     * <p>Devuelve el recuento ya resuelto para ese turno, de modo que la
+     * interfaz no tenga que recargar el hilo entero para repintar un botón.
+     */
+    @PostMapping("/turnos/{turnoId}/reacciones")
+    @PreAuthorize("isAuthenticated()")
+    public List<com.novacrm.mensaje.dto.MensajeTurnoResponse.ReaccionResumen> alternarReaccion(
+            @PathVariable UUID turnoId,
+            @RequestParam String emoji,
+            Authentication auth) {
+        return service.alternarReaccion(turnoId, emoji, auth);
+    }
+
+    /** @param enRespuestaA turno citado; nulo si es una intervención suelta. */
+    public record TurnoRequest(
+            @Size(max = 5000, message = "El mensaje no puede superar 5000 caracteres")
+            String contenido,
+            UUID enRespuestaA) { }
+
     @GetMapping("/adjuntos/{id}/archivo")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<byte[]> descargarAdjunto(@PathVariable UUID id, Authentication auth) {

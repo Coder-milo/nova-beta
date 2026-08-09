@@ -8,6 +8,7 @@ import com.novacrm.exception.ResourceNotFoundException;
 import com.novacrm.mensaje.dto.MensajeAdjuntoResponse;
 import com.novacrm.mensaje.dto.MensajeRequest;
 import com.novacrm.mensaje.dto.MensajeResponse;
+import com.novacrm.mensaje.dto.MensajeTurnoResponse;
 import com.novacrm.notificacion.NotificacionService;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,8 @@ public class MensajeEstudianteService {
 
     private final MensajeEstudianteRepository repository;
     private final MensajeAdjuntoRepository adjuntoRepository;
+    private final MensajeTurnoRepository turnoRepository;
+    private final MensajeReaccionRepository reaccionRepository;
     private final EstudianteRepository estudianteRepository;
     private final OwnershipService ownershipService;
     private final StorageService storageService;
@@ -44,12 +47,16 @@ public class MensajeEstudianteService {
 
     public MensajeEstudianteService(MensajeEstudianteRepository repository,
                                    MensajeAdjuntoRepository adjuntoRepository,
+                                   MensajeTurnoRepository turnoRepository,
+                                   MensajeReaccionRepository reaccionRepository,
                                    EstudianteRepository estudianteRepository,
                                    OwnershipService ownershipService,
                                    StorageService storageService,
                                    NotificacionService notificacionService) {
         this.repository = repository;
         this.adjuntoRepository = adjuntoRepository;
+        this.turnoRepository = turnoRepository;
+        this.reaccionRepository = reaccionRepository;
         this.estudianteRepository = estudianteRepository;
         this.ownershipService = ownershipService;
         this.storageService = storageService;
@@ -194,6 +201,204 @@ public class MensajeEstudianteService {
         ownershipService.verificarAccesoEstudiante(auth, adjunto.getMensaje().getEstudiante().getId());
         return new ArchivoAdjunto(adjunto.getNombre(), adjunto.getContentType(),
                 storageService.descargar(adjunto.getObjectKey()));
+    }
+
+    // ── Conversación por turnos ─────────────────────────────────────────────
+
+    /**
+     * Los emojis que se pueden poner.
+     *
+     * <p>Lista cerrada y no texto libre: la columna admite 16 caracteres y un
+     * campo abierto acaba llevando lo que sea —incluida una cadena que el
+     * navegador pinte como algo que no es—. Con una lista, la interfaz tiene
+     * ademas una paleta definida en vez de inventarse una por su cuenta.
+     */
+    private static final Set<String> EMOJIS = Set.of("👍", "❤️", "🎉", "👏", "😀", "😮", "😢", "🙏");
+
+    /** El hilo completo, en orden, con sus adjuntos y reacciones. */
+    public List<MensajeTurnoResponse> turnos(UUID mensajeId, Authentication auth) {
+        var mensaje = hiloAlQuePuedeAcceder(mensajeId, auth);
+        return turnoRepository.findByMensajeIdOrderByCreatedAtAsc(mensaje.getId()).stream()
+                .map(turno -> aRespuesta(turno, auth.getName()))
+                .toList();
+    }
+
+    /**
+     * Añade una intervención al hilo, opcionalmente citando otra.
+     *
+     * <p>Sustituye a {@code responder}, que sólo admitía un intercambio por
+     * mensaje. Sirve a las dos partes: quien escribe queda registrado en el
+     * turno, y de ahí sale de qué lado se pinta.
+     */
+    @Transactional
+    public MensajeTurnoResponse escribirEnHilo(UUID mensajeId, String contenido, UUID enRespuestaA,
+                                               List<MultipartFile> archivos, Authentication auth) {
+        var mensaje = hiloAlQuePuedeAcceder(mensajeId, auth);
+
+        String texto = contenido == null ? "" : contenido.trim();
+        List<MultipartFile> adjuntos = archivos == null ? List.of()
+                : archivos.stream().filter(a -> a != null && !a.isEmpty()).toList();
+        if (texto.length() > 5000) {
+            throw new BusinessException("El mensaje no puede superar 5000 caracteres.");
+        }
+        if (texto.isBlank() && adjuntos.isEmpty()) {
+            throw new BusinessException("Escribe un mensaje o adjunta un archivo.");
+        }
+        if (adjuntos.size() > MAX_ADJUNTOS) {
+            throw new BusinessException("Puedes adjuntar hasta " + MAX_ADJUNTOS + " archivos.");
+        }
+
+        boolean esEstudiante = esElEstudianteDelHilo(mensaje, auth);
+
+        var turno = new MensajeTurno();
+        turno.setMensaje(mensaje);
+        turno.setAutorEmail(auth.getName());
+        turno.setAutorEsEstudiante(esEstudiante);
+        turno.setContenido(texto);
+        if (enRespuestaA != null) {
+            var citado = turnoRepository.findById(enRespuestaA)
+                    .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado: " + enRespuestaA));
+            // Citar un turno de otra conversación dejaría ver texto de un hilo
+            // al que quien escribe no tiene acceso.
+            if (!citado.getMensaje().getId().equals(mensaje.getId())) {
+                throw new BusinessException("Sólo puedes responder a un mensaje de esta misma conversación.");
+            }
+            turno.setEnRespuestaA(citado);
+        }
+        var guardado = turnoRepository.save(turno);
+
+        for (MultipartFile archivo : adjuntos) {
+            var adjunto = crearAdjunto(mensaje, archivo, !esEstudiante);
+            adjunto.setTurno(guardado);
+            adjuntoRepository.save(adjunto);
+            guardado.getAdjuntos().add(adjunto);
+        }
+
+        // El estado sigue siendo del hilo: si contesta el equipo queda
+        // respondido, y si vuelve a escribir el estudiante vuelve a abrirse.
+        mensaje.setEstado(esEstudiante ? EstadoMensaje.ABIERTO : EstadoMensaje.RESPONDIDO);
+        if (!esEstudiante) {
+            mensaje.setRespondidoPor(auth.getName());
+            mensaje.setRespondidoAt(Instant.now());
+            notificacionService.registrarMensajeDelEquipo(mensaje.getEstudiante(), mensaje.getId());
+        }
+        repository.save(mensaje);
+
+        return aRespuesta(guardado, auth.getName());
+    }
+
+    /**
+     * Pone o quita un emoji sobre un turno.
+     *
+     * <p>Alterna: pulsar el mismo dos veces lo retira, que es como se comporta
+     * cualquier chat y lo que impide inflar un contador a base de pulsaciones.
+     * La unicidad la sostiene además el índice de la tabla.
+     */
+    @Transactional
+    public List<MensajeTurnoResponse.ReaccionResumen> alternarReaccion(UUID turnoId, String emoji,
+                                                                       Authentication auth) {
+        if (emoji == null || !EMOJIS.contains(emoji)) {
+            throw new BusinessException("Ese emoji no está disponible.");
+        }
+        var turno = turnoRepository.findById(turnoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado: " + turnoId));
+        hiloAlQuePuedeAcceder(turno.getMensaje().getId(), auth);
+
+        reaccionRepository.findByTurnoIdAndAutorEmailAndEmoji(turnoId, auth.getName(), emoji)
+                .ifPresentOrElse(reaccionRepository::delete, () -> {
+                    var reaccion = new MensajeReaccion();
+                    reaccion.setTurno(turno);
+                    reaccion.setAutorEmail(auth.getName());
+                    reaccion.setEmoji(emoji);
+                    reaccionRepository.save(reaccion);
+                });
+
+        // Desde la tabla y no desde la colección de la entidad: esa se cargó al
+        // principio de la transacción y no incluye lo que se acaba de guardar.
+        return resumirReacciones(
+                reaccionRepository.findByTurnoIdOrderByCreatedAtAsc(turnoId), auth.getName());
+    }
+
+    /**
+     * El hilo, si quien pregunta puede verlo.
+     *
+     * <p>Un estudiante sólo alcanza los suyos; el equipo, cualquiera. Se apoya
+     * en la misma comprobación que el resto del portal para no tener aquí una
+     * segunda idea de qué es "mío".
+     */
+    private MensajeEstudiante hiloAlQuePuedeAcceder(UUID mensajeId, Authentication auth) {
+        var mensaje = repository.findById(mensajeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mensaje no encontrado: " + mensajeId));
+        ownershipService.verificarAccesoEstudiante(auth, mensaje.getEstudiante().getId());
+        return mensaje;
+    }
+
+    /** Si quien escribe es el propio estudiante del hilo y no alguien del equipo. */
+    private boolean esElEstudianteDelHilo(MensajeEstudiante mensaje, Authentication auth) {
+        boolean gestiona = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
+                        || a.getAuthority().equals("ROLE_COORDINADOR"));
+        if (gestiona) return false;
+        return mensaje.getEstudiante().getEmail() != null
+                && mensaje.getEstudiante().getEmail().equalsIgnoreCase(auth.getName());
+    }
+
+    private MensajeTurnoResponse aRespuesta(MensajeTurno turno, String quienMira) {
+        var citado = turno.getEnRespuestaA();
+        return new MensajeTurnoResponse(
+                turno.getId(),
+                nombreDelAutor(turno),
+                turno.isAutorEsEstudiante(),
+                turno.getContenido(),
+                turno.getCreatedAt(),
+                citado == null ? null : citado.getId(),
+                citado == null ? null : extracto(citado.getContenido()),
+                turno.getAdjuntos().stream()
+                        .sorted(java.util.Comparator.comparing(MensajeAdjunto::getCreatedAt,
+                                java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                        .map(a -> new MensajeAdjuntoResponse(a.getId(), a.getNombre(), a.getContentType(),
+                                a.getTamano(), "/api/v1/mensajes/adjuntos/" + a.getId() + "/archivo"))
+                        .toList(),
+                resumirReacciones(turno.getReacciones(), quienMira));
+    }
+
+    /**
+     * Con qué nombre se muestra quien escribió.
+     *
+     * <p>Del estudiante se usa su nombre; del equipo, el correo con el que
+     * responde. No se envía el correo del estudiante: quien lee el hilo puede
+     * ser el propio equipo, pero también el estudiante, y no hace falta.
+     */
+    private String nombreDelAutor(MensajeTurno turno) {
+        if (!turno.isAutorEsEstudiante()) return turno.getAutorEmail();
+        var estudiante = turno.getMensaje().getEstudiante();
+        String nombre = ((estudiante.getNombre() == null ? "" : estudiante.getNombre()) + " "
+                + (estudiante.getApellido() == null ? "" : estudiante.getApellido())).trim();
+        return nombre.isBlank() ? "Estudiante" : nombre;
+    }
+
+    private static String extracto(String texto) {
+        if (texto == null) return null;
+        String limpio = texto.strip().replaceAll("\\s+", " ");
+        return limpio.length() <= 90 ? limpio : limpio.substring(0, 90).trim() + "…";
+    }
+
+    private List<MensajeTurnoResponse.ReaccionResumen> resumirReacciones(
+            java.util.Collection<MensajeReaccion> reacciones, String quienMira) {
+        // Se ordena por fecha antes de agrupar: la colección de la entidad es un
+        // conjunto y no garantiza orden, así que sin esto los botones cambiarían
+        // de sitio entre recargas.
+        var porEmoji = new java.util.LinkedHashMap<String, java.util.List<MensajeReaccion>>();
+        reacciones.stream()
+                .sorted(java.util.Comparator.comparing(MensajeReaccion::getCreatedAt,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .forEach(r -> porEmoji.computeIfAbsent(r.getEmoji(), k -> new java.util.ArrayList<>()).add(r));
+        return porEmoji.entrySet().stream()
+                .map(e -> new MensajeTurnoResponse.ReaccionResumen(
+                        e.getKey(),
+                        e.getValue().size(),
+                        e.getValue().stream().anyMatch(r -> r.getAutorEmail().equalsIgnoreCase(quienMira))))
+                .toList();
     }
 
     private MensajeAdjunto crearAdjunto(MensajeEstudiante mensaje, MultipartFile archivo, boolean esRespuesta) {

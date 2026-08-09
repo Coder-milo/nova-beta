@@ -3,8 +3,8 @@ package com.novacrm.mensaje;
 import com.novacrm.shared.BaseEntity;
 import jakarta.persistence.*;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * Una intervencion dentro de una conversacion.
@@ -58,11 +58,21 @@ public class MensajeTurno extends BaseEntity {
     @JoinColumn(name = "en_respuesta_a")
     private MensajeTurno enRespuestaA;
 
+    /**
+     * Conjuntos y no listas para poder traer las dos de una sola consulta.
+     *
+     * <p>Hibernate se niega a hacer «fetch» de dos colecciones de tipo lista a
+     * la vez —el producto cartesiano le impide saber cuántas filas de cada una
+     * son reales— y falla al arrancar con MultipleBagFetchException. Con
+     * conjuntos sí puede, y aquí no se pierde nada: ni un adjunto ni una
+     * reacción se repiten. A cambio el orden deja de estar garantizado, así
+     * que quien los lee ordena de forma explícita.
+     */
     @OneToMany(mappedBy = "turno", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<MensajeReaccion> reacciones = new ArrayList<>();
+    private Set<MensajeReaccion> reacciones = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "turno")
-    private List<MensajeAdjunto> adjuntos = new ArrayList<>();
+    private Set<MensajeAdjunto> adjuntos = new LinkedHashSet<>();
 
     public MensajeEstudiante getMensaje() { return mensaje; }
     public void setMensaje(MensajeEstudiante mensaje) { this.mensaje = mensaje; }
@@ -79,7 +89,7 @@ public class MensajeTurno extends BaseEntity {
     public MensajeTurno getEnRespuestaA() { return enRespuestaA; }
     public void setEnRespuestaA(MensajeTurno enRespuestaA) { this.enRespuestaA = enRespuestaA; }
 
-    public List<MensajeReaccion> getReacciones() { return reacciones; }
+    public Set<MensajeReaccion> getReacciones() { return reacciones; }
 
-    public List<MensajeAdjunto> getAdjuntos() { return adjuntos; }
+    public Set<MensajeAdjunto> getAdjuntos() { return adjuntos; }
 }
