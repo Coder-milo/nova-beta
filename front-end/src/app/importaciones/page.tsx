@@ -29,7 +29,8 @@ import type {
 } from '@/lib/types'
 import { errorDe } from '@/lib/errores'
 
-const pasos = ['Archivo', 'Validación', 'Confirmación', 'Resultado'] as const
+/** Las etiquetas del stepper salen del diccionario, no de una constante fija. */
+const PASOS = ['archivo', 'validacion', 'confirmacion', 'resultado'] as const
 
 /**
  * Textos propios de esta pantalla.
@@ -40,6 +41,13 @@ const pasos = ['Archivo', 'Validación', 'Confirmación', 'Resultado'] as const
 function textos(english: boolean) {
   return english
     ? {
+        elArchivoDebe: 'The file must have columns: first name, last name, email (at minimum). Download the template from the reports area, or use the columns listed below.',
+        oHazClic: 'or click to choose it (.xlsx)',
+        validaElArchivo: 'Validate file',
+        contraElPrograma: 'against programme',
+        antesDeImportar: 'before importing.',
+        nuevaImportacion: 'New import',
+        historialDeImportaciones: 'Import history',
         paso1Archivo: 'Step 1 — File and programme',
         paso2Validacion: 'Step 2 — Validation',
         paso3Confirmacion: 'Step 3 — Confirmation',
@@ -86,6 +94,13 @@ function textos(english: boolean) {
         descripcion: 'Description',
       }
     : {
+        elArchivoDebe: 'El archivo debe tener columnas: nombre, apellido, email (mínimo). Descarga la plantilla desde el área de reportes o usa las columnas indicadas abajo.',
+        oHazClic: 'o haz clic para seleccionarlo (.xlsx)',
+        validaElArchivo: 'Valida el archivo',
+        contraElPrograma: 'contra el programa',
+        antesDeImportar: 'antes de importar.',
+        nuevaImportacion: 'Nueva importación',
+        historialDeImportaciones: 'Historial de importaciones',
         paso1Archivo: 'Paso 1 — Archivo y programa',
         paso2Validacion: 'Paso 2 — Validación',
         paso3Confirmacion: 'Paso 3 — Confirmación',
@@ -280,12 +295,16 @@ export default function ImportacionesPage() {
         <>
           {/* ── Stepper ────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 overflow-x-auto">
-        {pasos.map((label, i) => {
+        {PASOS.map((clave, i) => {
+          const label = clave === 'archivo' ? C.archivo
+            : clave === 'validacion' ? T.validacion
+            : clave === 'confirmacion' ? T.confirmacion
+            : T.resultado
           const n = i + 1
           const activo = paso === n
           const completado = paso > n
           return (
-            <div key={label} className="flex items-center gap-2 shrink-0">
+            <div key={clave} className="flex items-center gap-2 shrink-0">
               {i > 0 && <div className={`h-px w-8 ${completado || activo ? 'bg-navy-800' : 'bg-border'}`} />}
               <div className="flex items-center gap-2">
                 <span className={`flex size-6 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums border ${
@@ -317,7 +336,7 @@ export default function ImportacionesPage() {
           <CardHeader>
             <CardTitle className="text-base">{T.paso1Archivo}</CardTitle>
             <CardDescription>
-              El archivo debe tener columnas: nombre, apellido, email (mínimo). Descarga la plantilla desde el área de reportes o usa las columnas indicadas abajo.
+              {T.elArchivoDebe}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
@@ -368,7 +387,7 @@ export default function ImportacionesPage() {
                   <UploadSimple className="size-10 text-muted-foreground/50" />
                   <div className="text-center">
                     <p className="text-sm font-medium text-foreground">{T.arrastraTuArchivo}</p>
-                    <p className="text-xs text-muted-foreground">o haz clic para seleccionarlo (.xlsx)</p>
+                    <p className="text-xs text-muted-foreground">{T.oHazClic}</p>
                   </div>
                 </>
               )}
@@ -390,7 +409,7 @@ export default function ImportacionesPage() {
           <CardHeader>
             <CardTitle className="text-base">{T.paso2Validacion}</CardTitle>
             <CardDescription>
-              Valida el archivo <span className="font-medium text-foreground">{file?.name}</span> contra el programa <span className="font-medium text-foreground">{programaNombre}</span> antes de importar.
+              {T.validaElArchivo} <span className="font-medium text-foreground">{file?.name}</span> {T.contraElPrograma} <span className="font-medium text-foreground">{programaNombre}</span> {T.antesDeImportar}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
@@ -542,7 +561,7 @@ export default function ImportacionesPage() {
 
             <div className="flex justify-end border-t border-border pt-4">
               <Button variant="outline" onClick={reiniciar}>
-                <ArrowsClockwise className="size-4" /> Nueva importación
+                <ArrowsClockwise className="size-4" /> {T.nuevaImportacion}
               </Button>
             </div>
           </CardContent>
@@ -593,7 +612,7 @@ export default function ImportacionesPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2 text-base"><ClockCounterClockwise className="size-4" /> Historial de importaciones</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base"><ClockCounterClockwise className="size-4" /> {T.historialDeImportaciones}</CardTitle>
               <CardDescription>{T.importacionesRealizadasAnteriormente}</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={loadHistorial} disabled={loadingHist}>

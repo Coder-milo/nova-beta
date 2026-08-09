@@ -90,6 +90,22 @@ function textos(english: boolean) {
         nivelDeIngles: 'English level',
         enlaceDeReferencia: 'Reference link',
         fechaDeCierre: 'Closing date',
+        vacanteCreadaCorrectamente: 'Vacancy created. It is now available for student matching.',
+        matchingSinNuevos: 'Matching done: no new matches (pairs already scored are not repeated).',
+        revisalosEnLa: 'Review them on each student’s Matches tab.',
+        nuevaVacante: 'New vacancy',
+        escanearYHacer: 'Scan and run matching',
+        completaLosDatos: 'Fill in the essentials. The opportunity will be ready for matching and applications.',
+        enlaceParaPostularse: 'Link to apply',
+        laRegistroUn: 'A participant added this one. It is not recommended to anyone until someone on the team confirms it is real. Check the company and the link before approving it.',
+        darPorBuena: 'Approve it',
+        verFuente: 'View source',
+        noSePudoCrear: (s: number) => `The vacancy could not be created (HTTP ${s}).`,
+        errorDelServidor: (s: number) => `Server error (HTTP ${s}).`,
+        matchingCompletado: (n: number) => `Matching done: ${n} new match(es).`,
+        vacantesNuevasEncontradas: (n: number) => `${n} new vacancy(ies) found. Running matching…`,
+        escaneoCompletado: (v: number, m: number) => `Scan done: ${v} new vacancy(ies) · ${m} new match(es).`,
+        aniosX: (n: number) => `${n} years`,
         noEspecificado: 'Not specified',
         ej2000: 'e.g. $2,000,000 - $2,500,000',
         ejAnalistaDe: 'e.g. Technical support analyst',
@@ -147,6 +163,22 @@ function textos(english: boolean) {
         nivelDeIngles: 'Nivel de inglés',
         enlaceDeReferencia: 'Enlace de referencia',
         fechaDeCierre: 'Fecha de cierre',
+        vacanteCreadaCorrectamente: 'Vacante creada correctamente. Ya está disponible para el matching de estudiantes.',
+        matchingSinNuevos: 'Matching completado: sin matches nuevos (los pares ya evaluados no se repiten).',
+        revisalosEnLa: 'Revísalos en la pestaña Matches de cada estudiante.',
+        nuevaVacante: 'Nueva vacante',
+        escanearYHacer: 'Escanear y hacer matching',
+        completaLosDatos: 'Completa los datos esenciales. La oportunidad quedará lista para el matching y las postulaciones.',
+        enlaceParaPostularse: 'Enlace para postularse',
+        laRegistroUn: 'La registró un participante. No se le recomienda a nadie hasta que alguien del equipo compruebe que es real. Revisa la empresa y el enlace antes de validarla.',
+        darPorBuena: 'Dar por buena',
+        verFuente: 'Ver fuente',
+        noSePudoCrear: (s: number) => `No se pudo crear la vacante (HTTP ${s}).`,
+        errorDelServidor: (s: number) => `Error del servidor (HTTP ${s}).`,
+        matchingCompletado: (n: number) => `Matching completado: ${n} match(es) nuevos.`,
+        vacantesNuevasEncontradas: (n: number) => `${n} vacante(s) nuevas encontradas. Ejecutando matching…`,
+        escaneoCompletado: (v: number, m: number) => `Escaneo completado: ${v} vacante(s) nuevas · ${m} match(es) nuevos.`,
+        aniosX: (n: number) => `${n} años`,
         noEspecificado: 'No especificado',
         ej2000: 'Ej. $2.000.000 - $2.500.000',
         ejAnalistaDe: 'Ej. Analista de soporte técnico',
@@ -228,12 +260,12 @@ export default function VacantesPage() {
       await vacantesApi.crear(datos)
       setCreando(false)
       setFormVacante(formularioVacio)
-      setMatchingMsg('Vacante creada correctamente. Ya está disponible para el matching de estudiantes.')
+      setMatchingMsg(T.vacanteCreadaCorrectamente)
       setCurrentPage(0)
       await load(0)
     } catch (err) {
       setFormError(err instanceof ApiCallError
-        ? (err.body.message ?? `No se pudo crear la vacante (HTTP ${err.status}).`)
+        ? (err.body.message ?? T.noSePudoCrear(err.status))
         : T.noSePudo)
     } finally { setGuardando(false) }
   }
@@ -243,11 +275,11 @@ export default function VacantesPage() {
     try {
       const res = await matchesApi.ejecutarMatching()
       setMatchingMsg(res.matchesCreados > 0
-        ? `Matching completado: ${res.matchesCreados} match(es) nuevos. Revísalos en la pestaña Matches de cada estudiante.`
-        : 'Matching completado: sin matches nuevos (los pares ya evaluados no se repiten).')
+        ? `${T.matchingCompletado(res.matchesCreados)} ${T.revisalosEnLa}`
+        : T.matchingSinNuevos)
     } catch (err) {
       setMatchingMsg(err instanceof ApiCallError
-        ? (err.status === 401 || err.status === 403 ? T.sinPermisosPara : `Error del servidor (HTTP ${err.status}).`)
+        ? (err.status === 401 || err.status === 403 ? T.sinPermisosPara : T.errorDelServidor(err.status))
         : C.errorConexion)
     } finally { setMatching(false) }
   }
@@ -257,15 +289,15 @@ export default function VacantesPage() {
     setMatching(true); setMatchingMsg(T.escaneandoPortalesDe)
     try {
       const scan = await vacantesApi.escanear()
-      setMatchingMsg(`${scan.vacantesNuevas} vacante(s) nuevas encontradas. Ejecutando matching…`)
+      setMatchingMsg(T.vacantesNuevasEncontradas(scan.vacantesNuevas))
       const res = await matchesApi.ejecutarMatching()
       setMatchingMsg(
-        `Escaneo completado: ${scan.vacantesNuevas} vacante(s) nuevas · ${res.matchesCreados} match(es) nuevos.`
-        + (res.matchesCreados > 0 ? ' Revísalos en la pestaña Matches de cada estudiante.' : ''))
+        T.escaneoCompletado(scan.vacantesNuevas, res.matchesCreados)
+        + (res.matchesCreados > 0 ? ` ${T.revisalosEnLa}` : ''))
       load(0); setCurrentPage(0)
     } catch (err) {
       setMatchingMsg(err instanceof ApiCallError
-        ? (err.status === 401 || err.status === 403 ? T.sinPermisosParaX : `Error del servidor (HTTP ${err.status}).`)
+        ? (err.status === 401 || err.status === 403 ? T.sinPermisosParaX : T.errorDelServidor(err.status))
         : C.errorConexion)
     } finally { setMatching(false) }
   }
@@ -327,7 +359,7 @@ export default function VacantesPage() {
       <div className="flex justify-end gap-4">
         <div className="flex shrink-0 gap-2">
           <Button size="sm" onClick={() => { setFormError(null); setCreando(true) }}>
-            <Plus className="size-3.5" /> Nueva vacante
+            <Plus className="size-3.5" /> {T.nuevaVacante}
           </Button>
           <Button variant="outline" size="sm" onClick={() => load(currentPage)}>
             <ArrowsClockwise className="size-3.5" /> Refrescar
@@ -338,7 +370,7 @@ export default function VacantesPage() {
           <Button size="sm" onClick={runScanAndMatch} disabled={matching}>
             {matching
               ? <><CircleNotch className="size-3.5 animate-spin" /> Procesando…</>
-              : <><MagnifyingGlass className="size-3.5" /> Escanear y hacer matching</>}
+              : <><MagnifyingGlass className="size-3.5" /> {T.escanearYHacer}</>}
           </Button>
         </div>
       </div>
@@ -508,7 +540,7 @@ export default function VacantesPage() {
           <SheetHeader className="border-b border-border bg-muted/25 p-6">
             <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><Briefcase className="size-5" /></div>
             <SheetTitle className="mt-3 text-lg">{T.registrarVacante}</SheetTitle>
-            <SheetDescription>Completa los datos esenciales. La oportunidad quedará lista para el matching y las postulaciones.</SheetDescription>
+            <SheetDescription>{T.completaLosDatos}</SheetDescription>
           </SheetHeader>
           <form onSubmit={crearVacante} className="space-y-6 p-6">
             {formError && <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"><WarningCircle className="mt-0.5 size-4 shrink-0" />{formError}</div>}
@@ -539,7 +571,7 @@ export default function VacantesPage() {
               <label className="block space-y-1.5"><span className="text-xs font-medium">{T.descripcion}</span><Textarea minRows={4} value={formVacante.descripcion} onChange={(e) => actualizarFormulario('descripcion', e.target.value)} placeholder={T.responsabilidadesObjetivoDel} disabled={guardando} className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15" /></label>
               <label className="block space-y-1.5"><span className="text-xs font-medium">{T.requisitos}</span><Textarea minRows={3} value={formVacante.requisitos} onChange={(e) => actualizarFormulario('requisitos', e.target.value)} placeholder={T.conocimientosHerramientasEstudios} disabled={guardando} className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15" /></label>
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="space-y-1.5"><span className="flex items-center gap-1 text-xs font-medium"><LinkSimple className="size-3" /> Enlace para postularse</span><Input type="url" value={formVacante.urlAplicar} onChange={(e) => actualizarFormulario('urlAplicar', e.target.value)} placeholder="https://…" disabled={guardando} /></label>
+                <label className="space-y-1.5"><span className="flex items-center gap-1 text-xs font-medium"><LinkSimple className="size-3" /> {T.enlaceParaPostularse}</span><Input type="url" value={formVacante.urlAplicar} onChange={(e) => actualizarFormulario('urlAplicar', e.target.value)} placeholder="https://…" disabled={guardando} /></label>
                 <label className="space-y-1.5"><span className="text-xs font-medium">{T.fechaDeCierre}</span><Input type="datetime-local" value={formVacante.fechaExpiracion} onChange={(e) => actualizarFormulario('fechaExpiracion', e.target.value)} disabled={guardando} /></label>
                 <label className="space-y-1.5 sm:col-span-2"><span className="text-xs font-medium">{T.enlaceDeReferencia} <span className="text-muted-foreground">({T.opcional})</span></span><Input type="url" value={formVacante.url} onChange={(e) => actualizarFormulario('url', e.target.value)} placeholder="https://sitio-de-la-empresa.com/vacante" disabled={guardando} /></label>
               </div>
@@ -583,11 +615,7 @@ export default function VacantesPage() {
                       <WarningCircle className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                       <div className="text-xs leading-5">
                         <p className="font-semibold text-foreground">{T.estaOfertaEsta}</p>
-                        <p className="text-muted-foreground">
-                          La registró un participante. No se le recomienda a nadie hasta que
-                          alguien del equipo compruebe que es real. Revisa la empresa y el
-                          enlace antes de validarla.
-                        </p>
+                        <p className="text-muted-foreground">{T.laRegistroUn}</p>
                       </div>
                     </div>
                     {revisarError && (
@@ -601,7 +629,7 @@ export default function VacantesPage() {
                     >
                       {revisando
                         ? <><CircleNotch className="size-3.5 animate-spin" /> Validando…</>
-                        : <><CheckCircle className="size-3.5" /> Dar por buena</>}
+                        : <><CheckCircle className="size-3.5" /> {T.darPorBuena}</>}
                     </Button>
                   </section>
                 )}
@@ -616,7 +644,7 @@ export default function VacantesPage() {
                     </div>
                     <div>
                       <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.experiencia}</span>
-                      <span className="font-medium">{selected.aniosExperienciaRequeridos != null ? `${selected.aniosExperienciaRequeridos} años` : T.noEspecificado}</span>
+                      <span className="font-medium">{selected.aniosExperienciaRequeridos != null ? T.aniosX(selected.aniosExperienciaRequeridos) : T.noEspecificado}</span>
                     </div>
                     <div>
                       <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.inglesRequerido}</span>
@@ -660,7 +688,7 @@ export default function VacantesPage() {
                     size="sm"
                     render={<a href={selected.urlOrigen} target="_blank" rel="noopener noreferrer" />}
                   >
-                    <Globe className="size-4" /> Ver fuente
+                    <Globe className="size-4" /> {T.verFuente}
                   </Button>
                 )}
                 <Button variant="outline" size="sm" onClick={() => setSelected(null)}>{C.cerrar}</Button>

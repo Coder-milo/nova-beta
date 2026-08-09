@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { usePreferences } from '@/lib/preferences'
-import { textosAdmin } from '@/lib/textos-admin'
+import { textosAdmin, type TextosAdmin } from '@/lib/textos-admin'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { estudiantesApi, programasApi, matchesApi, ApiCallError, mensajeDeError } from '@/lib/api'
@@ -42,20 +42,35 @@ import { Textarea } from '@/components/ui/textarea'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const estadoAcademicoLabels: Record<string, { label: string; dot: string; text: string }> = {
-  ACTIVO:     { label: 'Activo',     dot: 'bg-navy-500', text: 'text-navy-600' },
-  GRADUADO:   { label: 'Graduado',   dot: 'bg-navy-800', text: 'text-navy-800' },
-  RETIRADO:   { label: 'Retirado',   dot: 'bg-red-600',  text: 'text-red-700' },
-  EN_PROCESO: { label: 'En proceso', dot: 'bg-navy-300', text: 'text-navy-500' },
-}
-
-const estadoEmpLabels: Record<string, { label: string; dot: string; text: string }> = {
-  EMPLEADO: { label: 'Empleado',        dot: 'bg-success',             text: 'text-[#0F6E56]' },
-  BUSCANDO: { label: 'Buscando empleo', dot: 'bg-navy-400',            text: 'text-navy-600' },
-  SIN_INFO: { label: 'Sin información', dot: 'bg-muted-foreground/40', text: 'text-muted-foreground' },
-}
-
 const estadoFallback = { dot: 'bg-muted-foreground/40', text: 'text-muted-foreground' }
+
+/** El color del estado no depende del idioma; la etiqueta si, y sale aparte. */
+const estiloAcademico: Record<string, { dot: string; text: string }> = {
+  ACTIVO:     { dot: 'bg-navy-500', text: 'text-navy-600' },
+  GRADUADO:   { dot: 'bg-navy-800', text: 'text-navy-800' },
+  RETIRADO:   { dot: 'bg-red-600',  text: 'text-red-700' },
+  EN_PROCESO: { dot: 'bg-navy-300', text: 'text-navy-500' },
+}
+
+const estiloEmpleabilidad: Record<string, { dot: string; text: string }> = {
+  EMPLEADO: { dot: 'bg-success',             text: 'text-[#0F6E56]' },
+  BUSCANDO: { dot: 'bg-navy-400',            text: 'text-navy-600' },
+  SIN_INFO: { dot: 'bg-muted-foreground/40', text: 'text-muted-foreground' },
+}
+
+function estadoAcademico(T: ReturnType<typeof textos>, C: TextosAdmin, codigo: string) {
+  const etiquetas: Record<string, string> = {
+    ACTIVO: C.activo, GRADUADO: C.graduado, RETIRADO: C.retirado, EN_PROCESO: C.enProceso,
+  }
+  return { label: etiquetas[codigo] ?? codigo, ...(estiloAcademico[codigo] ?? estadoFallback) }
+}
+
+function estadoEmpleabilidad(T: ReturnType<typeof textos>, C: TextosAdmin, codigo: string) {
+  const etiquetas: Record<string, string> = {
+    EMPLEADO: C.empleado, BUSCANDO: T.buscandoEmpleo, SIN_INFO: C.sinInfo,
+  }
+  return { label: etiquetas[codigo] ?? codigo, ...(estiloEmpleabilidad[codigo] ?? estadoFallback) }
+}
 
 const emptyForm: EstudianteRequest = {
   nombre: '', apellido: '', email: '', telefono: '', celular: '',
@@ -106,10 +121,12 @@ function studentToForm(s: EstudianteResponse): EstudianteRequest {
 
 // Componente auxiliar para campos de detalle
 function DetailField({ label, value }: { label: string; value: string | number | null | undefined }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   return (
     <div>
       <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{label}</span>
-      <span className="font-medium text-foreground text-xs">{value ?? 'No registrado'}</span>
+      <span className="font-medium text-foreground text-xs">{value ?? T.noRegistrado}</span>
     </div>
   )
 }
@@ -215,6 +232,22 @@ function textos(english: boolean) {
         descripcionDelPerfil: 'Profile description…',
         buscandoEmpleo: 'Job hunting',
         noNotificado: 'Not notified',
+        seleccionar: '— Choose —',
+        verPapelera: 'View bin',
+        faltaCelularCorreo: 'Missing mobile, email or ID number. This view does not filter by the selected project. Open the profile to complete the information.',
+        eliminarSeleccionados: 'Delete selected',
+        registrarElPrimero: 'Add the first one',
+        elSistemaEvalua: 'The system scores vacancies on a schedule, based on the student profile.',
+        estasAPunto: (nombre: string) => `You are about to delete ${nombre}. This deactivates the record (soft delete) and can be reversed in the database.`,
+        errorDelServidor: (s: number) => `Server error (HTTP ${s}).`,
+        matchingEjecutado: (n: number) => `Matching run. ${n} new matches were created.`,
+        seRestauraran: (n: number) => `The ${n} selected students will be restored.`,
+        seEliminaranPermanentemente: (n: number) => `The ${n} selected students will be permanently deleted. This is irreversible and removes all their associated records.`,
+        seMoveranALaPapelera: (n: number) => `The ${n} selected students will be moved to the bin.`,
+        seEliminaraPermanentemente: (nombre: string) => `${nombre} will be permanently deleted. This cannot be undone.`,
+        verPerfilDe: (nombre: string) => `View ${nombre}'s profile`,
+        matchesPendientesDe: (n: number) => `${n} match(es) pending notification`,
+        aniosX: (n: number) => `${n} years`,
         noRegistrado: 'Not recorded',
         verTodos: 'View all',
         apellido: 'Last name *',
@@ -361,6 +394,22 @@ function textos(english: boolean) {
         descripcionDelPerfil: 'Descripción del perfil...',
         buscandoEmpleo: 'Buscando empleo',
         noNotificado: 'No notificado',
+        seleccionar: '— Seleccionar —',
+        verPapelera: 'Ver Papelera',
+        faltaCelularCorreo: 'Falta celular, correo o número de documento. Esta vista no filtra por el proyecto seleccionado. Abre el perfil para completar la información.',
+        eliminarSeleccionados: 'Eliminar Seleccionados',
+        registrarElPrimero: 'Registrar el primero',
+        elSistemaEvalua: 'El sistema evalúa vacantes de forma programada según el perfil del estudiante.',
+        estasAPunto: (nombre: string) => `Estás a punto de eliminar a ${nombre}. Esta acción desactiva el registro (soft-delete) y es reversible en la base de datos.`,
+        errorDelServidor: (s: number) => `Error del servidor (HTTP ${s}).`,
+        matchingEjecutado: (n: number) => `Matching ejecutado exitosamente. Se crearon ${n} matches nuevos.`,
+        seRestauraran: (n: number) => `Se restaurarán los ${n} estudiantes seleccionados.`,
+        seEliminaranPermanentemente: (n: number) => `Se eliminarán permanentemente los ${n} estudiantes seleccionados. Es irreversible y removerá todos sus registros asociados.`,
+        seMoveranALaPapelera: (n: number) => `Se moverán a la papelera los ${n} estudiantes seleccionados.`,
+        seEliminaraPermanentemente: (nombre: string) => `Se eliminará permanentemente a ${nombre}. Esta acción es irreversible.`,
+        verPerfilDe: (nombre: string) => `Ver perfil de ${nombre}`,
+        matchesPendientesDe: (n: number) => `${n} match(es) pendiente(s) de notificar`,
+        aniosX: (n: number) => `${n} años`,
         noRegistrado: 'No registrado',
         verTodos: 'Ver todos',
         apellido: 'Apellido *',
@@ -618,7 +667,7 @@ export default function EstudiantesPage() {
           if (err.status === 400) setFormError(T.datosInvalidos + ' ' + (err.body.message ?? T.verificaLosCampos))
           else if (err.status === 409) setFormError(T.yaExisteUn)
           else if (err.status === 401 || err.status === 403) setFormError(T.sinPermisosPara)
-          else setFormError(`Error del servidor (HTTP ${err.status}).`)
+          else setFormError(T.errorDelServidor(err.status))
         } else {
           setFormError(C.errorConexion)
         }
@@ -658,7 +707,7 @@ export default function EstudiantesPage() {
     setExecutingMatching(true)
     try {
       const res = await matchesApi.ejecutarMatching()
-      mostrarExito(`Matching ejecutado exitosamente. Se crearon ${res.matchesCreados} matches nuevos.`)
+      mostrarExito(T.matchingEjecutado(res.matchesCreados))
       if (selected) {
         loadMatches(selected.id)
       }
@@ -700,7 +749,7 @@ export default function EstudiantesPage() {
     if (selectedIds.length === 0) return
     if (!(await confirmar({
       titulo: T.restaurarEstudiantes,
-      descripcion: `Se restaurarán los ${selectedIds.length} estudiantes seleccionados.`,
+      descripcion: T.seRestauraran(selectedIds.length),
       textoConfirmar: T.restaurar,
       destructivo: false,
     }))) return
@@ -720,8 +769,8 @@ export default function EstudiantesPage() {
   const handleBulkDelete = async (permanente: boolean) => {
     if (selectedIds.length === 0) return
     const msg = permanente
-      ? `Se eliminarán permanentemente los ${selectedIds.length} estudiantes seleccionados. Es irreversible y removerá todos sus registros asociados.`
-      : `Se moverán a la papelera los ${selectedIds.length} estudiantes seleccionados.`
+      ? T.seEliminaranPermanentemente(selectedIds.length)
+      : T.seMoveranALaPapelera(selectedIds.length)
 
     if (!(await confirmar({
       titulo: permanente ? T.eliminarDefinitivamente : T.moverALa,
@@ -745,7 +794,7 @@ export default function EstudiantesPage() {
     e.stopPropagation()
     if (!(await confirmar({
       titulo: T.eliminarDefinitivamente,
-      descripcion: `Se eliminará permanentemente a ${est.nombre} ${est.apellido}. Esta acción es irreversible.`,
+      descripcion: T.seEliminaraPermanentemente(`${est.nombre} ${est.apellido}`),
       textoConfirmar: T.eliminarDefinitivamente,
     }))) return
     try {
@@ -786,7 +835,7 @@ export default function EstudiantesPage() {
             )}
           </Button>
           <Button className="shrink-0" render={<Link href="/estudiantes/nuevo" />}>
-            <Plus className="size-4" /> Nuevo estudiante
+            <Plus className="size-4" /> {T.nuevoEstudiante}
           </Button>
         </div>
       </div>
@@ -861,7 +910,7 @@ export default function EstudiantesPage() {
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="f-genero" className="text-xs font-medium">{T.genero}</label>
                     <select id="f-genero" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.genero ?? ''} onChange={(e) => f('genero', e.target.value)} disabled={isPending}>
-                      <option value="">— Seleccionar —</option><option value={T.masculino}>{T.masculino}</option><option value={T.femenino}>{T.femenino}</option><option value={T.otro}>{T.otro}</option>
+                      <option value="">{T.seleccionar}</option><option value={T.masculino}>{T.masculino}</option><option value={T.femenino}>{T.femenino}</option><option value={T.otro}>{T.otro}</option>
                     </select>
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -1077,7 +1126,7 @@ export default function EstudiantesPage() {
             ) : (
               <>
                 <Trash className="size-3.5 mr-1" />
-                Ver Papelera
+                {T.verPapelera}
               </>
             )}
           </Button>
@@ -1096,7 +1145,7 @@ export default function EstudiantesPage() {
               {/* Decirlo importa: el selector de proyecto sigue arriba y aquí
                   no aplica, así que sin esta línea la lista parece la del
                   proyecto elegido y no lo es. */}
-              <p className="text-xs text-muted-foreground">Falta celular, correo o número de documento. Esta vista no filtra por el proyecto seleccionado. Abre el perfil para completar la información.</p>
+              <p className="text-xs text-muted-foreground">{T.faltaCelularCorreo}</p>
             </div>
           </div>
           <Button
@@ -1176,7 +1225,7 @@ export default function EstudiantesPage() {
                   disabled={bulkBusy}
                   onClick={() => handleBulkDelete(true)}
                 >
-                  <Trash className="size-3.5 mr-1" /> Eliminar Definitivamente
+                  <Trash className="size-3.5 mr-1" /> {T.eliminarDefinitivamente}
                 </Button>
               </>
             ) : (
@@ -1187,7 +1236,7 @@ export default function EstudiantesPage() {
                 disabled={bulkBusy}
                 onClick={() => handleBulkDelete(false)}
               >
-                <Trash className="size-3.5 mr-1" /> Eliminar Seleccionados
+                <Trash className="size-3.5 mr-1" /> {T.eliminarSeleccionados}
               </Button>
             )}
           </div>
@@ -1207,7 +1256,7 @@ export default function EstudiantesPage() {
                     : T.noHayEstudiantes}
                 </p>
                 {!verPapelera && (
-                  <Button onClick={openCreate} variant="outline"><Plus className="size-4" /> Registrar el primero</Button>
+                  <Button onClick={openCreate} variant="outline"><Plus className="size-4" /> {T.registrarElPrimero}</Button>
                 )}
               </CardContent>
             </Card>
@@ -1237,8 +1286,8 @@ export default function EstudiantesPage() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {filtered.map((est) => {
-                      const ai = estadoAcademicoLabels[est.estadoAcademico] ?? { label: est.estadoAcademico, ...estadoFallback }
-                      const ei = estadoEmpLabels[est.estadoEmpleabilidad] ?? { label: est.estadoEmpleabilidad, ...estadoFallback }
+                      const ai = estadoAcademico(T, C, est.estadoAcademico)
+                      const ei = estadoEmpleabilidad(T, C, est.estadoEmpleabilidad)
                       return (
                         <tr key={est.id} onClick={() => openDetails(est)} className="hover:bg-secondary/30 transition-colors cursor-pointer">
                           <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -1271,7 +1320,7 @@ export default function EstudiantesPage() {
                                 </>
                               ) : (
                                 <>
-                                  <Link href={`/estudiantes/${est.id}`} onClick={(e) => e.stopPropagation()} title={T.verPerfilCompleto} aria-label={`Ver perfil de ${est.nombre}`}
+                                  <Link href={`/estudiantes/${est.id}`} onClick={(e) => e.stopPropagation()} title={T.verPerfilCompleto} aria-label={T.verPerfilDe(est.nombre)}
                                     className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
                                     <ArrowSquareOut className="size-4" />
                                   </Link>
@@ -1331,11 +1380,11 @@ export default function EstudiantesPage() {
                     <SheetTitle className="text-base truncate">{selected.nombre} {selected.apellido}</SheetTitle>
                     <SheetDescription className="text-xs truncate">{selected.programaNombre ?? C.programa} · Registro: {new Date(selected.createdAt).toLocaleDateString('es-CO')}</SheetDescription>
                     <div className="flex gap-3 mt-2 flex-wrap">
-                      <EstadoDot {...(estadoAcademicoLabels[selected.estadoAcademico] ?? { label: selected.estadoAcademico, ...estadoFallback })} />
-                      <EstadoDot {...(estadoEmpLabels[selected.estadoEmpleabilidad] ?? { label: selected.estadoEmpleabilidad, ...estadoFallback })} />
+                      <EstadoDot {...estadoAcademico(T, C, selected.estadoAcademico)} />
+                      <EstadoDot {...estadoEmpleabilidad(T, C, selected.estadoEmpleabilidad)} />
                     </div>
                     <Link href={`/estudiantes/${selected.id}`} className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline underline-offset-2">
-                      <ArrowSquareOut className="size-3" /> Ver perfil completo
+                      <ArrowSquareOut className="size-3" /> {T.verPerfilCompleto}
                     </Link>
                   </div>
                 </div>
@@ -1354,7 +1403,7 @@ export default function EstudiantesPage() {
                     <Icon className="size-3.5" /> {label}
                     {id === 'matches' && matchesPendientes > 0 && (
                       <span className="ml-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground"
-                        title={`${matchesPendientes} match(es) pendiente(s) de notificar`}>
+                        title={T.matchesPendientesDe(matchesPendientes)}>
                         {matchesPendientes}
                       </span>
                     )}
@@ -1412,7 +1461,7 @@ export default function EstudiantesPage() {
                     <section className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-3">
                       <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">{T.experienciaLaboral}</h4>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                        <DetailField label={T.anosExperiencia} value={selected.aniosExperiencia != null ? `${selected.aniosExperiencia} años` : null} />
+                        <DetailField label={T.anosExperiencia} value={selected.aniosExperiencia != null ? T.aniosX(selected.aniosExperiencia) : null} />
                         <DetailField label={T.ultimoCargo} value={selected.ultimoCargo} />
                         <DetailField label={T.sectorExperiencia} value={selected.sectorExperiencia} />
                         <DetailField label={T.cargoObjetivo} value={selected.cargoObjetivo} />
@@ -1474,7 +1523,7 @@ export default function EstudiantesPage() {
                       <div className="bg-card border border-border rounded-xl p-6 text-center flex flex-col items-center gap-3">
                         <Briefcase className="size-10 text-muted-foreground/40" />
                         <p className="text-sm text-muted-foreground">{T.sinMatchesDe}</p>
-                        <p className="text-xs text-muted-foreground max-w-xs">El sistema evalúa vacantes de forma programada según el perfil del estudiante.</p>
+                        <p className="text-xs text-muted-foreground max-w-xs">{T.elSistemaEvalua}</p>
                       </div>
                     ) : (
                       matches.map((m) => (
@@ -1513,7 +1562,7 @@ export default function EstudiantesPage() {
 
               <div className="p-4 border-t border-border shrink-0 flex justify-end gap-2">
                 <Button variant="outline" onClick={() => { if (selected) openEdit(selected, { stopPropagation: () => {} } as React.MouseEvent) }}>
-                  <PencilSimple className="size-4" /> Editar
+                  <PencilSimple className="size-4" /> {C.editar}
                 </Button>
                 <Button variant="outline" onClick={() => setSelected(null)}>{C.cerrar}</Button>
               </div>
@@ -1530,10 +1579,7 @@ export default function EstudiantesPage() {
               <WarningCircle className="size-6 text-destructive shrink-0 mt-0.5" />
               <div>
                 <h4 className="text-sm font-semibold text-foreground">{T.confirmasLaEliminacion}</h4>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  Estás a punto de eliminar a <span className="font-semibold text-foreground">{deleting.nombre} {deleting.apellido}</span>.
-                  Esta acción desactiva el registro (soft-delete) y es reversible en la base de datos.
-                </p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{T.estasAPunto(`${deleting.nombre} ${deleting.apellido}`)}</p>
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-border pt-3">

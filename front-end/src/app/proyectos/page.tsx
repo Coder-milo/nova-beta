@@ -17,7 +17,7 @@ import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { usePreferences } from '@/lib/preferences'
-import { textosAdmin } from '@/lib/textos-admin'
+import { textosAdmin, type TextosAdmin } from '@/lib/textos-admin'
 import { Input } from '@/components/ui/input'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { programasApi, mensajeDeError, ApiCallError } from '@/lib/api'
@@ -26,15 +26,25 @@ import { useConfirmar } from '@/components/ui/confirmar'
 import type { ProgramaResponse, ProgramaRequest, ProgramaEstado } from '@/lib/types'
 import { Textarea } from '@/components/ui/textarea'
 
-const estadoLabels: Record<ProgramaEstado, { label: string; dot: string; text: string }> = {
-  PLANEACION:   { label: 'Planeación',   dot: 'bg-navy-200', text: 'text-navy-400' },
-  BORRADOR:     { label: 'Borrador',     dot: 'bg-navy-300', text: 'text-navy-500' },
-  ACTIVO:       { label: 'Activo',       dot: 'bg-success',  text: 'text-[#0F6E56]' },
-  EN_EJECUCION: { label: 'En ejecución', dot: 'bg-success',  text: 'text-[#0F6E56]' },
-  PAUSADO:      { label: 'Pausado',      dot: 'bg-warning',  text: 'text-amber-700' },
-  FINALIZADO:   { label: 'Finalizado',   dot: 'bg-navy-800', text: 'text-navy-800' },
-  CANCELADO:    { label: 'Cancelado',    dot: 'bg-red-600',  text: 'text-red-700' },
-  ARCHIVADO:    { label: 'Archivado',    dot: 'bg-red-600',  text: 'text-red-700' },
+/** El color del estado no depende del idioma; la etiqueta sí, y va aparte. */
+const estiloEstado: Record<ProgramaEstado, { dot: string; text: string }> = {
+  PLANEACION:   { dot: 'bg-navy-200', text: 'text-navy-400' },
+  BORRADOR:     { dot: 'bg-navy-300', text: 'text-navy-500' },
+  ACTIVO:       { dot: 'bg-success',  text: 'text-[#0F6E56]' },
+  EN_EJECUCION: { dot: 'bg-success',  text: 'text-[#0F6E56]' },
+  PAUSADO:      { dot: 'bg-warning',  text: 'text-amber-700' },
+  FINALIZADO:   { dot: 'bg-navy-800', text: 'text-navy-800' },
+  CANCELADO:    { dot: 'bg-red-600',  text: 'text-red-700' },
+  ARCHIVADO:    { dot: 'bg-red-600',  text: 'text-red-700' },
+}
+
+function etiquetaEstado(T: ReturnType<typeof textos>, C: TextosAdmin, estado: ProgramaEstado): string {
+  const etiquetas: Record<ProgramaEstado, string> = {
+    PLANEACION: T.planeacion, BORRADOR: T.borrador, ACTIVO: C.activo,
+    EN_EJECUCION: T.enEjecucion, PAUSADO: T.pausado, FINALIZADO: T.finalizado,
+    CANCELADO: T.cancelado, ARCHIVADO: T.archivado,
+  }
+  return etiquetas[estado] ?? estado
 }
 
 // Campos extendidos del programa que aún no están en el DTO base.
@@ -84,6 +94,8 @@ function textos(english: boolean) {
         duracionDias: 'Duration (days)',
         fechaInicio: 'Start date',
         fechaFin: 'End date',
+        crearElPrimero: 'Create the first one',
+        porcentajeDeAvance: '% complete',
         enEjecucion: 'Running',
         planeacion: 'Planning',
         finalizado: 'Finished',
@@ -124,6 +136,8 @@ function textos(english: boolean) {
         duracionDias: 'Duración (días)',
         fechaInicio: 'Fecha inicio',
         fechaFin: 'Fecha fin',
+        crearElPrimero: 'Crear el primero',
+        porcentajeDeAvance: '% de avance',
         enEjecucion: 'En ejecución',
         planeacion: 'Planeación',
         finalizado: 'Finalizado',
@@ -257,7 +271,7 @@ export default function ProyectosPage() {
       <div className="flex justify-end gap-4">
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={load}><ArrowsClockwise className="size-3.5" /></Button>
-          <Button onClick={openCreate} className="shrink-0"><Plus className="size-4" /> Nuevo Programa</Button>
+          <Button onClick={openCreate} className="shrink-0"><Plus className="size-4" /> {T.nuevoPrograma}</Button>
         </div>
       </div>
 
@@ -290,7 +304,7 @@ export default function ProyectosPage() {
                 <Input id="p-responsable" value={form.responsable ?? ''} onChange={(e) => f('responsable', e.target.value)} placeholder={T.nombreDelResponsable} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="p-avance" className="text-xs font-medium">% de avance</label>
+                <label htmlFor="p-avance" className="text-xs font-medium">{T.porcentajeDeAvance}</label>
                 <Input id="p-avance" type="number" min={0} max={100} value={form.porcentajeAvance ?? ''} onChange={(e) => f('porcentajeAvance', e.target.value === '' ? undefined : Math.min(100, Math.max(0, parseInt(e.target.value))))} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
@@ -353,13 +367,16 @@ export default function ProyectosPage() {
               <CardContent className="flex flex-col items-center gap-3 py-16">
                 <Kanban className="size-10 text-muted-foreground/40" />
                 <p className="text-sm text-muted-foreground">{T.noHayProgramas}</p>
-                <Button onClick={openCreate} variant="outline"><Plus className="size-4" /> Crear el primero</Button>
+                <Button onClick={openCreate} variant="outline"><Plus className="size-4" /> {T.crearElPrimero}</Button>
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {programas.map((p) => {
-                const si = estadoLabels[p.estado] ?? { label: p.estado, dot: 'bg-muted-foreground/40', text: 'text-muted-foreground' }
+                const si = {
+                  label: etiquetaEstado(T, C, p.estado),
+                  ...(estiloEstado[p.estado] ?? { dot: 'bg-muted-foreground/40', text: 'text-muted-foreground' }),
+                }
                 return (
                   <Card key={p.id} className="rounded-lg border-border shadow-none">
                     <CardHeader className="pb-2">
@@ -392,14 +409,14 @@ export default function ProyectosPage() {
                       <div className="flex flex-wrap gap-1.5 border-t border-border pt-3">
                         <Link href={`/proyectos/${p.id}`}
                           className="inline-flex h-7 items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
-                          <Eye className="size-3" /> Ver
+                          <Eye className="size-3" /> {C.ver}
                         </Link>
                         <Link href={`/proyectos/${p.id}?tab=identidad`}
                           className="inline-flex h-7 items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
                           <Palette className="size-3 text-primary" /> Apariencia
                         </Link>
                         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openEdit(p)} disabled={isPending}>
-                          <PencilSimple className="size-3" /> Editar
+                          <PencilSimple className="size-3" /> {C.editar}
                         </Button>
                         {p.estado === 'BORRADOR' && (
                           <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => changeStatus(p.id, 'ACTIVO')} disabled={isPending}>{T.activar}</Button>
@@ -411,7 +428,7 @@ export default function ProyectosPage() {
                           <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => changeStatus(p.id, 'ARCHIVADO')} disabled={isPending}>{T.archivar}</Button>
                         )}
                         <Button variant="outline" size="sm" className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDelete(p)} disabled={isPending}>
-                          <Trash className="size-3" /> Eliminar
+                          <Trash className="size-3" /> {C.eliminar}
                         </Button>
                       </div>
                     </CardContent>
