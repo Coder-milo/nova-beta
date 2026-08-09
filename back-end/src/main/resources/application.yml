@@ -105,6 +105,18 @@ app:
       # Remoto en ingles. API publica, sin cupo, pero sus condiciones piden no
       # consultarla mas de cuatro veces al dia.
       enabled: ${SCRAPING_REMOTIVE_ENABLED:true}
+    smartrecruiters:
+      # Empleo local, desde el portal de empleo de los propios empleadores.
+      # API publica y documentada, sin credenciales ni cupo: es el mismo
+      # listado que la empresa ensena en su web, servido en JSON para que se
+      # consuma. No hace falta permiso, que es lo que mantiene apagado a
+      # ElempleoScraper.
+      enabled: ${SCRAPING_SMARTRECRUITERS_ENABLED:true}
+      # Identificadores de empresa en SmartRecruiters, separados por coma.
+      # Son empleadores con los que el programa ya trabaja y que publican
+      # ahi. Uno mal escrito no falla: devuelve cero resultados en silencio,
+      # asi que conviene comprobarlo contra la API antes de anadirlo.
+      empresas: ${SCRAPING_SMARTRECRUITERS_EMPRESAS:Sutherland,Alorica}
     jsearch:
       # Empleo local en Colombia. Es la unica fuente de vacantes colombianas:
       # Adzuna no cubre el pais y el Servicio Publico de Empleo no publica datos
