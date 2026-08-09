@@ -82,11 +82,11 @@ type HeaderNotification = {
 /** Los envíos antiguos usaban "Seguimiento:" en cada respuesta. Al quitar
  * todos esos prefijos, una conversación conserva el mismo hilo incluso si se
  * creó antes de que existiera la bandeja tipo chat. */
-function asuntoConversacion(asunto: string): string {
+function asuntoConversacion(asunto: string, respaldo: string): string {
   let limpio = asunto.trim()
   const prefijo = /^(seguimiento|follow-up)\s*:\s*/i
   while (prefijo.test(limpio)) limpio = limpio.replace(prefijo, '').trim()
-  return limpio || 'Consulta al equipo de acompañamiento'
+  return limpio || respaldo
 }
 function IconButton({
   label,
@@ -123,6 +123,29 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const { user, cargando: cargandoSesion } = useAuth()
   const { branding } = useBranding()
   const { locale, setLocale, t } = usePreferences()
+  /** Avisos sueltos del encabezado. */
+  const avisos = locale === 'es'
+    ? {
+        consultaAlEquipo: 'Consulta al equipo de acompañamiento',
+        noSePudoAbrir: 'No se pudo abrir la conversación.',
+        noSePudieronCargar: 'No se pudieron cargar los mensajes.',
+        noSePudoEnviarRespuesta: 'No se pudo enviar la respuesta.',
+        noSePudoEnviarMensaje: 'No se pudo enviar el mensaje.',
+        subtituloPorDefecto: 'NOVA · Gestión académica',
+        materialDelAnuncio: 'Material del anuncio',
+        abrirInformacion: 'Abrir información del anuncio',
+      }
+    : {
+        consultaAlEquipo: 'Question for the support team',
+        noSePudoAbrir: 'The conversation could not be opened.',
+        noSePudieronCargar: 'The messages could not be loaded.',
+        noSePudoEnviarRespuesta: 'The reply could not be sent.',
+        noSePudoEnviarMensaje: 'The message could not be sent.',
+        subtituloPorDefecto: 'NOVA · Academic management',
+        materialDelAnuncio: 'Announcement material',
+        abrirInformacion: 'Open announcement details',
+      }
+
   const esEstudiante = soloEsEstudiante(user?.roles)
   /**
    * Solo entonces `esEstudiante` significa algo. Antes de que la sesión se
@@ -280,7 +303,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
       .catch((error) => {
         if (active) {
           setDirectMessages([])
-          setMessageError(error instanceof Error ? error.message : 'No se pudo abrir la conversación.')
+          setMessageError(error instanceof Error ? error.message : avisos.noSePudoAbrir)
         }
       })
       .finally(() => { if (active) setDirectLoading(false) })
@@ -303,7 +326,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
     } catch (error) {
       setMessages([])
       setSelectedMessage(null)
-      setMessageError(error instanceof Error ? error.message : 'No se pudieron cargar los mensajes.')
+      setMessageError(error instanceof Error ? error.message : avisos.noSePudieronCargar)
     } finally { setMessagesLoading(false) }
   }, [sesionLista, esEstudiante])
 
@@ -347,7 +370,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   // El banner del proyecto vive exclusivamente en la bienvenida del portal
   // estudiantil. La cabecera no usa imágenes de marca.
   const tituloHeader = (esEstudiante ? branding?.tituloHeader : null) || current?.title || 'NOVA CRM'
-  const subtituloHeader = (esEstudiante ? branding?.subtituloHeader : null) || 'NOVA · Gestión académica'
+  const subtituloHeader = (esEstudiante ? branding?.subtituloHeader : null) || avisos.subtituloPorDefecto
 
   /**
    * Lo que el equipo tiene pendiente de verdad.
@@ -512,7 +535,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
       setReply('')
       setReplyAttachments([])
     } catch (error) {
-      setMessageError(error instanceof Error ? error.message : 'No se pudo enviar la respuesta.')
+      setMessageError(error instanceof Error ? error.message : avisos.noSePudoEnviarRespuesta)
     } finally {
       setSendingReply(false)
     }
@@ -536,7 +559,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
       setStudentBody('')
       setStudentAttachments([])
     } catch (error) {
-      setMessageError(error instanceof Error ? error.message : 'No se pudo enviar el mensaje.')
+      setMessageError(error instanceof Error ? error.message : avisos.noSePudoEnviarMensaje)
     } finally { setSendingStudentMessage(false) }
   }
 
@@ -649,9 +672,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
                     </div>
                      <span className="pl-3.5 text-xs text-muted-foreground">{notification.detalle}</span>
                      {notification.mediaUrl && (
-                       notification.mediaTipo === 'IMAGE' ? <img src={notification.mediaUrl} alt="Material del anuncio" className="mt-2 max-h-36 w-full rounded-lg border border-border/60 object-cover" />
+                       notification.mediaTipo === 'IMAGE' ? <img src={notification.mediaUrl} alt={avisos.materialDelAnuncio} className="mt-2 max-h-36 w-full rounded-lg border border-border/60 object-cover" />
                          : notification.mediaTipo === 'VIDEO' ? <video src={notification.mediaUrl} controls className="mt-2 max-h-36 w-full rounded-lg border border-border/60" />
-                           : <a href={notification.mediaUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="mt-2 pl-3.5 text-xs font-medium text-primary hover:underline">Abrir información del anuncio</a>
+                           : <a href={notification.mediaUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="mt-2 pl-3.5 text-xs font-medium text-primary hover:underline">{avisos.abrirInformacion}</a>
                      )}
                   </DropdownMenuItem>
                 ))}
@@ -807,12 +830,12 @@ export function Header({ onOpenMobile }: HeaderProps) {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
-                        <span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? asuntoConversacion(hilo.asunto) : hilo.estudianteNombre}</span>
+                        <span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? asuntoConversacion(hilo.asunto, avisos.consultaAlEquipo) : hilo.estudianteNombre}</span>
                         {hilo.estado === 'ABIERTO' && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}
                       </span>
                       {/* Para el equipo el asunto es la segunda linea: primero de
                           quien es, luego sobre que. */}
-                      {!esEstudiante && <span className="mt-0.5 block truncate text-[11px] font-medium text-foreground/80">{asuntoConversacion(hilo.asunto)}</span>}
+                      {!esEstudiante && <span className="mt-0.5 block truncate text-[11px] font-medium text-foreground/80">{asuntoConversacion(hilo.asunto, avisos.consultaAlEquipo)}</span>}
                       <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{hilo.respuesta || hilo.contenido || ((hilo.adjuntos?.length ?? 0) > 0 ? '📎' : '')}</span>
                       <span className="mt-0.5 block text-[10px] text-muted-foreground">{formatMessageTime(hilo.createdAt, locale)}</span>
                     </span>
@@ -846,7 +869,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                   <div className="mx-auto max-w-xl space-y-4">
                   <div>
                     <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{nombreChatActivo}</h2>{selectedMessage && <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', selectedMessage.estado === 'ABIERTO' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{selectedMessage.estado === 'ABIERTO' ? messageCopy.open : messageCopy.answered}</span>}</div>
-                    {selectedMessage && <p className="text-sm font-medium text-foreground">{asuntoConversacion(selectedMessage.asunto)}</p>}
+                    {selectedMessage && <p className="text-sm font-medium text-foreground">{asuntoConversacion(selectedMessage.asunto, avisos.consultaAlEquipo)}</p>}
                     {!esEstudiante && <p className="text-xs text-muted-foreground">{correoChatActivo}</p>}
                     {selectedMessage && <p className="mt-1 text-xs text-muted-foreground">{formatMessageTime(selectedMessage.createdAt, locale)}</p>}
                   </div>

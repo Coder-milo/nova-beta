@@ -35,10 +35,81 @@ import { PageSpinner } from '@/components/ui/page-spinner'
 import { useAuth } from '@/lib/auth'
 import { usuariosApi, ApiCallError } from '@/lib/api'
 import type { UsuarioResponse } from '@/lib/types'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 const ROLES_DISPONIBLES = ['ADMIN', 'COORDINADOR'] as const
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        elTokenSe: '• The token is kept in an HttpOnly cookie, out of reach of the browser.',
+        laSesionCaduca: '• The session expires after 8 hours and renews itself for 7 days.',
+        soloLosUsuarios: 'Only users with the ADMIN role can manage users.',
+        soloLosAdministradores: 'Only administrators can manage users.',
+        yaExisteUn: 'A user with that email already exists.',
+        laContrasenaDebe: 'The password must be at least 8 characters.',
+        estasEstableciendoUna: 'You are setting a new password for',
+        nuevaContrasenaMinimo: 'New password (at least 8 characters)',
+        validacionDelToken: 'JWT token validation and access policies.',
+        informacionDelUsuario: 'Details of the currently signed-in user.',
+        noHayUsuarios: 'No additional users registered.',
+        tokenJwtFirmado: 'JWT token signed and verified',
+        cambiarContrasenaDe: "Change a user's password",
+        perfilDeUsuario: 'Signed-in user profile',
+        errorAlActualizar: 'The password could not be updated.',
+        errorAlActualizarX: 'The user could not be updated.',
+        actualizarContrasena: 'Update password',
+        contrasenaMin8: 'Password * (min. 8)',
+        seleccionaAlMenos: 'Choose at least one role.',
+        elEmailEs: 'The email is required.',
+        cuentasConAcceso: 'Accounts with access to the CRM.',
+        crearNuevoUsuario: 'Create a new user',
+        nombreYApellido: 'First and last name',
+        noSePudo: 'Could not connect.',
+        idDeUsuario: 'User ID',
+        crearUsuario: 'Create user',
+      }
+    : {
+        elTokenSe: '• El token se guarda en una cookie HttpOnly, inaccesible desde el navegador.',
+        laSesionCaduca: '• La sesión caduca a las 8 horas y se renueva sola durante 7 días.',
+        soloLosUsuarios: 'Solo los usuarios con rol ADMIN pueden gestionar usuarios.',
+        soloLosAdministradores: 'Solo los administradores pueden gestionar usuarios.',
+        yaExisteUn: 'Ya existe un usuario con ese correo electrónico.',
+        laContrasenaDebe: 'La contraseña debe tener al menos 8 caracteres.',
+        estasEstableciendoUna: 'Estás estableciendo una nueva contraseña para',
+        nuevaContrasenaMinimo: 'Nueva contraseña (mínimo 8 caracteres)',
+        validacionDelToken: 'Validación del token JWT y políticas de acceso.',
+        informacionDelUsuario: 'Información del usuario actualmente autenticado.',
+        noHayUsuarios: 'No hay usuarios adicionales registrados.',
+        tokenJwtFirmado: 'Token JWT firmado y verificado',
+        cambiarContrasenaDe: 'Cambiar contraseña de usuario',
+        perfilDeUsuario: 'Perfil de usuario en sesión',
+        errorAlActualizar: 'Error al actualizar contraseña.',
+        errorAlActualizarX: 'Error al actualizar el usuario.',
+        actualizarContrasena: 'Actualizar contraseña',
+        contrasenaMin8: 'Contraseña * (mín. 8)',
+        seleccionaAlMenos: 'Selecciona al menos un rol.',
+        elEmailEs: 'El email es obligatorio.',
+        cuentasConAcceso: 'Cuentas con acceso al CRM.',
+        crearNuevoUsuario: 'Crear nuevo usuario',
+        nombreYApellido: 'Nombre y apellido',
+        noSePudo: 'No se pudo conectar.',
+        idDeUsuario: 'ID de usuario',
+        crearUsuario: 'Crear usuario',
+      }
+}
+
 export function PanelUsuarios() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const { user } = useAuth()
 
   const [usuarios, setUsuarios] = useState<UsuarioResponse[]>([])
@@ -74,7 +145,7 @@ export function PanelUsuarios() {
       } else if (err instanceof ApiCallError) {
         setError(`Error al cargar los usuarios (HTTP ${err.status}).`)
       } else {
-        setError('No se pudo conectar con el backend.')
+        setError(C.errorConexion)
       }
     } finally {
       setCargando(false)
@@ -89,19 +160,19 @@ export function PanelUsuarios() {
     evento.preventDefault()
     setErrorForm(null)
     if (!nuevoUsuario.nombre.trim()) {
-      setErrorForm('El nombre es obligatorio.')
+      setErrorForm(C.errorNombre)
       return
     }
     if (!nuevoUsuario.email.trim()) {
-      setErrorForm('El email es obligatorio.')
+      setErrorForm(T.elEmailEs)
       return
     }
     if (nuevoUsuario.password.length < 8) {
-      setErrorForm('La contraseña debe tener al menos 8 caracteres.')
+      setErrorForm(T.laContrasenaDebe)
       return
     }
     if (nuevoUsuario.roles.length === 0) {
-      setErrorForm('Selecciona al menos un rol.')
+      setErrorForm(T.seleccionaAlMenos)
       return
     }
     setCreando(true)
@@ -116,12 +187,12 @@ export function PanelUsuarios() {
       cargar()
     } catch (err) {
       if (err instanceof ApiCallError) {
-        if (err.status === 409) setErrorForm('Ya existe un usuario con ese correo electrónico.')
+        if (err.status === 409) setErrorForm(T.yaExisteUn)
         else if (err.status === 401 || err.status === 403)
-          setErrorForm('Solo los administradores pueden gestionar usuarios.')
+          setErrorForm(T.soloLosAdministradores)
         else setErrorForm(err.body.message ?? `Error del servidor (HTTP ${err.status}).`)
       } else {
-        setErrorForm('No se pudo conectar con el backend.')
+        setErrorForm(C.errorConexion)
       }
     } finally {
       setCreando(false)
@@ -146,8 +217,8 @@ export function PanelUsuarios() {
     } catch (err) {
       setError(
         err instanceof ApiCallError && (err.status === 401 || err.status === 403)
-          ? 'Solo los administradores pueden gestionar usuarios.'
-          : 'Error al actualizar el usuario.',
+          ? T.soloLosAdministradores
+          : T.errorAlActualizarX,
       )
     } finally {
       setOcupado(null)
@@ -160,7 +231,7 @@ export function PanelUsuarios() {
     setPasswordError(null)
     setPasswordExito(null)
     if (nuevaPassword.length < 8) {
-      setPasswordError('La contraseña debe tener al menos 8 caracteres.')
+      setPasswordError(T.laContrasenaDebe)
       return
     }
     setCambiandoPassword(true)
@@ -175,8 +246,8 @@ export function PanelUsuarios() {
     } catch (err) {
       setPasswordError(
         err instanceof ApiCallError
-          ? err.body.message ?? 'Error al actualizar contraseña.'
-          : 'No se pudo conectar.',
+          ? err.body.message ?? T.errorAlActualizar
+          : T.noSePudo,
       )
     } finally {
       setCambiandoPassword(false)
@@ -189,9 +260,9 @@ export function PanelUsuarios() {
         <Card className="rounded-2xl shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <User className="size-4 text-primary" /> Perfil de usuario en sesión
+              <User className="size-4 text-primary" /> {T.perfilDeUsuario}
             </CardTitle>
-            <CardDescription>Información del usuario actualmente autenticado.</CardDescription>
+            <CardDescription>{T.informacionDelUsuario}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex items-center gap-4">
@@ -209,7 +280,7 @@ export function PanelUsuarios() {
                 <Badge variant="outline" className="mt-0.5">{user?.roles?.[0] ?? 'ADMIN'}</Badge>
               </div>
               <div>
-                <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">ID de usuario</span>
+                <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">{T.idDeUsuario}</span>
                 <span className="font-mono text-muted-foreground">
                   {user?.usuarioId ? user.usuarioId.slice(0, 8) + '…' : 'N/A'}
                 </span>
@@ -223,18 +294,18 @@ export function PanelUsuarios() {
             <CardTitle className="flex items-center gap-2 text-base">
               <Shield className="size-4 text-primary" /> Estado de la sesión &amp; seguridad
             </CardTitle>
-            <CardDescription>Validación del token JWT y políticas de acceso.</CardDescription>
+            <CardDescription>{T.validacionDelToken}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex items-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2.5">
               <CheckCircle className="size-4 shrink-0 text-green-600 dark:text-green-400" />
               <span className="text-xs font-medium text-green-700 dark:text-green-300">
-                Token JWT firmado y verificado
+                {T.tokenJwtFirmado}
               </span>
             </div>
             <div className="space-y-1.5 text-xs text-muted-foreground">
-              <p>• El token se guarda en una cookie HttpOnly, inaccesible desde el navegador.</p>
-              <p>• La sesión caduca a las 8 horas y se renueva sola durante 7 días.</p>
+              <p>{T.elTokenSe}</p>
+              <p>{T.laSesionCaduca}</p>
             </div>
           </CardContent>
         </Card>
@@ -247,7 +318,7 @@ export function PanelUsuarios() {
               <CardTitle className="flex items-center gap-2 text-base">
                 <Users className="size-5 text-primary" /> Administradores &amp; coordinadores
               </CardTitle>
-              <CardDescription>Cuentas con acceso al CRM.</CardDescription>
+              <CardDescription>{T.cuentasConAcceso}</CardDescription>
             </div>
             {!sinPermiso && (
               <Button variant="outline" size="sm" onClick={cargar} disabled={cargando}>
@@ -261,14 +332,14 @@ export function PanelUsuarios() {
             <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/30 px-3 py-2.5">
               <Shield className="size-4 shrink-0 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">
-                Solo los usuarios con rol ADMIN pueden gestionar usuarios.
+                {T.soloLosUsuarios}
               </span>
             </div>
           ) : (
             <>
               <form onSubmit={crearUsuario} className="flex flex-col gap-3 rounded-xl border border-border/60 bg-secondary/10 p-4">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">
-                  Crear nuevo usuario
+                  {T.crearNuevoUsuario}
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="flex flex-col gap-1.5">
@@ -278,7 +349,7 @@ export function PanelUsuarios() {
                     <Input
                       value={nuevoUsuario.nombre}
                       onChange={(e) => setNuevoUsuario((p) => ({ ...p, nombre: e.target.value }))}
-                      placeholder="Nombre y apellido"
+                      placeholder={T.nombreYApellido}
                       disabled={creando}
                     />
                   </div>
@@ -296,7 +367,7 @@ export function PanelUsuarios() {
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Contraseña * (mín. 8)
+                      {T.contrasenaMin8}
                     </label>
                     <Input
                       type="password"
@@ -329,7 +400,7 @@ export function PanelUsuarios() {
                       {creando ? (
                         <><CircleNotch className="mr-1 size-3.5 animate-spin" /> Creando…</>
                       ) : (
-                        <><Plus className="mr-1 size-3.5" /> Crear usuario</>
+                        <><Plus className="mr-1 size-3.5" /> {T.crearUsuario}</>
                       )}
                     </Button>
                   </div>
@@ -355,7 +426,7 @@ export function PanelUsuarios() {
               ) : usuarios.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-6">
                   <Users className="size-8 text-muted-foreground/40" />
-                  <p className="text-xs text-muted-foreground">No hay usuarios adicionales registrados.</p>
+                  <p className="text-xs text-muted-foreground">{T.noHayUsuarios}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -383,7 +454,7 @@ export function PanelUsuarios() {
                           </td>
                           <td className="px-4 py-3">
                             <EstadoDot
-                              label={u.activo ? 'Activo' : 'Inactivo'}
+                              label={u.activo ? C.activo : 'Inactivo'}
                               dot={u.activo ? 'bg-success' : 'bg-muted-foreground/40'}
                               text={u.activo ? 'text-[#0F6E56]' : 'text-muted-foreground'}
                             />
@@ -432,7 +503,7 @@ export function PanelUsuarios() {
             <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 flex w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-2xl border border-border bg-card p-6 shadow-xl">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <Dialog.Title className="flex items-center gap-2 text-base font-bold text-foreground">
-                  <Key className="size-5 text-primary" /> Cambiar contraseña de usuario
+                  <Key className="size-5 text-primary" /> {T.cambiarContrasenaDe}
                 </Dialog.Title>
                 <button
                   type="button"
@@ -443,13 +514,13 @@ export function PanelUsuarios() {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Estás estableciendo una nueva contraseña para <strong>{modalPassword.nombre}</strong>{' '}
+                {T.estasEstableciendoUna} <strong>{modalPassword.nombre}</strong>{' '}
                 ({modalPassword.email}).
               </p>
               <form onSubmit={cambiarPassword} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-foreground">
-                    Nueva contraseña (mínimo 8 caracteres)
+                    {T.nuevaContrasenaMinimo}
                   </label>
                   <Input
                     type="password"
@@ -489,7 +560,7 @@ export function PanelUsuarios() {
                   <Button type="submit" size="sm" disabled={cambiandoPassword}>
                     {cambiandoPassword ? (
                       <><CircleNotch className="mr-1 size-4 animate-spin" /> Guardando…</>
-                    ) : 'Actualizar contraseña'}
+                    ) : T.actualizarContrasena}
                   </Button>
                 </div>
               </form>
