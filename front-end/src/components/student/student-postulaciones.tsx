@@ -166,6 +166,10 @@ function textos(english: boolean) {
         estados: { ENVIADA: 'Sent', EN_PROCESO: 'In progress', ENTREVISTA_AGENDADA: 'Interview scheduled', ENTREVISTA_REALIZADA: 'Interview done', RECHAZADO: 'Did not continue', CONTRATADO: 'Hired' },
         errorCargar: 'Opportunities could not be loaded.',
         errorPostular: 'The application could not be logged.',
+        laOfertaSigueAbierta: 'The posting is still open in the other tab: apply there and tell your coordinator, or try again here.',
+        postulacionRegistradaConEnlace: (t: string) => `Application to “${t}” logged. We opened the posting in another tab so you can finish applying.`,
+        postulacionRegistradaSinEnlace: (t: string, donde: string) => `Application to “${t}” logged. This posting has no direct link; look for it as “${donde}”.`,
+        seEliminaraSeguimiento: (cargo: string, empresa: string) => `The follow-up for “${cargo}” at ${empresa} will be deleted. This cannot be undone.`,
         errorEliminar: 'The application could not be deleted.',
         errorEstado: 'The status could not be updated.',
         okPostulada: 'Application logged.', okEliminada: 'Application deleted.',
@@ -203,6 +207,10 @@ function textos(english: boolean) {
         estados: { ENVIADA: 'Enviada', EN_PROCESO: 'En proceso', ENTREVISTA_AGENDADA: 'Entrevista agendada', ENTREVISTA_REALIZADA: 'Entrevista realizada', RECHAZADO: 'No continuó', CONTRATADO: 'Contratado' },
         errorCargar: 'No se pudieron cargar las oportunidades.',
         errorPostular: 'No se pudo registrar la postulación.',
+        laOfertaSigueAbierta: 'La oferta sigue abierta en la otra pestaña: postúlate allí y avísale a tu coordinador, o vuelve a intentarlo aquí.',
+        postulacionRegistradaConEnlace: (t: string) => `Postulación a «${t}» registrada. Abrimos la oferta en otra pestaña para que completes la aplicación.`,
+        postulacionRegistradaSinEnlace: (t: string, donde: string) => `Postulación a «${t}» registrada. Esta oferta no trae enlace directo; búscala como «${donde}».`,
+        seEliminaraSeguimiento: (cargo: string, empresa: string) => `Se eliminará el seguimiento de «${cargo}» en ${empresa}. Esta acción no se puede deshacer.`,
         errorEliminar: 'No se pudo eliminar la postulación.',
         errorEstado: 'No se pudo actualizar el estado.',
         okPostulada: 'Postulación registrada exitosamente.', okEliminada: 'Postulación eliminada.',
@@ -679,7 +687,7 @@ export function StudentPostulaciones() {
         titulo={T.eliminarPostulacion}
         descripcion={
           porEliminar
-            ? `Se eliminará el seguimiento de "${porEliminar.cargo}" en ${porEliminar.empresaNombre}. Esta acción no se puede deshacer.`
+            ? T.seEliminaraSeguimiento(porEliminar.cargo, porEliminar.empresaNombre)
             : undefined
         }
         textoConfirmar={T.eliminar}
