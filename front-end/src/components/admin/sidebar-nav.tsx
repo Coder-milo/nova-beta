@@ -106,8 +106,8 @@ export function SidebarNav({
                   className={cn(
                     'size-[18px] shrink-0 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
                     isActive
-                      ? 'text-primary-foreground scale-105'
-                      : 'text-muted-foreground group-hover:text-foreground group-hover:scale-110',
+                      ? 'text-current scale-105'
+                      : 'text-foreground/75 group-hover:text-foreground group-hover:scale-110',
                   )}
                 />
                 {!collapsed && (

@@ -101,7 +101,18 @@ public class MensajeEstudianteService {
         for (MultipartFile archivo : adjuntos) {
             mensaje.getAdjuntos().add(crearAdjunto(mensaje, archivo, false));
         }
-        return toResponse(repository.save(mensaje));
+        var guardado = repository.save(mensaje);
+        var turno = new MensajeTurno();
+        turno.setMensaje(guardado);
+        turno.setAutorEmail(auth.getName());
+        turno.setAutorEsEstudiante(true);
+        turno.setContenido(contenidoLimpio);
+        var turnoGuardado = turnoRepository.save(turno);
+        for (var adjunto : guardado.getAdjuntos()) {
+            adjunto.setTurno(turnoGuardado);
+            adjuntoRepository.save(adjunto);
+        }
+        return toResponse(guardado);
     }
 
     public List<MensajeResponse> listarTodos() {
@@ -145,6 +156,21 @@ public class MensajeEstudianteService {
             mensaje.getAdjuntos().add(crearAdjunto(mensaje, archivo, true));
         }
         var guardado = repository.save(mensaje);
+        var turno = new MensajeTurno();
+        turno.setMensaje(guardado);
+        turno.setAutorEmail(auth.getName());
+        turno.setAutorEsEstudiante(false);
+        turno.setContenido(respuestaLimpia);
+        var turnoGuardado = turnoRepository.save(turno);
+        for (var adjunto : guardado.getAdjuntos()) {
+            if (adjunto.isRespuesta()) {
+                adjunto.setTurno(turnoGuardado);
+                adjuntoRepository.save(adjunto);
+            }
+        }
+        // Sin esto la respuesta del equipo llega en silencio: el estudiante no
+        // ve nada en la campana y solo se entera si vuelve a abrir el hilo por
+        // su cuenta. Se perdio al pasar el mensaje a turnos.
         notificacionService.registrarMensajeDelEquipo(mensaje.getEstudiante(), guardado.getId());
         return toResponse(guardado);
     }
@@ -190,6 +216,16 @@ public class MensajeEstudianteService {
             mensaje.getAdjuntos().add(crearAdjunto(mensaje, archivo, true));
         }
         var guardado = repository.save(mensaje);
+        var turno = new MensajeTurno();
+        turno.setMensaje(guardado);
+        turno.setAutorEmail(auth.getName());
+        turno.setAutorEsEstudiante(false);
+        turno.setContenido(texto);
+        var turnoGuardado = turnoRepository.save(turno);
+        for (var adjunto : guardado.getAdjuntos()) {
+            adjunto.setTurno(turnoGuardado);
+            adjuntoRepository.save(adjunto);
+        }
         notificacionService.registrarMensajeDelEquipo(estudiante, guardado.getId());
         return toResponse(guardado);
     }
@@ -218,7 +254,43 @@ public class MensajeEstudianteService {
     /** El hilo completo, en orden, con sus adjuntos y reacciones. */
     public List<MensajeTurnoResponse> turnos(UUID mensajeId, Authentication auth) {
         var mensaje = hiloAlQuePuedeAcceder(mensajeId, auth);
-        return turnoRepository.findByMensajeIdOrderByCreatedAtAsc(mensaje.getId()).stream()
+        var listaTurnos = turnoRepository.findByMensajeIdOrderByCreatedAtAsc(mensaje.getId());
+        if (listaTurnos.isEmpty()) {
+            List<MensajeTurnoResponse> sintetizados = new java.util.ArrayList<>();
+            var estudiante = mensaje.getEstudiante();
+            String nombreEstudiante = ((estudiante.getNombre() == null ? "" : estudiante.getNombre()) + " "
+                    + (estudiante.getApellido() == null ? "" : estudiante.getApellido())).trim();
+            if (nombreEstudiante.isBlank()) nombreEstudiante = "Estudiante";
+
+            if (mensaje.getContenido() != null && !mensaje.getContenido().isBlank()) {
+                sintetizados.add(new MensajeTurnoResponse(
+                        mensaje.getId(),
+                        nombreEstudiante,
+                        true,
+                        mensaje.getContenido(),
+                        mensaje.getCreatedAt(),
+                        null, null,
+                        mensaje.getAdjuntos().stream().filter(a -> !a.isRespuesta())
+                                .map(a -> new MensajeAdjuntoResponse(a.getId(), a.getNombre(), a.getContentType(), a.getTamano(), "/api/v1/mensajes/adjuntos/" + a.getId() + "/archivo")).toList(),
+                        List.of()
+                ));
+            }
+            if (mensaje.getRespuesta() != null && !mensaje.getRespuesta().isBlank()) {
+                sintetizados.add(new MensajeTurnoResponse(
+                        UUID.randomUUID(),
+                        mensaje.getRespondidoPor() == null ? "CAC Academic" : mensaje.getRespondidoPor(),
+                        false,
+                        mensaje.getRespuesta(),
+                        mensaje.getRespondidoAt() == null ? mensaje.getCreatedAt() : mensaje.getRespondidoAt(),
+                        null, null,
+                        mensaje.getAdjuntos().stream().filter(MensajeAdjunto::isRespuesta)
+                                .map(a -> new MensajeAdjuntoResponse(a.getId(), a.getNombre(), a.getContentType(), a.getTamano(), "/api/v1/mensajes/adjuntos/" + a.getId() + "/archivo")).toList(),
+                        List.of()
+                ));
+            }
+            return sintetizados;
+        }
+        return listaTurnos.stream()
                 .map(turno -> aRespuesta(turno, auth.getName()))
                 .toList();
     }

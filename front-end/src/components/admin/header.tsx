@@ -176,6 +176,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [messages, setMessages] = useState<MensajeResponse[]>([])
   const [messageSheetOpen, setMessageSheetOpen] = useState(false)
   const [selectedMessage, setSelectedMessage] = useState<MensajeResponse | null>(null)
+  const [filtroNotificacion, setFiltroNotificacion] = useState<'todas' | 'no_leidas'>('todas')
   const [reply, setReply] = useState('')
   const [replyAttachments, setReplyAttachments] = useState<File[]>([])
   const [sendingReply, setSendingReply] = useState(false)
@@ -689,48 +690,109 @@ export function Header({ onOpenMobile }: HeaderProps) {
             <DropdownMenuTrigger
               render={
                 <IconButton label={t('notifications')} badge={unreadNotifications}>
-                <Bell className="size-5" />
+                  <Bell className="size-5" />
                 </IconButton>
               }
             />
-            <DropdownMenuContent align="end" className="w-80 rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-[0_20px_50px_rgba(0,0,0,0.25)]">
-              <DropdownMenuLabel className="font-semibold text-foreground">{t('notifications')}</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-border/50" />
-              <DropdownMenuGroup>
-                {notificationItems.length === 0 ? (
-                  <div className="px-3 py-7 text-center text-sm text-muted-foreground">{t('noNotifications')}</div>
-                ) : notificationItems.map((notification) => (
-                  <DropdownMenuItem
-                    key={notification.id}
-                    onClick={() => void openNotification(notification.id)}
-                    className="flex-col items-start gap-0.5 rounded-xl py-2.5 hover:bg-primary/10 focus:bg-primary/10"
+            <DropdownMenuContent align="end" className="w-[min(92vw,24rem)] rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-[0_20px_50px_rgba(0,0,0,0.25)] dark:bg-[#0c1714]">
+              <div className="flex items-center justify-between px-1 pb-2">
+                <span className="text-sm font-bold text-foreground">{t('notifications')}</span>
+                {esEstudiante && studentUnreadNotifications > 0 && (
+                  <button
+                    type="button"
+                    onClick={(event) => { event.preventDefault(); void marcarTodasLeidas() }}
+                    className="text-[11px] font-semibold text-primary transition hover:underline"
                   >
-                    <div className="flex w-full items-center gap-2">
-                      <span className={cn('size-1.5 shrink-0 rounded-full', notification.leida ? 'bg-transparent' : 'bg-destructive')} />
-                      <span className="text-sm font-medium text-foreground">{notification.titulo}</span>
-                      <span className="ml-auto text-xs text-muted-foreground">{notification.tiempo}</span>
-                    </div>
-                     <span className="pl-3.5 text-xs text-muted-foreground">{notification.detalle}</span>
-                     {notification.mediaUrl && (
-                       notification.mediaTipo === 'IMAGE' ? <img src={notification.mediaUrl} alt={avisos.materialDelAnuncio} className="mt-2 max-h-36 w-full rounded-lg border border-border/60 object-cover" />
-                         : notification.mediaTipo === 'VIDEO' ? <video src={notification.mediaUrl} controls className="mt-2 max-h-36 w-full rounded-lg border border-border/60" />
-                           : <a href={notification.mediaUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="mt-2 pl-3.5 text-xs font-medium text-primary hover:underline">{avisos.abrirInformacion}</a>
-                     )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
+                    {avisos.marcarTodasLeidas}
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 pb-1.5">
+                <button
+                  type="button"
+                  onClick={() => setFiltroNotificacion('todas')}
+                  className={cn(
+                    'rounded-lg px-3 py-1 text-xs font-semibold transition',
+                    filtroNotificacion === 'todas'
+                      ? 'bg-primary/15 text-primary'
+                      : 'text-muted-foreground hover:bg-muted/60',
+                  )}
+                >
+                  {locale === 'es' ? 'Todas' : 'All'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroNotificacion('no_leidas')}
+                  className={cn(
+                    'rounded-lg px-3 py-1 text-xs font-semibold transition',
+                    filtroNotificacion === 'no_leidas'
+                      ? 'bg-primary/15 text-primary'
+                      : 'text-muted-foreground hover:bg-muted/60',
+                  )}
+                >
+                  {locale === 'es' ? 'No leídas' : 'Unread'} ({unreadNotifications})
+                </button>
+              </div>
+
+              <DropdownMenuSeparator className="my-1 bg-border/50" />
+
+              <div className="max-h-80 space-y-1 overflow-y-auto py-1">
+                {(filtroNotificacion === 'no_leidas'
+                  ? notificationItems.filter((n) => !n.leida)
+                  : notificationItems
+                ).length === 0 ? (
+                  <div className="px-3 py-8 text-center text-xs text-muted-foreground">
+                    {filtroNotificacion === 'no_leidas'
+                      ? (locale === 'es' ? 'No tienes notificaciones sin leer.' : 'No unread notifications.')
+                      : t('noNotifications')}
+                  </div>
+                ) : (
+                  (filtroNotificacion === 'no_leidas'
+                    ? notificationItems.filter((n) => !n.leida)
+                    : notificationItems
+                  ).map((notification) => (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      onClick={() => void openNotification(notification.id)}
+                      className={cn(
+                        'flex items-start gap-3 rounded-xl p-2.5 transition cursor-pointer',
+                        !notification.leida
+                          ? 'bg-primary/[0.08] dark:bg-primary/15 border-l-2 border-primary'
+                          : 'hover:bg-muted/50',
+                      )}
+                    >
+                      <span className={cn(
+                        'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-xs transition',
+                        !notification.leida
+                          ? 'bg-primary text-primary-foreground font-bold shadow-sm'
+                          : 'bg-muted text-muted-foreground',
+                      )}>
+                        <Bell className="size-4" />
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className={cn('text-xs leading-4 truncate', !notification.leida ? 'font-bold text-foreground' : 'font-medium text-foreground/80')}>
+                            {notification.titulo}
+                          </span>
+                          <span className="text-[10px] shrink-0 text-muted-foreground font-medium">{notification.tiempo}</span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground line-clamp-2">{notification.detalle}</p>
+                        {notification.mediaUrl && (
+                          notification.mediaTipo === 'IMAGE' ? <img src={notification.mediaUrl} alt={avisos.materialDelAnuncio} className="mt-2 max-h-36 w-full rounded-lg border border-border/60 object-cover" />
+                            : notification.mediaTipo === 'VIDEO' ? <video src={notification.mediaUrl} controls className="mt-2 max-h-36 w-full rounded-lg border border-border/60" />
+                              : <span className="mt-1 block text-xs font-medium text-primary hover:underline">{avisos.abrirInformacion}</span>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </div>
+
               {esEstudiante && (
                 <>
-                  <DropdownMenuSeparator className="bg-border/50" />
-                  {studentUnreadNotifications > 0 && (
-                    <DropdownMenuItem
-                      onClick={(event) => { event.preventDefault(); void marcarTodasLeidas() }}
-                      className="justify-center rounded-xl text-xs font-medium text-muted-foreground focus:bg-primary/10"
-                    >
-                      {avisos.marcarTodasLeidas}
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={() => router.push('/mis-notificaciones')} className="justify-center rounded-xl font-medium text-primary focus:bg-primary/10 focus:text-primary">
+                  <DropdownMenuSeparator className="my-1 bg-border/50" />
+                  <DropdownMenuItem onClick={() => router.push('/mis-notificaciones')} className="justify-center rounded-xl font-semibold text-xs text-primary focus:bg-primary/10 focus:text-primary">
                     {t('viewAllNotifications')}
                   </DropdownMenuItem>
                 </>
@@ -946,7 +1008,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                       <input ref={replyFileInputRef} type="file" multiple accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx" className="sr-only" onChange={(event) => { agregarAdjuntosRespuesta(Array.from(event.target.files ?? [])); event.target.value = '' }} />
                       <div className="flex items-end gap-2">
                         <button type="button" onClick={() => replyFileInputRef.current?.click()} disabled={sendingReply} aria-label={locale === 'es' ? 'Adjuntar archivo' : 'Attach file'} title={locale === 'es' ? 'Adjuntar archivo o imagen' : 'Attach a file or image'} className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-input bg-background text-muted-foreground transition hover:border-primary/35 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"><Paperclip className="size-5" /></button>
-                        <Textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} onPaste={(event) => { const imagenes = Array.from(event.clipboardData.files).filter((archivo) => archivo.type.startsWith('image/')); if (imagenes.length > 0) { event.preventDefault(); agregarAdjuntosRespuesta(imagenes) } }} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void responderMensaje() } }} minRows={3} maxLength={5000} className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" placeholder={messageCopy.replyPlaceholder} />
+                        <Textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} onPaste={(event) => { const imagenes = Array.from(event.clipboardData.files).filter((archivo) => archivo.type.startsWith('image/')); if (imagenes.length > 0) { event.preventDefault(); agregarAdjuntosRespuesta(imagenes) } }} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void responderMensaje() } }} minRows={1} maxRows={4} maxLength={5000} className="max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" placeholder={messageCopy.replyPlaceholder} />
                         <Button type="button" className="h-11 shrink-0 rounded-xl" onClick={() => void responderMensaje()} disabled={sendingReply || (!reply.trim() && replyAttachments.length === 0)}>{sendingReply ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}<span className="hidden sm:inline">{sendingReply ? messageCopy.sending : messageCopy.send}</span></Button>
                       </div>
                       {messageError && <p className="text-xs text-destructive">{messageError}</p>}
@@ -955,7 +1017,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                   </div>
                 )}
               </div>
-              {esEstudiante && (
+              {esEstudiante && !selectedMessage && (
                 <div className="shrink-0 border-t border-border/60 bg-card px-4 py-3 dark:bg-[#13221d] sm:px-5">
                   <div className="mx-auto max-w-xl">
                     {!directContact && studentAttachments.length > 0 && (
@@ -1001,10 +1063,11 @@ export function Header({ onOpenMobile }: HeaderProps) {
                             void enviarMensajeEstudiante()
                           }
                         }}
-                        minRows={2}
+                        minRows={1}
+                        maxRows={4}
                         maxLength={5000}
                         placeholder={directContact ? (locale === 'es' ? ('Escribe a ' + directContact.nombre + '…') : ('Write to ' + directContact.nombre + '…')) : (locale === 'es' ? 'Escribe un mensaje o pega una imagen…' : 'Write a message or paste an image…')}
-                        className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
+                        className="max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
                       />
                       <Button className="h-11 shrink-0 rounded-xl" onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || (directContact ? !studentBody.trim() : (!studentBody.trim() && studentAttachments.length === 0))}>
                         {sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}

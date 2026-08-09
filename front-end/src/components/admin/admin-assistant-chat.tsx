@@ -5,16 +5,26 @@ import { ArrowRightIcon as ArrowRight, BuildingsIcon as Buildings, CircleNotchIc
 import { usePathname, useRouter } from '@/compat/next-navigation'
 import { usePreferences } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
+import { Textarea } from '@/components/ui/textarea'
 
 interface AccionNavegacion {
   etiqueta: string
   url: string
 }
 
+interface PlanAccion {
+  tipo: 'MOVER_ESTUDIANTE' | 'CAMBIAR_COLOR' | 'CAMBIAR_TEMA' | 'ABRIR_IMPORTACION'
+  titulo: string
+  descripcion: string
+  parametros: Record<string, any>
+  ejecutado?: boolean
+}
+
 interface RespuestaBackend {
   respuesta: string
   accionNavegacion?: AccionNavegacion | null
   sugerencias?: string[]
+  planAccion?: PlanAccion | null
 }
 
 type Author = 'bot' | 'user'
@@ -24,6 +34,7 @@ type Message = {
   text: string
   accionNavegacion?: AccionNavegacion | null
   sugerencias?: string[]
+  planAccion?: PlanAccion | null
   createdAt: number
 }
 
@@ -35,9 +46,62 @@ class SesionCaducada extends Error {}
 export function AdminAssistantChat() {
   const router = useRouter()
   const pathname = usePathname()
-  const { locale } = usePreferences()
+  const { locale, setTheme } = usePreferences()
   const english = locale === 'en'
   const storageKey = `${STORAGE_KEY}_${locale}`
+
+  /**
+   * Qué planes cambian algo de verdad y cuáles sólo llevan a la pantalla.
+   *
+   * La diferencia importa porque el botón dice «Confirmar y ejecutar» y la
+   * tarjeta se marca «Ejecutado»: prometer un cambio que no ocurre es peor que
+   * no ofrecerlo. El tema lo puede cambiar el cliente porque es una preferencia
+   * de quien mira. La gama de marca no: es un ajuste del proyecto que se guarda
+   * en el servidor y que ven todos sus estudiantes. Y mover a un estudiante
+   * necesita saber a cuál, que es justo lo que una frase suelta no dice.
+   */
+  const PLANES_QUE_EJECUTAN: PlanAccion['tipo'][] = ['CAMBIAR_TEMA']
+
+  const ejecutarPlan = (mensajeId: string, plan: PlanAccion) => {
+    try {
+      if (plan.tipo === 'CAMBIAR_TEMA') {
+        setTheme((plan.parametros.mode ?? 'dark') as 'dark' | 'light')
+      } else if (plan.tipo === 'MOVER_ESTUDIANTE') {
+        // Se lleva la columna en la URL para no perder lo que se pidió.
+        const estado = String(plan.parametros.estado ?? '')
+        router.push(estado ? `/seguimiento?estado=${estado}` : '/seguimiento')
+      } else if (plan.tipo === 'CAMBIAR_COLOR') {
+        router.push('/configuracion')
+      } else if (plan.tipo === 'ABRIR_IMPORTACION') {
+        router.push('/importaciones')
+      }
+
+      // Sólo se marca lo que de verdad se ejecutó. Navegar no es ejecutar, y
+      // la tarjeta desaparece en ese caso porque la pantalla ya cambió.
+      setMessages((actual) =>
+        actual.map((m) =>
+          m.id === mensajeId && m.planAccion
+            ? {
+                ...m,
+                planAccion: PLANES_QUE_EJECUTAN.includes(plan.tipo)
+                  ? { ...m.planAccion, ejecutado: true }
+                  : null,
+              }
+            : m,
+        ),
+      )
+    } catch (e) {
+      console.error('Error al ejecutar plan:', e)
+    }
+  }
+
+  const cancelarPlan = (mensajeId: string) => {
+    setMessages((actual) =>
+      actual.map((m) =>
+        m.id === mensajeId ? { ...m, planAccion: null } : m,
+      ),
+    )
+  }
 
   const labels = useMemo(
     () =>
@@ -166,6 +230,7 @@ export function AdminAssistantChat() {
           text: data.respuesta || labels.greeting,
           accionNavegacion: data.accionNavegacion,
           sugerencias: data.sugerencias,
+          planAccion: data.planAccion,
           createdAt: Date.now(),
         },
       ])
@@ -309,6 +374,53 @@ export function AdminAssistantChat() {
                 {message.text}
               </div>
 
+              {/* Tarjeta de Plan de Acción con Confirmación */}
+              {message.author === 'bot' && message.planAccion && (
+                <div className="mt-2.5 w-full max-w-[92%] rounded-2xl border border-primary/30 bg-card p-3 shadow-md dark:bg-[#0f172a]">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                      <Sparkle className="size-3.5" />
+                    </span>
+                    <span className="text-xs font-bold text-foreground">
+                      {english ? 'Proposed Action Plan' : 'Plan de Acción Propuesto'}
+                    </span>
+                    {message.planAccion.ejecutado && (
+                      <span className="ml-auto rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                        ✓ {english ? 'Executed' : 'Ejecutado'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="py-2">
+                    <h4 className="text-xs font-semibold text-foreground">{message.planAccion.titulo}</h4>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground leading-4">{message.planAccion.descripcion}</p>
+                  </div>
+                  {!message.planAccion.ejecutado ? (
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => ejecutarPlan(message.id, message.planAccion!)}
+                        className="flex-1 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition hover:brightness-110 active:scale-95"
+                      >
+                        {PLANES_QUE_EJECUTAN.includes(message.planAccion.tipo)
+                          ? (english ? 'Confirm & Execute' : 'Confirmar y Ejecutar')
+                          : (english ? 'Take me there' : 'Llévame allí')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cancelarPlan(message.id)}
+                        className="rounded-xl border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted"
+                      >
+                        {english ? 'Cancel' : 'Cancelar'}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                      {english ? 'Action completed successfully.' : 'Acción completada con éxito.'}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Botón de acción de navegación en la respuesta de la IA */}
               {message.author === 'bot' && message.accionNavegacion && (
                 <button
@@ -400,12 +512,20 @@ export function AdminAssistantChat() {
               enviar()
             }}
           >
-            <input
+            <Textarea
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  void enviar()
+                }
+              }}
               placeholder={labels.placeholder}
               maxLength={500}
-              className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15 dark:bg-[#090d16]"
+              minRows={1}
+              maxRows={4}
+              className="max-h-32 min-h-10 min-w-0 flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15 dark:bg-[#090d16]"
             />
             <button
               type="submit"

@@ -141,11 +141,20 @@ export default function SeguimientoPage() {
   const [moviendo, setMoviendo] = useState<string | null>(null)
   const [filtroTablero, setFiltroTablero] = useState('')
 
-  // Arrastre del contenedor por clic (mouse panning)
+  // Mouse Panning ultrarrápido con inercia cinemática (fuerza de arrastre)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [isMouseDown, setIsMouseDown] = useState(false)
-  const [startX, setStartX] = useState(0)
-  const [scrollLeftPos, setScrollLeftPos] = useState(0)
+  const isMouseDownRef = useRef(false)
+  const startXRef = useRef(0)
+  const startYRef = useRef(0)
+  const scrollLeftRef = useRef(0)
+  const scrollTopRef = useRef(0)
+  const lastXRef = useRef(0)
+  const lastYRef = useRef(0)
+  const lastTimeRef = useRef(0)
+  const velocityXRef = useRef(0)
+  const velocityYRef = useRef(0)
+  const animFrameRef = useRef<number | null>(null)
+  const [isDraggingBoard, setIsDraggingBoard] = useState(false)
 
   // Drag and drop de tarjetas entre columnas
   const [draggedStudentId, setDraggedStudentId] = useState<string | null>(null)
@@ -174,41 +183,151 @@ export default function SeguimientoPage() {
   const mover = async (estudianteId: string, estado: EstadoContacto, estadoActual?: EstadoContacto) => {
     if (estadoActual && estado === estadoActual) return
     setMoviendo(estudianteId)
+
+    // Actualización optimista del estado local para respuesta instantánea sin refresco visual
+    setTablero((prev) => {
+      if (!prev) return prev
+      let tarjetaTarget: TarjetaTablero | undefined
+      for (const col of prev.columnas) {
+        const encontrada = col.tarjetas.find((t) => t.estudianteId === estudianteId)
+        if (encontrada) {
+          tarjetaTarget = { ...encontrada, estadoContacto: estado }
+          break
+        }
+      }
+      if (!tarjetaTarget) return prev
+      const nuevasColumnas = prev.columnas.map((col) => {
+        const filtradas = col.tarjetas.filter((t) => t.estudianteId !== estudianteId)
+        if (col.estado === estado) {
+          filtradas.push(tarjetaTarget!)
+        }
+        return { ...col, tarjetas: filtradas, total: filtradas.length }
+      })
+      return { ...prev, columnas: nuevasColumnas }
+    })
+
     try {
       await tableroApi.mover(estudianteId, estado)
-      await cargar()
+      const actualizado = await tableroApi.obtener()
+      setTablero(actualizado)
     } catch (e) {
       mostrarError(mensajeDeError(e, T.noSePudoMover))
+      void cargar()
     } finally { setMoviendo(null) }
   }
 
-  // Mouse Panning event handlers
+  // Función para aplicar inercia de desaceleración (fuerza de arrastre)
+  const iniciarInercia = () => {
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+    const friccion = 0.93 // Factor de desaceleración suave
+    const stepInercia = () => {
+      if (Math.abs(velocityXRef.current) < 0.05 && Math.abs(velocityYRef.current) < 0.05) {
+        if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+        animFrameRef.current = null
+        return
+      }
+
+      if (scrollRef.current) {
+        scrollRef.current.scrollLeft -= velocityXRef.current * 12
+      }
+      const mainElem = scrollRef.current?.closest('main')
+      if (mainElem) {
+        mainElem.scrollTop -= velocityYRef.current * 12
+      }
+
+      velocityXRef.current *= friccion
+      velocityYRef.current *= friccion
+
+      animFrameRef.current = requestAnimationFrame(stepInercia)
+    }
+    if (Math.abs(velocityXRef.current) > 0.1 || Math.abs(velocityYRef.current) > 0.1) {
+      animFrameRef.current = requestAnimationFrame(stepInercia)
+    }
+  }
+
+  // Listeners globales para garantizar liberación limpia e iniciar inercia
+  useEffect(() => {
+    const handleGlobalRelease = () => {
+      if (isMouseDownRef.current) {
+        isMouseDownRef.current = false
+        setIsDraggingBoard(false)
+        iniciarInercia()
+      }
+    }
+    window.addEventListener('mouseup', handleGlobalRelease)
+    window.addEventListener('dragend', handleGlobalRelease)
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+      window.removeEventListener('mouseup', handleGlobalRelease)
+      window.removeEventListener('dragend', handleGlobalRelease)
+    }
+  }, [])
+
+  // Mouse Panning ultrarrápido a 60fps/120fps sin delay ni lag
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!scrollRef.current) return
     const target = e.target as HTMLElement
-    // Ignorar si se hace clic en elementos interactivos como selects, botones, links o inputs
-    if (['SELECT', 'BUTTON', 'A', 'INPUT', 'OPTION', 'TEXTAREA'].includes(target.tagName) || target.closest('select, button, a, input, option, article')) {
+    if (
+      ['SELECT', 'BUTTON', 'A', 'INPUT', 'OPTION', 'TEXTAREA', 'ARTICLE'].includes(target.tagName) ||
+      target.closest('select, button, a, input, option, article')
+    ) {
       return
     }
-    setIsMouseDown(true)
-    setStartX(e.pageX - scrollRef.current.offsetLeft)
-    setScrollLeftPos(scrollRef.current.scrollLeft)
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current)
+      animFrameRef.current = null
+    }
+    const mainElem = scrollRef.current.closest('main')
+    isMouseDownRef.current = true
+    setIsDraggingBoard(true)
+    startXRef.current = e.clientX
+    startYRef.current = e.clientY
+    lastXRef.current = e.clientX
+    lastYRef.current = e.clientY
+    lastTimeRef.current = performance.now()
+    velocityXRef.current = 0
+    velocityYRef.current = 0
+    scrollLeftRef.current = scrollRef.current.scrollLeft
+    scrollTopRef.current = mainElem ? mainElem.scrollTop : 0
   }
 
   const handleMouseLeave = () => {
-    setIsMouseDown(false)
+    if (isMouseDownRef.current) {
+      isMouseDownRef.current = false
+      setIsDraggingBoard(false)
+      iniciarInercia()
+    }
   }
 
   const handleMouseUp = () => {
-    setIsMouseDown(false)
+    if (isMouseDownRef.current) {
+      isMouseDownRef.current = false
+      setIsDraggingBoard(false)
+      iniciarInercia()
+    }
   }
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isMouseDown || !scrollRef.current) return
-    e.preventDefault()
-    const x = e.pageX - scrollRef.current.offsetLeft
-    const walk = (x - startX) * 1.6
-    scrollRef.current.scrollLeft = scrollLeftPos - walk
+    if (!isMouseDownRef.current || !scrollRef.current) return
+    const now = performance.now()
+    const dt = now - lastTimeRef.current
+    if (dt > 0) {
+      const deltaX = e.clientX - lastXRef.current
+      const deltaY = e.clientY - lastYRef.current
+      velocityXRef.current = deltaX / dt
+      velocityYRef.current = deltaY / dt
+      lastXRef.current = e.clientX
+      lastYRef.current = e.clientY
+      lastTimeRef.current = now
+    }
+
+    const walkX = e.clientX - startXRef.current
+    const walkY = e.clientY - startYRef.current
+    scrollRef.current.scrollLeft = scrollLeftRef.current - walkX
+    const mainElem = scrollRef.current.closest('main')
+    if (mainElem) {
+      mainElem.scrollTop = scrollTopRef.current - walkY
+    }
   }
 
   // Buscar estudiantes para agregar al tablero desde el modal
@@ -324,7 +443,7 @@ export default function SeguimientoPage() {
             onMouseUp={handleMouseUp}
             onMouseMove={handleMouseMove}
             className={`flex gap-4 overflow-x-auto pb-6 pt-1 select-none ${
-              isMouseDown ? 'cursor-grabbing' : 'cursor-grab'
+              isDraggingBoard ? 'cursor-grabbing' : 'cursor-grab'
             }`}
           >
             {ESTADOS.map((estado) => {

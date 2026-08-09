@@ -137,8 +137,8 @@ export function Conversacion({ mensajeId, soyEstudiante, locale, textos, onTurno
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+    <div className="flex h-full min-h-0 flex-col overflow-x-hidden">
+      <div className="flex-1 space-y-3 overflow-y-auto overflow-x-hidden p-4">
         {cargando && (
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
             <CircleNotch className="size-3.5 animate-spin" />{textos.cargando}
@@ -236,7 +236,7 @@ export function Conversacion({ mensajeId, soyEstudiante, locale, textos, onTurno
                     <Smiley className="size-3.5" />
                   </button>
                   {paletaEn === turno.id && (
-                    <div className="absolute bottom-full z-10 mb-1 flex gap-0.5 rounded-xl border border-border bg-popover p-1 shadow-lg">
+                    <div className={cn('absolute bottom-full z-10 mb-1 flex gap-0.5 rounded-xl border border-border bg-popover p-1 shadow-lg', mio ? 'right-0' : 'left-0')}>
                       {EMOJIS_REACCION.map((emoji) => (
                         <button
                           key={emoji}

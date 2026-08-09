@@ -216,8 +216,27 @@ public class AsistenteIaService {
                         }
                     }
 
+                    RespuestaAsistenteDto.PlanAccion planAccion = null;
+                    if (root.hasNonNull("planAccion") && !root.path("planAccion").isNull()) {
+                        JsonNode planNode = root.path("planAccion");
+                        String tipo = planNode.path("tipo").asText(null);
+                        String titulo = planNode.path("titulo").asText(null);
+                        String descripcion = planNode.path("descripcion").asText(null);
+                        java.util.Map<String, Object> params = new java.util.HashMap<>();
+                        if (planNode.has("parametros") && planNode.path("parametros").isObject()) {
+                            planNode.path("parametros").fields().forEachRemaining(entry -> {
+                                if (entry.getValue().isTextual()) params.put(entry.getKey(), entry.getValue().asText());
+                                else if (entry.getValue().isNumber()) params.put(entry.getKey(), entry.getValue().numberValue());
+                                else if (entry.getValue().isBoolean()) params.put(entry.getKey(), entry.getValue().asBoolean());
+                            });
+                        }
+                        if (tipo != null && titulo != null) {
+                            planAccion = new RespuestaAsistenteDto.PlanAccion(tipo, titulo, descripcion != null ? descripcion : "", params);
+                        }
+                    }
+
                     if (!respuestaText.isBlank()) {
-                        return new RespuestaAsistenteDto(limitar(respuestaText, 2500), accion, sugerencias);
+                        return new RespuestaAsistenteDto(limitar(respuestaText, 2500), accion, sugerencias, planAccion);
                     }
                 }
             } catch (Exception e) {
@@ -371,6 +390,72 @@ public class AsistenteIaService {
 
     RespuestaAsistenteDto resolverLocalmente(String pregunta) {
         String text = normalizar(pregunta);
+
+        // ── SUPERPODERES: Planes de Acción con confirmación ──────────────────────
+
+        // 1. Mover estudiante en el seguimiento
+        if ((text.contains("muev") || text.contains("mover") || text.contains("pasa a") || text.contains("traslada"))
+                && (text.contains("estudiante") || text.contains("columna") || text.contains("seguimiento") || text.contains("colocad") || text.contains("entrevista"))) {
+            String destino = "COLOCADO";
+            String etiquetaDestino = "Colocado";
+            if (text.contains("entrevista")) { destino = "ENTREVISTA"; etiquetaDestino = "En entrevistas"; }
+            else if (text.contains("conversacion") || text.contains("proceso")) { destino = "EN_PROCESO"; etiquetaDestino = "En conversación"; }
+            else if (text.contains("cerrad")) { destino = "CERRADO"; etiquetaDestino = "Cerrado"; }
+            else if (text.contains("sin contacto")) { destino = "SIN_CONTACTO"; etiquetaDestino = "Sin contacto"; }
+
+            return new RespuestaAsistenteDto(
+                    "Te llevo al tablero de seguimiento con la columna '" + etiquetaDestino + "' a la vista. El traslado lo confirmas allí sobre el estudiante que elijas: desde aquí no sé a cuál te refieres, y mover al que no era es peor que no mover a nadie.",
+                    new RespuestaAsistenteDto.AccionNavegacion("Ver Tablero de Seguimiento", "/seguimiento"),
+                    List.of("Mover a En entrevistas", "Mover a Colocado"),
+                    new RespuestaAsistenteDto.PlanAccion(
+                            "MOVER_ESTUDIANTE",
+                            "Abrir el tablero en '" + etiquetaDestino + "'",
+                            "Abre el tablero de seguimiento con esa columna a la vista. El cambio de estado se hace allí, sobre la tarjeta de la persona.",
+                            java.util.Map.of("estado", destino, "etiquetaEstado", etiquetaDestino)
+                    )
+            );
+        }
+
+        // 2. Cambiar color del tema visual
+        if (text.contains("color") || text.contains("tono") || text.contains("paleta")) {
+            int hue = 220; // Azul por defecto
+            String nombreColor = "Azul Real";
+            if (text.contains("esmeralda") || text.contains("verde")) { hue = 155; nombreColor = "Verde Esmeralda"; }
+            else if (text.contains("violeta") || text.contains("púrpura") || text.contains("morado")) { hue = 270; nombreColor = "Violeta Imperial"; }
+            else if (text.contains("naranja") || text.contains("ámbar")) { hue = 28; nombreColor = "Naranja Cálido"; }
+            else if (text.contains("rojo") || text.contains("carmesí")) { hue = 350; nombreColor = "Rojo Carmesí"; }
+
+            return new RespuestaAsistenteDto(
+                    "La gama de marca no es una preferencia tuya: se guarda en el servidor y la ven todos los estudiantes del proyecto. Te llevo a Identidad visual, que es donde se cambia con su vista previa.",
+                    new RespuestaAsistenteDto.AccionNavegacion("Ver Configuración de Marca", "/configuracion"),
+                    List.of("Cambiar a Verde Esmeralda", "Cambiar a Violeta Imperial"),
+                    new RespuestaAsistenteDto.PlanAccion(
+                            "CAMBIAR_COLOR",
+                            "Abrir Identidad visual del proyecto",
+                            "Abre la pantalla donde se cambia la gama. Es un ajuste del proyecto, no de tu sesión: afecta al portal de todos sus estudiantes.",
+                            java.util.Map.of("hue", hue, "nombreColor", nombreColor)
+                    )
+            );
+        }
+
+        // 3. Cambiar tema (modo oscuro / modo claro)
+        if (text.contains("modo oscuro") || text.contains("modo claro") || text.contains("tema oscuro") || text.contains("tema claro")) {
+            boolean esOscuro = text.contains("oscuro");
+            String modo = esOscuro ? "dark" : "light";
+            String etiquetaModo = esOscuro ? "Modo Oscuro" : "Modo Claro";
+
+            return new RespuestaAsistenteDto(
+                    "Puedo cambiar la apariencia a '" + etiquetaModo + "'. Es una preferencia tuya y no afecta a nadie más. Confirma y se aplica.",
+                    new RespuestaAsistenteDto.AccionNavegacion("Ver Configuración", "/configuracion"),
+                    List.of("Activar Modo Oscuro", "Activar Modo Claro"),
+                    new RespuestaAsistenteDto.PlanAccion(
+                            "CAMBIAR_TEMA",
+                            "Cambiar apariencia a " + etiquetaModo,
+                            "Cambia el tema de tu sesión. Sólo lo ves tú.",
+                            java.util.Map.of("mode", modo, "etiquetaModo", etiquetaModo)
+                    )
+            );
+        }
 
         // Antes que la navegacion: quien pregunta como llenar un campo quiere
         // el formato, no que se le lleve a la pantalla donde esta el campo.
