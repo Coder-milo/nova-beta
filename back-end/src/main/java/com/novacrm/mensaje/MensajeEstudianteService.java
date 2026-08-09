@@ -115,6 +115,20 @@ public class MensajeEstudianteService {
         return toResponse(guardado);
     }
 
+    /**
+     * Cuantos hilos esperan atencion de quien pregunta.
+     *
+     * <p>Para el equipo son los abiertos —alguien escribio y nadie contesto—;
+     * para el estudiante, los que ya tienen respuesta que no ha ido a leer.
+     */
+    public long pendientes(Authentication auth) {
+        if (!gestiona(auth)) {
+            var estudiante = ownershipService.obtenerEstudianteAutenticado(auth);
+            return repository.countByEstudianteIdAndEstado(estudiante.getId(), EstadoMensaje.RESPONDIDO);
+        }
+        return repository.countByEstado(EstadoMensaje.ABIERTO);
+    }
+
     public List<MensajeResponse> listarTodos() {
         return repository.findAllByOrderByCreatedAtDesc().stream().map(this::toResponse).toList();
     }
@@ -426,11 +440,15 @@ public class MensajeEstudianteService {
     }
 
     /** Si quien escribe es el propio estudiante del hilo y no alguien del equipo. */
-    private boolean esElEstudianteDelHilo(MensajeEstudiante mensaje, Authentication auth) {
-        boolean gestiona = auth.getAuthorities().stream()
+    /** Quien puede ver la bandeja entera, frente a quien solo ve la suya. */
+    private static boolean gestiona(Authentication auth) {
+        return auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
                         || a.getAuthority().equals("ROLE_COORDINADOR"));
-        if (gestiona) return false;
+    }
+
+    private boolean esElEstudianteDelHilo(MensajeEstudiante mensaje, Authentication auth) {
+        if (gestiona(auth)) return false;
         return mensaje.getEstudiante().getEmail() != null
                 && mensaje.getEstudiante().getEmail().equalsIgnoreCase(auth.getName());
     }

@@ -23,6 +23,17 @@ public class MensajeEstudianteController {
 
     public MensajeEstudianteController(MensajeEstudianteService service) { this.service = service; }
 
+    /**
+     * Cuantos hilos esperan atencion. Solo el numero, para la campana.
+     *
+     * <p>La cabecera lo calculaba trayendose la lista entera cada 45 segundos y
+     * contandola en el navegador: todos los hilos que existen, con sus
+     * adjuntos, para pintar un numero de dos digitos.
+     */
+    @GetMapping("/pendientes")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
+    public long pendientes(Authentication auth) { return service.pendientes(auth); }
+
     @GetMapping("/mios")
     @PreAuthorize("hasRole('ESTUDIANTE')")
     public List<MensajeResponse> mios(Authentication auth) { return service.mios(auth); }

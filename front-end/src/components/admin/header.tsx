@@ -174,6 +174,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   // pedir el perfil otra vez sólo para eso sería una llamada de más.
   const [profileId, setProfileId] = useState<string | null>(null)
   const [messages, setMessages] = useState<MensajeResponse[]>([])
+  const [pendientesServidor, setPendientesServidor] = useState<number | null>(null)
   const [messageSheetOpen, setMessageSheetOpen] = useState(false)
   const [selectedMessage, setSelectedMessage] = useState<MensajeResponse | null>(null)
   const [filtroNotificacion, setFiltroNotificacion] = useState<'todas' | 'no_leidas'>('todas')
@@ -363,13 +364,27 @@ export function Header({ onOpenMobile }: HeaderProps) {
 
   useEffect(() => { void cargarMensajes() }, [cargarMensajes])
   useEffect(() => { if (messageSheetOpen) void cargarMensajes() }, [messageSheetOpen, cargarMensajes])
+  /**
+   * El contador de la campana, por su cuenta.
+   *
+   * Antes este intervalo recargaba la bandeja entera cada 45 segundos sólo
+   * para que el número estuviera al día: cada coordinador con la aplicación
+   * abierta pedía todos los hilos que existen, con sus adjuntos, un millar de
+   * veces al día. La lista completa se carga al abrir la bandeja, que es
+   * cuando alguien va a leerla.
+   */
   useEffect(() => {
-    if (!sesionLista || esEstudiante) return
-    const refreshId = window.setInterval(() => {
-      void mensajesApi.listar().then(setMessages).catch(() => undefined)
-    }, 45_000)
-    return () => window.clearInterval(refreshId)
-  }, [sesionLista, esEstudiante])
+    if (!sesionLista) return
+    let activo = true
+    const contar = () => {
+      void mensajesApi.pendientes()
+        .then((n) => { if (activo) setPendientesServidor(n) })
+        .catch(() => undefined)
+    }
+    contar()
+    const refreshId = window.setInterval(contar, 45_000)
+    return () => { activo = false; window.clearInterval(refreshId) }
+  }, [sesionLista])
   useEffect(() => {
     const abrirBandeja = () => setMessageSheetOpen(true)
     window.addEventListener('nova:open-messages', abrirBandeja)
@@ -442,7 +457,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
     : notificationItems.filter((notification) => !notification.leida).length
   // Por hilo y no por estudiante: dos asuntos abiertos de la misma persona son
   // dos cosas que atender, y agrupados contaban como una.
-  const pendingMessages = hilos.filter((hilo) =>
+  // El servidor lo cuenta. Antes salía de `hilos`, que es lo cargado: si algún
+  // día se acota esa lista, el número dejaría de ser el total sin avisar.
+  const pendingMessages = pendientesServidor ?? hilos.filter((hilo) =>
     esEstudiante ? hilo.estado === 'RESPONDIDO' : hilo.estado === 'ABIERTO',
   ).length
 

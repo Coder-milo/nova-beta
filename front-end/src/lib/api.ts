@@ -563,6 +563,14 @@ export const notificacionesApi = {
 }
 
 export const mensajesApi = {
+  /**
+   * Cuántos hilos esperan atención. Sólo el número.
+   *
+   * La campana lo calculaba trayéndose la lista entera cada 45 segundos y
+   * contándola aquí: todos los hilos que existen, con sus adjuntos, para
+   * pintar un número de dos dígitos.
+   */
+  pendientes: (token?: string) => apiFetch<number>('/api/v1/mensajes/pendientes', { token }),
   mios: (token?: string) =>
     apiFetch<MensajeResponse[]>('/api/v1/mensajes/mios', { token }),
   listar: (token?: string) =>
