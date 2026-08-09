@@ -75,4 +75,20 @@ public interface VacanteRepository extends JpaRepository<Vacante, UUID> {
             ORDER BY v.createdAt DESC
             """)
     List<Vacante> findVigentesRevisadas(@Param("ahora") LocalDateTime ahora);
+
+    /**
+     * Ofertas vigentes que esperan que alguien las valide.
+     *
+     * <p>Son las que registro un participante. Hasta que se validan no se le
+     * recomiendan a nadie, asi que una que nadie mire no es una oferta
+     * pendiente: es una oportunidad perdida en silencio. De aqui sale el aviso
+     * que lo cuenta.
+     */
+    @Query("""
+            SELECT COUNT(v) FROM Vacante v
+            WHERE v.activo = true
+              AND v.revisada = false
+              AND (v.fechaExpiracion IS NULL OR v.fechaExpiracion > :ahora)
+            """)
+    long contarSinRevisar(@Param("ahora") LocalDateTime ahora);
 }

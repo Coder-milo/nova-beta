@@ -29,16 +29,19 @@ public class DashboardService {
     private final EstudianteRepository estudianteRepository;
     private final ProgramaRepository programaRepository;
     private final com.novacrm.seguimiento.SeguimientoRepository seguimientoRepository;
+    private final com.novacrm.vacante.VacanteRepository vacanteRepository;
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
 
     public DashboardService(EstudianteRepository estudianteRepository,
                             ProgramaRepository programaRepository,
-                            com.novacrm.seguimiento.SeguimientoRepository seguimientoRepository) {
+                            com.novacrm.seguimiento.SeguimientoRepository seguimientoRepository,
+                            com.novacrm.vacante.VacanteRepository vacanteRepository) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
         this.seguimientoRepository = seguimientoRepository;
+        this.vacanteRepository = vacanteRepository;
     }
 
     public DashboardSummaryResponse resumen() {
@@ -115,6 +118,20 @@ public class DashboardService {
                     "Estudiantes con datos incompletos",
                     conDatosFaltantes + " estudiante(s) activo(s) sin celular, correo o documento.",
                     referencia, ruta));
+        }
+
+        // Ofertas que registro un participante y nadie ha validado. Mientras
+        // esperan no se le recomiendan a nadie, asi que una que se quede sin
+        // mirar no es una tarea pendiente: es una oportunidad que se pierde en
+        // silencio. Severidad alta porque caduca sola.
+        long sinRevisar = vacanteRepository.contarSinRevisar(java.time.LocalDateTime.now());
+        if (sinRevisar > 0) {
+            alertas.add(new AlertaResponse(
+                    "VACANTE_SIN_REVISAR", "ALTA",
+                    "Ofertas pendientes de validar",
+                    sinRevisar + " oferta(s) registrada(s) por participantes esperan revisión. "
+                            + "Hasta validarlas no entran al matching.",
+                    null, "/vacantes"));
         }
 
         LocalDate hoy = LocalDate.now(ZoneId.systemDefault());

@@ -21,8 +21,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { busquedaApi, chatsApi, estudiantesApi, mensajesApi, notificacionesApi } from '@/lib/api'
-import type { BusquedaResponse, ChatContactoResponse, ChatDirectoMensajeResponse, EstudianteResponse, MensajeResponse, NotificacionResponse, ResultadoBusqueda } from '@/lib/types'
+import { busquedaApi, chatsApi, dashboardApi, estudiantesApi, mensajesApi, notificacionesApi } from '@/lib/api'
+import type { AlertaResponse, BusquedaResponse, ChatContactoResponse, ChatDirectoMensajeResponse, EstudianteResponse, MensajeResponse, NotificacionResponse, ResultadoBusqueda } from '@/lib/types'
 import { getNavItemsForRoles, soloEsEstudiante } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -75,6 +75,8 @@ type HeaderNotification = {
   leida: boolean
   mediaUrl?: string | null
   mediaTipo?: string | null
+  /** A donde se va para resolverlo. Solo lo traen los avisos del equipo. */
+  ruta?: string | null
 }
 
 /** Los envíos antiguos usaban "Seguimiento:" en cada respuesta. Al quitar
@@ -129,6 +131,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
    */
   const sesionLista = !cargandoSesion && user !== null
 
+  /** Avisos del equipo. Vacio para el estudiante, que tiene los suyos. */
+  const [alertas, setAlertas] = useState<AlertaResponse[]>([])
   const [studentNotifications, setStudentNotifications] = useState<NotificacionResponse[]>([])
   const [studentUnreadNotifications, setStudentUnreadNotifications] = useState(0)
   const [messages, setMessages] = useState<MensajeResponse[]>([])
@@ -173,6 +177,22 @@ export function Header({ onOpenMobile }: HeaderProps) {
   )
 
 
+
+  // Los avisos del equipo se refrescan con la misma cadencia que el resto de
+  // la cabecera. Un estudiante no los pide: el endpoint es de gestion y le
+  // devolveria un 403.
+  useEffect(() => {
+    if (!sesionLista || esEstudiante) return
+    let activo = true
+    const cargarAlertas = () => {
+      void dashboardApi.alerts()
+        .then((data) => { if (activo) setAlertas(data) })
+        .catch(() => { if (activo) setAlertas([]) })
+    }
+    cargarAlertas()
+    const id = window.setInterval(cargarAlertas, 60_000)
+    return () => { activo = false; window.clearInterval(id) }
+  }, [sesionLista, esEstudiante])
 
   useEffect(() => {
     if (!sesionLista) return
@@ -329,19 +349,29 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const tituloHeader = (esEstudiante ? branding?.tituloHeader : null) || current?.title || 'NOVA CRM'
   const subtituloHeader = (esEstudiante ? branding?.subtituloHeader : null) || 'NOVA · Gestión académica'
 
-  const adminNotificationItems = useMemo<HeaderNotification[]>(() => messages
-    .filter((message) => message.estado === 'ABIERTO')
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 8)
-    .map((message) => ({
-      id: message.id,
-      titulo: locale === 'es'
-        ? `Mensaje de ${message.estudianteNombre || 'un estudiante'}`
-        : `Message from ${message.estudianteNombre || 'a student'}`,
-      detalle: message.contenido || (locale === 'es' ? 'Envió un archivo adjunto.' : 'Sent an attachment.'),
-      tiempo: formatNotificationTime(message.createdAt, locale),
-      leida: false,
-    })), [messages, locale])
+  /**
+   * Lo que el equipo tiene pendiente de verdad.
+   *
+   * Antes esta lista se fabricaba a partir de los mensajes abiertos, con
+   * `leida: false` fijo: el contador nunca bajaba —no habia nada que marcar— y
+   * repetia el dato del icono de mensajes, que ya esta al lado.
+   *
+   * Ahora sale de `/dashboard/alerts`, que existia desde antes y nadie
+   * consumia desde aqui: estudiantes sin datos de contacto, programas por
+   * finalizar, seguimientos vencidos y ofertas sin validar. Cada aviso trae la
+   * ruta donde se resuelve, y desaparece solo cuando el trabajo esta hecho,
+   * que es lo que un pendiente deberia hacer.
+   */
+  const adminNotificationItems = useMemo<HeaderNotification[]>(() => alertas.map((alerta, indice) => ({
+    id: `${alerta.tipo}-${alerta.referenciaId ?? indice}`,
+    titulo: alerta.titulo,
+    detalle: alerta.detalle,
+    tiempo: alerta.severidad === 'ALTA' ? (locale === 'es' ? 'Prioritario' : 'High priority') : '',
+    // No se marcan como leidos: se resuelven. Mientras el aviso siga ahi, el
+    // trabajo sigue sin hacer.
+    leida: false,
+    ruta: alerta.ruta,
+  })), [alertas, locale])
   const notificationItems: HeaderNotification[] = esEstudiante
     ? studentNotifications.map((notification) => ({
         id: notification.id,
@@ -383,8 +413,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
       router.push('/mis-notificaciones')
       return
     }
-    const message = messages.find((item) => item.id === id)
-    if (message) abrirMensaje(message)
+    const alerta = adminNotificationItems.find((item) => item.id === id)
+    if (alerta?.ruta) router.push(alerta.ruta)
   }
 
   const abrirMensaje = (message: MensajeResponse) => {
