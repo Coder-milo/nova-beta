@@ -28,6 +28,10 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { useBranding } from '@/lib/branding'
 import { usePreferences } from '@/lib/preferences'
+// Renombrado: en este archivo ya hay un `type Conversacion` para los
+// grupos de la bandeja, y dos cosas distintas con el mismo nombre en el
+// mismo fichero se prestan a confusion aunque el compilador las tolere.
+import { Conversacion as HiloConversacion } from '@/components/ui/conversacion'
 import { Textarea } from '@/components/ui/textarea'
 
 type HeaderProps = {
@@ -63,19 +67,6 @@ function formatFileSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
-
-function isImageAttachment(contentType: string) {
-  return contentType.startsWith('image/')
-}
-
-type Conversacion = {
-  id: string
-  asunto: string
-  mensajes: MensajeResponse[]
-  ultimo: MensajeResponse
-  pendiente: boolean
-}
-
 type HeaderNotification = {
   id: string
   titulo: string
@@ -95,30 +86,6 @@ function asuntoConversacion(asunto: string): string {
   while (prefijo.test(limpio)) limpio = limpio.replace(prefijo, '').trim()
   return limpio || 'Consulta al equipo de acompañamiento'
 }
-
-function agruparConversaciones(mensajes: MensajeResponse[], esChatAcademy = false): Conversacion[] {
-  const grupos = new Map<string, { asunto: string; mensajes: MensajeResponse[] }>()
-  for (const mensaje of mensajes) {
-    const asunto = esChatAcademy ? 'CAC Academy' : (mensaje.estudianteNombre || asuntoConversacion(mensaje.asunto))
-    const id = esChatAcademy ? `${mensaje.estudianteId}:cac-academy` : mensaje.estudianteId
-    const grupo = grupos.get(id) ?? { asunto, mensajes: [] }
-    grupo.mensajes.push(mensaje)
-    grupos.set(id, grupo)
-  }
-  return Array.from(grupos.entries()).map(([id, grupo]) => {
-    const mensajesOrdenados = [...grupo.mensajes].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    )
-    return {
-      id,
-      asunto: grupo.asunto,
-      mensajes: mensajesOrdenados,
-      ultimo: mensajesOrdenados[mensajesOrdenados.length - 1],
-      pendiente: mensajesOrdenados.some((mensaje) => mensaje.estado === 'ABIERTO'),
-    }
-  }).sort((a, b) => new Date(b.ultimo.createdAt).getTime() - new Date(a.ultimo.createdAt).getTime())
-}
-
 function IconButton({
   label,
   children,
@@ -193,13 +160,19 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<BusquedaResponse>(BUSQUEDA_VACIA)
 
-  const conversaciones = useMemo(() => agruparConversaciones(messages, esEstudiante), [messages, esEstudiante])
-  const conversacionSeleccionada = useMemo(
-    () => selectedMessage
-      ? conversaciones.find((conversacion) => conversacion.mensajes.some((mensaje) => mensaje.id === selectedMessage.id)) ?? null
-      : null,
-    [conversaciones, selectedMessage],
+  /**
+   * Un hilo por mensaje, del mas reciente al mas antiguo.
+   *
+   * La bandeja agrupaba por estudiante y mostraba una entrada por persona; con
+   * el modelo de turnos, la conversacion es el asunto y sus intervenciones, asi
+   * que la lista los enumera directamente.
+   */
+  const hilos = useMemo(
+    () => [...messages].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [messages],
   )
+
+
 
   useEffect(() => {
     if (!sesionLista) return
@@ -383,8 +356,10 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const unreadNotifications = esEstudiante
     ? studentUnreadNotifications
     : notificationItems.filter((notification) => !notification.leida).length
-  const pendingMessages = conversaciones.filter((conversacion) =>
-    esEstudiante ? conversacion.mensajes.some((mensaje) => mensaje.estado === 'RESPONDIDO') : conversacion.pendiente,
+  // Por hilo y no por estudiante: dos asuntos abiertos de la misma persona son
+  // dos cosas que atender, y agrupados contaban como una.
+  const pendingMessages = hilos.filter((hilo) =>
+    esEstudiante ? hilo.estado === 'RESPONDIDO' : hilo.estado === 'ABIERTO',
   ).length
 
   const openNotification = async (id: string) => {
@@ -437,9 +412,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
   }
 
   const abrirChatConEstudiante = (estudiante: EstudianteResponse) => {
-    const existente = conversaciones.find((conversacion) => conversacion.ultimo.estudianteId === estudiante.id)
+    const existente = hilos.find((hilo) => hilo.estudianteId === estudiante.id)
     if (existente) {
-      abrirMensaje(existente.ultimo)
+      abrirMensaje(existente)
       return
     }
     setDirectContact(null)
@@ -453,6 +428,21 @@ export function Header({ onOpenMobile }: HeaderProps) {
     setMessageError('')
     setMessageSheetOpen(true)
   }
+
+  /** Textos del hilo. El componente no traduce por su cuenta. */
+  const textosConversacion = locale === 'es'
+    ? {
+        escribir: 'Escribe un mensaje…', enviar: 'Enviar', adjuntar: 'Adjuntar un archivo',
+        responder: 'Responder a este mensaje', reaccionar: 'Reaccionar', cancelar: 'Quitar',
+        vacio: 'Todavía no hay mensajes en esta conversación.', cargando: 'Cargando conversación…',
+        respondiendoA: 'Respondiendo a', maxArchivos: 'Hasta 5 archivos',
+      }
+    : {
+        escribir: 'Write a message…', enviar: 'Send', adjuntar: 'Attach a file',
+        responder: 'Reply to this message', reaccionar: 'React', cancelar: 'Remove',
+        vacio: 'No messages in this conversation yet.', cargando: 'Loading conversation…',
+        respondiendoA: 'Replying to', maxArchivos: 'Up to 5 files',
+      }
 
   const messageCopy = locale === 'es'
     ? {
@@ -571,11 +561,14 @@ export function Header({ onOpenMobile }: HeaderProps) {
     { titulo: t('projects'), icon: FolderSimple, items: searchResults.programas },
     { titulo: t('documents'), icon: FileText, items: searchResults.documentos },
   ].filter((group) => group.items.length > 0)
+  // La cabecera describe el hilo abierto. Para el equipo, de quien es; para el
+  // estudiante, siempre el equipo. El asunto va debajo, que es lo que ahora
+  // distingue una conversacion de otra del mismo estudiante.
   const nombreChatActivo = esEstudiante
     ? 'CAC Academy'
-    : (conversacionSeleccionada?.ultimo.estudianteNombre ?? adminTarget?.nombre ?? '')
+    : (selectedMessage?.estudianteNombre ?? adminTarget?.nombre ?? '')
   const correoChatActivo = !esEstudiante
-    ? (conversacionSeleccionada?.ultimo.estudianteEmail ?? adminTarget?.email ?? '')
+    ? (selectedMessage?.estudianteEmail ?? adminTarget?.email ?? '')
     : ''
 
   return (
@@ -771,9 +764,29 @@ export function Header({ onOpenMobile }: HeaderProps) {
                   <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{adminTarget.nombre} {adminTarget.apellido}</span><span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{locale === 'es' ? 'Conversación nueva' : 'New conversation'}</span></span>
                 </button>
               )}
-              {conversaciones.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : conversaciones.map((conversacion) => (
-                <button key={conversacion.id} type="button" onClick={() => abrirMensaje(conversacion.ultimo)} className={cn('mb-0.5 w-full rounded-xl border border-transparent px-2.5 py-2 text-left transition-all hover:border-primary/15 hover:bg-background dark:hover:bg-[#13221d]', conversacionSeleccionada?.id === conversacion.id && 'border-primary/20 bg-background shadow-sm dark:bg-[#13221d]')}>
-                  <div className="flex items-start gap-2"><span className={cn('mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', conversacion.pendiente ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>{(esEstudiante ? 'AC' : conversacion.ultimo.estudianteNombre || 'E').slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? conversacion.asunto : conversacion.ultimo.estudianteNombre}</span>{conversacion.pendiente && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}</span><span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{esEstudiante ? (conversacion.ultimo.respuesta || conversacion.ultimo.contenido || ((conversacion.ultimo.respuestaAdjuntos?.length ?? 0) > 0 || (conversacion.ultimo.adjuntos?.length ?? 0) > 0 ? '📎 Archivo adjunto' : '')) : (conversacion.ultimo.respuesta || conversacion.ultimo.contenido || 'Sin mensajes')}</span><span className="mt-0.5 block text-[10px] text-muted-foreground">{formatMessageTime(conversacion.ultimo.createdAt, locale)}</span></span></div>
+              {/* Un hilo por asunto. Antes la lista fundia todos los mensajes de un
+                  mismo estudiante en una sola entrada, asi que abrirla solo
+                  ensenaba el ultimo asunto y los anteriores quedaban fuera de
+                  alcance. Ahora cada asunto es su propia conversacion, que es
+                  lo que el modelo de turnos guarda de verdad. */}
+              {hilos.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : hilos.map((hilo) => (
+                <button key={hilo.id} type="button" onClick={() => abrirMensaje(hilo)} className={cn('mb-0.5 w-full rounded-xl border border-transparent px-2.5 py-2 text-left transition-all hover:border-primary/15 hover:bg-background dark:hover:bg-[#13221d]', selectedMessage?.id === hilo.id && 'border-primary/20 bg-background shadow-sm dark:bg-[#13221d]')}>
+                  <div className="flex items-start gap-2">
+                    <span className={cn('mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', hilo.estado === 'ABIERTO' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>
+                      {(esEstudiante ? 'AC' : hilo.estudianteNombre || 'E').slice(0, 2).toUpperCase()}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5">
+                        <span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? asuntoConversacion(hilo.asunto) : hilo.estudianteNombre}</span>
+                        {hilo.estado === 'ABIERTO' && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}
+                      </span>
+                      {/* Para el equipo el asunto es la segunda linea: primero de
+                          quien es, luego sobre que. */}
+                      {!esEstudiante && <span className="mt-0.5 block truncate text-[11px] font-medium text-foreground/80">{asuntoConversacion(hilo.asunto)}</span>}
+                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{hilo.respuesta || hilo.contenido || ((hilo.adjuntos?.length ?? 0) > 0 ? '📎' : '')}</span>
+                      <span className="mt-0.5 block text-[10px] text-muted-foreground">{formatMessageTime(hilo.createdAt, locale)}</span>
+                    </span>
+                  </div>
                 </button>
               ))}
             </div>
@@ -799,69 +812,31 @@ export function Header({ onOpenMobile }: HeaderProps) {
                           ))}
                     </div>
                   </div>
-                ) : !conversacionSeleccionada && !adminTarget ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
+                ) : !selectedMessage && !adminTarget ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
                   <div className="mx-auto max-w-xl space-y-4">
                   <div>
-                    <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{nombreChatActivo}</h2>{conversacionSeleccionada && <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', conversacionSeleccionada.pendiente ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{conversacionSeleccionada.pendiente ? messageCopy.open : messageCopy.answered}</span>}</div>
+                    <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{nombreChatActivo}</h2>{selectedMessage && <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', selectedMessage.estado === 'ABIERTO' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{selectedMessage.estado === 'ABIERTO' ? messageCopy.open : messageCopy.answered}</span>}</div>
+                    {selectedMessage && <p className="text-sm font-medium text-foreground">{asuntoConversacion(selectedMessage.asunto)}</p>}
                     {!esEstudiante && <p className="text-xs text-muted-foreground">{correoChatActivo}</p>}
-                    {conversacionSeleccionada && <p className="mt-1 text-xs text-muted-foreground">{formatMessageTime(conversacionSeleccionada.ultimo.createdAt, locale)}</p>}
+                    {selectedMessage && <p className="mt-1 text-xs text-muted-foreground">{formatMessageTime(selectedMessage.createdAt, locale)}</p>}
                   </div>
                   <div className="space-y-3">
-                    {conversacionSeleccionada ? conversacionSeleccionada.mensajes.map((mensaje) => (
-                      <div key={mensaje.id} className="space-y-1.5">
-                        {(mensaje.contenido || (mensaje.adjuntos ?? []).length > 0) && <div className={cn('flex', esEstudiante ? 'justify-end' : 'justify-start')}>
-                          <div className={cn('w-fit max-w-[68%] break-words rounded-2xl px-3 py-2 text-[13px] leading-5 shadow-sm whitespace-pre-wrap sm:max-w-[64%]', esEstudiante ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground dark:bg-[#13221d]')}>
-                            <p className={cn('mb-1 text-[10px] font-semibold', esEstudiante ? 'text-primary-foreground/75' : 'text-muted-foreground')}>{esEstudiante ? (locale === 'es' ? 'Tú' : 'You') : mensaje.estudianteNombre}</p>
-                            {mensaje.contenido && <p>{mensaje.contenido}</p>}
-                            {(mensaje.adjuntos ?? []).length > 0 && (
-                              <div className="mt-2 grid gap-2">
-                                {mensaje.adjuntos.map((adjunto) => (
-                                  <a
-                                    key={adjunto.id}
-                                    href={adjunto.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className={cn('block overflow-hidden rounded-xl border text-left transition hover:brightness-95', esEstudiante ? 'border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground' : 'border-border/70 bg-muted/35 text-foreground')}
-                                  >
-                                    {isImageAttachment(adjunto.contentType) ? (
-                                      <><img src={adjunto.url} alt={adjunto.nombre} loading="lazy" className="max-h-64 w-full rounded-t-[11px] object-cover" /><span className="flex items-center gap-2 px-3 py-2 text-xs font-medium"><Paperclip className="size-3.5 shrink-0" />{adjunto.nombre}</span></>
-                                    ) : (
-                                      <span className="flex items-center gap-2 px-3 py-2.5 text-xs font-medium"><FileText className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{adjunto.nombre}</span><span className="shrink-0 opacity-70">{formatFileSize(adjunto.tamano)}</span></span>
-                                    )}
-                                  </a>
-                                ))}
-                              </div>
-                            )}
-                            <p className={cn('mt-1 text-[10px]', esEstudiante ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{formatMessageTime(mensaje.createdAt, locale)}</p>
-                          </div>
-                        </div>}
-                        {(mensaje.respuesta || (mensaje.respuestaAdjuntos ?? []).length > 0) && (
-                          <div className={cn('flex', esEstudiante ? 'justify-start' : 'justify-end')}>
-                            <div className={cn('w-fit max-w-[68%] break-words rounded-2xl px-3 py-2 text-[13px] leading-5 shadow-sm whitespace-pre-wrap sm:max-w-[64%]', esEstudiante ? 'rounded-tl-md border border-primary/20 bg-primary/5 text-foreground dark:bg-[#13221d]' : 'rounded-br-md bg-primary text-primary-foreground')}>
-                              <p className={cn('mb-1 text-[10px] font-semibold', esEstudiante ? 'text-primary' : 'text-primary-foreground/75')}>{messageCopy.response}</p>
-                              {mensaje.respuesta && <p>{mensaje.respuesta}</p>}
-                              {(mensaje.respuestaAdjuntos ?? []).length > 0 && (
-                                <div className="mt-2 grid gap-2">
-                                  {mensaje.respuestaAdjuntos.map((adjunto) => (
-                                    <a key={adjunto.id} href={adjunto.url} target="_blank" rel="noreferrer" className={cn('block overflow-hidden rounded-xl border text-left transition hover:brightness-95', esEstudiante ? 'border-primary/20 bg-background text-foreground' : 'border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground')}>
-                                      {isImageAttachment(adjunto.contentType) ? (
-                                        <><img src={adjunto.url} alt={adjunto.nombre} loading="lazy" className="max-h-64 w-full rounded-t-[11px] object-cover" /><span className="flex items-center gap-2 px-3 py-2 text-xs font-medium"><Paperclip className="size-3.5 shrink-0" />{adjunto.nombre}</span></>
-                                      ) : (
-                                        <span className="flex items-center gap-2 px-3 py-2.5 text-xs font-medium"><FileText className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{adjunto.nombre}</span><span className="shrink-0 opacity-70">{formatFileSize(adjunto.tamano)}</span></span>
-                                      )}
-                                    </a>
-                                  ))}
-                                </div>
-                              )}
-                              <p className={cn('mt-1 text-[10px]', esEstudiante ? 'text-muted-foreground' : 'text-primary-foreground/70')}>{mensaje.respondidoAt ? formatMessageTime(mensaje.respondidoAt, locale) : ''}</p>
-                            </div>
-                          </div>
-                        )}
+                    {selectedMessage ? (
+                      /* El hilo completo: turnos, citas, adjuntos y reacciones.
+                         Sustituye al par pregunta/respuesta, que solo sabia
+                         pintar un intercambio por mensaje. */
+                      <div className="h-[30rem] overflow-hidden rounded-2xl border border-border/70 bg-background dark:bg-[#13221d]">
+                        <HiloConversacion
+                          mensajeId={selectedMessage.id}
+                          soyEstudiante={esEstudiante}
+                          locale={locale}
+                          textos={textosConversacion}
+                          onTurnoNuevo={() => { void cargarMensajes() }}
+                        />
                       </div>
-                    )) : <div className="rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-8 text-center text-sm text-muted-foreground">{locale === 'es' ? 'Escribe el primer mensaje para iniciar la conversación.' : 'Write the first message to start the conversation.'}</div>}
+                    ) : <div className="rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-8 text-center text-sm text-muted-foreground">{locale === 'es' ? 'Escribe el primer mensaje para iniciar la conversación.' : 'Write the first message to start the conversation.'}</div>}
                   </div>
-                  {esEstudiante && conversacionSeleccionada && !conversacionSeleccionada.mensajes.some((mensaje) => mensaje.respuesta) && <p className="text-sm text-muted-foreground">{messageCopy.waiting}</p>}
-                  {!esEstudiante && (
+                  {!esEstudiante && !selectedMessage && (
                     <div className="space-y-2 rounded-2xl border border-border/70 bg-background p-3 dark:bg-[#13221d]">
                       <label htmlFor="respuesta-mensaje" className="text-sm font-medium text-foreground">{messageCopy.reply}</label>
                       {replyAttachments.length > 0 && <div className="flex flex-wrap gap-2">{replyAttachments.map((archivo, indice) => (
