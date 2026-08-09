@@ -47,12 +47,59 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import { usePreferences } from '@/lib/preferences'
 import { adminApi, configuracionApi, programasApi } from '@/lib/api'
+import { textosAdmin } from '@/lib/textos-admin'
 
 type TabKey = 'institucion' | 'academico' | 'integraciones' | 'plataformas' | 'usuarios' | 'mantenimiento'
+
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        estasSeguroDe: 'Are you sure you want to completely empty the transactional system? ALL students, vacancies, matches, skills and certificates will be physically deleted. This cannot be undone.',
+        operacionesMasivasDe: 'Bulk data-cleanup operations on the Academy CAC database.',
+        eliminacionPermanenteDe: 'Permanently delete inactive students, or empty the test environment.',
+        errorAlRestaurar: "The programme's students could not be restored.",
+        errorAlRealizar: 'The bulk deactivation failed.',
+        accionesMasivasPor: 'Bulk actions by academic programme',
+        desactivarEstudiantesDel: "Deactivate the programme's students",
+        hayanPasadoEl: 'are past the configured retention period',
+        purgaGlobalDe: 'Global purge of transactional data',
+        errorAlLimpiar: 'The transactional system could not be cleared.',
+        errorAlResetear: 'The programme could not be reset.',
+        errorAlPurgar: 'The bin could not be purged.',
+        parametrosDeOperacion: 'Operating parameters',
+        institucionSede: 'Institution and site',
+        seleccionarPrograma: 'Choose a programme:',
+      }
+    : {
+        estasSeguroDe: '¿Estás seguro de que deseas vaciar por completo todo el sistema transaccional? Se eliminarán físicamente TODOS los estudiantes, vacantes, matches, habilidades y certificaciones. Esta acción es irreversible.',
+        operacionesMasivasDe: 'Operaciones masivas de limpieza de datos en la base de datos de Academy CAC.',
+        eliminacionPermanenteDe: 'Eliminación permanente de estudiantes inactivos o vaciado del entorno de prueba.',
+        errorAlRestaurar: 'Error al restaurar los estudiantes del programa.',
+        errorAlRealizar: 'Error al realizar la desactivación masiva.',
+        accionesMasivasPor: 'Acciones masivas por programa académico',
+        desactivarEstudiantesDel: 'Desactivar estudiantes del programa',
+        hayanPasadoEl: 'hayan pasado el plazo de retención configurado',
+        purgaGlobalDe: 'Purga global de datos transaccionales',
+        errorAlLimpiar: 'Error al limpiar el sistema transaccional.',
+        errorAlResetear: 'Error al resetear el programa.',
+        errorAlPurgar: 'Error al purgar la papelera.',
+        parametrosDeOperacion: 'Parámetros de Operación',
+        institucionSede: 'Institución & Sede',
+        seleccionarPrograma: 'Seleccionar programa:',
+      }
+}
 
 export default function ConfiguracionPage() {
   const { user } = useAuth()
   const { theme, setTheme, locale, setLocale, t } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [activeTab, setActiveTab] = useState<TabKey>('institucion')
 
   const [programas, setProgramas] = useState<{ id: string; nombre: string }[]>([])
@@ -112,7 +159,7 @@ export default function ConfiguracionPage() {
     if (!selectedPgm) return
     setConfirmConfigState({
       open: true,
-      titulo: 'Desactivar estudiantes del programa',
+      titulo: T.desactivarEstudiantesDel,
       descripcion: `¿Estás seguro de que deseas desactivar todos los estudiantes del programa "${nombrePrograma(selectedPgm)}"? Pasarán a la papelera.`,
       destructivo: true,
       textoConfirmar: 'Desactivar',
@@ -123,7 +170,7 @@ export default function ConfiguracionPage() {
           const res = await adminApi.softDeletePrograma(selectedPgm)
           setAdminFeedback({ tipo: 'exito', texto: `Éxito: Se enviaron ${res.eliminados} estudiantes a la papelera.` })
         } catch {
-          setAdminFeedback({ tipo: 'error', texto: 'Error al realizar la desactivación masiva.' })
+          setAdminFeedback({ tipo: 'error', texto: T.errorAlRealizar })
         } finally {
           setBusyAction(null)
         }
@@ -149,7 +196,7 @@ export default function ConfiguracionPage() {
             texto: `Éxito: Se eliminaron permanentemente ${res.estudiantesEliminados} estudiantes.`,
           })
         } catch {
-          setAdminFeedback({ tipo: 'error', texto: 'Error al resetear el programa.' })
+          setAdminFeedback({ tipo: 'error', texto: T.errorAlResetear })
         } finally {
           setBusyAction(null)
         }
@@ -172,7 +219,7 @@ export default function ConfiguracionPage() {
           const res = await adminApi.restaurarProgramaEstudiantes(selectedPgm)
           setAdminFeedback({ tipo: 'exito', texto: `Éxito: ${res.mensaje}` })
         } catch {
-          setAdminFeedback({ tipo: 'error', texto: 'Error al restaurar los estudiantes del programa.' })
+          setAdminFeedback({ tipo: 'error', texto: T.errorAlRestaurar })
         } finally {
           setBusyAction(null)
         }
@@ -186,7 +233,7 @@ export default function ConfiguracionPage() {
     const plazo =
       diasRetencion !== null
         ? `lleven más de ${diasRetencion} días en la papelera`
-        : 'hayan pasado el plazo de retención configurado'
+        : T.hayanPasadoEl
     setConfirmConfigState({
       open: true,
       titulo: 'Purgar papelera',
@@ -203,7 +250,7 @@ export default function ConfiguracionPage() {
             texto: `Éxito: Se eliminaron físicamente ${res.eliminados} estudiantes con más de ${res.retencion} en la papelera.`,
           })
         } catch {
-          setAdminFeedback({ tipo: 'error', texto: 'Error al purgar la papelera.' })
+          setAdminFeedback({ tipo: 'error', texto: T.errorAlPurgar })
         } finally {
           setBusyAction(null)
         }
@@ -215,7 +262,7 @@ export default function ConfiguracionPage() {
     setConfirmConfigState({
       open: true,
       titulo: 'PELIGRO EXTREMO: Vaciar sistema',
-      descripcion: '¿Estás seguro de que deseas vaciar por completo todo el sistema transaccional? Se eliminarán físicamente TODOS los estudiantes, vacantes, matches, habilidades y certificaciones. Esta acción es irreversible.',
+      descripcion: T.estasSeguroDe,
       destructivo: true,
       textoConfirmar: 'Vaciar sistema completo',
       onConfirmar: async () => {
@@ -225,7 +272,7 @@ export default function ConfiguracionPage() {
           const res = await adminApi.cleanupSystem()
           setAdminFeedback({ tipo: 'exito', texto: `Éxito: ${res.mensaje}` })
         } catch {
-          setAdminFeedback({ tipo: 'error', texto: 'Error al limpiar el sistema transaccional.' })
+          setAdminFeedback({ tipo: 'error', texto: T.errorAlLimpiar })
         } finally {
           setBusyAction(null)
         }
@@ -240,8 +287,8 @@ export default function ConfiguracionPage() {
   ]
 
   const tabsNav: { id: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: 'institucion', label: 'Institución & Sede', icon: Bank },
-    { id: 'academico', label: 'Parámetros de Operación', icon: Sliders },
+    { id: 'institucion', label: T.institucionSede, icon: Bank },
+    { id: 'academico', label: T.parametrosDeOperacion, icon: Sliders },
     { id: 'integraciones', label: 'Integraciones & APIs', icon: ShareNetwork },
     { id: 'plataformas', label: 'Plataformas', icon: SquaresFour },
     { id: 'usuarios', label: 'Usuarios & Seguridad', icon: Shield },
@@ -377,17 +424,17 @@ export default function ConfiguracionPage() {
                   <ShieldWarning className="size-5" /> Mantenimiento transaccional &amp; zona de peligro
                 </CardTitle>
                 <CardDescription>
-                  Operaciones masivas de limpieza de datos en la base de datos de Academy CAC.
+                  {T.operacionesMasivasDe}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-6 pt-6">
                 <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-secondary/10 p-4">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">
-                    Acciones masivas por programa académico
+                    {T.accionesMasivasPor}
                   </h3>
                   <div className="flex flex-col items-end gap-3 sm:flex-row">
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Seleccionar programa:</label>
+                      <label className="text-xs font-medium text-muted-foreground">{T.seleccionarPrograma}</label>
                       {loadingPgms ? (
                         <div className="flex h-9 items-center gap-2 text-xs text-muted-foreground">
                           <CircleNotch className="size-3.5 animate-spin" /> Cargando lista…
@@ -444,10 +491,10 @@ export default function ConfiguracionPage() {
 
                 <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-destructive">
-                    Purga global de datos transaccionales
+                    {T.purgaGlobalDe}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Eliminación permanente de estudiantes inactivos o vaciado del entorno de prueba.
+                    {T.eliminacionPermanenteDe}
                   </p>
                   <div className="flex flex-wrap gap-2 pt-1">
                     <Button

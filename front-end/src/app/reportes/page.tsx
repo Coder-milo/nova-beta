@@ -21,6 +21,8 @@ import { dashboardApi, reportesApi, ApiCallError } from '@/lib/api'
 import { descargarCsv } from '@/lib/csv'
 import { hoyLocal } from '@/lib/utils'
 import type { DashboardSummaryResponse, DashboardChartsResponse, PuntoDato } from '@/lib/types'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 function MetricCard({ label, value, icon: Icon, color }: { label: string; value: string | number; icon: typeof Users; color: string }) {
   return (
@@ -51,7 +53,50 @@ function BarRow({ label, value, max, pct }: { label: string; value: number; max:
   )
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        estadisticasInstitucionalesY: 'Institutional statistics and downloads in Excel, PDF and CSV.',
+        estudiantesAgrupadosPor: 'Students grouped by their current academic status.',
+        distribucionDeEstudiantes: 'Active students broken down by programme.',
+        estadoDeEmpleabilidad: 'Employability status of the students.',
+        nuevosEstudiantesRegistrados: 'New students registered per month (current year).',
+        distribucionPorEstado: 'Breakdown by academic status',
+        historicoDeIngresos: 'Monthly intake history',
+        reportesYAnalitica: 'Reports and analytics',
+        estudiantesPorProyecto: 'Students by project',
+        nuevosEsteMes: 'New this month',
+        variacionMes: 'Month-on-month change',
+        activos: 'Active',
+        categoria: 'Category',
+      }
+    : {
+        estadisticasInstitucionalesY: 'Estadísticas institucionales y descargas en Excel, PDF y CSV.',
+        estudiantesAgrupadosPor: 'Estudiantes agrupados por su estado académico actual.',
+        distribucionDeEstudiantes: 'Distribución de estudiantes activos por programa.',
+        estadoDeEmpleabilidad: 'Estado de empleabilidad de los estudiantes.',
+        nuevosEstudiantesRegistrados: 'Nuevos estudiantes registrados por mes (año actual).',
+        distribucionPorEstado: 'Distribución por Estado Académico',
+        historicoDeIngresos: 'Histórico de Ingresos Mensuales',
+        reportesYAnalitica: 'Reportes y Analítica',
+        estudiantesPorProyecto: 'Estudiantes por Proyecto',
+        nuevosEsteMes: 'Nuevos este mes',
+        variacionMes: 'Variación mes',
+        activos: 'Activos',
+        categoria: 'Categoría',
+      }
+}
+
 export default function ReportesPage() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null)
   const [charts, setCharts] = useState<DashboardChartsResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -65,9 +110,9 @@ export default function ReportesPage() {
     } catch (err) {
       if (err instanceof ApiCallError) {
         setError(err.status === 401 || err.status === 403
-          ? 'Sin permisos. Inicia sesión como ADMIN o COORDINADOR.'
+          ? C.errorPermisos
           : `Error del servidor (HTTP ${err.status}).`)
-      } else { setError('No se pudo conectar con el backend.') }
+      } else { setError(C.errorConexion) }
     } finally { setLoading(false) }
   }
 
@@ -85,7 +130,7 @@ export default function ReportesPage() {
     const fecha = hoyLocal()
     descargarCsv(
       `${filename}-${fecha}.csv`,
-      ['Categoría', 'Cantidad', 'Porcentaje'],
+      [T.categoria, 'Cantidad', 'Porcentaje'],
       // El porcentaje va con coma decimal: con punto, Excel en español lo lee
       // como texto y no deja ni sumarlo ni graficarlo.
       rows.map((r) => [r.label, r.value, r.pct != null ? r.pct.toFixed(1).replace('.', ',') : '']),
@@ -96,8 +141,8 @@ export default function ReportesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Reportes y Analítica</h2>
-          <p className="text-xs text-muted-foreground">Estadísticas institucionales y descargas en Excel, PDF y CSV.</p>
+          <h2 className="text-lg font-semibold">{T.reportesYAnalitica}</h2>
+          <p className="text-xs text-muted-foreground">{T.estadisticasInstitucionalesY}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => reportesApi.exportar('estudiantes', 'xlsx')}>
@@ -132,25 +177,25 @@ export default function ReportesPage() {
         <>
           {/* KPI cards */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <MetricCard label="Total estudiantes" value={summary.totalEstudiantes.toLocaleString('es-CO')} icon={Users} color="bg-primary/10 text-primary" />
-            <MetricCard label="Activos" value={summary.activos.toLocaleString('es-CO')} icon={UserCheck} color="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" />
-            <MetricCard label="Graduados" value={summary.graduados.toLocaleString('es-CO')} icon={GraduationCap} color="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" />
-            <MetricCard label="Nuevos este mes" value={summary.nuevosEsteMes.toLocaleString('es-CO')} icon={TrendUp} color="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" />
+            <MetricCard label="Total estudiantes" value={summary.totalEstudiantes.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO')} icon={Users} color="bg-primary/10 text-primary" />
+            <MetricCard label={T.activos} value={summary.activos.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO')} icon={UserCheck} color="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" />
+            <MetricCard label="Graduados" value={summary.graduados.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO')} icon={GraduationCap} color="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" />
+            <MetricCard label={T.nuevosEsteMes} value={summary.nuevosEsteMes.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO')} icon={TrendUp} color="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" />
           </div>
 
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <MetricCard label="Retirados" value={summary.retirados.toLocaleString('es-CO')} icon={UserCircleMinus} color="bg-destructive/10 text-destructive" />
-            <MetricCard label="En proceso" value={summary.enProceso.toLocaleString('es-CO')} icon={Users} color="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" />
-            <MetricCard label="Proyectos" value={summary.totalProyectos.toLocaleString('es-CO')} icon={Kanban} color="bg-primary/10 text-primary" />
-            <MetricCard label="Variación mes" value={`${summary.variacionMesPct > 0 ? '+' : ''}${summary.variacionMesPct}%`} icon={TrendUp} color="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" />
+            <MetricCard label="Retirados" value={summary.retirados.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO')} icon={UserCircleMinus} color="bg-destructive/10 text-destructive" />
+            <MetricCard label="En proceso" value={summary.enProceso.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO')} icon={Users} color="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" />
+            <MetricCard label="Proyectos" value={summary.totalProyectos.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO')} icon={Kanban} color="bg-primary/10 text-primary" />
+            <MetricCard label={T.variacionMes} value={`${summary.variacionMesPct > 0 ? '+' : ''}${summary.variacionMesPct}%`} icon={TrendUp} color="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" />
           </div>
 
           {/* Distribución por Estado Académico */}
           <Card className="rounded-xl shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-base">Distribución por Estado Académico</CardTitle>
-                <CardDescription>Estudiantes agrupados por su estado académico actual.</CardDescription>
+                <CardTitle className="text-base">{T.distribucionPorEstado}</CardTitle>
+                <CardDescription>{T.estudiantesAgrupadosPor}</CardDescription>
               </div>
               <Button variant="ghost" size="sm" onClick={() => exportCSV(charts.distribucionEstado, 'distribucion_estado')}>
                 <DownloadSimple className="size-3.5" /> CSV
@@ -167,8 +212,8 @@ export default function ReportesPage() {
           <Card className="rounded-xl shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-base">Estudiantes por Proyecto</CardTitle>
-                <CardDescription>Distribución de estudiantes activos por programa.</CardDescription>
+                <CardTitle className="text-base">{T.estudiantesPorProyecto}</CardTitle>
+                <CardDescription>{T.distribucionDeEstudiantes}</CardDescription>
               </div>
               <Button variant="ghost" size="sm" onClick={() => exportCSV(charts.estudiantesPorProyecto, 'estudiantes_por_proyecto')}>
                 <DownloadSimple className="size-3.5" /> CSV
@@ -186,7 +231,7 @@ export default function ReportesPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base">Empleabilidad</CardTitle>
-                <CardDescription>Estado de empleabilidad de los estudiantes.</CardDescription>
+                <CardDescription>{T.estadoDeEmpleabilidad}</CardDescription>
               </div>
               <Button variant="ghost" size="sm" onClick={() => exportCSV(charts.empleabilidad, 'empleabilidad')}>
                 <DownloadSimple className="size-3.5" /> CSV
@@ -203,8 +248,8 @@ export default function ReportesPage() {
           <Card className="rounded-xl shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-base">Histórico de Ingresos Mensuales</CardTitle>
-                <CardDescription>Nuevos estudiantes registrados por mes (año actual).</CardDescription>
+                <CardTitle className="text-base">{T.historicoDeIngresos}</CardTitle>
+                <CardDescription>{T.nuevosEstudiantesRegistrados}</CardDescription>
               </div>
               <Button variant="ghost" size="sm" onClick={() => exportCSV(charts.historicoIngresos, 'historico_ingresos')}>
                 <DownloadSimple className="size-3.5" /> CSV
