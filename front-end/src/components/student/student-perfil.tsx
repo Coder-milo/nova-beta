@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { usePreferences } from '@/lib/preferences'
 
 interface Props {
   perfil: EstudianteResponse
@@ -48,7 +49,57 @@ function buildEditableFields(p: EstudianteResponse): EditableFields {
   }
 }
 
+/**
+ * Los textos de esta pantalla, en los dos idiomas.
+ *
+ * Junto al componente, como en documentos y postulaciones: `preferences`
+ * guarda lo que se repite en toda la aplicacion, no las cadenas de una vista.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        infoPersonal: 'Personal information', datosAdmin: 'Administrative data',
+        experiencia: 'Professional experience', formacion: 'Education and certifications',
+        competencias: 'Skills', idiomas: 'Languages', cargoObjetivo: 'Target role',
+        linkedin: 'LinkedIn profile', enlaceLinkedin: 'LinkedIn link',
+        abrirLinkedin: 'Open my LinkedIn profile ↗',
+        perfilCompletado: 'Profile completed',
+        celular: 'Mobile / WhatsApp', ciudad: 'City of residence', direccion: 'Address',
+        documento: 'ID document', programa: 'Programme', nivelIngles: 'English level',
+        disponibilidad: 'Availability', inmediata: 'Immediate',
+        sinRegistrar: 'Not recorded', sinAsignar: 'Not assigned', sinFecha: 'No date',
+        noDisponible: 'Not available', selecciona: 'Choose…', presente: 'Present',
+        actualidad: 'Present', institucion: 'Institution',
+        phDireccion: 'Street 00 # 00-00', phCiudad: 'Barranquilla',
+        phIdiomas: 'Spanish, English B1, Portuguese…',
+        phLinkedin: 'https://www.linkedin.com/in/your-profile',
+        errorGuardar: 'Could not save. Please try again.',
+        errorFoto: 'The photo could not be uploaded',
+      }
+    : {
+        infoPersonal: 'Información personal', datosAdmin: 'Datos administrativos',
+        experiencia: 'Experiencia profesional', formacion: 'Formación académica y certificaciones',
+        competencias: 'Competencias', idiomas: 'Idiomas', cargoObjetivo: 'Cargo objetivo',
+        linkedin: 'Perfil de LinkedIn', enlaceLinkedin: 'Enlace de LinkedIn',
+        abrirLinkedin: 'Abrir mi perfil de LinkedIn ↗',
+        perfilCompletado: 'Perfil completado',
+        celular: 'Celular / WhatsApp', ciudad: 'Ciudad de residencia', direccion: 'Dirección',
+        documento: 'Documento', programa: 'Programa', nivelIngles: 'Nivel de inglés',
+        disponibilidad: 'Disponibilidad laboral', inmediata: 'Inmediata',
+        sinRegistrar: 'Sin registrar', sinAsignar: 'Sin asignar', sinFecha: 'Sin fecha',
+        noDisponible: 'No disponible', selecciona: 'Selecciona…', presente: 'Presente',
+        actualidad: 'Actualidad', institucion: 'Institución',
+        phDireccion: 'Calle 00 # 00-00', phCiudad: 'Barranquilla',
+        phIdiomas: 'Español, Inglés B1, Portugués…',
+        phLinkedin: 'https://www.linkedin.com/in/tu-perfil',
+        errorGuardar: 'No se pudo guardar. Intenta de nuevo.',
+        errorFoto: 'Error al subir la foto',
+      }
+}
+
 export function StudentPerfil({ perfil, onUpdate }: Props) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   const { mostrarError, avisos } = useAvisos()
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -96,7 +147,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
       setError(
         e instanceof ApiCallError
           ? (e.body.message ?? `Error del servidor (${e.status})`)
-          : 'No se pudo guardar. Intenta de nuevo.',
+          : T.errorGuardar,
       )
     } finally {
       setSaving(false)
@@ -134,7 +185,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                   const res = await estudiantesApi.subirFoto(perfil.id, file)
                   onUpdate(res)
                 } catch (err) {
-                  mostrarError(mensajeDeError(err, 'Error al subir la foto'))
+                  mostrarError(mensajeDeError(err, T.errorFoto))
                 }
               }}
             />
@@ -159,7 +210,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
             {/* Barra de completitud */}
             <div className="mt-5 w-full">
               <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
-                <span>Perfil completado</span>
+                <span>{T.perfilCompletado}</span>
                 <span className="font-semibold text-foreground">{completitud}%</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-secondary">
@@ -180,7 +231,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
         {/* Datos que solo el coordinador puede cambiar */}
         <Card className="shadow-none">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Datos administrativos</CardTitle>
+            <CardTitle className="text-sm">{T.datosAdmin}</CardTitle>
             <CardDescription className="text-xs">
               Solo el coordinador puede modificarlos.
             </CardDescription>
@@ -188,12 +239,12 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
           <CardContent className="space-y-3">
             {[
               [
-                'Documento',
+                T.documento,
                 `${perfil.tipoDocumento ?? ''} ${perfil.numeroDocumento ?? ''}`.trim() ||
                   'Sin registrar',
               ],
-              ['Programa', perfil.programaNombre ?? 'Sin asignar'],
-              ['Institución', perfil.institucionEducativa ?? 'Sin registrar'],
+              [T.programa, perfil.programaNombre ?? T.sinAsignar],
+              [T.institucion, perfil.institucionEducativa ?? 'Sin registrar'],
             ].map(([label, value]) => (
               <div key={label}>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -210,7 +261,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
       <Card className="shadow-none">
         <CardHeader className="flex flex-row items-start justify-between gap-3">
           <div>
-            <CardTitle>Información personal</CardTitle>
+            <CardTitle>{T.infoPersonal}</CardTitle>
             <CardDescription>
               Completa tu perfil para mejorar tus oportunidades laborales.
             </CardDescription>
@@ -236,9 +287,9 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
             <div className="grid gap-4 sm:grid-cols-2">
               {(
                 [
-                  { label: 'Celular / WhatsApp', key: 'celular', type: 'tel', placeholder: '+57 300 000 0000' },
-                  { label: 'Ciudad de residencia', key: 'ciudad', type: 'text', placeholder: 'Medellín' },
-                  { label: 'Dirección', key: 'direccion', type: 'text', placeholder: 'Calle 00 # 00-00' },
+                  { label: T.celular, key: 'celular', type: 'tel', placeholder: '+57 300 000 0000' },
+                  { label: T.ciudad, key: 'ciudad', type: 'text', placeholder: T.phCiudad },
+                  { label: T.direccion, key: 'direccion', type: 'text', placeholder: T.phDireccion },
                 ] as const
               ).map(({ label, key, type, placeholder }) => (
                 <div key={key} className="flex flex-col gap-1.5">
@@ -261,26 +312,26 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                   value={form.disponibilidadLaboral}
                   onChange={(e) => setForm({ ...form, disponibilidadLaboral: e.target.value })}
                 >
-                  <option value="">Selecciona…</option>
-                  <option value="INMEDIATA">Inmediata</option>
+                  <option value="">{T.selecciona}</option>
+                  <option value="INMEDIATA">{T.inmediata}</option>
                   <option value="15_DIAS">15 días</option>
                   <option value="30_DIAS">30 días</option>
                   <option value="60_DIAS">60 días</option>
-                  <option value="NO_DISPONIBLE">No disponible</option>
+                  <option value="NO_DISPONIBLE">{T.noDisponible}</option>
                 </select>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Idiomas</label>
+                <label className="text-xs font-medium text-muted-foreground">{T.idiomas}</label>
                 <Input
-                  placeholder="Español, Inglés B1, Portugués..."
+                  placeholder={T.phIdiomas}
                   value={form.idiomas}
                   onChange={(e) => setForm({ ...form, idiomas: e.target.value })}
                 />
               </div>
 
               <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <label className="text-xs font-medium text-muted-foreground">Cargo objetivo</label>
+                <label className="text-xs font-medium text-muted-foreground">{T.cargoObjetivo}</label>
                 <Input
                   placeholder="Ej: Desarrollador Frontend, Analista de Datos..."
                   value={form.cargoObjetivo}
@@ -301,10 +352,10 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
               </div>
 
               <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <label className="text-xs font-medium text-muted-foreground">Enlace de LinkedIn</label>
+                <label className="text-xs font-medium text-muted-foreground">{T.enlaceLinkedin}</label>
                 <Input
                   type="url"
-                  placeholder="https://www.linkedin.com/in/tu-perfil"
+                  placeholder={T.phLinkedin}
                   value={form.linkedinUrl}
                   onChange={(e) => setForm({ ...form, linkedinUrl: e.target.value })}
                 />
@@ -312,7 +363,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
               </div>
 
               <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <label className="text-xs font-medium text-muted-foreground">Competencias</label>
+                <label className="text-xs font-medium text-muted-foreground">{T.competencias}</label>
                 <Textarea
                   className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                   placeholder="Trabajo en equipo, liderazgo, comunicación asertiva..."
@@ -342,11 +393,11 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
             /* ── Vista de datos ── */
             <div className="grid gap-5 sm:grid-cols-2">
               {[
-                ['Celular / WhatsApp', perfil.celular],
+                [T.celular, perfil.celular],
                 ['Ciudad', perfil.ciudad],
-                ['Dirección', perfil.direccion],
-                ['Nivel de inglés', perfil.nivelIngles],
-                ['Disponibilidad laboral', perfil.disponibilidadLaboral],
+                [T.direccion, perfil.direccion],
+                [T.nivelIngles, perfil.nivelIngles],
+                [T.disponibilidad, perfil.disponibilidadLaboral],
                 ['Idiomas', perfil.idiomas],
               ].map(([l, v]) => (
                 <div key={l}>
@@ -355,7 +406,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                   </p>
                   <p className="mt-1 text-sm font-medium">
                     {v ?? (
-                      <span className="italic text-muted-foreground/60">Sin registrar</span>
+                      <span className="italic text-muted-foreground/60">{T.sinRegistrar}</span>
                     )}
                   </p>
                 </div>
@@ -367,7 +418,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                 </p>
                 <p className="mt-1 text-sm">
                   {perfil.cargoObjetivo ?? (
-                    <span className="italic text-muted-foreground/60">Sin registrar</span>
+                    <span className="italic text-muted-foreground/60">{T.sinRegistrar}</span>
                   )}
                 </p>
               </div>
@@ -378,14 +429,14 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                 </p>
                 <p className="mt-1 text-sm leading-6">
                   {perfil.perfilProfesional ?? (
-                    <span className="italic text-muted-foreground/60">Sin registrar</span>
+                    <span className="italic text-muted-foreground/60">{T.sinRegistrar}</span>
                   )}
                 </p>
               </div>
 
               <div className="sm:col-span-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Perfil de LinkedIn</p>
-                {perfil.linkedinUrl ? <a href={perfil.linkedinUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex text-sm font-medium text-primary hover:underline">Abrir mi perfil de LinkedIn ↗</a> : <p className="mt-1 text-sm italic text-muted-foreground/60">Sin registrar</p>}
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{T.linkedin}</p>
+                {perfil.linkedinUrl ? <a href={perfil.linkedinUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex text-sm font-medium text-primary hover:underline">{T.abrirLinkedin}</a> : <p className="mt-1 text-sm italic text-muted-foreground/60">{T.sinRegistrar}</p>}
               </div>
 
               {perfil.competencias && (
@@ -406,7 +457,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <div className="flex items-center gap-2">
             <Briefcase className="size-4 text-primary" />
-            <CardTitle className="text-base">Experiencia profesional</CardTitle>
+            <CardTitle className="text-base">{T.experiencia}</CardTitle>
           </div>
           <a href="/mi-hoja-de-vida" className="text-xs font-medium text-primary hover:underline">
             Gestionar en Hoja de Vida ↗
@@ -424,7 +475,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                   <div className="flex flex-wrap items-center justify-between gap-1 font-semibold">
                     <span>{exp.cargo}</span>
                     <span className="text-xs font-normal text-muted-foreground">
-                      {exp.fechaInicio ?? 'Sin fecha'} — {exp.actual ? 'Actualidad' : exp.fechaFin ?? 'Presente'}
+                      {exp.fechaInicio ?? T.sinFecha} — {exp.actual ? T.actualidad : exp.fechaFin ?? T.presente}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">{exp.empresa}</p>
@@ -441,7 +492,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <div className="flex items-center gap-2">
             <GraduationCap className="size-4 text-primary" />
-            <CardTitle className="text-base">Formación académica y certificaciones</CardTitle>
+            <CardTitle className="text-base">{T.formacion}</CardTitle>
           </div>
           <a href="/mi-hoja-de-vida" className="text-xs font-medium text-primary hover:underline">
             Gestionar en Hoja de Vida ↗
