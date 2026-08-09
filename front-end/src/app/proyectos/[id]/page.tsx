@@ -104,9 +104,10 @@ function formatoTamano(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function formatoFecha(fecha: string): string {
+/** `en-GB` y no `en-US`: el dia primero, como en el resto del sistema. */
+function formatoFecha(fecha: string, english = false): string {
   try {
-    return new Date(fecha).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
+    return new Date(fecha).toLocaleString(english ? 'en-GB' : 'es-CO', { dateStyle: 'medium', timeStyle: 'short' })
   } catch { return fecha }
 }
 
@@ -556,7 +557,7 @@ function TabDocumentos({ programaId }: { programaId: string }) {
                       <td className="px-4 py-3 text-muted-foreground tabular-nums">v{doc.numeroVersion}</td>
                       <td className="px-4 py-3 text-muted-foreground tabular-nums">{formatoTamano(doc.tamano)}</td>
                       <td className="px-4 py-3 text-muted-foreground">{doc.subidoPor ?? '—'}</td>
-                      <td className="px-4 py-3 text-muted-foreground tabular-nums">{formatoFecha(doc.createdAt)}</td>
+                      <td className="px-4 py-3 text-muted-foreground tabular-nums">{formatoFecha(doc.createdAt, locale === 'en')}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex gap-1">
                           <button type="button" onClick={() => handleDownload(doc)} title="Descargar" aria-label={`Descargar ${doc.nombre}`}
@@ -878,7 +879,7 @@ function TabHistorial({ programaId }: { programaId: string }) {
                 <span className="text-sm font-medium text-foreground">{reg.accion}</span>
                 <span className="text-xs text-muted-foreground">· {reg.usuario}</span>
               </div>
-              <span className="text-xs text-muted-foreground tabular-nums">{formatoFecha(reg.fecha)}</span>
+              <span className="text-xs text-muted-foreground tabular-nums">{formatoFecha(reg.fecha, locale === 'en')}</span>
             </div>
             {(reg.datosAnteriores || reg.datosNuevos) && (
               <div className="grid gap-2 sm:grid-cols-2">

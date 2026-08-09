@@ -373,7 +373,7 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
                       <p className="truncate text-xs font-medium text-foreground">
                         {m.estudiante || m.remitente || T.numeroDesconocido}
                         <span className="ml-2 font-normal text-muted-foreground">
-                          {new Date(m.fecha).toLocaleString('es-CO')}
+                          {new Date(m.fecha).toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO')}
                         </span>
                       </p>
                       <p className="truncate text-xs text-muted-foreground">{m.texto}</p>

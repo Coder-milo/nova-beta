@@ -36,9 +36,10 @@ function etiquetaAccion(T: ReturnType<typeof textos>, valor: string) {
            'Eliminación': T.eliminacion, 'Cambio de estado': T.cambioDeEstado }[valor] ?? valor
 }
 
-function formatoFecha(fecha: string): string {
+/** `en-GB` y no `en-US`: el dia primero, como en el resto del sistema. */
+function formatoFecha(fecha: string, english = false): string {
   try {
-    return new Date(fecha).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
+    return new Date(fecha).toLocaleString(english ? 'en-GB' : 'es-CO', { dateStyle: 'medium', timeStyle: 'short' })
   } catch { return fecha }
 }
 
@@ -236,7 +237,7 @@ export default function AuditoriaPage() {
                 <tbody className="divide-y divide-border">
                   {page.content.map((reg) => (
                     <tr key={reg.id} onClick={() => setSelected(reg)} className="cursor-pointer hover:bg-secondary/30 transition-colors">
-                      <td className="px-4 py-3 text-muted-foreground tabular-nums whitespace-nowrap">{formatoFecha(reg.fecha)}</td>
+                      <td className="px-4 py-3 text-muted-foreground tabular-nums whitespace-nowrap">{formatoFecha(reg.fecha, locale === 'en')}</td>
                       <td className="px-4 py-3 text-foreground">{reg.usuario}</td>
                       <td className="px-4 py-3 text-muted-foreground">{reg.modulo}</td>
                       <td className="px-4 py-3 text-muted-foreground">{reg.accion}</td>
@@ -277,7 +278,7 @@ export default function AuditoriaPage() {
             <>
               <SheetHeader className="p-6 border-b border-border shrink-0">
                 <SheetTitle className="text-base">{T.detalleDelRegistro}</SheetTitle>
-                <SheetDescription className="text-xs tabular-nums">{formatoFecha(selected.fecha)}</SheetDescription>
+                <SheetDescription className="text-xs tabular-nums">{formatoFecha(selected.fecha, locale === 'en')}</SheetDescription>
               </SheetHeader>
 
               <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">

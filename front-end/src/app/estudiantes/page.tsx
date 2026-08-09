@@ -1490,7 +1490,7 @@ export default function EstudiantesPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <SheetTitle className="text-base truncate">{selected.nombre} {selected.apellido}</SheetTitle>
-                    <SheetDescription className="text-xs truncate">{selected.programaNombre ?? C.programa} · Registro: {new Date(selected.createdAt).toLocaleDateString('es-CO')}</SheetDescription>
+                    <SheetDescription className="text-xs truncate">{selected.programaNombre ?? C.programa} · Registro: {new Date(selected.createdAt).toLocaleDateString(locale === 'en' ? 'en-GB' : 'es-CO')}</SheetDescription>
                     <div className="flex gap-3 mt-2 flex-wrap">
                       <EstadoDot {...estadoAcademico(T, C, selected.estadoAcademico)} />
                       <EstadoDot {...estadoEmpleabilidad(T, C, selected.estadoEmpleabilidad)} />

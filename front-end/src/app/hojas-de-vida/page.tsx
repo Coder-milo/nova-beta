@@ -1030,7 +1030,7 @@ export default function HojasDeVidaPage() {
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground tabular-nums">{new Date(pl.createdAt).toLocaleDateString('es-CO')}</td>
+                        <td className="px-4 py-3 text-muted-foreground tabular-nums">{new Date(pl.createdAt).toLocaleDateString(locale === 'en' ? 'en-GB' : 'es-CO')}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="inline-flex gap-1">
                             <button type="button" onClick={() => handleVistaPrevia(pl)} title={T.verPlantillaCon} aria-label={T.vistaPreviaDeX(pl.nombre)}

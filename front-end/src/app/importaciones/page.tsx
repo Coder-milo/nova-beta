@@ -673,7 +673,7 @@ export default function ImportacionesPage() {
                       <td className="px-4 py-3 text-right tabular-nums text-foreground">{h.creados}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-foreground">{h.actualizados}</td>
                       <td className={`px-4 py-3 text-right tabular-nums ${h.errores > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>{h.errores}</td>
-                      <td className="px-4 py-3 text-muted-foreground tabular-nums">{new Date(h.createdAt).toLocaleDateString('es-CO')}</td>
+                      <td className="px-4 py-3 text-muted-foreground tabular-nums">{new Date(h.createdAt).toLocaleDateString(locale === 'en' ? 'en-GB' : 'es-CO')}</td>
                     </tr>
                   ))}
                 </tbody>

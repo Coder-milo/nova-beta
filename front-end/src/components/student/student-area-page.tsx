@@ -556,7 +556,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                     <div>
                       <p className="font-semibold">CAC Academy</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Enviado {new Date(mensaje.createdAt).toLocaleString('es-CO')}
+                        Enviado {new Date(mensaje.createdAt).toLocaleString(english ? 'en-GB' : 'es-CO')}
                       </p>
                     </div>
                     <Badge variant={mensaje.estado === 'RESPONDIDO' ? 'default' : 'secondary'}>
@@ -705,7 +705,8 @@ function fechaLocalYyyyMmDd(d: Date): string {
 }
 
 function CalendarioEstudiante({ actividades }: { actividades: ActividadResponse[] }) {
-  const A = textosArea(usePreferences().locale === 'en')
+  const english = usePreferences().locale === 'en'
+  const A = textosArea(english)
   const hoy = new Date()
   const [mes, setMes] = useState(() => new Date(hoy.getFullYear(), hoy.getMonth(), 1))
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => fechaLocalYyyyMmDd(hoy))
@@ -713,7 +714,12 @@ function CalendarioEstudiante({ actividades }: { actividades: ActividadResponse[
   const indiceMes = mes.getMonth()
   const primerDia = (new Date(anio, indiceMes, 1).getDay() + 6) % 7
   const diasMes = new Date(anio, indiceMes + 1, 0).getDate()
-  const etiquetaMes = new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' }).format(mes)
+  // El nombre del mes en la cabecera del calendario. Es lo mas visible de la
+  // pantalla, y en ingles seguia diciendo «agosto de 2026».
+  const etiquetaMes = new Intl.DateTimeFormat(
+    english ? 'en-GB' : 'es-CO',
+    { month: 'long', year: 'numeric' },
+  ).format(mes)
   const eventosDia = actividades.filter((actividad) => actividad.fecha === diaSeleccionado)
   const eventosProximos = actividades
     .filter((actividad) => actividad.fecha >= fechaLocalYyyyMmDd(hoy))
@@ -748,8 +754,8 @@ function CalendarioEstudiante({ actividades }: { actividades: ActividadResponse[
           </div>
         </CardContent>
       </Card>
-      <Card className="shadow-none"><CardHeader><CardTitle className="text-base">{new Date(`${diaSeleccionado}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}</CardTitle><CardDescription>{eventosDia.length ? `${eventosDia.length} evento${eventosDia.length === 1 ? '' : 's'} programado${eventosDia.length === 1 ? '' : 's'}` : A.noHayEventosPara}</CardDescription></CardHeader><CardContent className="space-y-3">{eventosDia.length ? eventosDia.map((actividad) => <div key={actividad.id} className="rounded-xl border border-border p-3"><p className="font-semibold">{actividad.nombre}</p><p className="mt-1 text-xs text-muted-foreground">{actividad.hora ? `${actividad.hora} · ` : ''}{actividad.categoria}{actividad.responsable ? ` · ${actividad.responsable}` : ''}</p>{actividad.descripcion && <p className="mt-2 text-sm text-muted-foreground">{actividad.descripcion}</p>}</div>) : <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground"><CalendarBlank className="mx-auto mb-2 size-5" />{A.seleccionaOtroDiaPara}</div>}</CardContent></Card>
-      <Card className="shadow-none xl:col-span-2"><CardHeader><CardTitle className="text-base">{A.proximosEventos}</CardTitle></CardHeader><CardContent>{eventosProximos.length ? <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">{eventosProximos.map((actividad) => <button key={actividad.id} type="button" onClick={() => { const [year, month] = actividad.fecha.split('-').map(Number); setMes(new Date(year, month - 1, 1)); setDiaSeleccionado(actividad.fecha) }} className="rounded-xl border border-border p-3 text-left hover:border-primary/40 hover:bg-primary/[0.03]"><p className="font-semibold">{actividad.nombre}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(`${actividad.fecha}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}{actividad.hora ? ` · ${actividad.hora}` : ''}</p></button>)}</div> : <p className="text-sm text-muted-foreground">{A.elEquipoAunNo}</p>}</CardContent></Card>
+      <Card className="shadow-none"><CardHeader><CardTitle className="text-base">{new Date(`${diaSeleccionado}T12:00:00`).toLocaleDateString(english ? 'en-GB' : 'es-CO', { day: 'numeric', month: 'long' })}</CardTitle><CardDescription>{eventosDia.length ? `${eventosDia.length} evento${eventosDia.length === 1 ? '' : 's'} programado${eventosDia.length === 1 ? '' : 's'}` : A.noHayEventosPara}</CardDescription></CardHeader><CardContent className="space-y-3">{eventosDia.length ? eventosDia.map((actividad) => <div key={actividad.id} className="rounded-xl border border-border p-3"><p className="font-semibold">{actividad.nombre}</p><p className="mt-1 text-xs text-muted-foreground">{actividad.hora ? `${actividad.hora} · ` : ''}{actividad.categoria}{actividad.responsable ? ` · ${actividad.responsable}` : ''}</p>{actividad.descripcion && <p className="mt-2 text-sm text-muted-foreground">{actividad.descripcion}</p>}</div>) : <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground"><CalendarBlank className="mx-auto mb-2 size-5" />{A.seleccionaOtroDiaPara}</div>}</CardContent></Card>
+      <Card className="shadow-none xl:col-span-2"><CardHeader><CardTitle className="text-base">{A.proximosEventos}</CardTitle></CardHeader><CardContent>{eventosProximos.length ? <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">{eventosProximos.map((actividad) => <button key={actividad.id} type="button" onClick={() => { const [year, month] = actividad.fecha.split('-').map(Number); setMes(new Date(year, month - 1, 1)); setDiaSeleccionado(actividad.fecha) }} className="rounded-xl border border-border p-3 text-left hover:border-primary/40 hover:bg-primary/[0.03]"><p className="font-semibold">{actividad.nombre}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(`${actividad.fecha}T12:00:00`).toLocaleDateString(english ? 'en-GB' : 'es-CO', { day: 'numeric', month: 'short' })}{actividad.hora ? ` · ${actividad.hora}` : ''}</p></button>)}</div> : <p className="text-sm text-muted-foreground">{A.elEquipoAunNo}</p>}</CardContent></Card>
     </div>
   )
 }
