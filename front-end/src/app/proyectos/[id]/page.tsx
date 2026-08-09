@@ -39,28 +39,47 @@ import type {
   ActividadResponse, AuditoriaResponse, Page, PlataformaResponse,
 } from '@/lib/types'
 import { Textarea } from '@/components/ui/textarea'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin, type TextosAdmin } from '@/lib/textos-admin'
 
 // ─── Etiquetas de estado ──────────────────────────────────────────────────────
 
-const estadoLabels: Record<ProgramaEstado, { label: string; dot: string; text: string }> = {
-  PLANEACION:   { label: 'Planeación',   dot: 'bg-navy-200', text: 'text-navy-400' },
-  BORRADOR:     { label: 'Borrador',     dot: 'bg-navy-300', text: 'text-navy-500' },
-  ACTIVO:       { label: 'Activo',       dot: 'bg-success',  text: 'text-[#0F6E56]' },
-  EN_EJECUCION: { label: 'En ejecución', dot: 'bg-success',  text: 'text-[#0F6E56]' },
-  PAUSADO:      { label: 'Pausado',      dot: 'bg-warning',  text: 'text-amber-700' },
-  FINALIZADO:   { label: 'Finalizado',   dot: 'bg-navy-800', text: 'text-navy-800' },
-  CANCELADO:    { label: 'Cancelado',    dot: 'bg-red-600',  text: 'text-red-700' },
-  ARCHIVADO:    { label: 'Archivado',    dot: 'bg-red-600',  text: 'text-red-700' },
-}
-
-const estadoAcademicoLabels: Record<string, { label: string; dot: string; text: string }> = {
-  ACTIVO:     { label: 'Activo',     dot: 'bg-navy-500', text: 'text-navy-600' },
-  GRADUADO:   { label: 'Graduado',   dot: 'bg-navy-800', text: 'text-navy-800' },
-  RETIRADO:   { label: 'Retirado',   dot: 'bg-red-600',  text: 'text-red-700' },
-  EN_PROCESO: { label: 'En proceso', dot: 'bg-navy-300', text: 'text-navy-500' },
-}
-
 const estadoFallback = { dot: 'bg-muted-foreground/40', text: 'text-muted-foreground' }
+
+/** El color no depende del idioma; la etiqueta si, y se resuelve aparte. */
+const estiloPrograma: Record<ProgramaEstado, { dot: string; text: string }> = {
+  PLANEACION:   { dot: 'bg-navy-200', text: 'text-navy-400' },
+  BORRADOR:     { dot: 'bg-navy-300', text: 'text-navy-500' },
+  ACTIVO:       { dot: 'bg-success',  text: 'text-[#0F6E56]' },
+  EN_EJECUCION: { dot: 'bg-success',  text: 'text-[#0F6E56]' },
+  PAUSADO:      { dot: 'bg-warning',  text: 'text-amber-700' },
+  FINALIZADO:   { dot: 'bg-navy-800', text: 'text-navy-800' },
+  CANCELADO:    { dot: 'bg-red-600',  text: 'text-red-700' },
+  ARCHIVADO:    { dot: 'bg-red-600',  text: 'text-red-700' },
+}
+
+const estiloAcademico: Record<string, { dot: string; text: string }> = {
+  ACTIVO:     { dot: 'bg-navy-500', text: 'text-navy-600' },
+  GRADUADO:   { dot: 'bg-navy-800', text: 'text-navy-800' },
+  RETIRADO:   { dot: 'bg-red-600',  text: 'text-red-700' },
+  EN_PROCESO: { dot: 'bg-navy-300', text: 'text-navy-500' },
+}
+
+function estadoAcademico(C: TextosAdmin, codigo: string) {
+  const etiquetas: Record<string, string> = {
+    ACTIVO: C.activo, GRADUADO: C.graduado, RETIRADO: C.retirado, EN_PROCESO: C.enProceso,
+  }
+  return { label: etiquetas[codigo] ?? codigo, ...(estiloAcademico[codigo] ?? estadoFallback) }
+}
+
+function estadoPrograma(T: ReturnType<typeof textos>, C: TextosAdmin, codigo: ProgramaEstado) {
+  const etiquetas: Record<ProgramaEstado, string> = {
+    PLANEACION: T.planeacion, BORRADOR: T.borrador, ACTIVO: C.activo,
+    EN_EJECUCION: T.enEjecucion, PAUSADO: T.pausado, FINALIZADO: T.finalizado,
+    CANCELADO: T.cancelado, ARCHIVADO: T.archivado,
+  }
+  return { label: etiquetas[codigo] ?? codigo, ...(estiloPrograma[codigo] ?? estadoFallback) }
+}
 
 // Campos extendidos del programa que aún no están en el DTO base.
 type ProgramaExtra = {
@@ -91,11 +110,165 @@ function formatoFecha(fecha: string): string {
   } catch { return fecha }
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        borrador: 'Draft',
+        pausado: 'Paused',
+        finalizado: 'Finished',
+        cancelado: 'Cancelled',
+        archivado: 'Archived',
+
+        completada: 'Completed',
+        resumen: 'Summary',
+        hojasDeVidaTab: 'Résumés',
+        actividades: 'Activities',
+        plataformas: 'Platforms',
+        historial: 'History',
+
+        lasPlataformasQue: "The platforms students on this project can have. They are then assigned one by one from each student's record.",
+        aunNoHay: 'No platforms created yet. Add them from Settings → Platforms.',
+        generaLaHoja: 'Generates the résumé of every student linked to this project.',
+        noHayRegistros: 'There are no audit records for this project.',
+        noHayActividades: 'No activities recorded for this project.',
+        noSePudieron: "The project's students could not be loaded.",
+        noSePudieronX: "The project's documents could not be loaded.",
+        noSePudieronXX: "The project's activities could not be loaded.",
+        noHayDocumentos: 'There are no documents attached to this project.',
+        esteProyectoAun: 'This project has no students linked yet.',
+        elNombreEs: 'The name is required. The other fields are optional.',
+        generarHojasDe: "Generate the project's résumés",
+        soloEstudiantesCon: 'Only students with complete information',
+        elEstadoDel: 'The project status will change to “Finished”.',
+        sinClienteNi: 'No client or person in charge assigned.',
+        noSePudo: 'The project summary could not be loaded.',
+        noSePudoX: 'The project history could not be loaded.',
+        plataformasDelProyecto: "The project's platforms were updated.",
+        noSePudieronXXX: 'The platforms could not be loaded.',
+        elProyectoNo: 'The project does not exist, or was deleted.',
+        noSePudoXX: 'The project could not be loaded.',
+        noSePudoXXX: 'The activity could not be deleted.',
+        noSePudoXXXX: 'The document could not be deleted.',
+        noSePudoXXXXX: 'The document could not be downloaded.',
+        errorDeConexion: 'Connection error while uploading the document.',
+        noHuboEstudiantes: 'There were no students to process.',
+        resultadoDeLa: 'Result of the generation',
+        plataformasParaEste: 'Platforms for this project',
+        hojasDeVida: 'Résumés generated',
+        informacionIncompleta: 'Incomplete information',
+        informacionAnterior: 'Previous data',
+        informacionNueva: 'New data',
+        generacionMasiva: 'Bulk generation',
+        nombreDelResponsable: 'Person in charge',
+        tallerDeEntrevistas: 'Interview workshop',
+        laFechaEs: 'The date is required.',
+        aparienciaYMarca: 'Appearance and branding',
+        eliminarActividad: 'Delete activity',
+        eliminarDocumento: 'Delete document',
+        editarProyecto: 'Edit project',
+        eliminarProyecto: 'Delete project',
+        errorDeConexionX: 'Connection error.',
+        sinPermisos: 'No permission.',
+        deAvance: '% complete',
+        enEjecucion: 'Running',
+        planeacion: 'Planning',
+        subidoPor: 'Uploaded by',
+        sinTipo: 'No type',
+        pendiente: 'Pending',
+        verPerfil: 'View profile',
+        version: 'Version',
+        tamano: 'Size',
+        activos: 'Active',
+        descripcion: 'Description',
+      }
+    : {
+        borrador: 'Borrador',
+        pausado: 'Pausado',
+        finalizado: 'Finalizado',
+        cancelado: 'Cancelado',
+        archivado: 'Archivado',
+
+        completada: 'Completada',
+        resumen: 'Resumen',
+        hojasDeVidaTab: 'Hojas de vida',
+        actividades: 'Actividades',
+        plataformas: 'Plataformas',
+        historial: 'Historial',
+
+        lasPlataformasQue: 'Las plataformas que los estudiantes de este proyecto pueden tener. Después se asignan individualmente desde la ficha de cada estudiante.',
+        aunNoHay: 'Aún no hay plataformas creadas. Agréguelas desde Configuración → Plataformas.',
+        generaLaHoja: 'Genera la hoja de vida de todos los estudiantes vinculados a este proyecto.',
+        noHayRegistros: 'No hay registros de auditoría para este proyecto.',
+        noHayActividades: 'No hay actividades registradas para este proyecto.',
+        noSePudieron: 'No se pudieron cargar los estudiantes del proyecto.',
+        noSePudieronX: 'No se pudieron cargar los documentos del proyecto.',
+        noSePudieronXX: 'No se pudieron cargar las actividades del proyecto.',
+        noHayDocumentos: 'No hay documentos asociados a este proyecto.',
+        esteProyectoAun: 'Este proyecto aún no tiene estudiantes vinculados.',
+        elNombreEs: 'El nombre es obligatorio. Los demás campos son opcionales.',
+        generarHojasDe: 'Generar hojas de vida del proyecto',
+        soloEstudiantesCon: 'Solo estudiantes con información completa',
+        elEstadoDel: 'El estado del proyecto cambiará a "Finalizado".',
+        sinClienteNi: 'Sin cliente ni responsable asignados.',
+        noSePudo: 'No se pudo cargar el resumen del proyecto.',
+        noSePudoX: 'No se pudo cargar el historial del proyecto.',
+        plataformasDelProyecto: 'Plataformas del proyecto actualizadas.',
+        noSePudieronXXX: 'No se pudieron cargar las plataformas.',
+        elProyectoNo: 'El proyecto no existe o fue eliminado.',
+        noSePudoXX: 'No se pudo cargar el proyecto.',
+        noSePudoXXX: 'No se pudo eliminar la actividad.',
+        noSePudoXXXX: 'No se pudo eliminar el documento.',
+        noSePudoXXXXX: 'No se pudo descargar el documento.',
+        errorDeConexion: 'Error de conexión al subir el documento.',
+        noHuboEstudiantes: 'No hubo estudiantes para procesar.',
+        resultadoDeLa: 'Resultado de la generación',
+        plataformasParaEste: 'Plataformas para este proyecto',
+        hojasDeVida: 'Hojas de vida generadas',
+        informacionIncompleta: 'Información incompleta',
+        informacionAnterior: 'Información anterior',
+        informacionNueva: 'Información nueva',
+        generacionMasiva: 'Generación masiva',
+        nombreDelResponsable: 'Nombre del responsable',
+        tallerDeEntrevistas: 'Taller de entrevistas',
+        laFechaEs: 'La fecha es obligatoria.',
+        aparienciaYMarca: 'Apariencia y Marca',
+        eliminarActividad: 'Eliminar actividad',
+        eliminarDocumento: 'Eliminar documento',
+        editarProyecto: 'Editar proyecto',
+        eliminarProyecto: 'Eliminar proyecto',
+        errorDeConexionX: 'Error de conexión.',
+        sinPermisos: 'Sin permisos.',
+        deAvance: '% de avance',
+        enEjecucion: 'En ejecución',
+        planeacion: 'Planeación',
+        subidoPor: 'Subido por',
+        sinTipo: 'Sin tipo',
+        pendiente: 'Pendiente',
+        verPerfil: 'Ver perfil',
+        version: 'Versión',
+        tamano: 'Tamaño',
+        activos: 'Activos',
+        descripcion: 'Descripción',
+      }
+}
+
 function Etiqueta({ children }: { children: React.ReactNode }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   return <span className="block text-[11px] uppercase tracking-wider text-muted-foreground">{children}</span>
 }
 
 function EstadoCarga({ mensaje }: { mensaje: string }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   return (
     <div className="flex items-center justify-center py-16">
       <PageSpinner />
@@ -105,6 +278,9 @@ function EstadoCarga({ mensaje }: { mensaje: string }) {
 }
 
 function EstadoError({ mensaje, onRetry }: { mensaje: string; onRetry: () => void }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   return (
     <div className="flex flex-col items-center gap-3 py-12">
       <WarningCircle className="size-8 text-destructive" />
@@ -117,6 +293,9 @@ function EstadoError({ mensaje, onRetry }: { mensaje: string; onRetry: () => voi
 // ─── Pestaña: Resumen ─────────────────────────────────────────────────────────
 
 function TabResumen({ programaId }: { programaId: string }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [resumen, setResumen] = useState<ProgramaResumenResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
@@ -124,7 +303,7 @@ function TabResumen({ programaId }: { programaId: string }) {
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try { setResumen(await programasApi.resumen(programaId)) }
-    catch { setError('No se pudo cargar el resumen del proyecto.') }
+    catch { setError(T.noSePudo) }
     finally { setLoading(false) }
   }, [programaId])
 
@@ -136,12 +315,12 @@ function TabResumen({ programaId }: { programaId: string }) {
 
   const items: { label: string; value: number }[] = [
     { label: 'Total estudiantes',        value: resumen.totalEstudiantes },
-    { label: 'Activos',                  value: resumen.activos },
+    { label: T.activos,                  value: resumen.activos },
     { label: 'Graduados',                value: resumen.graduados },
     { label: 'Retirados',                value: resumen.retirados },
     { label: 'En proceso',               value: resumen.enProceso },
-    { label: 'Información incompleta',   value: resumen.conInformacionIncompleta },
-    { label: 'Hojas de vida generadas',  value: resumen.hojasDeVidaGeneradas },
+    { label: T.informacionIncompleta,   value: resumen.conInformacionIncompleta },
+    { label: T.hojasDeVidaTab,  value: resumen.hojasDeVidaGeneradas },
     { label: 'Documentos',               value: resumen.documentos },
   ]
 
@@ -162,6 +341,9 @@ function TabResumen({ programaId }: { programaId: string }) {
 // ─── Pestaña: Estudiantes ─────────────────────────────────────────────────────
 
 function TabEstudiantes({ programaId }: { programaId: string }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [page, setPage]           = useState<Page<EstudianteResponse> | null>(null)
   const [currentPage, setCurrent] = useState(0)
   const [loading, setLoading]     = useState(true)
@@ -170,7 +352,7 @@ function TabEstudiantes({ programaId }: { programaId: string }) {
   const load = useCallback(async (p: number) => {
     setLoading(true); setError(null)
     try { setPage(await estudiantesApi.listar(programaId, p, 20)) }
-    catch { setError('No se pudieron cargar los estudiantes del proyecto.') }
+    catch { setError(T.noSePudieron) }
     finally { setLoading(false) }
   }, [programaId])
 
@@ -185,7 +367,7 @@ function TabEstudiantes({ programaId }: { programaId: string }) {
       <Card className="rounded-lg border-border shadow-none">
         <CardContent className="flex flex-col items-center gap-3 py-16">
           <Users className="size-10 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">Este proyecto aún no tiene estudiantes vinculados.</p>
+          <p className="text-sm text-muted-foreground">{T.esteProyectoAun}</p>
         </CardContent>
       </Card>
     )
@@ -206,7 +388,7 @@ function TabEstudiantes({ programaId }: { programaId: string }) {
           </thead>
           <tbody className="divide-y divide-border">
             {page.content.map((est) => {
-              const ai = estadoAcademicoLabels[est.estadoAcademico] ?? { label: est.estadoAcademico, ...estadoFallback }
+              const ai = estadoAcademico(C, est.estadoAcademico)
               const iniciales = `${est.nombre.charAt(0)}${est.apellido.charAt(0)}`.toUpperCase()
               return (
                 <tr key={est.id} className="hover:bg-secondary/30 transition-colors">
@@ -225,7 +407,7 @@ function TabEstudiantes({ programaId }: { programaId: string }) {
                   <td className="px-4 py-3"><EstadoDot {...ai} /></td>
                   <td className="px-4 py-3 text-right">
                     <Link href={`/estudiantes/${est.id}`} className="text-xs font-medium text-primary hover:underline">
-                      Ver perfil
+                      {T.verPerfil}
                     </Link>
                   </td>
                 </tr>
@@ -259,6 +441,9 @@ function TabEstudiantes({ programaId }: { programaId: string }) {
 // ─── Pestaña: Documentos ──────────────────────────────────────────────────────
 
 function TabDocumentos({ programaId }: { programaId: string }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const { confirmar, dialogo } = useConfirmar()
   const { mostrarError, avisos } = useAvisos()
   const [page, setPage]         = useState<Page<DocumentoResponse> | null>(null)
@@ -275,7 +460,7 @@ function TabDocumentos({ programaId }: { programaId: string }) {
   const load = useCallback(async (p: number) => {
     setLoading(true); setError(null)
     try { setPage(await documentosApi.buscar({ programaId, page: p, size: 20 })) }
-    catch { setError('No se pudieron cargar los documentos del proyecto.') }
+    catch { setError(T.noSePudieronX) }
     finally { setLoading(false) }
   }, [programaId])
 
@@ -292,21 +477,21 @@ function TabDocumentos({ programaId }: { programaId: string }) {
       setMensaje('Documento subido correctamente.')
       load(currentPage)
     } catch (err) {
-      setMensaje(err instanceof ApiCallError ? `Error al subir (HTTP ${err.status}).` : 'Error de conexión al subir el documento.')
+      setMensaje(err instanceof ApiCallError ? `Error al subir (HTTP ${err.status}).` : T.errorDeConexion)
     } finally { setBusy(false) }
   }
 
   const handleDelete = async (doc: DocumentoResponse) => {
-    if (!(await confirmar({ titulo: 'Eliminar documento', descripcion: `Se eliminará el documento "${doc.nombre}". Esta acción no se puede deshacer.`, textoConfirmar: 'Eliminar' }))) return
+    if (!(await confirmar({ titulo: T.eliminarDocumento, descripcion: `Se eliminará el documento "${doc.nombre}". Esta acción no se puede deshacer.`, textoConfirmar: C.eliminar }))) return
     setBusy(true)
     try { await documentosApi.eliminar(doc.id); load(currentPage) }
-    catch { mostrarError('No se pudo eliminar el documento.') }
+    catch { mostrarError(T.noSePudoXXXX) }
     finally { setBusy(false) }
   }
 
   const handleDownload = async (doc: DocumentoResponse) => {
     try { await documentosApi.descargar(doc.id, doc.nombre) }
-    catch { mostrarError('No se pudo descargar el documento.') }
+    catch { mostrarError(T.noSePudoXXXXX) }
   }
 
   return (
@@ -326,7 +511,7 @@ function TabDocumentos({ programaId }: { programaId: string }) {
             <label htmlFor="doc-tipo" className="text-[11px] uppercase tracking-wider text-muted-foreground">Tipo</label>
             <select id="doc-tipo" value={tipoSel} onChange={(e) => setTipoSel(e.target.value)} disabled={busy}
               className="h-9 rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
-              <option value="">Sin tipo</option>
+              <option value="">{T.sinTipo}</option>
               {tipos.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -345,7 +530,7 @@ function TabDocumentos({ programaId }: { programaId: string }) {
           <Card className="rounded-lg border-border shadow-none">
             <CardContent className="flex flex-col items-center gap-3 py-16">
               <FileText className="size-10 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">No hay documentos asociados a este proyecto.</p>
+              <p className="text-sm text-muted-foreground">{T.noHayDocumentos}</p>
             </CardContent>
           </Card>
         ) : (
@@ -356,9 +541,9 @@ function TabDocumentos({ programaId }: { programaId: string }) {
                   <tr className="border-b border-border bg-secondary/50">
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nombre</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tipo</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Versión</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tamaño</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Subido por</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{T.version}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{T.tamano}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{T.subidoPor}</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Fecha</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground">Acciones</th>
                   </tr>
@@ -378,7 +563,7 @@ function TabDocumentos({ programaId }: { programaId: string }) {
                             className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
                             <DownloadSimple className="size-4" />
                           </button>
-                          <button type="button" onClick={() => handleDelete(doc)} title="Eliminar" aria-label={`Eliminar ${doc.nombre}`}
+                          <button type="button" onClick={() => handleDelete(doc)} title={C.eliminar} aria-label={`Eliminar ${doc.nombre}`}
                             className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
                             <Trash className="size-4" />
                           </button>
@@ -417,6 +602,9 @@ function TabDocumentos({ programaId }: { programaId: string }) {
 // ─── Pestaña: Hojas de vida ───────────────────────────────────────────────────
 
 function TabHojasDeVida({ programaId }: { programaId: string }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [soloCompletos, setSoloCompletos] = useState(false)
   const [resultado, setResultado] = useState<GeneracionMasivaResponse | null>(null)
   const [error, setError]         = useState<string | null>(null)
@@ -429,7 +617,7 @@ function TabHojasDeVida({ programaId }: { programaId: string }) {
       catch (err) {
         setError(err instanceof ApiCallError
           ? `No se pudieron generar las hojas de vida (HTTP ${err.status}).`
-          : 'No se pudo conectar con el backend.')
+          : C.errorConexion)
       }
     })
   }
@@ -438,19 +626,19 @@ function TabHojasDeVida({ programaId }: { programaId: string }) {
     <div className="flex flex-col gap-4">
       <Card className="rounded-lg border-border shadow-none">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Generación masiva</CardTitle>
+          <CardTitle className="text-sm">{T.generacionMasiva}</CardTitle>
           <CardDescription className="text-xs">
-            Genera la hoja de vida de todos los estudiantes vinculados a este proyecto.
+            {T.generaLaHoja}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-foreground">
             <input type="checkbox" checked={soloCompletos} onChange={(e) => setSoloCompletos(e.target.checked)}
               className="size-3.5 rounded border-gray-300 accent-primary" disabled={isPending} />
-            Solo estudiantes con información completa
+            {T.soloEstudiantesCon}
           </label>
           <Button size="sm" onClick={generar} disabled={isPending}>
-            {isPending ? <><CircleNotch className="size-4 animate-spin" /> Generando…</> : <><ReadCvLogo className="size-4" /> Generar hojas de vida del proyecto</>}
+            {isPending ? <><CircleNotch className="size-4 animate-spin" /> Generando…</> : <><ReadCvLogo className="size-4" /> {T.generarHojasDe}</>}
           </Button>
         </CardContent>
       </Card>
@@ -464,14 +652,14 @@ function TabHojasDeVida({ programaId }: { programaId: string }) {
       {resultado && (
         <Card className="rounded-lg border-border shadow-none overflow-hidden">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Resultado de la generación</CardTitle>
+            <CardTitle className="text-sm">{T.resultadoDeLa}</CardTitle>
             <CardDescription className="text-xs tabular-nums">
               Solicitadas: {resultado.solicitadas} · Generadas: {resultado.generadas} · Fallidas: {resultado.fallidas}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {resultado.resultados.length === 0 ? (
-              <p className="px-6 pb-6 text-sm text-muted-foreground">No hubo estudiantes para procesar.</p>
+              <p className="px-6 pb-6 text-sm text-muted-foreground">{T.noHuboEstudiantes}</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -507,12 +695,21 @@ function TabHojasDeVida({ programaId }: { programaId: string }) {
 
 // ─── Pestaña: Actividades ─────────────────────────────────────────────────────
 
-const estadoActividadLabels: Record<string, { label: string; dot: string; text: string }> = {
-  PENDIENTE:  { label: 'Pendiente',  dot: 'bg-navy-500', text: 'text-navy-600' },
-  COMPLETADA: { label: 'Completada', dot: 'bg-success',  text: 'text-[#0F6E56]' },
+/** El color no depende del idioma; la etiqueta si, y por eso se recibe. */
+const estiloActividad: Record<string, { dot: string; text: string }> = {
+  PENDIENTE:  { dot: 'bg-navy-500', text: 'text-navy-600' },
+  COMPLETADA: { dot: 'bg-success',  text: 'text-[#0F6E56]' },
+}
+
+function estadoActividad(T: ReturnType<typeof textos>, codigo: string) {
+  const etiquetas: Record<string, string> = { PENDIENTE: T.pendiente, COMPLETADA: T.completada }
+  return { label: etiquetas[codigo] ?? codigo, ...(estiloActividad[codigo] ?? estadoFallback) }
 }
 
 function TabActividades({ programaId }: { programaId: string }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const { confirmar, dialogo } = useConfirmar()
   const { mostrarError, avisos } = useAvisos()
   const [actividades, setActividades] = useState<ActividadResponse[]>([])
@@ -527,7 +724,7 @@ function TabActividades({ programaId }: { programaId: string }) {
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try { setActividades(await actividadesApi.porPrograma(programaId)) }
-    catch { setError('No se pudieron cargar las actividades del proyecto.') }
+    catch { setError(T.noSePudieronXX) }
     finally { setLoading(false) }
   }, [programaId])
 
@@ -535,24 +732,24 @@ function TabActividades({ programaId }: { programaId: string }) {
 
   const handleCreate = (e: React.SyntheticEvent) => {
     e.preventDefault(); setFormError(null)
-    if (!nombre.trim()) { setFormError('El nombre es obligatorio.'); return }
-    if (!fecha) { setFormError('La fecha es obligatoria.'); return }
+    if (!nombre.trim()) { setFormError(C.errorNombre); return }
+    if (!fecha) { setFormError(T.laFechaEs); return }
     startTransition(async () => {
       try {
         await actividadesApi.crear(programaId, { nombre: nombre.trim(), fecha, responsable: responsable.trim() || undefined })
         setNombre(''); setFecha(''); setResponsable('')
         load()
       } catch (err) {
-        setFormError(err instanceof ApiCallError ? `Error del servidor (HTTP ${err.status}).` : 'No se pudo conectar con el backend.')
+        setFormError(err instanceof ApiCallError ? `Error del servidor (HTTP ${err.status}).` : C.errorConexion)
       }
     })
   }
 
   const handleDelete = async (act: ActividadResponse) => {
-    if (!(await confirmar({ titulo: 'Eliminar actividad', descripcion: `Se eliminará la actividad "${act.nombre}".`, textoConfirmar: 'Eliminar' }))) return
+    if (!(await confirmar({ titulo: T.eliminarActividad, descripcion: `Se eliminará la actividad "${act.nombre}".`, textoConfirmar: C.eliminar }))) return
     startTransition(async () => {
       try { await actividadesApi.eliminar(programaId, act.id); load() }
-      catch { mostrarError('No se pudo eliminar la actividad.') }
+      catch { mostrarError(T.noSePudoXXX) }
     })
   }
 
@@ -566,7 +763,7 @@ function TabActividades({ programaId }: { programaId: string }) {
           <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="act-nombre" className="text-[11px] uppercase tracking-wider text-muted-foreground">Nombre</label>
-              <Input id="act-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Taller de entrevistas" disabled={isPending} className="w-56" />
+              <Input id="act-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={T.tallerDeEntrevistas} disabled={isPending} className="w-56" />
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="act-fecha" className="text-[11px] uppercase tracking-wider text-muted-foreground">Fecha</label>
@@ -574,7 +771,7 @@ function TabActividades({ programaId }: { programaId: string }) {
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="act-resp" className="text-[11px] uppercase tracking-wider text-muted-foreground">Responsable</label>
-              <Input id="act-resp" value={responsable} onChange={(e) => setResponsable(e.target.value)} placeholder="Nombre del responsable" disabled={isPending} className="w-56" />
+              <Input id="act-resp" value={responsable} onChange={(e) => setResponsable(e.target.value)} placeholder={T.nombreDelResponsable} disabled={isPending} className="w-56" />
             </div>
             <Button type="submit" size="sm" disabled={isPending}>
               {isPending ? <CircleNotch className="size-4 animate-spin" /> : <Plus className="size-4" />} Agregar actividad
@@ -592,7 +789,7 @@ function TabActividades({ programaId }: { programaId: string }) {
           <Card className="rounded-lg border-border shadow-none">
             <CardContent className="flex flex-col items-center gap-3 py-16">
               <ClipboardText className="size-10 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">No hay actividades registradas para este proyecto.</p>
+              <p className="text-sm text-muted-foreground">{T.noHayActividades}</p>
             </CardContent>
           </Card>
         ) : (
@@ -610,7 +807,7 @@ function TabActividades({ programaId }: { programaId: string }) {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {actividades.map((act) => {
-                    const ei = estadoActividadLabels[act.estado] ?? { label: act.estado, ...estadoFallback }
+                    const ei = estadoActividad(T, act.estado)
                     return (
                       <tr key={act.id} className="hover:bg-secondary/30 transition-colors">
                         <td className="px-4 py-3 font-medium text-foreground">{act.nombre}</td>
@@ -618,7 +815,7 @@ function TabActividades({ programaId }: { programaId: string }) {
                         <td className="px-4 py-3 text-muted-foreground">{act.responsable ?? '—'}</td>
                         <td className="px-4 py-3"><EstadoDot {...ei} /></td>
                         <td className="px-4 py-3 text-right">
-                          <button type="button" onClick={() => handleDelete(act)} title="Eliminar" aria-label={`Eliminar ${act.nombre}`}
+                          <button type="button" onClick={() => handleDelete(act)} title={C.eliminar} aria-label={`Eliminar ${act.nombre}`}
                             className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
                             <Trash className="size-4" />
                           </button>
@@ -639,6 +836,9 @@ function TabActividades({ programaId }: { programaId: string }) {
 // ─── Pestaña: Historial ───────────────────────────────────────────────────────
 
 function TabHistorial({ programaId }: { programaId: string }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [page, setPage]       = useState<Page<AuditoriaResponse> | null>(null)
   const [currentPage, setCurrent] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -647,7 +847,7 @@ function TabHistorial({ programaId }: { programaId: string }) {
   const load = useCallback(async (p: number) => {
     setLoading(true); setError(null)
     try { setPage(await auditoriaApi.buscar({ registroId: programaId, page: p, size: 20 })) }
-    catch { setError('No se pudo cargar el historial del proyecto.') }
+    catch { setError(T.noSePudoX) }
     finally { setLoading(false) }
   }, [programaId])
 
@@ -662,7 +862,7 @@ function TabHistorial({ programaId }: { programaId: string }) {
       <Card className="rounded-lg border-border shadow-none">
         <CardContent className="flex flex-col items-center gap-3 py-16">
           <ClockCounterClockwise className="size-10 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">No hay registros de auditoría para este proyecto.</p>
+          <p className="text-sm text-muted-foreground">{T.noHayRegistros}</p>
         </CardContent>
       </Card>
     )
@@ -683,11 +883,11 @@ function TabHistorial({ programaId }: { programaId: string }) {
             {(reg.datosAnteriores || reg.datosNuevos) && (
               <div className="grid gap-2 sm:grid-cols-2">
                 <div className="rounded-md border border-border bg-secondary/30 p-2.5">
-                  <Etiqueta>Información anterior</Etiqueta>
+                  <Etiqueta>{T.informacionAnterior}</Etiqueta>
                   <pre className="mt-1 whitespace-pre-wrap font-mono text-xs text-muted-foreground">{reg.datosAnteriores ?? '—'}</pre>
                 </div>
                 <div className="rounded-md border border-border bg-secondary/30 p-2.5">
-                  <Etiqueta>Información nueva</Etiqueta>
+                  <Etiqueta>{T.informacionNueva}</Etiqueta>
                   <pre className="mt-1 whitespace-pre-wrap font-mono text-xs text-muted-foreground">{reg.datosNuevos ?? '—'}</pre>
                 </div>
               </div>
@@ -720,6 +920,9 @@ function TabHistorial({ programaId }: { programaId: string }) {
 // ─── Pestaña: Plataformas ─────────────────────────────────────────────────────
 
 function TabPlataformas({ programaId }: { programaId: string }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [catalogo, setCatalogo] = useState<PlataformaResponse[]>([])
   const [asignadas, setAsignadas] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -737,7 +940,7 @@ function TabPlataformas({ programaId }: { programaId: string }) {
       setCatalogo(cat)
       setAsignadas(new Set(asg.map((p) => p.id)))
     } catch {
-      setError('No se pudieron cargar las plataformas.')
+      setError(T.noSePudieronXXX)
     } finally { setLoading(false) }
   }, [programaId])
 
@@ -755,11 +958,11 @@ function TabPlataformas({ programaId }: { programaId: string }) {
     void (async () => {
       try {
         await plataformasApi.asignarPrograma(programaId, [...asignadas])
-        setMensaje('Plataformas del proyecto actualizadas.')
+        setMensaje(T.plataformasDelProyecto)
       } catch (err) {
         setMensaje(err instanceof ApiCallError
           ? `Error del servidor (HTTP ${err.status}).`
-          : 'No se pudo conectar con el backend.')
+          : C.errorConexion)
       } finally { setGuardando(false) }
     })()
   }
@@ -771,14 +974,14 @@ function TabPlataformas({ programaId }: { programaId: string }) {
     <div className="flex flex-col gap-4">
       <Card className="rounded-lg border-border shadow-none">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Plataformas para este proyecto</CardTitle>
+          <CardTitle className="text-sm">{T.plataformasParaEste}</CardTitle>
           <CardDescription className="text-xs">
-            Las plataformas que los estudiantes de este proyecto pueden tener. Después se asignan individualmente desde la ficha de cada estudiante.
+            {T.lasPlataformasQue}
           </CardDescription>
         </CardHeader>
         <CardContent className="py-4">
           {catalogo.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aún no hay plataformas creadas. Agréguelas desde Configuración → Plataformas.</p>
+            <p className="text-sm text-muted-foreground">{T.aunNoHay}</p>
           ) : (
             <div className="grid gap-2 sm:grid-cols-2">
               {catalogo.map((p) => (
@@ -813,18 +1016,23 @@ function TabPlataformas({ programaId }: { programaId: string }) {
 
 type TabId = 'resumen' | 'estudiantes' | 'documentos' | 'hv' | 'actividades' | 'plataformas' | 'identidad' | 'historial'
 
-const tabs: { id: TabId; label: string; icon: typeof Users }[] = [
-  { id: 'resumen',     label: 'Resumen',       icon: Rows },
-  { id: 'estudiantes', label: 'Estudiantes',   icon: Users },
-  { id: 'documentos',  label: 'Documentos',    icon: FileText },
-  { id: 'hv',          label: 'Hojas de vida', icon: ReadCvLogo },
-  { id: 'actividades', label: 'Actividades',   icon: ClipboardText },
-  { id: 'plataformas', label: 'Plataformas',   icon: SquaresFour },
-  { id: 'identidad',   label: 'Apariencia y Marca', icon: Palette },
-  { id: 'historial',   label: 'Historial',     icon: ClockCounterClockwise },
-]
+function pestanas(T: ReturnType<typeof textos>, C: TextosAdmin): { id: TabId; label: string; icon: typeof Users }[] {
+  return [
+    { id: 'resumen',     label: T.resumen,          icon: Rows },
+    { id: 'estudiantes', label: C.estudiantes,      icon: Users },
+    { id: 'documentos',  label: C.documentos,       icon: FileText },
+    { id: 'hv',          label: T.hojasDeVida,      icon: ReadCvLogo },
+    { id: 'actividades', label: T.actividades,      icon: ClipboardText },
+    { id: 'plataformas', label: T.plataformas,      icon: SquaresFour },
+    { id: 'identidad',   label: T.aparienciaYMarca, icon: Palette },
+    { id: 'historial',   label: T.historial,        icon: ClockCounterClockwise },
+  ]
+}
 
 export default function ProyectoDetallePage() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const { confirmar, dialogo } = useConfirmar()
   const { mostrarError, avisos } = useAvisos()
   const params = useParams<{ id: string }>()
@@ -868,8 +1076,8 @@ export default function ProyectoDetallePage() {
     try { setPrograma((await programasApi.obtener(id)) as ProgramaCompleto) }
     catch (err) {
       setError(err instanceof ApiCallError && err.status === 404
-        ? 'El proyecto no existe o fue eliminado.'
-        : 'No se pudo cargar el proyecto.')
+        ? T.elProyectoNo
+        : T.noSePudoXX)
     } finally { setLoading(false) }
   }, [id])
 
@@ -896,7 +1104,7 @@ export default function ProyectoDetallePage() {
     e.preventDefault()
     if (!form) return
     setFormError(null); setFormSuccess(null)
-    if (!form.nombre.trim()) { setFormError('El nombre es obligatorio.'); return }
+    if (!form.nombre.trim()) { setFormError(C.errorNombre); return }
     startTransition(async () => {
       try {
         await programasApi.actualizar(id, form)
@@ -904,31 +1112,31 @@ export default function ProyectoDetallePage() {
         setTimeout(() => { setShowEdit(false); load() }, 800)
       } catch (err) {
         if (err instanceof ApiCallError) {
-          setFormError(err.status === 401 || err.status === 403 ? 'Sin permisos.' : `Error del servidor (HTTP ${err.status}).`)
-        } else { setFormError('No se pudo conectar con el backend.') }
+          setFormError(err.status === 401 || err.status === 403 ? T.sinPermisos : `Error del servidor (HTTP ${err.status}).`)
+        } else { setFormError(C.errorConexion) }
       }
     })
   }
 
   const handleFinalizar = async () => {
-    if (!(await confirmar({ titulo: 'Finalizar proyecto', descripcion: 'El estado del proyecto cambiará a "Finalizado".', textoConfirmar: 'Finalizar', destructivo: false }))) return
+    if (!(await confirmar({ titulo: 'Finalizar proyecto', descripcion: T.elEstadoDel, textoConfirmar: 'Finalizar', destructivo: false }))) return
     startTransition(async () => {
       try { await programasApi.cambiarEstado(id, 'FINALIZADO'); load() }
       catch (err) {
-        mostrarError(mensajeDeError(err, 'Error de conexión.'))
+        mostrarError(mensajeDeError(err, T.errorDeConexionX))
       }
     })
   }
 
   const handleEliminar = async () => {
     if (!programa) return
-    if (!(await confirmar({ titulo: 'Eliminar proyecto', descripcion: `Se eliminará el proyecto "${programa.nombre}". Esta acción no se puede deshacer.`, textoConfirmar: 'Eliminar' }))) return
+    if (!(await confirmar({ titulo: T.eliminarProyecto, descripcion: `Se eliminará el proyecto "${programa.nombre}". Esta acción no se puede deshacer.`, textoConfirmar: C.eliminar }))) return
     startTransition(async () => {
       try {
         await programasApi.eliminar(id)
         router.push('/proyectos')
       } catch (err) {
-        mostrarError(mensajeDeError(err, 'Error de conexión.'))
+        mostrarError(mensajeDeError(err, T.errorDeConexionX))
       }
     })
   }
@@ -947,7 +1155,7 @@ export default function ProyectoDetallePage() {
   )
   if (!programa) return null
 
-  const si = estadoLabels[programa.estado] ?? { label: programa.estado, ...estadoFallback }
+  const si = estadoPrograma(T, C, programa.estado)
   const avance = Math.min(100, Math.max(0, programa.porcentajeAvance ?? 0))
 
   return (
@@ -969,7 +1177,7 @@ export default function ProyectoDetallePage() {
               <EstadoDot {...si} />
             </div>
             <p className="text-sm text-muted-foreground">
-              {[programa.cliente, programa.responsable].filter(Boolean).join(' · ') || 'Sin cliente ni responsable asignados.'}
+              {[programa.cliente, programa.responsable].filter(Boolean).join(' · ') || T.sinClienteNi}
             </p>
             <p className="text-xs text-muted-foreground tabular-nums">
               {programa.fechaInicio ?? '—'} → {programa.fechaFin ?? '—'}
@@ -988,7 +1196,7 @@ export default function ProyectoDetallePage() {
               <Palette className="size-3.5 text-primary" /> Apariencia
             </Button>
             <Button variant="outline" size="sm" onClick={openEdit} disabled={isPending}>
-              <PencilSimple className="size-3.5" /> Editar
+              <PencilSimple className="size-3.5" /> {C.editar}
             </Button>
             {programa.estado !== 'FINALIZADO' && programa.estado !== 'ARCHIVADO' && (
               <Button variant="outline" size="sm" onClick={handleFinalizar} disabled={isPending}>
@@ -997,7 +1205,7 @@ export default function ProyectoDetallePage() {
             )}
             <Button variant="outline" size="sm" onClick={handleEliminar} disabled={isPending}
               className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive">
-              <Trash className="size-3.5" /> Eliminar
+              <Trash className="size-3.5" /> {C.eliminar}
             </Button>
           </div>
         </div>
@@ -1008,12 +1216,12 @@ export default function ProyectoDetallePage() {
         <Card className="rounded-lg border-primary/30 shadow-none">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle>Editar proyecto</CardTitle>
+              <CardTitle>{T.editarProyecto}</CardTitle>
               <button type="button" onClick={() => setShowEdit(false)} className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground">
                 <X className="size-4" />
               </button>
             </div>
-            <CardDescription>El nombre es obligatorio. Los demás campos son opcionales.</CardDescription>
+            <CardDescription>{T.elNombreEs}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSave} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1030,12 +1238,12 @@ export default function ProyectoDetallePage() {
                 <Input id="pe-responsable" value={form.responsable ?? ''} onChange={(e) => setF('responsable', e.target.value)} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="pe-avance" className="text-xs font-medium">% de avance</label>
+                <label htmlFor="pe-avance" className="text-xs font-medium">{T.deAvance}</label>
                 <Input id="pe-avance" type="number" min={0} max={100} value={form.porcentajeAvance ?? ''}
                   onChange={(e) => setF('porcentajeAvance', e.target.value === '' ? undefined : Math.min(100, Math.max(0, parseInt(e.target.value))))} disabled={isPending} />
               </div>
               <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
-                <label htmlFor="pe-desc" className="text-xs font-medium">Descripción</label>
+                <label htmlFor="pe-desc" className="text-xs font-medium">{T.descripcion}</label>
                 <Textarea id="pe-desc" minRows={2} className="rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   value={form.descripcion ?? ''} onChange={(e) => setF('descripcion', e.target.value)} disabled={isPending} />
               </div>
@@ -1076,7 +1284,7 @@ export default function ProyectoDetallePage() {
 
       {/* Pestañas */}
       <div className="flex overflow-x-auto border-b border-border">
-        {tabs.map(({ id: tid, label, icon: Icon }) => (
+        {pestanas(T, C).map(({ id: tid, label, icon: Icon }) => (
           <button key={tid} type="button" onClick={() => cambiarTab(tid)}
             className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition-colors ${tab === tid ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
             <Icon className="size-3.5" /> {label}
