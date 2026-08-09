@@ -38,6 +38,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { usePreferences } from '@/lib/preferences'
 import { Campo, Selector, Aviso } from '@/components/ui/campo'
 import { VistaPreviaPdf } from '@/components/ui/vista-previa-pdf'
+import { useConfirmar } from '@/components/ui/confirmar'
 
 /**
  * Los textos de esta pantalla, en los dos idiomas.
@@ -62,6 +63,11 @@ export function textosHv(english: boolean) {
         sigoTrabajandoAqui: 'I still work here',
         disenoDePlantilla: 'Template design',
         idiomaDelPdf: 'PDF language',
+        eliminarCorto: 'Delete',
+        eliminarExperienciaTitulo: 'Delete this experience?',
+        eliminarFormacionTitulo: 'Delete this education record?',
+        seEliminaraExperiencia: (c: string) => `“${c}” will be removed from your résumé. This cannot be undone.`,
+        seEliminaraFormacion: (p: string) => `“${p}” will be removed from your résumé. This cannot be undone.`,
         anadir: 'Add',
         editar: 'Edit',
         opcionalApareceComo: 'Optional. Shows as “Portfolio” next to your contact details.',
@@ -121,6 +127,11 @@ export function textosHv(english: boolean) {
         sigoTrabajandoAqui: 'Sigo trabajando aquí',
         disenoDePlantilla: 'Diseño de plantilla',
         idiomaDelPdf: 'Idioma del PDF',
+        eliminarCorto: 'Eliminar',
+        eliminarExperienciaTitulo: '¿Eliminar esta experiencia?',
+        eliminarFormacionTitulo: '¿Eliminar esta formación?',
+        seEliminaraExperiencia: (c: string) => `«${c}» saldrá de tu hoja de vida. No se puede deshacer.`,
+        seEliminaraFormacion: (p: string) => `«${p}» saldrá de tu hoja de vida. No se puede deshacer.`,
         anadir: 'Añadir',
         editar: 'Editar',
         opcionalApareceComo: 'Opcional. Aparece como «Portafolio» junto a tus datos de contacto.',
@@ -452,6 +463,7 @@ function Experiencias({
   onCambio: () => void
 }) {
   const T = textosHv(usePreferences().locale === 'en')
+  const { confirmar, dialogo } = useConfirmar()
   const [items, setItems] = useState<ExperienciaResponse[]>([])
   const [cargando, setCargando] = useState(true)
   const [form, setForm] = useState<ExperienciaRequest>(EXPERIENCIA_VACIA)
@@ -528,10 +540,23 @@ function Experiencias({
     }
   }
 
-  const eliminar = async (id: string) => {
+  /**
+   * Borra una experiencia, preguntando primero.
+   *
+   * Es la hoja de vida de quien mira y no hay deshacer: un clic de mas borraba
+   * lo que habia escrito. En el resto de la aplicacion todo borrado confirma;
+   * este era el unico que no.
+   */
+  const eliminar = async (item: { id: string; cargo: string }) => {
+    if (!(await confirmar({
+      titulo: T.eliminarExperienciaTitulo,
+      descripcion: T.seEliminaraExperiencia(item.cargo),
+      textoConfirmar: T.eliminarCorto,
+      destructivo: true,
+    }))) return
     setError(null)
     try {
-      await perfilApi.eliminarExperiencia(estudianteId, id)
+      await perfilApi.eliminarExperiencia(estudianteId, item.id)
       await recargar()
       onCambio()
     } catch (e) {
@@ -540,6 +565,7 @@ function Experiencias({
   }
 
   return (
+    <>
     <Card className="shadow-none">
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div>
@@ -653,9 +679,9 @@ function Experiencias({
                     <Button variant="ghost" size="sm" onClick={() => editar(item)}>
                       {T.editar}
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => eliminar(item.id)}>
+                    <Button variant="ghost" size="sm" onClick={() => void eliminar(item)}>
                       <Trash className="size-4 text-destructive" />
-                      <span className="sr-only">Eliminar {item.cargo}</span>
+                      <span className="sr-only">{T.eliminarCorto} {item.cargo}</span>
                     </Button>
                   </div>
                 </div>
@@ -668,6 +694,8 @@ function Experiencias({
         )}
       </CardContent>
     </Card>
+    {dialogo}
+    </>
   )
 }
 
@@ -690,6 +718,7 @@ function Formaciones({
   onCambio: () => void
 }) {
   const T = textosHv(usePreferences().locale === 'en')
+  const { confirmar, dialogo } = useConfirmar()
   const [items, setItems] = useState<FormacionResponse[]>([])
   const [cargando, setCargando] = useState(true)
   const [form, setForm] = useState<FormacionRequest>(FORMACION_VACIA)
@@ -761,10 +790,17 @@ function Formaciones({
     }
   }
 
-  const eliminar = async (id: string) => {
+  /** Igual que en experiencias: sin deshacer, se pregunta antes. */
+  const eliminar = async (item: { id: string; programa: string }) => {
+    if (!(await confirmar({
+      titulo: T.eliminarFormacionTitulo,
+      descripcion: T.seEliminaraFormacion(item.programa),
+      textoConfirmar: T.eliminarCorto,
+      destructivo: true,
+    }))) return
     setError(null)
     try {
-      await perfilApi.eliminarFormacion(estudianteId, id)
+      await perfilApi.eliminarFormacion(estudianteId, item.id)
       await recargar()
       onCambio()
     } catch (e) {
@@ -773,6 +809,7 @@ function Formaciones({
   }
 
   return (
+    <>
     <Card className="shadow-none">
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div>
@@ -860,9 +897,9 @@ function Formaciones({
                   <Button variant="ghost" size="sm" onClick={() => editar(item)}>
                     {T.editar}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => eliminar(item.id)}>
+                  <Button variant="ghost" size="sm" onClick={() => void eliminar(item)}>
                     <Trash className="size-4 text-destructive" />
-                    <span className="sr-only">Eliminar {item.programa}</span>
+                    <span className="sr-only">{T.eliminarCorto} {item.programa}</span>
                   </Button>
                 </div>
               </li>
@@ -871,6 +908,8 @@ function Formaciones({
         )}
       </CardContent>
     </Card>
+    {dialogo}
+    </>
   )
 }
 
