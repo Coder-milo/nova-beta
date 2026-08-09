@@ -173,6 +173,15 @@ export function Header({ onOpenMobile }: HeaderProps) {
   // Se guarda al cargar las notificaciones: marcarlas todas necesita el id, y
   // pedir el perfil otra vez sólo para eso sería una llamada de más.
   const [profileId, setProfileId] = useState<string | null>(null)
+  /**
+   * El mismo id, en una referencia.
+   *
+   * El intervalo de notificaciones lo necesita para no volver a pedir el
+   * perfil, pero meterlo en las dependencias del efecto reiniciaría el
+   * intervalo en cuanto se supiera. La referencia lo deja leer sin
+   * resuscribirse.
+   */
+  const idPerfilRef = useRef<string | null>(null)
   const [messages, setMessages] = useState<MensajeResponse[]>([])
   const [pendientesServidor, setPendientesServidor] = useState<number | null>(null)
   const [messageSheetOpen, setMessageSheetOpen] = useState(false)
@@ -254,13 +263,20 @@ export function Header({ onOpenMobile }: HeaderProps) {
     const cargarNotificaciones = async () => {
       try {
         if (esEstudiante) {
-          const profile = await estudiantesApi.obtenerMiPerfil()
+          // El perfil sólo la primera vez. Este bloque corre cada 45 segundos y
+          // pedía la ficha entera del estudiante —datos personales, académicos
+          // y socioeconómicos— para sacar un id que no cambia en toda la sesión.
+          let id = idPerfilRef.current
+          if (!id) {
+            id = (await estudiantesApi.obtenerMiPerfil()).id
+            idPerfilRef.current = id
+          }
           const [response, unread] = await Promise.all([
-            notificacionesApi.listarPorEstudiante(profile.id, 0, 8),
-            notificacionesApi.contarNoLeidas(profile.id),
+            notificacionesApi.listarPorEstudiante(id, 0, 8),
+            notificacionesApi.contarNoLeidas(id),
           ])
           if (active) {
-            setProfileId(profile.id)
+            setProfileId(id)
             setStudentNotifications(response.content)
             setStudentUnreadNotifications(unread)
             window.dispatchEvent(new CustomEvent('nova:notifications-updated', { detail: unread }))
