@@ -52,6 +52,12 @@ export default function VacantesPage() {
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  /**
+   * Fuente seleccionada. Con varias fuentes activas —empleo local desde el
+   * portal de los empleadores, remoto en inglés, migración— el listado las
+   * mezcla y no hay forma de mirar sólo lo que sirve a quien vive aquí.
+   */
+  const [fuenteFiltro, setFuenteFiltro] = useState('TODAS')
   const [selected, setSelected]       = useState<VacanteResponse | null>(null)
   const [matching, setMatching]       = useState(false)
   const [matchingMsg, setMatchingMsg] = useState<string | null>(null)
@@ -171,7 +177,13 @@ export default function VacantesPage() {
     } finally { setRevisando(false) }
   }
 
+  /** Las fuentes que de verdad hay en lo cargado; no una lista fija. */
+  const fuentesDisponibles = Array.from(
+    new Set((page?.content ?? []).map((v) => v.fuente).filter((f): f is string => !!f)),
+  ).sort()
+
   const filtered = (page?.content ?? []).filter((v) => {
+    if (fuenteFiltro !== 'TODAS' && v.fuente !== fuenteFiltro) return false
     const q = searchQuery.toLowerCase().trim()
     if (!q) return true
     return v.titulo.toLowerCase().includes(q) ||
@@ -208,10 +220,31 @@ export default function VacantesPage() {
         </div>
       )}
 
-      {/* Búsqueda */}
-      <div className="relative max-w-md">
-        <MagnifyingGlass className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input type="search" placeholder="Buscar por título, empresa o ubicación…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 bg-secondary/40" />
+      {/* Búsqueda y filtro por fuente */}
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,28rem)_auto]">
+        <div className="relative">
+          <MagnifyingGlass className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input type="search" placeholder="Buscar por título, empresa o ubicación…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 bg-secondary/40" />
+        </div>
+        {/* Sólo con más de una fuente: un desplegable de un elemento es ruido. */}
+        {fuentesDisponibles.length > 1 && (
+          <div className="flex items-center gap-2">
+            <Globe className="size-3.5 shrink-0 text-muted-foreground" />
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-56"
+              value={fuenteFiltro}
+              onChange={(e) => setFuenteFiltro(e.target.value)}
+              aria-label="Filtrar por fuente"
+            >
+              <option value="TODAS">Todas las fuentes ({page?.content.length ?? 0})</option>
+              {fuentesDisponibles.map((f) => (
+                <option key={f} value={f}>
+                  {f} ({(page?.content ?? []).filter((v) => v.fuente === f).length})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Estados */}
