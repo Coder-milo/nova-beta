@@ -753,9 +753,16 @@ export function Header({ onOpenMobile }: HeaderProps) {
         </div>
 
         <div className="relative z-10 ml-auto flex items-center gap-2">
-          <IconButton label={t('generalSearch')} onClick={() => setSearchOpen(true)}>
-            <MagnifyingGlass className="size-5" />
-          </IconButton>
+          {/* La búsqueda general es de gestión: el endpoint sólo responde a
+              COORDINADOR y ADMIN. Se pintaba para todos, así que un estudiante
+              abría el panel, escribía y no ocurría nada nunca —el efecto que
+              consulta sale antes por su rol—. Un botón que no hace nada es peor
+              que uno que no está. */}
+          {!esEstudiante && (
+            <IconButton label={t('generalSearch')} onClick={() => setSearchOpen(true)}>
+              <MagnifyingGlass className="size-5" />
+            </IconButton>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger
