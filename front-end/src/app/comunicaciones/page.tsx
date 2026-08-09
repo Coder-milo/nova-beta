@@ -31,6 +31,7 @@ import { actividadesApi, comunicacionesApi, programasApi } from '@/lib/api'
 import { hoyLocal } from '@/lib/utils'
 import type { TipoMediaAnuncio } from '@/lib/api'
 import type { ActividadRequest, ProgramaResponse } from '@/lib/types'
+import { PanelPlantillasCorreo } from '@/components/admin/panel-plantillas-correo'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
 import { Textarea } from '@/components/ui/textarea'
@@ -296,6 +297,7 @@ export default function ComunicacionesPage() {
     <div className="space-y-5">
       <PanelAnuncio programas={programas} />
       <PanelEvento programas={programas} />
+      <PanelPlantillasCorreo />
     </div>
   )
 }

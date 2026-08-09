@@ -283,6 +283,7 @@ export const dashboardApi = {
 
 import type { ProgramaResponse, ProgramaRequest, ProgramaEstado, ProgramaResumenResponse } from './types'
 import type { MotivoCierre, OpcionCatalogo, CatalogosColocacion, Tablero, TarjetaTablero, EstadoContacto } from './types'
+import type { PlantillaCorreo, PlantillaCorreoRequest, VariableDisponible, PrevisualizacionCorreo, ResumenEnvioCorreo } from './types'
 
 export const programasApi = {
   listar: () =>
@@ -807,6 +808,42 @@ export const plataformasApi = {
 }
 
 import type { EmpresaRequest, EmpresaResponse, EstadoRelacionEmpresa } from './types'
+
+/**
+ * Plantillas de correo: editor con variables, previsualización y envío masivo.
+ *
+ * Todo el módulo es de COORDINADOR o ADMIN; borrar, sólo de ADMIN.
+ */
+export const plantillasCorreoApi = {
+  listar: (token?: string) => apiFetch<PlantillaCorreo[]>('/api/v1/plantillas-correo', { token }),
+  /** Las variables que se pueden escribir dentro del texto, con su ejemplo. */
+  variables: (token?: string) =>
+    apiFetch<VariableDisponible[]>('/api/v1/plantillas-correo/variables', { token }),
+  crear: (data: PlantillaCorreoRequest, token?: string) =>
+    apiFetch<PlantillaCorreo>('/api/v1/plantillas-correo', { method: 'POST', data, token }),
+  actualizar: (id: string, data: PlantillaCorreoRequest, token?: string) =>
+    apiFetch<PlantillaCorreo>(`/api/v1/plantillas-correo/${id}`, { method: 'PUT', data, token }),
+  eliminar: (id: string, token?: string) =>
+    apiFetch<void>(`/api/v1/plantillas-correo/${id}`, { method: 'DELETE', token }),
+  /**
+   * Cómo queda el correo con datos de ejemplo.
+   *
+   * Es POST y no GET porque recibe la plantilla que se está escribiendo, que
+   * todavía no está guardada.
+   */
+  previsualizar: (data: PlantillaCorreoRequest, token?: string) =>
+    apiFetch<PrevisualizacionCorreo>('/api/v1/plantillas-correo/previsualizar', { method: 'POST', data, token }),
+  /**
+   * Envío masivo.
+   *
+   * `simulacion` va explícito y en true por defecto, igual que en el backend:
+   * mandar un correo a 108 personas no debe ser el efecto de un clic distraído.
+   */
+  enviar: (id: string, opciones: { estudianteIds?: string[]; simulacion: boolean }, token?: string) =>
+    apiFetch<ResumenEnvioCorreo>(`/api/v1/plantillas-correo/${id}/enviar`, {
+      method: 'POST', data: opciones, token,
+    }),
+}
 
 /**
  * Tablero de seguimiento: quién está en qué punto de la conversación.

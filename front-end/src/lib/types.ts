@@ -353,6 +353,72 @@ export interface VacanteResponse {
   creadaPor?: string | null
 }
 
+/** Una plantilla de correo tal como la devuelve el backend. */
+export interface PlantillaCorreo {
+  id: string
+  programaId: string | null
+  nombre: string
+  descripcion: string | null
+  asunto: string
+  cuerpo: string
+  botonTexto: string | null
+  botonUrl: string | null
+  rolMinimo: string | null
+  activa: boolean
+  /** Las variables que usa, para avisar si pide una que no habrá. */
+  variablesUsadas: string[]
+}
+
+/** Lo que se manda al crear o corregir una plantilla. */
+export interface PlantillaCorreoRequest {
+  programaId?: string | null
+  nombre: string
+  descripcion?: string | null
+  asunto: string
+  cuerpo: string
+  botonTexto?: string | null
+  botonUrl?: string | null
+  rolMinimo?: string | null
+  activa?: boolean
+}
+
+export interface VariableDisponible {
+  clave: string
+  /** Cómo se escribe dentro del texto, p. ej. `{{nombre}}`. */
+  marca: string
+  descripcion: string
+  ejemplo: string
+}
+
+export interface PrevisualizacionCorreo {
+  asunto: string
+  html: string
+  textoPlano: string
+  /** Cosas que conviene saber antes de enviar. */
+  avisos: string[]
+}
+
+export interface ResultadoEnvioCorreo {
+  estudianteId: string
+  nombre: string
+  email: string | null
+  enviado: boolean
+  detalle: string
+}
+
+export interface ResumenEnvioCorreo {
+  destinatarios: number
+  enviados: number
+  bloqueadosPorLista: number
+  fallidos: number
+  sinCorreo: number
+  simulacion: boolean
+  canalDeCorreo: string
+  /** La lista de pruebas: si no está vacía, sólo a esas direcciones se envía. */
+  destinatariosPermitidos: string[]
+  detalle: ResultadoEnvioCorreo[]
+}
+
 /**
  * En qué punto de la conversación está un estudiante.
  *
