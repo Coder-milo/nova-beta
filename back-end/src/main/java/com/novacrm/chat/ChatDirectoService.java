@@ -21,17 +21,23 @@ public class ChatDirectoService {
     private final ChatDirectoMensajeRepository repository;
     private final EstudianteRepository estudianteRepository;
     private final OwnershipService ownershipService;
+    private final com.novacrm.notificacion.NotificacionService notificacionService;
 
     public ChatDirectoService(ChatDirectoMensajeRepository repository,
                               EstudianteRepository estudianteRepository,
-                              OwnershipService ownershipService) {
+                              OwnershipService ownershipService,
+                              com.novacrm.notificacion.NotificacionService notificacionService) {
         this.repository = repository;
         this.estudianteRepository = estudianteRepository;
         this.ownershipService = ownershipService;
+        this.notificacionService = notificacionService;
     }
 
-    /** Solo se muestran compañeros activos del mismo proyecto, nunca toda la base. */
-    /** Cuantos companeros se ofrecen al escribir. Mas de esto no se lee. */
+    /**
+     * Solo se muestran compañeros activos del mismo proyecto, nunca toda la base.
+     *
+     * <p>Cuantos se ofrecen al escribir: mas de esto no se lee.
+     */
     private static final int MAXIMO_CONTACTOS = 20;
 
     @Transactional(readOnly = true)
@@ -86,7 +92,12 @@ public class ChatDirectoService {
         mensaje.setRemitente(propio);
         mensaje.setDestinatario(contacto);
         mensaje.setContenido(texto);
-        return respuesta(repository.save(mensaje), propio.getId());
+        var guardado = repository.save(mensaje);
+        // Sin esto el chat era de una sola direccion: el mensaje llegaba y el
+        // destinatario no se enteraba salvo que buscara a esa persona y abriera
+        // la conversacion por su cuenta.
+        notificacionService.registrarMensajeDeCompanero(contacto, propio.getId(), nombreDe(propio));
+        return respuesta(guardado, propio.getId());
     }
 
     private Estudiante contactoDelMismoPrograma(UUID contactoId, Estudiante propio) {

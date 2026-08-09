@@ -21,6 +21,7 @@ public class NotificacionService {
 
     /** Anuncio general del coordinador (feria de empleo, convocatoria, aviso). */
     public static final String TIPO_ANUNCIO = "ANUNCIO";
+    private static final String TIPO_CHAT = "CHAT";
 
     private final NotificacionRepository notificacionRepository;
     private final MatchRepository matchRepository;
@@ -210,6 +211,36 @@ public class NotificacionService {
         notificacion.setTitulo(ordenados.size() + " vacantes recomendadas");
         notificacion.setMensaje(mensaje);
         return notificacion;
+    }
+
+    /**
+     * Avisa de que un companero escribio.
+     *
+     * <p>Sin esto el chat entre estudiantes era de una sola direccion: llegaba
+     * el mensaje y el destinatario no se enteraba salvo que buscara a esa
+     * persona y abriera la conversacion por su cuenta.
+     *
+     * <p>Uno por conversacion mientras no se lea, no uno por mensaje. Veinte
+     * frases seguidas no son veinte noticias, y llenar la campana con ellas
+     * tapa las alertas del programa. Es la misma leccion que ya se aprendio
+     * con los avisos de match.
+     *
+     * @param remitenteId de quien viene, y a la vez la referencia que agrupa
+     */
+    @Transactional
+    public void registrarMensajeDeCompanero(Estudiante destinatario, UUID remitenteId, String nombreRemitente) {
+        String referencia = remitenteId.toString();
+        if (notificacionRepository.existsByEstudianteIdAndTipoAndReferenciaIdAndLeidaFalse(
+                destinatario.getId(), TIPO_CHAT, referencia)) {
+            return;
+        }
+        var notificacion = new Notificacion();
+        notificacion.setEstudiante(destinatario);
+        notificacion.setTitulo("Mensaje de " + nombreRemitente);
+        notificacion.setMensaje("Te escribio por el chat. Abre la conversacion para responderle.");
+        notificacion.setTipo(TIPO_CHAT);
+        notificacion.setReferenciaId(referencia);
+        notificacionRepository.save(notificacion);
     }
 
     /** Registra en la bandeja del estudiante cada mensaje enviado por el equipo. */
