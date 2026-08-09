@@ -16,6 +16,7 @@ import { ArrowCounterClockwiseIcon as ArrowCounterClockwise, ArrowSquareOutIcon 
 
 import { useState, useEffect, useCallback, useTransition } from 'react'
 import Link from '@/compat/next-link'
+import { useSearchParams } from '@/compat/next-navigation'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -518,6 +519,23 @@ export default function EstudiantesPage() {
   const [incompleteOnly, setIncompleteOnly] = useState(() =>
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('incompletos') === '1'
   )
+
+  /**
+   * La alerta del panel enlaza a `/estudiantes?incompletos=1`.
+   *
+   * Leerlo solo al montar bastaba viniendo de otra pantalla, pero no si ya se
+   * estaba en esta: la ruta no cambia, el componente no se vuelve a montar y
+   * pulsar la alerta no hacia nada. Se escucha el parametro, que si cambia.
+   */
+  const parametros = useSearchParams()
+  const pidenIncompletos = parametros.get('incompletos') === '1'
+  useEffect(() => {
+    if (pidenIncompletos) {
+      setIncompleteOnly(true)
+      setVerPapelera(false)
+      setCurrentPage(0)
+    }
+  }, [pidenIncompletos])
 
   // Filtros
   const [searchQuery, setSearchQuery]             = useState('')
