@@ -84,6 +84,8 @@ function textos(english: boolean) {
         seEliminara: (n: string) => `Template “${n}” will be deleted. This cannot be undone.`,
         plantillaGuardada: 'Template saved.',
         simulaPrimero: 'Do a dry run first: it shows who it would reach.',
+        guardaAntesDeEnviar: 'Save your changes first: what goes out is the saved template, not what is on screen.',
+        previaDeLoNoGuardado: 'This preview shows what you have on screen. It is not saved yet, so it is not what would be sent.',
       }
     : {
         titulo: 'Correos que envía el programa',
@@ -124,6 +126,8 @@ function textos(english: boolean) {
         seEliminara: (n: string) => `Se eliminará la plantilla «${n}». Esta acción no se puede deshacer.`,
         plantillaGuardada: 'Plantilla guardada.',
         simulaPrimero: 'Simula primero: te dice a quién llegaría.',
+        guardaAntesDeEnviar: 'Guarda los cambios primero: lo que sale es la plantilla guardada, no lo que hay en pantalla.',
+        previaDeLoNoGuardado: 'Esta vista previa muestra lo que tienes en pantalla. Todavía no está guardado, así que no es lo que se enviaría.',
       }
 }
 
@@ -158,6 +162,15 @@ export function PanelPlantillasCorreo() {
    * oportunidad de ver a quién alcanza algo que no se puede deshacer.
    */
   const [simuladoPara, setSimuladoPara] = useState<string | null>(null)
+  /**
+   * La plantilla tal como esta guardada en el servidor.
+   *
+   * La vista previa monta lo que hay escrito en el formulario, pero el envio
+   * usa lo que el servidor tiene guardado. Editar y no guardar hacia que la
+   * previsualizacion ensenara el texto nuevo y a la gente le llegara el
+   * anterior, sin nada que lo advirtiera. Con esto se sabe si difieren.
+   */
+  const [guardado, setGuardado] = useState<string>('')
 
   const cargar = useCallback(async () => {
     setCargando(true); setError(null)
@@ -175,17 +188,19 @@ export function PanelPlantillasCorreo() {
   useEffect(() => { void cargar() }, [cargar])
 
   const abrirNueva = () => {
-    setEditandoId(null); setForm(vacia); setFormError(null)
+    setEditandoId(null); setForm(vacia); setFormError(null); setGuardado(JSON.stringify(vacia))
     setPrevia(null); setResumen(null); setSimuladoPara(null); setAbierto(true)
   }
 
   const abrirEdicion = (p: PlantillaCorreo) => {
     setEditandoId(p.id)
-    setForm({
+    const cargado = {
       programaId: p.programaId, nombre: p.nombre, descripcion: p.descripcion ?? '',
       asunto: p.asunto, cuerpo: p.cuerpo, botonTexto: p.botonTexto ?? '',
       botonUrl: p.botonUrl ?? '', rolMinimo: p.rolMinimo, activa: p.activa,
-    })
+    }
+    setForm(cargado)
+    setGuardado(JSON.stringify(cargado))
     setFormError(null); setPrevia(null); setResumen(null); setSimuladoPara(null); setAbierto(true)
   }
 
@@ -200,6 +215,10 @@ export function PanelPlantillasCorreo() {
         ? await plantillasCorreoApi.actualizar(editandoId, form)
         : await plantillasCorreoApi.crear(form)
       setEditandoId(guardada.id)
+      setGuardado(JSON.stringify(form))
+      // Lo guardado cambio, asi que la simulacion anterior ya no describe lo
+      // que saldria: hay que volver a mirarla antes de enviar.
+      setSimuladoPara(null)
       await cargar()
     } catch (e) {
       setFormError(mensajeDeError(e, T.noSePudoGuardar))
@@ -223,7 +242,11 @@ export function PanelPlantillasCorreo() {
    * distraído sobre un botón que dice «enviar» alcanza a la cohorte entera y
    * no se puede deshacer.
    */
+  /** Lo escrito difiere de lo guardado, que es lo que de verdad se envia. */
+  const hayCambiosSinGuardar = JSON.stringify(form) !== guardado
+
   const enviar = async (simulacion: boolean) => {
+    if (hayCambiosSinGuardar) return
     if (!editandoId) return
     if (!simulacion) {
       if (simuladoPara !== editandoId || !resumen) return
@@ -383,15 +406,21 @@ export function PanelPlantillasCorreo() {
               <Button variant="outline" size="sm" onClick={() => void previsualizar()} disabled={previsualizando}>
                 <Eye className="size-3.5" /> {T.previsualizar}
               </Button>
-              <Button variant="outline" size="sm" onClick={() => void enviar(true)} disabled={enviando || !editandoId}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void enviar(true)}
+                disabled={enviando || !editandoId || hayCambiosSinGuardar}
+                title={hayCambiosSinGuardar ? T.guardaAntesDeEnviar : undefined}
+              >
                 <PaperPlaneTilt className="size-3.5" /> {T.simular}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => void enviar(false)}
-                disabled={enviando || simuladoPara !== editandoId}
-                title={simuladoPara === editandoId ? undefined : T.simulaPrimero}
+                disabled={enviando || hayCambiosSinGuardar || simuladoPara !== editandoId}
+                title={hayCambiosSinGuardar ? T.guardaAntesDeEnviar : simuladoPara === editandoId ? undefined : T.simulaPrimero}
                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
                 <PaperPlaneTilt className="size-3.5" /> {T.enviarDeVerdad}
@@ -402,6 +431,11 @@ export function PanelPlantillasCorreo() {
             {previa && (
               <div className="flex flex-col gap-2 rounded-xl border border-border bg-background p-3">
                 <p className="text-xs font-semibold text-foreground">{T.vistaPrevia}</p>
+                {hayCambiosSinGuardar && (
+                  <p className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-700 dark:text-amber-400">
+                    {T.previaDeLoNoGuardado}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">{previa.asunto}</p>
                 {previa.avisos.length > 0 && (
                   <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-2">
