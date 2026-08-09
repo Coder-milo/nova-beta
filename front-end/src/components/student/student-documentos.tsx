@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { useAvisos } from '@/components/ui/avisos'
 import { useConfirmar } from '@/components/ui/confirmar'
 import { useAuth } from '@/lib/auth'
+import { usePreferences } from '@/lib/preferences'
 import { FilePreview, FilePreviewSheet } from '@/components/ui/file-preview'
 import {
   Card,
@@ -24,9 +25,11 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: 'es' | 'en'): string {
   try {
-    return new Date(iso).toLocaleDateString('es-CO', {
+    // El idioma decide tambien el formato de la fecha: dejarlo fijo en es-CO
+    // dejaba "12 sept 2026" dentro de una pantalla por lo demas en ingles.
+    return new Date(iso).toLocaleDateString(locale === 'en' ? 'en-US' : 'es-CO', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -44,10 +47,69 @@ function FileIcon({ contentType }: { contentType: string | null }) {
   return <FileText className="size-5 text-muted-foreground" />
 }
 
+/**
+ * Los textos de esta pantalla, en los dos idiomas.
+ *
+ * Van junto al componente y no en el diccionario global de `preferences`:
+ * ese guarda los términos que se repiten por toda la aplicación —la
+ * navegación, los estados—, y meter aquí treinta cadenas que sólo usa esta
+ * pantalla lo convertiría en un cajón. Es el mismo patrón que ya sigue el
+ * chat del estudiante.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        hvTitulo: 'CAC résumé',
+        hvDescripcion: 'Your official résumé is generated from the up-to-date information in your profile.',
+        hvDescargar: 'Download résumé', hvPreparando: 'Preparing…',
+        subirTitulo: 'Upload a document',
+        subirFormatos: 'Accepted formats: PDF, DOCX, PNG, JPG. Maximum size: 10 MB.',
+        tipo: 'Document type', sinCategoria: 'No category',
+        soltar: 'Drag a file here or click to choose one',
+        soltarPie: 'PDF, DOCX, PNG, JPG · Max. 10 MB',
+        subido: 'Document uploaded.', subiendo: 'Uploading…', subir: 'Upload document',
+        mis: 'My documents', reintentar: 'Retry',
+        vacio: 'You have not uploaded any documents yet. The files you upload will be reviewed and validated by your coordinator.',
+        vistaPrevia: 'Preview', descargar: 'Download', eliminar: 'Delete',
+        errorCargar: 'Documents could not be loaded.',
+        errorSinArchivo: 'Choose a file first.',
+        errorSubir: 'The file could not be uploaded.',
+        errorDescargar: 'The file could not be downloaded.',
+        errorEliminar: 'The document could not be deleted.',
+        errorHv: 'Your résumé could not be prepared.',
+        confirmarTitulo: 'Delete document',
+        confirmarDescripcion: 'This document will be removed from your record. This cannot be undone.',
+      }
+    : {
+        hvTitulo: 'Hoja de vida CAC',
+        hvDescripcion: 'Tu hoja de vida oficial se genera con la información actualizada de tu perfil.',
+        hvDescargar: 'Descargar hoja de vida', hvPreparando: 'Preparando…',
+        subirTitulo: 'Subir documento',
+        subirFormatos: 'Formatos admitidos: PDF, DOCX, PNG, JPG. Tamaño máximo: 10 MB.',
+        tipo: 'Tipo de documento', sinCategoria: 'Sin categoría',
+        soltar: 'Arrastra aquí o haz clic para seleccionar',
+        soltarPie: 'PDF, DOCX, PNG, JPG · Máx. 10 MB',
+        subido: 'Documento subido correctamente.', subiendo: 'Subiendo…', subir: 'Subir documento',
+        mis: 'Mis documentos', reintentar: 'Reintentar',
+        vacio: 'Aún no has subido ningún documento. Los archivos que subas serán revisados y validados por tu coordinador.',
+        vistaPrevia: 'Vista previa', descargar: 'Descargar', eliminar: 'Eliminar',
+        errorCargar: 'No se pudieron cargar los documentos.',
+        errorSinArchivo: 'Selecciona un archivo primero.',
+        errorSubir: 'No se pudo subir el archivo.',
+        errorDescargar: 'No se pudo descargar el archivo.',
+        errorEliminar: 'No se pudo eliminar el documento.',
+        errorHv: 'No se pudo preparar tu hoja de vida.',
+        confirmarTitulo: 'Eliminar documento',
+        confirmarDescripcion: 'Este documento se quitará de tu expediente. No se puede deshacer.',
+      }
+}
+
 export function StudentDocumentos() {
   const { user } = useAuth()
   const { confirmar, dialogo } = useConfirmar()
   const { mostrarError, avisos } = useAvisos()
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   const [documentos, setDocumentos] = useState<DocumentoResponse[]>([])
   const [tipos, setTipos] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -77,7 +139,7 @@ export function StudentDocumentos() {
       setError(
         e instanceof ApiCallError
           ? (e.body.message ?? `Error ${e.status}`)
-          : 'No se pudieron cargar los documentos.',
+          : T.errorCargar,
       )
     } finally {
       setLoading(false)
@@ -97,7 +159,7 @@ export function StudentDocumentos() {
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      setUploadError('Selecciona un archivo primero.')
+      setUploadError(T.errorSinArchivo)
       return
     }
     setUploading(true)
@@ -115,7 +177,7 @@ export function StudentDocumentos() {
       setUploadError(
         e instanceof ApiCallError
           ? (e.body.message ?? `Error ${e.status}`)
-          : 'No se pudo subir el archivo.',
+          : T.errorSubir,
       )
     } finally {
       setUploading(false)
@@ -126,16 +188,16 @@ export function StudentDocumentos() {
     try {
       await documentosApi.descargarMio(doc.id, doc.nombre)
     } catch {
-      mostrarError('No se pudo descargar el archivo.')
+      mostrarError(T.errorDescargar)
     }
   }
 
   const handleDelete = async (doc: DocumentoResponse) => {
     if (
       !(await confirmar({
-        titulo: 'Eliminar documento',
-        descripcion: `Se eliminará "${doc.nombre}". Esta acción no se puede deshacer.`,
-        textoConfirmar: 'Eliminar',
+        titulo: T.confirmarTitulo,
+        descripcion: `${T.confirmarDescripcion} · ${doc.nombre}`,
+        textoConfirmar: T.eliminar,
       }))
     )
       return
@@ -143,7 +205,7 @@ export function StudentDocumentos() {
       await documentosApi.eliminarMio(doc.id)
       setDocumentos((prev) => prev.filter((d) => d.id !== doc.id))
     } catch (e) {
-      mostrarError(mensajeDeError(e, 'No se pudo eliminar el documento.'))
+      mostrarError(mensajeDeError(e, T.errorEliminar))
     }
   }
 
@@ -152,7 +214,7 @@ export function StudentDocumentos() {
     try {
       await estudiantesApi.descargarMiHvPdf()
     } catch {
-      mostrarError('No se pudo preparar tu hoja de vida.')
+      mostrarError(T.errorHv)
     } finally { setDownloadingCv(false) }
   }
 
@@ -175,24 +237,24 @@ export function StudentDocumentos() {
             onClick={cargar}
             className="ml-auto flex items-center gap-1 text-xs underline"
           >
-            <ArrowCounterClockwise className="size-3" /> Reintentar
+            <ArrowCounterClockwise className="size-3" /> {T.reintentar}
           </button>
         </div>
       )}
 
       <Card className="border-primary/20 bg-primary/[0.03] shadow-none">
         <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3"><span className="flex size-11 items-center justify-center rounded-xl bg-primary/10"><FilePdf className="size-5 text-primary" /></span><div><p className="text-sm font-semibold">Hoja de vida CAC</p><p className="mt-0.5 text-xs text-muted-foreground">Tu hoja de vida oficial se genera con la información actualizada de tu perfil.</p></div></div>
-          <Button variant="outline" size="sm" onClick={() => void handleDownloadCv()} disabled={downloadingCv}>{downloadingCv ? <CircleNotch className="size-4 animate-spin" /> : <DownloadSimple className="size-4" />}{downloadingCv ? 'Preparando…' : 'Descargar hoja de vida'}</Button>
+          <div className="flex items-center gap-3"><span className="flex size-11 items-center justify-center rounded-xl bg-primary/10"><FilePdf className="size-5 text-primary" /></span><div><p className="text-sm font-semibold">{T.hvTitulo}</p><p className="mt-0.5 text-xs text-muted-foreground">{T.hvDescripcion}</p></div></div>
+          <Button variant="outline" size="sm" onClick={() => void handleDownloadCv()} disabled={downloadingCv}>{downloadingCv ? <CircleNotch className="size-4 animate-spin" /> : <DownloadSimple className="size-4" />}{downloadingCv ? T.hvPreparando : T.hvDescargar}</Button>
         </CardContent>
       </Card>
 
       {/* ── Upload zone ────────────────────────────────────── */}
       <Card className="shadow-none">
         <CardHeader>
-          <CardTitle className="text-base">Subir documento</CardTitle>
+          <CardTitle className="text-base">{T.subirTitulo}</CardTitle>
           <CardDescription>
-            Formatos admitidos: PDF, DOCX, PNG, JPG. Tamaño máximo: 10 MB.
+            {T.subirFormatos}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -200,14 +262,14 @@ export function StudentDocumentos() {
             {/* Tipo */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-muted-foreground">
-                Tipo de documento
+                {T.tipo}
               </label>
               <select
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                 value={selectedTipo}
                 onChange={(e) => setSelectedTipo(e.target.value)}
               >
-                <option value="">Sin categoría</option>
+                <option value="">{T.sinCategoria}</option>
                 {tipos.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -238,10 +300,10 @@ export function StudentDocumentos() {
               ) : (
                 <div>
                   <p className="text-sm font-medium">
-                    Arrastra aquí o haz clic para seleccionar
+                    {T.soltar}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    PDF, DOCX, PNG, JPG · Máx. 10 MB
+                    {T.soltarPie}
                   </p>
                 </div>
               )}
@@ -264,7 +326,7 @@ export function StudentDocumentos() {
             )}
             {uploadSuccess && (
               <p className="flex items-center gap-1.5 text-sm text-emerald-600">
-                <CheckCircle className="size-4" /> Documento subido correctamente.
+                <CheckCircle className="size-4" /> {T.subido}
               </p>
             )}
 
@@ -275,11 +337,11 @@ export function StudentDocumentos() {
             >
               {uploading ? (
                 <>
-                  <CircleNotch className="size-4 animate-spin" /> Subiendo…
+                  <CircleNotch className="size-4 animate-spin" /> {T.subiendo}
                 </>
               ) : (
                 <>
-                  <CloudArrowUp className="size-4" /> Subir documento
+                  <CloudArrowUp className="size-4" /> {T.subir}
                 </>
               )}
             </Button>
@@ -290,7 +352,7 @@ export function StudentDocumentos() {
       {/* ── Lista de documentos ────────────────────────────── */}
       <div>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          Mis documentos ({documentos.length})
+          {T.mis} ({documentos.length})
         </h2>
 
         {documentos.length === 0 ? (
@@ -300,8 +362,7 @@ export function StudentDocumentos() {
                 <FileText className="size-5" />
               </span>
               <p className="max-w-sm text-sm">
-                Aún no has subido ningún documento. Los archivos que subas
-                serán revisados y validados por tu coordinador.
+                {T.vacio}
               </p>
             </CardContent>
           </Card>
@@ -328,7 +389,7 @@ export function StudentDocumentos() {
                       {formatBytes(doc.tamano)}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {formatDate(doc.createdAt)}
+                      {formatDate(doc.createdAt, locale)}
                     </span>
                     {doc.actual && (
                       <span className="flex items-center gap-1 text-xs text-emerald-600">
@@ -342,7 +403,7 @@ export function StudentDocumentos() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    title="Vista previa"
+                    title={T.vistaPrevia}
                     onClick={() => setPreviewDoc(doc)}
                   >
                     <Eye className="size-4" />
@@ -350,7 +411,7 @@ export function StudentDocumentos() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    title="Descargar"
+                    title={T.descargar}
                     onClick={() => handleDownload(doc)}
                   >
                     <DownloadSimple className="size-4" />
@@ -359,7 +420,7 @@ export function StudentDocumentos() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      title="Eliminar"
+                      title={T.eliminar}
                       className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => handleDelete(doc)}
                     >
