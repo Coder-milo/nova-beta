@@ -214,12 +214,18 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
         responder: 'Reply to this message', reaccionar: 'React', cancelar: 'Remove',
         vacio: 'No messages in this conversation yet.', cargando: 'Loading conversation…',
         respondiendoA: 'Replying to', maxArchivos: 'Up to 5 files',
+        errorCargar: 'The conversation could not be loaded.',
+        errorEnviar: 'The message could not be sent.',
+        errorReaccionar: 'The reaction could not be saved.',
       }
     : {
         escribir: 'Escribe un mensaje…', enviar: 'Enviar', adjuntar: 'Adjuntar un archivo',
         responder: 'Responder a este mensaje', reaccionar: 'Reaccionar', cancelar: 'Quitar',
         vacio: 'Todavía no hay mensajes en esta conversación.', cargando: 'Cargando conversación…',
         respondiendoA: 'Respondiendo a', maxArchivos: 'Hasta 5 archivos',
+        errorCargar: 'No se pudo cargar la conversación.',
+        errorEnviar: 'No se pudo enviar el mensaje.',
+        errorReaccionar: 'No se pudo reaccionar.',
       }
 
   useEffect(() => {

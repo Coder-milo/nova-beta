@@ -18,6 +18,7 @@
 
 import { useCallback, useState } from 'react'
 import { CheckCircleIcon as CheckCircle, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { usePreferences } from '@/lib/preferences'
 
 export type TipoAviso = 'exito' | 'error'
 
@@ -46,6 +47,7 @@ export function useAvisos() {
 }
 
 function ToastAviso({ aviso, onCerrar }: { aviso: Aviso | null; onCerrar: () => void }) {
+  const { locale } = usePreferences()
   if (!aviso) return null
   const exito = aviso.tipo === 'exito'
   return (
@@ -70,7 +72,7 @@ function ToastAviso({ aviso, onCerrar }: { aviso: Aviso | null; onCerrar: () => 
           type="button"
           onClick={onCerrar}
           className="rounded-md p-1 opacity-70 hover:opacity-100"
-          aria-label="Cerrar aviso"
+          aria-label={locale === 'en' ? 'Dismiss notice' : 'Cerrar aviso'}
         >
           ✕
         </button>

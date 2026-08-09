@@ -12,7 +12,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { ProveedorBranding } from '@/lib/branding'
-import { PreferencesProvider } from '@/lib/preferences'
+import { PreferencesProvider, usePreferences } from '@/lib/preferences'
 import {
   estudiantePuedeVer,
   soloEsEstudiante,
@@ -87,16 +87,18 @@ const exactRoutes: Record<string, ComponentType> = {
 }
 
 function NotFoundPage() {
+  const { locale } = usePreferences()
+  const english = locale === 'en'
   return (
     <div className="glass-card flex min-h-72 flex-col items-center justify-center gap-3 rounded-3xl p-8 text-center">
       <p className="text-sm font-semibold uppercase tracking-wider text-primary">
         Error 404
       </p>
       <h2 className="text-2xl font-semibold text-foreground">
-        Esta página no existe
+        {english ? 'This page does not exist' : 'Esta página no existe'}
       </h2>
       <a className="text-sm font-medium text-primary hover:underline" href="/">
-        Volver al dashboard
+        {english ? 'Back to the dashboard' : 'Volver al dashboard'}
       </a>
     </div>
   )
@@ -188,14 +190,17 @@ class AppErrorBoundary extends Component<
   render() {
     if (!this.state.error) return this.props.children
 
+    // Esta pantalla envuelve al proveedor de preferencias, asi que no puede
+    // usar su hook: lee directamente la clave que el proveedor guarda. Si
+    // fallara la lectura, el espanol es el idioma por defecto del sistema.
+    let english = false
+    try { english = localStorage.getItem('nova_locale') === 'en' } catch { /* noop */ }
+
     return (
       <main className="flex min-h-svh items-center justify-center bg-[#050b14] p-6 text-white">
         <section className="w-full max-w-md rounded-2xl border border-white/15 bg-white/5 p-7 text-center shadow-2xl">
-          <h1 className="text-xl font-semibold">No se pudo cargar el panel</h1>
-          <p className="mt-3 text-sm leading-6 text-white/70">
-            Ocurrió un error al iniciar la interfaz. El detalle técnico aparece
-            abajo para poder corregirlo.
-          </p>
+          <h1 className="text-xl font-semibold">{english ? 'The panel could not be loaded' : 'No se pudo cargar el panel'}</h1>
+          <p className="mt-3 text-sm leading-6 text-white/70">{english ? 'Something went wrong starting the interface. The technical detail is shown below so it can be fixed.' : 'Ocurrió un error al iniciar la interfaz. El detalle técnico aparece abajo para poder corregirlo.'}</p>
           <pre className="mt-4 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-black/30 p-3 text-left text-xs text-red-200">
             {this.state.error.message || this.state.error.name}
           </pre>
@@ -204,7 +209,7 @@ class AppErrorBoundary extends Component<
             onClick={this.recuperar}
             className="mt-6 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
           >
-            Recuperar aplicación
+            {english ? 'Recover the application' : 'Recuperar aplicación'}
           </button>
         </section>
       </main>

@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { CodeIcon as Code, FilePlusIcon as FilePlus, CircleNotchIcon as CircleNotch, TextBIcon as TextB, TextItalicIcon as TextItalic, LinkSimpleIcon as LinkSimple, ListBulletsIcon as ListBullets } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import { usePreferences } from '@/lib/preferences'
 
 const FUENTES = [false, 'serif', 'monospace']
 const TAMANOS = ['small', false, 'large', 'huge']
@@ -57,16 +58,37 @@ export interface EditorTextoProps {
   aceptaAdjuntos?: string
 }
 
+/** Textos propios de este componente, en los dos idiomas. */
+function textos(english: boolean) {
+  return english
+    ? {
+        escribeAqui: 'Type the message content here…',
+        noSePudoSubir: 'The file could not be uploaded.',
+        volverAlEditor: 'Back to the editor',
+        editarHtml: 'Edit HTML',
+        cuerpoDelMensaje: 'Message body',
+      }
+    : {
+        escribeAqui: 'Escribe aquí el contenido del mensaje…',
+        noSePudoSubir: 'No se pudo subir el archivo.',
+        volverAlEditor: 'Volver al editor',
+        editarHtml: 'Editar HTML',
+        cuerpoDelMensaje: 'Cuerpo del mensaje',
+      }
+}
+
 export function EditorTexto({
   value,
   onChange,
-  placeholder = 'Escribe aquí el contenido del mensaje…',
+  placeholder,
   minHeight = '14rem',
   id,
   'aria-label': ariaLabel,
   onSubirArchivo,
   aceptaAdjuntos = ADJUNTOS_POR_DEFECTO,
 }: EditorTextoProps) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   const contenedor = useRef<HTMLDivElement>(null)
   const quill = useRef<any>(null)
   const entradaArchivo = useRef<HTMLInputElement>(null)
@@ -110,7 +132,7 @@ export function EditorTexto({
         }
       }
     } catch (error) {
-      setErrorAdjunto(error instanceof Error ? error.message : 'No se pudo subir el archivo.')
+      setErrorAdjunto(error instanceof Error ? error.message : T.noSePudoSubir)
     } finally {
       setSubiendo(false)
     }
@@ -137,7 +159,7 @@ export function EditorTexto({
         try {
           const q = new QuillClass(contenedor.current, {
             theme: 'snow',
-            placeholder,
+            placeholder: placeholder ?? T.escribeAqui,
             formats: FORMATOS,
             modules: { toolbar: BARRA },
           })
@@ -235,7 +257,7 @@ export function EditorTexto({
           )}
         >
           <Code className="size-3.5" />
-          {modoHtml ? 'Volver al editor' : 'Editar HTML'}
+          {modoHtml ? T.volverAlEditor : T.editarHtml}
         </button>
 
         {onSubirArchivo && (
@@ -313,8 +335,8 @@ export function EditorTexto({
       {(modoHtml || !quillListo) && (
         <textarea
           id={id}
-          aria-label={ariaLabel || 'Cuerpo del mensaje'}
-          placeholder={placeholder}
+          aria-label={ariaLabel || T.cuerpoDelMensaje}
+          placeholder={placeholder ?? T.escribeAqui}
           spellCheck={false}
           value={value}
           onChange={(event) => onChange(event.target.value)}

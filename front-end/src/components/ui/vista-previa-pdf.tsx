@@ -16,6 +16,7 @@ import { ArrowsClockwiseIcon as ArrowsClockwise, CircleNotchIcon as CircleNotch,
 import { ApiCallError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { usePreferences } from '@/lib/preferences'
 
 export interface VistaPreviaPdfProps {
   /** Trae el PDF. Debe ser estable (`useCallback`) o el visor se recargaría solo. */
@@ -28,23 +29,46 @@ export interface VistaPreviaPdfProps {
   className?: string
 }
 
-function mensajeDe(error: unknown): string {
+/** Textos propios de este componente, en los dos idiomas. */
+function textos(english: boolean) {
+  return english
+    ? {
+        sinPermiso: 'Your session cannot view this document.',
+        sinDatos: 'There is not enough information to generate the résumé yet.',
+        sinConexion: 'Could not reach the server.',
+        generandoVistaPrevia: 'Generating the preview…',
+        vistaPrevia: 'Preview',
+      }
+    : {
+        sinPermiso: 'Tu sesión no tiene permiso para ver este documento.',
+        sinDatos: 'Todavía no hay información suficiente para generar la hoja de vida.',
+        sinConexion: 'No se pudo conectar con el servidor.',
+        generandoVistaPrevia: 'Generando la vista previa…',
+        vistaPrevia: 'Vista previa',
+      }
+}
+
+/** No es un componente: no puede leer el idioma, se lo pasan. */
+function mensajeDe(error: unknown, T: ReturnType<typeof textos>): string {
   if (error instanceof ApiCallError) {
-    if (error.status === 401 || error.status === 403) return 'Tu sesión no tiene permiso para ver este documento.'
-    if (error.status === 404) return 'Todavía no hay información suficiente para generar la hoja de vida.'
-    return error.body.message ?? `El servidor respondió con un error (HTTP ${error.status}).`
+    if (error.status === 401 || error.status === 403) return T.sinPermiso
+    if (error.status === 404) return T.sinDatos
+    return error.body.message ?? `Error ${error.status}.`
   }
-  return 'No se pudo conectar con el servidor.'
+  return T.sinConexion
 }
 
 export function VistaPreviaPdf({
   cargar,
   onDescargar,
-  titulo = 'Vista previa',
+  titulo,
   descripcion,
   altura = '32rem',
   className,
 }: VistaPreviaPdfProps) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const rotulo = titulo ?? T.vistaPrevia
   const [url, setUrl] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -64,7 +88,7 @@ export function VistaPreviaPdf({
         setUrl(creada)
       })
       .catch((e) => {
-        if (vivo) setError(mensajeDe(e))
+        if (vivo) setError(mensajeDe(e, T))
       })
       .finally(() => {
         if (vivo) setCargando(false)
@@ -84,7 +108,7 @@ export function VistaPreviaPdf({
     try {
       await onDescargar()
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T))
     } finally {
       setDescargando(false)
     }
@@ -94,7 +118,7 @@ export function VistaPreviaPdf({
     <div className={cn('space-y-3', className)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold">{titulo}</p>
+          <p className="text-sm font-semibold">{rotulo}</p>
           {descripcion && <p className="text-xs text-muted-foreground">{descripcion}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -124,14 +148,12 @@ export function VistaPreviaPdf({
           className="flex items-center justify-center gap-2 rounded-xl border border-border bg-secondary/30 text-sm text-muted-foreground"
           style={{ height: altura }}
         >
-          <CircleNotch className="size-5 animate-spin" />
-          Generando la vista previa…
-        </div>
+          <CircleNotch className="size-5 animate-spin" />{T.generandoVistaPrevia}</div>
       ) : (
         <iframe
           // `title` es lo que anuncia un lector de pantalla al llegar al marco;
           // sin él solo dice «marco».
-          title={titulo}
+          title={rotulo}
           src={url}
           className="w-full rounded-xl border border-border bg-white"
           style={{ height: altura }}

@@ -8,7 +8,6 @@ import { SidebarNav } from '@/components/admin/sidebar-nav'
 import { Header } from '@/components/admin/header'
 import { StudentHelpChat } from '@/components/student/student-help-chat'
 import { AdminAssistantChat } from '@/components/admin/admin-assistant-chat'
-import { LocaleContentTranslator } from '@/components/ui/locale-content-translator'
 import { useAuth } from '@/lib/auth'
 import { soloEsEstudiante } from '@/lib/navigation'
 import { usePreferences } from '@/lib/preferences'
@@ -58,7 +57,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       'relative flex h-svh max-h-svh w-full bg-background text-foreground overflow-hidden',
       esEstudiante ? 'student-project-shell' : 'admin-project-shell',
       )}>
-      <LocaleContentTranslator />
       {/* ── Barra de progreso de navegación (top) ───────────────────────── */}
       {navLoading && (
         <div

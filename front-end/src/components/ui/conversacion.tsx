@@ -61,6 +61,9 @@ type Props = {
     cargando: string
     respondiendoA: string
     maxArchivos: string
+    errorCargar: string
+    errorEnviar: string
+    errorReaccionar: string
   }
   /** Para que la lista de fuera pueda refrescar su resumen al escribir. */
   onTurnoNuevo?: () => void
@@ -83,7 +86,7 @@ export function Conversacion({ mensajeId, soyEstudiante, locale, textos, onTurno
     try {
       setTurnos(await mensajesApi.turnos(mensajeId))
     } catch (e) {
-      setError(mensajeDeError(e, 'No se pudo cargar la conversación.'))
+      setError(mensajeDeError(e, textos.errorCargar))
     } finally { setCargando(false) }
   }, [mensajeId])
 
@@ -107,7 +110,7 @@ export function Conversacion({ mensajeId, soyEstudiante, locale, textos, onTurno
       if (archivoRef.current) archivoRef.current.value = ''
       onTurnoNuevo?.()
     } catch (e) {
-      setError(mensajeDeError(e, 'No se pudo enviar el mensaje.'))
+      setError(mensajeDeError(e, textos.errorEnviar))
     } finally { setEnviando(false) }
   }
 
@@ -123,7 +126,7 @@ export function Conversacion({ mensajeId, soyEstudiante, locale, textos, onTurno
       const reacciones: ReaccionResumen[] = await mensajesApi.alternarReaccion(turnoId, emoji)
       setTurnos((actuales) => actuales.map((t) => (t.id === turnoId ? { ...t, reacciones } : t)))
     } catch (e) {
-      setError(mensajeDeError(e, 'No se pudo reaccionar.'))
+      setError(mensajeDeError(e, textos.errorReaccionar))
     }
   }
 
