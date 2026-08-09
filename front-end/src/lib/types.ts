@@ -349,9 +349,17 @@ export interface VacanteResponse {
    * pregunta es un estudiante, porque en una oferta sugerida `creadaPor` es el
    * correo de otro participante.
    */
-  motivoCierre?: string | null
+  motivoCierre?: MotivoCierre | null
   creadaPor?: string | null
 }
+
+/**
+ * Por qué dejó de mostrarse una oferta. Refleja el enum del backend.
+ *
+ * Se guarda el motivo y no sólo que está cerrada porque la diferencia importa:
+ * cubierta significa que el proceso terminó; expirada, que se dejó pasar.
+ */
+export type MotivoCierre = 'EXPIRADA' | 'CUBIERTA' | 'RETIRADA'
 
 /** Datos que el equipo registra cuando crea una vacante sin importar un enlace. */
 export interface VacanteRequest {

@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowSquareOutIcon as ArrowSquareOut, ArrowsClockwiseIcon as ArrowsClockwise, BriefcaseIcon as Briefcase, BuildingsIcon as Buildings, CalendarBlankIcon as CalendarBlank, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CurrencyDollarIcon as CurrencyDollar, GlobeIcon as Globe, LinkSimpleIcon as LinkSimple, MagnifyingGlassIcon as MagnifyingGlass, MapPinIcon as MapPin, PlusIcon as Plus, TranslateIcon as Translate, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { ArrowCounterClockwiseIcon as ArrowCounterClockwise, ArrowSquareOutIcon as ArrowSquareOut, ArrowsClockwiseIcon as ArrowsClockwise, BriefcaseIcon as Briefcase, BuildingsIcon as Buildings, CalendarBlankIcon as CalendarBlank, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CurrencyDollarIcon as CurrencyDollar, GlobeIcon as Globe, LinkSimpleIcon as LinkSimple, MagnifyingGlassIcon as MagnifyingGlass, PencilSimpleIcon as PencilSimple, TrashIcon as Trash, XCircleIcon as XCircle, MapPinIcon as MapPin, PlusIcon as Plus, TranslateIcon as Translate, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 /**
  * Página de Vacantes y Matching.
  *
@@ -21,7 +21,9 @@ import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { vacantesApi, matchesApi, ApiCallError, mensajeDeError } from '@/lib/api'
-import type { VacanteRequest, VacanteResponse, Page } from '@/lib/types'
+import type { VacanteRequest, VacanteResponse, MotivoCierre, Page } from '@/lib/types'
+import { useAvisos } from '@/components/ui/avisos'
+import { useConfirmar } from '@/components/ui/confirmar'
 import { Textarea } from '@/components/ui/textarea'
 
 type VacanteForm = {
@@ -127,6 +129,24 @@ function textos(english: boolean) {
         modalidad: 'Work mode',
         ubicacion: 'Location',
         fuente: 'Source',
+        aplicar: 'Apply',
+        vacanteActualizada: 'Vacancy updated.',
+        corregirVacante: 'Correct the vacancy',
+        guardarCambios: 'Save changes',
+        cerrarOferta: 'Close it',
+        reabrirOferta: 'Reopen it',
+        eliminarVacante: 'Delete vacancy',
+        motivoDelCierre: 'Reason for closing',
+        yaCubierta: 'Already filled',
+        expirada: 'Expired',
+        retirada: 'Withdrawn',
+        ofertaCerrada: 'Closed',
+        gestionDeLa: 'Vacancy management',
+        cerrarLaConserva: 'Closing keeps it and its history; deleting removes it for good. Close what was filled or expired; delete only what should never have been recorded.',
+        noSePudoCerrar: 'The vacancy could not be closed.',
+        noSePudoReabrir: 'The vacancy could not be reopened.',
+        noSePudoEliminar: 'The vacancy could not be deleted.',
+        seEliminaraVacante: (t: string) => `Vacancy “${t}” will be deleted. This cannot be undone.`,
         manual: 'Manual', opcional: 'optional',
       }
     : {
@@ -200,11 +220,36 @@ function textos(english: boolean) {
         modalidad: 'Modalidad',
         ubicacion: 'Ubicación',
         fuente: 'Fuente',
+        aplicar: 'Aplicar',
+        vacanteActualizada: 'Vacante actualizada.',
+        corregirVacante: 'Corregir la vacante',
+        guardarCambios: 'Guardar cambios',
+        cerrarOferta: 'Cerrar la oferta',
+        reabrirOferta: 'Reabrir la oferta',
+        eliminarVacante: 'Eliminar vacante',
+        motivoDelCierre: 'Motivo del cierre',
+        yaCubierta: 'Ya cubierta',
+        expirada: 'Expirada',
+        retirada: 'Retirada',
+        ofertaCerrada: 'Cerrada',
+        gestionDeLa: 'Gestión de la oferta',
+        cerrarLaConserva: 'Cerrarla la conserva con su historial; eliminarla la borra del todo. Cierra lo que se cubrió o venció; elimina solo lo que nunca debió registrarse.',
+        noSePudoCerrar: 'No se pudo cerrar la vacante.',
+        noSePudoReabrir: 'No se pudo reabrir la vacante.',
+        noSePudoEliminar: 'No se pudo eliminar la vacante.',
+        seEliminaraVacante: (t: string) => `Se eliminará la vacante «${t}». Esta acción no se puede deshacer.`,
         manual: 'Manual', opcional: 'opcional',
       }
 }
 
+/** El motivo llega como codigo del backend; la etiqueta es interfaz. */
+function etiquetaMotivo(T: ReturnType<typeof textos>, motivo: MotivoCierre): string {
+  return { CUBIERTA: T.yaCubierta, EXPIRADA: T.expirada, RETIRADA: T.retirada }[motivo] ?? motivo
+}
+
 export default function VacantesPage() {
+  const { confirmar, dialogo } = useConfirmar()
+  const { mostrarError, avisos } = useAvisos()
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
@@ -226,11 +271,49 @@ export default function VacantesPage() {
   const [guardando, setGuardando]     = useState(false)
   const [formError, setFormError]     = useState<string | null>(null)
   const [formVacante, setFormVacante] = useState<VacanteForm>(formularioVacio)
+  const [editandoId, setEditandoId]   = useState<string | null>(null)
+  const [gestionando, setGestionando] = useState(false)
   const [revisando, setRevisando]     = useState(false)
   const [revisarError, setRevisarError] = useState<string | null>(null)
 
   const actualizarFormulario = (campo: keyof VacanteForm, valor: string) => {
     setFormVacante((anterior) => ({ ...anterior, [campo]: valor }))
+  }
+
+  const abrirCreacion = () => {
+    setFormError(null); setEditandoId(null)
+    setFormVacante(formularioVacio)
+    setCreando(true)
+  }
+
+  /**
+   * El mismo panel sirve para corregir.
+   *
+   * `fechaExpiracion` llega del servidor con segundos y zona; el input
+   * `datetime-local` sólo acepta `YYYY-MM-DDTHH:mm`, y con más caracteres se
+   * queda vacío sin avisar. Recortarla es lo que evita que al guardar una
+   * corrección se borre la fecha de cierre que ya tenía.
+   */
+  const abrirEdicion = (v: VacanteResponse) => {
+    setFormError(null); setEditandoId(v.id)
+    setFormVacante({
+      titulo: v.titulo ?? '',
+      empresaNombre: v.empresaNombre ?? '',
+      ubicacion: v.ubicacion ?? '',
+      modalidadTrabajo: v.modalidadTrabajo ?? '',
+      tipoContrato: v.tipoContrato ?? '',
+      jornada: v.jornada ?? '',
+      rangoSalarial: v.rangoSalarial ?? '',
+      nivelInglesRequerido: v.nivelInglesRequerido ?? '',
+      aniosExperienciaRequeridos: v.aniosExperienciaRequeridos != null ? String(v.aniosExperienciaRequeridos) : '',
+      urlAplicar: v.urlAplicar ?? '',
+      url: v.urlOrigen ?? '',
+      fechaExpiracion: v.fechaExpiracion ? v.fechaExpiracion.slice(0, 16) : '',
+      descripcion: v.descripcion ?? '',
+      requisitos: v.requisitos ?? '',
+    })
+    setSelected(null)
+    setCreando(true)
   }
 
   const crearVacante = async (event: React.SyntheticEvent<HTMLFormElement>) => {
@@ -257,12 +340,24 @@ export default function VacantesPage() {
       requisitos: formVacante.requisitos.trim() || undefined,
     }
     try {
-      await vacantesApi.crear(datos)
+      if (editandoId) {
+        const corregida = await vacantesApi.actualizar(editandoId, datos)
+        // Se repinta sólo la fila tocada: recargar la página entera devolvería
+        // el listado al principio y quien está revisando perdería el sitio.
+        setPage((actual) => actual && {
+          ...actual,
+          content: actual.content.map((v) => (v.id === editandoId ? corregida : v)),
+        })
+        setMatchingMsg(T.vacanteActualizada)
+      } else {
+        await vacantesApi.crear(datos)
+        setMatchingMsg(T.vacanteCreadaCorrectamente)
+        setCurrentPage(0)
+        await load(0)
+      }
       setCreando(false)
+      setEditandoId(null)
       setFormVacante(formularioVacio)
-      setMatchingMsg(T.vacanteCreadaCorrectamente)
-      setCurrentPage(0)
-      await load(0)
     } catch (err) {
       setFormError(err instanceof ApiCallError
         ? (err.body.message ?? T.noSePudoCrear(err.status))
@@ -338,6 +433,63 @@ export default function VacantesPage() {
     } finally { setRevisando(false) }
   }
 
+  /**
+   * Cierra una oferta con su motivo.
+   *
+   * El motivo no es un adorno: distingue una plaza cubierta —el proceso llegó
+   * a su fin— de una que venció sin que nadie llegara a tiempo. Sin esa
+   * diferencia no se puede saber si el programa está llegando tarde.
+   */
+  const cerrarOferta = async (id: string, motivo: MotivoCierre) => {
+    setGestionando(true)
+    try {
+      const cerrada = await vacantesApi.cerrar(id, motivo)
+      setPage((actual) => actual && {
+        ...actual,
+        content: actual.content.map((v) => (v.id === id ? cerrada : v)),
+      })
+      setSelected((actual) => (actual?.id === id ? cerrada : actual))
+    } catch (err) {
+      mostrarError(mensajeDeError(err, T.noSePudoCerrar))
+    } finally { setGestionando(false) }
+  }
+
+  const reabrirOferta = async (id: string) => {
+    setGestionando(true)
+    try {
+      const abierta = await vacantesApi.reabrir(id)
+      setPage((actual) => actual && {
+        ...actual,
+        content: actual.content.map((v) => (v.id === id ? abierta : v)),
+      })
+      setSelected((actual) => (actual?.id === id ? abierta : actual))
+    } catch (err) {
+      mostrarError(mensajeDeError(err, T.noSePudoReabrir))
+    } finally { setGestionando(false) }
+  }
+
+  /**
+   * Borrado definitivo, para lo que nunca debió entrar: un scraping mal leído
+   * o una oferta duplicada. Lo que se cubrió o venció se cierra, no se borra,
+   * porque su historial es lo que permite medir el programa.
+   */
+  const eliminarOferta = async (v: VacanteResponse) => {
+    if (!(await confirmar({
+      titulo: T.eliminarVacante,
+      descripcion: T.seEliminaraVacante(v.titulo),
+      textoConfirmar: C.eliminar,
+      destructivo: true,
+    }))) return
+    setGestionando(true)
+    try {
+      await vacantesApi.eliminar(v.id)
+      setSelected(null)
+      await load(currentPage)
+    } catch (err) {
+      mostrarError(mensajeDeError(err, T.noSePudoEliminar))
+    } finally { setGestionando(false) }
+  }
+
   /** Las fuentes que de verdad hay en lo cargado; no una lista fija. */
   const fuentesDisponibles = Array.from(
     new Set((page?.content ?? []).map((v) => v.fuente).filter((f): f is string => !!f)),
@@ -358,7 +510,7 @@ export default function VacantesPage() {
       {/* Cabecera */}
       <div className="flex justify-end gap-4">
         <div className="flex shrink-0 gap-2">
-          <Button size="sm" onClick={() => { setFormError(null); setCreando(true) }}>
+          <Button size="sm" onClick={abrirCreacion}>
             <Plus className="size-3.5" /> {T.nuevaVacante}
           </Button>
           <Button variant="outline" size="sm" onClick={() => load(currentPage)}>
@@ -539,7 +691,7 @@ export default function VacantesPage() {
         <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-2xl">
           <SheetHeader className="border-b border-border bg-muted/25 p-6">
             <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><Briefcase className="size-5" /></div>
-            <SheetTitle className="mt-3 text-lg">{T.registrarVacante}</SheetTitle>
+            <SheetTitle className="mt-3 text-lg">{editandoId ? T.corregirVacante : T.registrarVacante}</SheetTitle>
             <SheetDescription>{T.completaLosDatos}</SheetDescription>
           </SheetHeader>
           <form onSubmit={crearVacante} className="space-y-6 p-6">
@@ -579,7 +731,9 @@ export default function VacantesPage() {
 
             <div className="sticky bottom-0 -mx-6 flex items-center justify-between border-t border-border bg-background/95 px-6 py-4 backdrop-blur">
               <p className="hidden text-xs text-muted-foreground sm:block">{T.losCamposSin}</p>
-              <div className="ml-auto flex gap-2"><Button type="button" variant="outline" onClick={() => setCreando(false)} disabled={guardando}>{C.cancelar}</Button><Button type="submit" disabled={guardando}>{guardando ? <><CircleNotch className="size-4 animate-spin" /> Publicando…</> : <><CheckCircle className="size-4" /> Publicar vacante</>}</Button></div>
+              <div className="ml-auto flex gap-2"><Button type="button" variant="outline" onClick={() => setCreando(false)} disabled={guardando}>{C.cancelar}</Button><Button type="submit" disabled={guardando}>{guardando
+                ? <><CircleNotch className="size-4 animate-spin" /> {C.guardando}</>
+                : <><CheckCircle className="size-4" /> {editandoId ? T.guardarCambios : T.registrarVacante}</>}</Button></div>
             </div>
           </form>
         </SheetContent>
@@ -670,6 +824,66 @@ export default function VacantesPage() {
                     <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{selected.requisitos}</p>
                   </section>
                 )}
+
+                {/* Gestión de la oferta.
+                    Los cuatro endpoints existían desde el principio, probados y
+                    con su control de rol; lo que faltaba era poder llegar a
+                    ellos. Sin esto el equipo podía crear una vacante pero no
+                    corregir una errata, ni cerrarla cuando la empresa ya había
+                    contratado, ni borrar una que el scraping leyó mal. */}
+                <section className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-3">
+                  <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">{T.gestionDeLa}</h4>
+                  <p className="text-[11px] leading-5 text-muted-foreground">{T.cerrarLaConserva}</p>
+
+                  {selected.activa === false && (
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {T.ofertaCerrada}{selected.motivoCierre ? ` · ${etiquetaMotivo(T, selected.motivoCierre)}` : ''}
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" disabled={gestionando} onClick={() => abrirEdicion(selected)}>
+                      <PencilSimple className="size-3.5" /> {C.editar}
+                    </Button>
+
+                    {selected.activa === false ? (
+                      <Button variant="outline" size="sm" disabled={gestionando} onClick={() => void reabrirOferta(selected.id)}>
+                        <ArrowCounterClockwise className="size-3.5" /> {T.reabrirOferta}
+                      </Button>
+                    ) : (
+                      <label className="inline-flex items-center gap-2">
+                        <span className="sr-only">{T.motivoDelCierre}</span>
+                        <select
+                          aria-label={T.motivoDelCierre}
+                          disabled={gestionando}
+                          defaultValue=""
+                          onChange={(e) => {
+                            const motivo = e.target.value as MotivoCierre
+                            e.target.value = ''
+                            if (motivo) void cerrarOferta(selected.id, motivo)
+                          }}
+                          className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                        >
+                          <option value="">{T.cerrarOferta}…</option>
+                          <option value="CUBIERTA">{T.yaCubierta}</option>
+                          <option value="EXPIRADA">{T.expirada}</option>
+                          <option value="RETIRADA">{T.retirada}</option>
+                        </select>
+                        <XCircle className="size-3.5 text-muted-foreground" />
+                      </label>
+                    )}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={gestionando}
+                      onClick={() => void eliminarOferta(selected)}
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash className="size-3.5" /> {C.eliminar}
+                    </Button>
+                  </div>
+                </section>
               </div>
 
               <div className="p-4 border-t border-border shrink-0 flex justify-end gap-2">
@@ -679,7 +893,7 @@ export default function VacantesPage() {
                     size="sm"
                     render={<a href={selected.urlAplicar} target="_blank" rel="noopener noreferrer" />}
                   >
-                    <ArrowSquareOut className="size-4" /> Aplicar
+                    <ArrowSquareOut className="size-4" /> {T.aplicar}
                   </Button>
                 )}
                 {selected.urlOrigen && (
@@ -697,6 +911,8 @@ export default function VacantesPage() {
           )}
         </SheetContent>
       </Sheet>
+      {dialogo}
+      {avisos}
     </div>
   )
 }

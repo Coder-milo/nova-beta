@@ -282,6 +282,7 @@ export const dashboardApi = {
 // ─── Programas ───────────────────────────────────────────────────────────────
 
 import type { ProgramaResponse, ProgramaRequest, ProgramaEstado, ProgramaResumenResponse } from './types'
+import type { MotivoCierre } from './types'
 
 export const programasApi = {
   listar: () =>
@@ -477,6 +478,21 @@ export const vacantesApi = {
    */
   revisar: (id: string, token?: string) =>
     apiFetch<VacanteResponse>(`/api/v1/vacantes/${id}/revisar`, { method: 'POST', token }),
+  /**
+   * Cierra una oferta indicando por qué.
+   *
+   * El motivo no es decorativo: distingue una plaza cubierta —el proceso llegó
+   * a su fin— de una vencida, que es una oportunidad que se dejó pasar. Sin esa
+   * diferencia no se puede medir si el programa está llegando tarde.
+   */
+  cerrar: (id: string, motivo?: MotivoCierre, token?: string) =>
+    apiFetch<VacanteResponse>(
+      `/api/v1/vacantes/${id}/cerrar${motivo ? `?motivo=${motivo}` : ''}`,
+      { method: 'POST', token },
+    ),
+  /** Vuelve a abrir una oferta que se cerró por error. */
+  reabrir: (id: string, token?: string) =>
+    apiFetch<VacanteResponse>(`/api/v1/vacantes/${id}/reabrir`, { method: 'POST', token }),
   /** Escanea los portales de empleo bajo demanda (COORDINADOR/ADMIN). */
   escanear: (token?: string) =>
     apiFetch<{ vacantesNuevas: number }>('/api/v1/vacantes/scraping', { method: 'POST', token }),
