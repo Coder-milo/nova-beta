@@ -23,6 +23,7 @@ import { ActivitiesCard } from '@/components/dashboard/activities-card'
 import { QuickAccess } from '@/components/dashboard/quick-access'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { dashboardApi, ApiCallError } from '@/lib/api'
+import { usePreferences } from '@/lib/preferences'
 import type {
   DashboardSummaryResponse,
   DashboardChartsResponse,
@@ -33,90 +34,149 @@ import type { StatCard as StatCardType } from '@/lib/mock-data'
 import { primaryStats, secondaryStats } from '@/lib/mock-data'
 // ─── Mapeo de datos del backend a la forma que espera StatCard ───────────────
 
-function buildPrimaryStats(s: DashboardSummaryResponse): StatCardType[] {
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        totalEstudiantes: 'Total students',
+        estudiantesActivos: 'Active students',
+        graduados: 'Graduates',
+        retirados: 'Withdrawn',
+        docsPendientes: 'Docs. pending',
+        requierenAtencion: 'Need attention',
+        sinPendientes: 'Nothing pending',
+        sinIngresosEste: 'No new entries this month',
+        enProceso: 'In progress',
+        estadoAcademico: 'Academic status',
+        proyectosActivos: 'Active projects',
+        enEjecucion: 'Running',
+        hvPorGenerar: 'Résumés to generate',
+        pendientes: 'Pending',
+        almacenados: 'Stored',
+        cargandoDashboard: 'Loading dashboard…',
+        sinAutenticacion: 'Not signed in. Sign in to see real data.',
+        backendNoDisponible: 'Backend unavailable. Showing sample data.',
+        errorDelBackend: (s: number) => `Backend error (HTTP ${s}). Showing sample data.`,
+        nuevosEsteMes: (n: number, pct: string) => `+${n} this month (${pct})`,
+        pctDelTotal: (pct: string) => `${pct}% of the total`,
+      }
+    : {
+        totalEstudiantes: 'Total estudiantes',
+        estudiantesActivos: 'Estudiantes activos',
+        graduados: 'Graduados',
+        retirados: 'Retirados',
+        docsPendientes: 'Docs. pendientes',
+        requierenAtencion: 'Requieren atención',
+        sinPendientes: 'Sin pendientes',
+        sinIngresosEste: 'Sin ingresos este mes',
+        enProceso: 'En proceso',
+        estadoAcademico: 'Estado académico',
+        proyectosActivos: 'Proyectos activos',
+        enEjecucion: 'En ejecución',
+        hvPorGenerar: 'HV por generar',
+        pendientes: 'Pendientes',
+        almacenados: 'Almacenados',
+        cargandoDashboard: 'Cargando dashboard…',
+        sinAutenticacion: 'Sin autenticación. Inicia sesión para ver datos reales.',
+        backendNoDisponible: 'Backend no disponible. Mostrando datos de ejemplo.',
+        errorDelBackend: (s: number) => `Error del backend (HTTP ${s}). Mostrando datos de ejemplo.`,
+        nuevosEsteMes: (n: number, pct: string) => `+${n} este mes (${pct})`,
+        pctDelTotal: (pct: string) => `${pct}% del total`,
+      }
+}
+
+type Textos = ReturnType<typeof textos>
+
+
+function buildPrimaryStats(s: DashboardSummaryResponse, T: Textos, locale: string): StatCardType[] {
   return [
     {
       id: 'total',
-      label: 'Total estudiantes',
-      value: s.totalEstudiantes.toLocaleString('es-CO'),
+      label: T.totalEstudiantes,
+      value: s.totalEstudiantes.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
       helper:
         s.nuevosEsteMes > 0
-          ? `+${s.nuevosEsteMes} este mes (${s.variacionMesPct > 0 ? '+' : ''}${s.variacionMesPct}%)`
-          : 'Sin ingresos este mes',
+          ? T.nuevosEsteMes(s.nuevosEsteMes, `${s.variacionMesPct > 0 ? '+' : ''}${s.variacionMesPct}%`)
+          : T.sinIngresosEste,
       icon: 'users',
       tone: 'blue',
     },
     {
       id: 'activos',
-      label: 'Estudiantes activos',
-      value: s.activos.toLocaleString('es-CO'),
+      label: T.estudiantesActivos,
+      value: s.activos.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
       helper:
         s.totalEstudiantes > 0
-          ? `${((s.activos / s.totalEstudiantes) * 100).toFixed(1)}% del total`
+          ? T.pctDelTotal(((s.activos / s.totalEstudiantes) * 100).toFixed(1))
           : undefined,
       icon: 'active',
       tone: 'green',
     },
     {
       id: 'graduados',
-      label: 'Graduados',
-      value: s.graduados.toLocaleString('es-CO'),
+      label: T.graduados,
+      value: s.graduados.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
       icon: 'graduated',
       tone: 'purple',
     },
     {
       id: 'retirados',
-      label: 'Retirados',
-      value: s.retirados.toLocaleString('es-CO'),
+      label: T.retirados,
+      value: s.retirados.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
       helper:
         s.totalEstudiantes > 0
-          ? `${((s.retirados / s.totalEstudiantes) * 100).toFixed(1)}% del total`
+          ? T.pctDelTotal(((s.retirados / s.totalEstudiantes) * 100).toFixed(1))
           : undefined,
       icon: 'retired',
       tone: 'red',
     },
     {
       id: 'docs-pendientes',
-      label: 'Docs. pendientes',
-      value: s.documentosPendientes.toLocaleString('es-CO'),
-      helper: s.documentosPendientes > 0 ? 'Requieren atención' : 'Sin pendientes',
+      label: T.docsPendientes,
+      value: s.documentosPendientes.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
+      helper: s.documentosPendientes > 0 ? T.requierenAtencion : T.sinPendientes,
       icon: 'pending',
       tone: 'amber',
     },
   ]
 }
 
-function buildSecondaryStats(s: DashboardSummaryResponse): StatCardType[] {
+function buildSecondaryStats(s: DashboardSummaryResponse, T: Textos, locale: string): StatCardType[] {
   return [
     {
       id: 'en-proceso',
-      label: 'En proceso',
-      value: s.enProceso.toLocaleString('es-CO'),
-      helper: 'Estado académico',
+      label: T.enProceso,
+      value: s.enProceso.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
+      helper: T.estadoAcademico,
       icon: 'active',
       tone: 'teal',
     },
     {
       id: 'proyectos-activos',
-      label: 'Proyectos activos',
-      value: s.totalProyectos.toLocaleString('es-CO'),
-      helper: 'En ejecución',
+      label: T.proyectosActivos,
+      value: s.totalProyectos.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
+      helper: T.enEjecucion,
       icon: 'projects',
       tone: 'blue',
     },
     {
       id: 'hv-pendientes',
-      label: 'HV por generar',
-      value: s.hvsPorGenerar.toLocaleString('es-CO'),
-      helper: 'Pendientes',
+      label: T.hvPorGenerar,
+      value: s.hvsPorGenerar.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
+      helper: T.pendientes,
       icon: 'resumes',
       tone: 'teal',
     },
     {
       id: 'documentos',
-      label: 'Docs. pendientes',
-      value: s.documentosPendientes.toLocaleString('es-CO'),
-      helper: 'Almacenados',
+      label: T.docsPendientes,
+      value: s.documentosPendientes.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
+      helper: T.almacenados,
       icon: 'documents',
       tone: 'purple',
     },
@@ -126,6 +186,8 @@ function buildSecondaryStats(s: DashboardSummaryResponse): StatCardType[] {
 // ─── Componente ──────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null)
   const [charts, setCharts] = useState<DashboardChartsResponse | null>(null)
   const [alerts, setAlerts] = useState<AlertaResponse[] | null>(null)
@@ -156,16 +218,16 @@ export default function DashboardPage() {
         if (err instanceof ApiCallError) {
           if (err.status === 401 || err.status === 403) {
             setBackendError(
-              'Sin autenticación. Inicia sesión para ver datos reales.',
+              T.sinAutenticacion,
             )
           } else {
             setBackendError(
-              `Error del backend (HTTP ${err.status}). Mostrando datos de ejemplo.`,
+              T.errorDelBackend(err.status),
             )
           }
         } else {
           setBackendError(
-            'Backend no disponible. Mostrando datos de ejemplo.',
+            T.backendNoDisponible,
           )
         }
       } finally {
@@ -180,13 +242,13 @@ export default function DashboardPage() {
   }, [])
 
   if (loading) {
-    return <PageSpinner label="Cargando dashboard…" />
+    return <PageSpinner label={T.cargandoDashboard} />
   }
 
   // Si hay datos reales, los usamos; si no, mostramos el mock.
   const useLive = summary !== null && charts !== null && alerts !== null
-  const pStats  = useLive ? buildPrimaryStats(summary!) : primaryStats
-  const sStats  = useLive ? buildSecondaryStats(summary!) : secondaryStats
+  const pStats  = useLive ? buildPrimaryStats(summary!, T, locale) : primaryStats
+  const sStats  = useLive ? buildSecondaryStats(summary!, T, locale) : secondaryStats
 
   return (
     <div className="flex flex-col gap-6">
