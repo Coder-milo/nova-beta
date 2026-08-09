@@ -38,12 +38,65 @@ function pesoLegible(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+/**
+ * La hora, sin la fecha.
+ *
+ * La fecha sale una vez por dia en su separador, asi que repetirla en cada
+ * globo era ruido: en una conversacion de veinte mensajes del mismo dia se
+ * leia veinte veces «12 ago».
+ *
+ * `en-GB` y no `en-US`: el resto del sistema pone el dia primero.
+ */
 function hora(valor: string, locale: 'es' | 'en') {
   const fecha = new Date(valor)
   if (Number.isNaN(fecha.getTime())) return ''
-  return new Intl.DateTimeFormat(locale === 'es' ? 'es-CO' : 'en-US', {
-    day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
+  return new Intl.DateTimeFormat(locale === 'es' ? 'es-CO' : 'en-GB', {
+    hour: 'numeric', minute: '2-digit',
   }).format(fecha)
+}
+
+/** Clave de dia local, para saber cuando cambia sin comparar horas. */
+function diaDe(valor: string): string {
+  const f = new Date(valor)
+  if (Number.isNaN(f.getTime())) return ''
+  return `${f.getFullYear()}-${f.getMonth()}-${f.getDate()}`
+}
+
+/**
+ * El rotulo del separador: hoy, ayer, o la fecha entera.
+ *
+ * Sin esto no habia forma de saber si dos mensajes seguidos son de la misma
+ * tarde o de hace tres semanas.
+ */
+function etiquetaDia(valor: string, locale: 'es' | 'en'): string {
+  const f = new Date(valor)
+  if (Number.isNaN(f.getTime())) return ''
+  const hoy = new Date()
+  const ayer = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 1)
+  if (diaDe(valor) === diaDe(hoy.toISOString())) return locale === 'es' ? 'Hoy' : 'Today'
+  if (diaDe(valor) === diaDe(ayer.toISOString())) return locale === 'es' ? 'Ayer' : 'Yesterday'
+  return new Intl.DateTimeFormat(locale === 'es' ? 'es-CO' : 'en-GB', {
+    day: 'numeric', month: 'long', year: f.getFullYear() === hoy.getFullYear() ? undefined : 'numeric',
+  }).format(f)
+}
+
+/** Iniciales para el avatar de quien escribe enfrente. */
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/).filter(Boolean)
+  if (partes.length === 0) return '?'
+  return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : '')).toUpperCase()
+}
+
+/** Dos intervenciones seguidas del mismo autor, cerca en el tiempo. */
+const MINUTOS_PARA_AGRUPAR = 5
+
+function mismaTanda(previo: MensajeTurnoResponse | undefined, turno: MensajeTurnoResponse): boolean {
+  if (!previo) return false
+  if (previo.autorEsEstudiante !== turno.autorEsEstudiante) return false
+  if (previo.autorNombre !== turno.autorNombre) return false
+  if (diaDe(previo.createdAt) !== diaDe(turno.createdAt)) return false
+  const minutos = (new Date(turno.createdAt).getTime() - new Date(previo.createdAt).getTime()) / 60000
+  return minutos >= 0 && minutos <= MINUTOS_PARA_AGRUPAR
 }
 
 type Props = {
@@ -148,20 +201,52 @@ export function Conversacion({ mensajeId, soyEstudiante, locale, textos, onTurno
           <p className="py-8 text-center text-xs text-muted-foreground">{textos.vacio}</p>
         )}
 
-        {turnos.map((turno) => {
+        {turnos.map((turno, indice) => {
           // El lado depende de quién mira, no de quién escribió.
           const mio = turno.autorEsEstudiante === soyEstudiante
+          const previo = turnos[indice - 1]
+          // Varias intervenciones seguidas de la misma persona se leen como una
+          // sola intervención: sin esto, escribir tres frases pintaba tres
+          // globos idénticos con el nombre repetido tres veces.
+          const seguido = mismaTanda(previo, turno)
+          const cambiaElDia = !previo || diaDe(previo.createdAt) !== diaDe(turno.createdAt)
           return (
-            <div key={turno.id} className={cn('group flex flex-col', mio ? 'items-end' : 'items-start')}>
+            <div key={turno.id}>
+              {cambiaElDia && (
+                <div className="my-3 flex items-center gap-2">
+                  <span className="h-px flex-1 bg-border" />
+                  <span className="rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    {etiquetaDia(turno.createdAt, locale)}
+                  </span>
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+              )}
+              <div className={cn('group flex items-end gap-2', seguido ? 'mt-0.5' : 'mt-2', mio ? 'flex-row-reverse' : 'flex-row')}>
+                {/* El avatar sólo en la primera de la tanda; en las siguientes
+                    se deja su hueco para que los globos no se desalineen. */}
+                {!mio && (
+                  seguido
+                    ? <span className="size-7 shrink-0" aria-hidden="true" />
+                    : <span
+                        className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary"
+                        aria-hidden="true"
+                      >
+                        {iniciales(turno.autorNombre)}
+                      </span>
+                )}
+                <div className={cn('flex min-w-0 flex-col', mio ? 'items-end' : 'items-start')}>
               <div
                 className={cn(
-                  'max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-5 shadow-sm',
+                  'max-w-[85%] px-3.5 py-2.5 text-sm leading-5 shadow-sm',
                   mio
-                    ? 'rounded-tr-md bg-primary text-primary-foreground'
-                    : 'rounded-tl-md border border-border bg-card text-foreground',
+                    ? 'rounded-2xl bg-primary text-primary-foreground'
+                    : 'rounded-2xl border border-border bg-card text-foreground',
+                  mio
+                    ? (seguido ? 'rounded-tr-md' : 'rounded-br-md')
+                    : (seguido ? 'rounded-tl-md' : 'rounded-bl-md'),
                 )}
               >
-                {!mio && (
+                {!mio && !seguido && (
                   <p className="mb-0.5 text-[11px] font-semibold opacity-70">{turno.autorNombre}</p>
                 )}
 
@@ -279,6 +364,8 @@ export function Conversacion({ mensajeId, soyEstudiante, locale, textos, onTurno
                   ))}
                 </div>
               )}
+                </div>
+              </div>
             </div>
           )
         })}
