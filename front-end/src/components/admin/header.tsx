@@ -210,8 +210,22 @@ export function Header({ onOpenMobile }: HeaderProps) {
    * el modelo de turnos, la conversacion es el asunto y sus intervenciones, asi
    * que la lista los enumera directamente.
    */
+  /**
+   * Cuándo se movió el hilo por última vez.
+   *
+   * `createdAt` es cuando se abrió, no cuando ocurrió lo último. Una bandeja
+   * ordenada por eso deja abajo la conversación que se acaba de responder y
+   * arriba una de hace un mes, y la fecha que enseña cada fila no corresponde
+   * a lo que se lee justo al lado.
+   */
+  const ultimaActividad = (m: MensajeResponse) => {
+    const abierto = new Date(m.createdAt).getTime()
+    const respondido = m.respondidoAt ? new Date(m.respondidoAt).getTime() : 0
+    return Math.max(abierto, respondido)
+  }
+
   const hilos = useMemo(
-    () => [...messages].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    () => [...messages].sort((a, b) => ultimaActividad(b) - ultimaActividad(a)),
     [messages],
   )
 
@@ -947,7 +961,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                           quien es, luego sobre que. */}
                       {!esEstudiante && <span className="mt-0.5 block truncate text-[11px] font-medium text-foreground/80">{asuntoConversacion(hilo.asunto, avisos.consultaAlEquipo)}</span>}
                       <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{hilo.respuesta || hilo.contenido || ((hilo.adjuntos?.length ?? 0) > 0 ? '📎' : '')}</span>
-                      <span className="mt-0.5 block text-[10px] text-muted-foreground">{formatMessageTime(hilo.createdAt, locale)}</span>
+                      <span className="mt-0.5 block text-[10px] text-muted-foreground">{formatMessageTime(new Date(ultimaActividad(hilo)).toISOString(), locale)}</span>
                     </span>
                   </div>
                 </button>
