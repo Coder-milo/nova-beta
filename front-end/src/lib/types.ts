@@ -354,6 +354,50 @@ export interface VacanteResponse {
 }
 
 /**
+ * En qué punto de la conversación está un estudiante.
+ *
+ * Es lo único que el tablero mueve a mano. La etapa de empleabilidad va por
+ * otro eje: la deduce el sistema de hechos que ya registran otros módulos
+ * —hoja de vida vigente, simulacro hecho, postulaciones— y nadie la arrastra.
+ */
+export type EstadoContacto = 'SIN_CONTACTO' | 'EN_PROCESO' | 'ENTREVISTA' | 'COLOCADO' | 'CERRADO'
+
+export type EtapaEmpleabilidad = 'SIN_PERFIL' | 'PERFIL_LISTO' | 'PREPARADO' | 'POSTULANDO' | 'COLOCADO'
+
+/**
+ * Una tarjeta del tablero.
+ *
+ * Lleva los dos ejes juntos a propósito: el valor está en verlos a la vez. Un
+ * `PREPARADO` en `SIN_CONTACTO` es alguien listo al que nadie ha llamado.
+ */
+export interface TarjetaTablero {
+  estudianteId: string
+  nombre: string
+  email: string | null
+  etapa: EtapaEmpleabilidad
+  porcentajeAvance: number
+  estadoContacto: EstadoContacto
+  postulaciones: number
+  accionesSeguimiento: number
+  ultimoContacto: string | null
+  /** Días desde el último movimiento; null si nunca hubo contacto. */
+  diasSinContacto: number | null
+  proximaAccion: string | null
+}
+
+export interface ColumnaTablero {
+  estado: EstadoContacto
+  total: number
+  necesitanAtencion: number
+  tarjetas: TarjetaTablero[]
+}
+
+export interface Tablero {
+  totalEstudiantes: number
+  columnas: ColumnaTablero[]
+}
+
+/**
  * Una opción de catálogo tal como la manda el backend.
  *
  * `valor` es el código que viaja de vuelta y no se traduce nunca; `etiqueta`

@@ -13,6 +13,7 @@ export const navItemsAdmin: NavItem[] = [
   { title: 'Estudiantes', href: '/estudiantes', icon: GraduationCap },
   { title: 'Hojas de vida', href: '/hojas-de-vida', icon: ReadCvLogo },
   { title: 'Vacantes', href: '/vacantes', icon: Briefcase },
+  { title: 'Seguimiento', href: '/seguimiento', icon: Kanban },
   { title: 'Colocaciones', href: '/colocaciones', icon: Trophy },
   { title: 'Empresas', href: '/empresas', icon: Buildings },
   { title: 'Importaciones', href: '/importaciones', icon: UploadSimple },
@@ -82,6 +83,7 @@ export function estudiantePuedeVer(pathname: string): boolean {
 const NAVIGATION_LABELS: Record<string, TranslationKey> = {
   '/': 'dashboard', '/proyectos': 'projects', '/estudiantes': 'students',
   '/hojas-de-vida': 'resumes', '/vacantes': 'jobs', '/colocaciones': 'placements',
+  '/seguimiento': 'followUp',
   '/empresas': 'companies', '/importaciones': 'imports', '/documentos': 'documents',
   '/comunicaciones': 'communications', '/reportes': 'reports', '/auditoria': 'audit',
   '/configuracion': 'settings', '/portal-estudiante': 'home', '/mi-proceso': 'process',

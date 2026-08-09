@@ -36,6 +36,7 @@ const LoginPage = lazy(() => import('@/app/login/page'))
 const PortalEstudiantePage = lazy(() => import('@/app/inicio-estudiante/page'))
 const PowerBiPage = lazy(() => import('@/app/power-bi/page'))
 const ProyectosPage = lazy(() => import('@/app/proyectos/page'))
+const SeguimientoPage = lazy(() => import('@/app/seguimiento/page'))
 const ProyectoDetallePage = lazy(() => import('@/app/proyectos/[id]/page'))
 const RecuperarContrasenaPage = lazy(
   () => import('@/app/recuperar-contrasena/page'),
@@ -71,6 +72,7 @@ const exactRoutes: Record<string, ComponentType> = {
   '/proyectos': ProyectosPage,
   '/recuperar-contrasena': RecuperarContrasenaPage,
   '/reportes': ReportesPage,
+  '/seguimiento': SeguimientoPage,
   '/vacantes': VacantesPage,
   // Compatibilidad para enlaces guardados: el perfil ahora vive en Configuración.
   '/mi-perfil': ConfiguracionEstudiantePage,

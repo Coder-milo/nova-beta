@@ -282,7 +282,7 @@ export const dashboardApi = {
 // ─── Programas ───────────────────────────────────────────────────────────────
 
 import type { ProgramaResponse, ProgramaRequest, ProgramaEstado, ProgramaResumenResponse } from './types'
-import type { MotivoCierre, OpcionCatalogo, CatalogosColocacion } from './types'
+import type { MotivoCierre, OpcionCatalogo, CatalogosColocacion, Tablero, TarjetaTablero, EstadoContacto } from './types'
 
 export const programasApi = {
   listar: () =>
@@ -807,6 +807,26 @@ export const plataformasApi = {
 }
 
 import type { EmpresaRequest, EmpresaResponse, EstadoRelacionEmpresa } from './types'
+
+/**
+ * Tablero de seguimiento: quién está en qué punto de la conversación.
+ *
+ * Sólo COORDINADOR y ADMIN. El tablero muestra a toda la cohorte a la vez, que
+ * es justo lo que un estudiante no puede ver.
+ */
+export const tableroApi = {
+  obtener: (token?: string) => apiFetch<Tablero>('/api/v1/seguimiento/tablero', { token }),
+  /**
+   * Cambia el estado de contacto de un estudiante.
+   *
+   * Quién lo movió no se manda: sale de la sesión en el servidor. Es un dato de
+   * auditoría y no algo que el cliente deba poder escribir.
+   */
+  mover: (estudianteId: string, estado: EstadoContacto, observacion?: string, token?: string) =>
+    apiFetch<TarjetaTablero>(`/api/v1/seguimiento/tablero/${estudianteId}`, {
+      method: 'PUT', data: { estado, observacion }, token,
+    }),
+}
 
 export const empresasApi = {
   buscar: (params: { texto?: string; sector?: string; estado?: EstadoRelacionEmpresa; page?: number; size?: number } = {}) =>
