@@ -11,12 +11,14 @@ import { AdminAssistantChat } from '@/components/admin/admin-assistant-chat'
 import { LocaleContentTranslator } from '@/components/ui/locale-content-translator'
 import { useAuth } from '@/lib/auth'
 import { soloEsEstudiante } from '@/lib/navigation'
+import { usePreferences } from '@/lib/preferences'
 
 /**
  * Envoltorio del panel administrativo.
  * En la ruta /login, renderiza únicamente los children (sin sidebar ni header).
  */
 export function AdminShell({ children }: { children: React.ReactNode }) {
+  const { locale } = usePreferences()
   const [mobileOpen, setMobileOpen] = useState(false)
   const pathname = usePathname()
   const { user } = useAuth()
@@ -91,7 +93,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           showCloseButton={false}
           className="glass-chrome w-64 border-r border-black/[0.06] p-0 text-foreground"
         >
-          <SheetTitle className="sr-only">Menú de navegación</SheetTitle>
+          <SheetTitle className="sr-only">{locale === 'en' ? 'Navigation menu' : 'Menú de navegación'}</SheetTitle>
           <SidebarNav onNavigate={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>

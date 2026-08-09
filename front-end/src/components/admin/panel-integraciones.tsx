@@ -24,8 +24,37 @@ import type { EstadoIntegracion } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { errorDe } from '@/lib/errores'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
+
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        conectada: 'Connected',
+        consultandoElEstado: 'Checking the status of the integrations…',
+        lasCredencialesNo: 'Credentials are not edited here',
+        seConfiguraEn: 'Set in:',
+        sinConfigurar: 'Not configured',
+      }
+    : {
+        conectada: 'Conectada',
+        consultandoElEstado: 'Consultando el estado de las integraciones…',
+        lasCredencialesNo: 'Las credenciales no se editan desde aquí',
+        seConfiguraEn: 'Se configura en:',
+        sinConfigurar: 'Sin configurar',
+      }
+}
 
 export function PanelIntegraciones() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [estados, setEstados] = useState<EstadoIntegracion[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -64,7 +93,7 @@ export function PanelIntegraciones() {
     return (
       <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
         <CircleNotch className="size-5 animate-spin" />
-        Consultando el estado de las integraciones…
+        {T.consultandoElEstado}
       </div>
     )
   }
@@ -87,7 +116,7 @@ export function PanelIntegraciones() {
         <ShieldWarning className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
         <div className="text-xs leading-relaxed text-muted-foreground">
           <span className="mb-0.5 block text-sm font-semibold text-foreground">
-            Las credenciales no se editan desde aquí
+            {T.lasCredencialesNo}
           </span>
           Viven en variables de entorno del servidor, que es donde tienen que estar: nunca
           se envían al navegador, ni siquiera enmascaradas. Esta pantalla dice qué está
@@ -136,6 +165,8 @@ function TarjetaIntegracion({
   probando: boolean
   onProbar: () => void
 }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-3">
@@ -158,7 +189,7 @@ function TarjetaIntegracion({
                 : 'bg-muted text-muted-foreground'
             }`}
           >
-            {estado.configurada ? 'Conectada' : 'Sin configurar'}
+            {estado.configurada ? T.conectada : T.sinConfigurar}
           </span>
         </div>
       </CardHeader>
@@ -186,7 +217,7 @@ function TarjetaIntegracion({
 
         {estado.variablesEntorno.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Se configura en:</span>
+            <span className="text-xs text-muted-foreground">{T.seConfiguraEn}</span>
             {estado.variablesEntorno.map((v) => (
               <VariableEntorno key={v} nombre={v} />
             ))}
@@ -224,6 +255,8 @@ function TarjetaIntegracion({
 
 /** Nombre de variable, copiable: se va a pegar en el panel del despliegue. */
 function VariableEntorno({ nombre }: { nombre: string }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   const [copiado, setCopiado] = useState(false)
 
   const copiar = async () => {

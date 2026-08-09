@@ -24,6 +24,8 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Confirmar } from '@/components/ui/confirmar'
 import { errorDe } from '@/lib/errores'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin, type TextosAdmin } from '@/lib/textos-admin'
 
 const vacia: PlataformaRequest = { codigo: '', nombre: '', url: '', iconoUrl: '' }
 
@@ -43,39 +45,75 @@ function Campo({ rotulo, valor, onChange }: {
 /** Formulario compartido por crear y editar. */
 function FormularioPlataforma({ inicial, accion, guardando, onGuardar, onCancelar }: {
   inicial: PlataformaRequest
-  accion: 'Crear' | 'Guardar'
+  accion: 'crear' | 'guardar'
   guardando: boolean
   onGuardar: (f: PlataformaRequest) => Promise<void>
   onCancelar: () => void
 }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [form, setForm] = useState<PlataformaRequest>(inicial)
   const [feedback, setFeedback] = useState<string | null>(null)
 
   return (
     <div className="space-y-3">
-      <Campo rotulo="Código" valor={form.codigo} onChange={(v) => setForm((f) => ({ ...f, codigo: v }))} />
-      <Campo rotulo="Nombre" valor={form.nombre} onChange={(v) => setForm((f) => ({ ...f, nombre: v }))} />
+      <Campo rotulo={T.codigo} valor={form.codigo} onChange={(v) => setForm((f) => ({ ...f, codigo: v }))} />
+      <Campo rotulo={C.nombre} valor={form.nombre} onChange={(v) => setForm((f) => ({ ...f, nombre: v }))} />
       <Campo rotulo="URL" valor={form.url} onChange={(v) => setForm((f) => ({ ...f, url: v }))} />
       <Campo rotulo="Icono (URL)" valor={form.iconoUrl ?? ''} onChange={(v) => setForm((f) => ({ ...f, iconoUrl: v }))} />
       {feedback && <p className="text-xs text-destructive">{feedback}</p>}
       <div className="flex gap-2 pt-1">
         <Button size="sm" disabled={guardando} onClick={async () => {
           if (!form.codigo.trim() || !form.nombre.trim() || !form.url.trim()) {
-            setFeedback('Código, nombre y enlace son obligatorios')
+            setFeedback(T.codigoNombreY)
             return
           }
           await onGuardar(form)
         }}>
           {guardando && <CircleNotch className="size-4 animate-spin" />}
-          {accion}
+          {accion === 'crear' ? C.crear : C.guardar}
         </Button>
-        <Button size="sm" variant="outline" onClick={onCancelar}>Cancelar</Button>
+        <Button size="sm" variant="outline" onClick={onCancelar}>{C.cancelar}</Button>
       </div>
     </div>
   )
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        laPlataformaDeja: 'The platform stops being offered and no longer appears on the portals. Existing assignments are kept.',
+        lasPlataformasEn: 'The platforms themselves. Visibility is decided per programme, then per student.',
+        codigoNombreY: 'Code, name and link are required',
+        aunNoHay: 'No platforms yet. Create the first one.',
+        plataformasDeAcceso: 'Access platforms',
+        nuevaPlataforma: 'New platform',
+        codigo: 'Code',
+        nueva: 'new',
+      }
+    : {
+        laPlataformaDeja: 'La plataforma deja de ofrecerse y de aparecer en los portales. Las asignaciones existentes no se borran.',
+        lasPlataformasEn: 'Las plataformas en sí. La visibilidad se decide por programa y luego por estudiante.',
+        codigoNombreY: 'Código, nombre y enlace son obligatorios',
+        aunNoHay: 'Aún no hay plataformas. Crea la primera.',
+        plataformasDeAcceso: 'Plataformas de acceso',
+        nuevaPlataforma: 'Nueva plataforma',
+        codigo: 'Código',
+        nueva: 'nueva',
+      }
+}
+
 export function PanelPlataformas() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [plataformas, setPlataformas] = useState<PlataformaResponse[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -102,7 +140,7 @@ export function PanelPlataformas() {
     setGuardando(true)
     setFeedback(null)
     try {
-      if (editandoId === 'nueva') {
+      if (editandoId === T.nueva) {
         await plataformasApi.crear(f)
         setFeedback({ tipo: 'exito', texto: 'Plataforma creada' })
       } else if (editandoId) {
@@ -152,13 +190,13 @@ export function PanelPlataformas() {
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-foreground">Plataformas de acceso</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Las plataformas en sí. La visibilidad se decide por programa y luego por estudiante.</p>
+          <h2 className="text-base font-semibold text-foreground">{T.plataformasDeAcceso}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{T.lasPlataformasEn}</p>
         </div>
         {editandoId === null && (
-          <Button onClick={() => setEditandoId('nueva')}>
+          <Button onClick={() => setEditandoId(T.nueva)}>
             <Plus className="size-4" />
-            Nueva plataforma
+            {T.nuevaPlataforma}
           </Button>
         )}
       </div>
@@ -178,7 +216,7 @@ export function PanelPlataformas() {
             {editandoId === p.id ? (
               <FormularioPlataforma
                 inicial={{ codigo: p.codigo, nombre: p.nombre, url: p.url, iconoUrl: p.iconoUrl ?? '' }}
-                accion="Guardar"
+                accion="guardar"
                 guardando={guardando}
                 onGuardar={guardar}
                 onCancelar={() => setEditandoId(null)}
@@ -201,8 +239,8 @@ export function PanelPlataformas() {
                     <ArrowSquareOut className="size-3 shrink-0" />
                   </a>
                   <div className="mt-3 flex gap-1.5">
-                    <Button size="sm" variant="ghost" onClick={() => setEditandoId(p.id)}><PencilSimple className="size-3.5" />Editar</Button>
-                    <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setConfirmarBorrado(p.id)}><Trash className="size-3.5" />Eliminar</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditandoId(p.id)}><PencilSimple className="size-3.5" />{C.editar}</Button>
+                    <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setConfirmarBorrado(p.id)}><Trash className="size-3.5" />{C.eliminar}</Button>
                   </div>
                 </div>
               </div>
@@ -210,12 +248,12 @@ export function PanelPlataformas() {
           </Card>
         ))}
 
-        {editandoId === 'nueva' && (
+        {editandoId === T.nueva && (
           <Card className="border-primary/40 p-4 shadow-none">
-            <h3 className="mb-3 text-sm font-semibold text-foreground">Nueva plataforma</h3>
+            <h3 className="mb-3 text-sm font-semibold text-foreground">{T.nuevaPlataforma}</h3>
             <FormularioPlataforma
               inicial={vacia}
-              accion="Crear"
+              accion="crear"
               guardando={guardando}
               onGuardar={guardar}
               onCancelar={() => setEditandoId(null)}
@@ -224,15 +262,15 @@ export function PanelPlataformas() {
         )}
       </div>
 
-      {plataformas.length === 0 && editandoId !== 'nueva' && (
-        <p className="text-sm text-muted-foreground">Aún no hay plataformas. Crea la primera.</p>
+      {plataformas.length === 0 && editandoId !== T.nueva && (
+        <p className="text-sm text-muted-foreground">{T.aunNoHay}</p>
       )}
 
       <Confirmar
         open={confirmarBorrado !== null}
         onOpenChange={(open) => { if (!open) setConfirmarBorrado(null) }}
         titulo="Desactivar plataforma"
-        descripcion="La plataforma deja de ofrecerse y de aparecer en los portales. Las asignaciones existentes no se borran."
+        descripcion={T.laPlataformaDeja}
         textoConfirmar="Desactivar"
         onConfirmar={borrar}
       />

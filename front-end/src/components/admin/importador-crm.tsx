@@ -21,28 +21,77 @@ import type { ResultadoImportacionCrm } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { errorDe } from '@/lib/errores'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 export type EntidadImportable = 'empresas' | 'colocaciones'
 
-const TEXTOS = {
-  empresas: {
-    titulo: 'Importar empresas',
-    descripcion:
-      'Sube el directorio de empresas. Se reconocen columnas como «Empresa», «Sector», «Ciudad», «Contacto», «Estado» o «Próximo paso».',
-    columnaClave: 'Empresa o Razón social',
-    nota: 'Las empresas que ya existan se actualizan con lo que traiga el archivo; no se duplican.',
-  },
-  colocaciones: {
-    titulo: 'Importar colocaciones',
-    descripcion:
-      'Sube el listado de vinculaciones laborales. Debe identificar al estudiante por «Número de documento» o «Correo».',
-    columnaClave: 'Documento o Correo, y Empresa',
-    nota: 'Si el estudiante ya tiene una colocación vigente, la fila la actualiza en vez de crear una segunda.',
-  },
-} as const
+/** Una constante de modulo no puede leer el idioma; recibe el diccionario. */
+function textosDe(entidad: EntidadImportable, T: ReturnType<typeof textos>) {
+  return entidad === 'empresas'
+    ? {
+        titulo: T.importarEmpresas,
+        descripcion: T.subeElDirectorio,
+        columnaClave: T.empresaORazon,
+        nota: T.lasEmpresasQue,
+      }
+    : {
+        titulo: T.importarColocaciones,
+        descripcion: T.subeElListado,
+        columnaClave: T.documentoOCorreo,
+        nota: T.siElEstudiante,
+      }
+}
+
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        importarEmpresas: 'Import companies',
+        importarColocaciones: 'Import placements',
+        subeElDirectorio: 'Upload the company directory. Columns such as “Company”, “Sector”, “City”, “Contact”, “Status” or “Next step” are recognised.',
+        lasEmpresasQue: 'Companies that already exist are updated with what the file brings; they are not duplicated.',
+        subeElListado: 'Upload the list of job placements. It must identify the student by “ID number” or “Email”.',
+        siElEstudiante: 'If the student already has an active placement, the row updates it instead of creating a second one.',
+        filasQueNo: 'Rows that will not be imported',
+        columnasQueSe: 'Columns that will be used',
+        analizandoLaHoja: 'Analysing the spreadsheet…',
+        documentoOCorreo: 'ID number or email, and company',
+        empresaORazon: 'Company or legal name',
+        nuevosRegistros: 'New records:',
+        filasLeidas: 'Rows read:',
+        conError: 'With errors:',
+        validas: 'Valid:',
+      }
+    : {
+        importarEmpresas: 'Importar empresas',
+        importarColocaciones: 'Importar colocaciones',
+        subeElDirectorio: 'Sube el directorio de empresas. Se reconocen columnas como «Empresa», «Sector», «Ciudad», «Contacto», «Estado» o «Próximo paso».',
+        lasEmpresasQue: 'Las empresas que ya existan se actualizan con lo que traiga el archivo; no se duplican.',
+        subeElListado: 'Sube el listado de vinculaciones laborales. Debe identificar al estudiante por «Número de documento» o «Correo».',
+        siElEstudiante: 'Si el estudiante ya tiene una colocación vigente, la fila la actualiza en vez de crear una segunda.',
+        filasQueNo: 'Filas que no se van a importar',
+        columnasQueSe: 'Columnas que se van a usar',
+        analizandoLaHoja: 'Analizando la hoja de cálculo…',
+        documentoOCorreo: 'Documento o Correo, y Empresa',
+        empresaORazon: 'Empresa o Razón social',
+        nuevosRegistros: 'Nuevos registros:',
+        filasLeidas: 'Filas leídas:',
+        conError: 'Con error:',
+        validas: 'Válidas:',
+      }
+}
 
 export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
-  const textos = TEXTOS[entidad]
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
+  const copia = textosDe(entidad, T)
   const entrada = useRef<HTMLInputElement>(null)
 
   const [archivo, setArchivo] = useState<File | null>(null)
@@ -103,9 +152,9 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
     <Card className="rounded-lg border-border shadow-none">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <FileXls className="size-4 text-primary" /> {textos.titulo}
+          <FileXls className="size-4 text-primary" /> {copia.titulo}
         </CardTitle>
-        <CardDescription>{textos.descripcion}</CardDescription>
+        <CardDescription>{copia.descripcion}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -152,7 +201,7 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
         {trabajando === 'simular' && (
           <div className="flex items-center gap-2 py-4 text-xs text-muted-foreground">
             <CircleNotch className="size-4 animate-spin text-primary" />
-            Analizando la hoja de cálculo…
+            {T.analizandoLaHoja}
           </div>
         )}
 
@@ -160,15 +209,15 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
           <div className="space-y-3 rounded-lg border border-border bg-card/50 p-4">
             <div className="flex flex-wrap gap-4 text-xs">
               <div>
-                <span className="text-muted-foreground">Filas leídas:</span>{' '}
+                <span className="text-muted-foreground">{T.filasLeidas}</span>{' '}
                 <b>{informe.filasLeidas}</b>
               </div>
               <div>
-                <span className="text-muted-foreground">Válidas:</span>{' '}
+                <span className="text-muted-foreground">{T.validas}</span>{' '}
                 <b className="text-emerald-600">{informe.creados + informe.actualizados}</b>
               </div>
               <div>
-                <span className="text-muted-foreground">Nuevos registros:</span>{' '}
+                <span className="text-muted-foreground">{T.nuevosRegistros}</span>{' '}
                 <b>{informe.creados}</b>
               </div>
               <div>
@@ -177,7 +226,7 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
               </div>
               {informe.errores.length > 0 && (
                 <div>
-                  <span className="text-muted-foreground">Con error:</span>{' '}
+                  <span className="text-muted-foreground">{T.conError}</span>{' '}
                   <b className="text-destructive">{informe.errores.length}</b>
                 </div>
               )}
@@ -185,7 +234,7 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
 
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Columnas que se van a usar
+                {T.columnasQueSe}
               </p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {reconocidas.map((c: any) => (
@@ -208,7 +257,7 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
             {informe.errores.length > 0 && (
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-destructive">
-                  Filas que no se van a importar
+                  {T.filasQueNo}
                 </p>
                 <ul className="mt-1.5 max-h-40 space-y-1 overflow-y-auto text-xs">
                   {informe.errores.map((e: any) => (
