@@ -111,6 +111,46 @@ class SmartRecruitersConnectorTest {
     }
 
     @Test
+    @DisplayName("el detalle aporta lo que el motor necesita para puntuar")
+    void elDetalleAportaLoQueElMotorNecesita() throws Exception {
+        // Sin esto la oferta llega con título y ciudad y nada más, que es
+        // justo la "vacante sin datos" con la que el matching no puede
+        // discriminar: no hay de dónde sacar el inglés ni la experiencia.
+        var detalle = new com.fasterxml.jackson.databind.ObjectMapper().readTree("""
+                {
+                  "applyUrl": "https://jobs.smartrecruiters.com/Sutherland/abc-111",
+                  "jobAd": { "sections": {
+                    "jobDescription": { "text": "<p>Atención al cliente en <strong>inglés</strong>.</p>" },
+                    "qualifications": { "text": "<ul><li>English B2</li><li>2 years of experience</li></ul>" }
+                  }}
+                }
+                """);
+        var vacante = new com.novacrm.vacante.Vacante();
+
+        conector.aplicarDetalle(vacante, detalle);
+
+        assertThat(vacante.getDescripcion())
+                .as("el HTML se guarda como texto plano, que es como lo lee el tokenizador")
+                .isEqualTo("Atención al cliente en inglés.");
+        assertThat(vacante.getRequisitos()).contains("English B2").contains("2 years of experience");
+        assertThat(vacante.getUrlAplicar()).isEqualTo("https://jobs.smartrecruiters.com/Sutherland/abc-111");
+    }
+
+    @Test
+    @DisplayName("un detalle sin anuncio deja la oferta como estaba")
+    void unDetalleSinAnuncioNoBorraNada() throws Exception {
+        var vacante = new com.novacrm.vacante.Vacante();
+        vacante.setUrlAplicar("https://enlace.previo/oferta");
+
+        conector.aplicarDetalle(vacante, new com.fasterxml.jackson.databind.ObjectMapper().readTree("{}"));
+
+        assertThat(vacante.getDescripcion()).isNull();
+        assertThat(vacante.getUrlAplicar())
+                .as("una respuesta pobre no puede empeorar lo que ya se tenía")
+                .isEqualTo("https://enlace.previo/oferta");
+    }
+
+    @Test
     @DisplayName("una respuesta vacía o rota no revienta la corrida")
     void unaRespuestaRotaNoRevienta() throws Exception {
         assertThat(conector.procesar("{\"content\":[]}", "Sutherland")).isEmpty();

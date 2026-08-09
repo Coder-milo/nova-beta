@@ -3,6 +3,7 @@ package com.novacrm.scraper.fuente;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novacrm.vacante.Vacante;
+import org.jsoup.Jsoup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -208,6 +209,14 @@ public class SmartRecruitersConnector implements FuenteDeVacantes {
                 fecha(oferta).ifPresent(vacante::setFechaPublicacion);
                 vacante.setTipoContrato(textoAnidado(oferta, "typeOfEmployment", "label"));
 
+                // El texto del anuncio solo esta en el detalle, y sin el la
+                // oferta llega con titulo y ciudad y nada mas: el motor no
+                // tiene con que puntuar el ingles ni la experiencia, y con la
+                // cobertura minima exigida no llega a generar match. Se pide
+                // despues de filtrar por ciudad, para no gastar una peticion
+                // por cada oferta que igualmente se iba a descartar.
+                completarConElDetalle(vacante, empresa, id);
+
                 ofertas.add(new OfertaCruda(vacante, empresa));
 
             } catch (Exception e) {
@@ -215,6 +224,61 @@ public class SmartRecruitersConnector implements FuenteDeVacantes {
             }
         }
         return ofertas;
+    }
+
+    /**
+     * Trae el texto del anuncio y lo vuelca en la vacante.
+     *
+     * <p>{@code qualifications} es lo que el anuncio pide —de ahi salen el
+     * nivel de ingles y los anios de experiencia que despues extrae el
+     * enriquecedor— y {@code jobDescription} es lo que se hace en el puesto.
+     * Los dos vienen en HTML; se guardan como texto plano porque asi es como
+     * los lee el tokenizador del matching y como se muestran en el portal.
+     *
+     * <p>Si el detalle falla, la oferta se conserva con lo que ya tiene. Una
+     * vacante con menos datos sigue siendo una oportunidad; perderla entera
+     * por un error de red no.
+     */
+    private void completarConElDetalle(Vacante vacante, String empresa, String id) {
+        try {
+            String url = ENDPOINT + URLEncoder.encode(empresa, StandardCharsets.UTF_8)
+                    + "/postings/" + URLEncoder.encode(id, StandardCharsets.UTF_8);
+            HttpResponse<String> respuesta = httpClient().send(
+                    HttpRequest.newBuilder(URI.create(url))
+                            .header("Accept", "application/json")
+                            .header("User-Agent", "NOVA-CRM/1.0 (empleabilidad CAC)")
+                            .timeout(Duration.ofSeconds(15))
+                            .GET()
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (respuesta.statusCode() != 200) {
+                return;
+            }
+            aplicarDetalle(vacante, MAPPER.readTree(respuesta.body()));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            log.debug("Sin detalle para la oferta {} de {}: {}", id, empresa, e.getMessage());
+        }
+    }
+
+    /** Separado del envio para poder probarlo sin red. */
+    void aplicarDetalle(Vacante vacante, JsonNode detalle) {
+        JsonNode secciones = detalle.path("jobAd").path("sections");
+        String descripcion = aTextoPlano(texto(secciones.path("jobDescription"), "text"));
+        String requisitos = aTextoPlano(texto(secciones.path("qualifications"), "text"));
+
+        if (!descripcion.isBlank()) vacante.setDescripcion(descripcion);
+        if (!requisitos.isBlank()) vacante.setRequisitos(requisitos);
+
+        // El enlace real de postulacion, mejor que el que se compone a mano.
+        String aplicar = texto(detalle, "applyUrl");
+        if (aplicar.isBlank()) aplicar = texto(detalle, "postingUrl");
+        if (!aplicar.isBlank()) vacante.setUrlAplicar(aplicar);
+    }
+
+    private static String aTextoPlano(String html) {
+        return html.isBlank() ? "" : Jsoup.parse(html).text().trim();
     }
 
     private static String componerUbicacion(String ciudad, String region) {
