@@ -8,6 +8,7 @@ import {
   ChecksIcon as Checks,
   CircleNotchIcon as CircleNotch,
   DotsThreeVerticalIcon as DotsThreeVertical,
+  InfoIcon as Info,
   MagnifyingGlassIcon as MagnifyingGlass,
   PaperclipIcon as Paperclip,
   PencilSimpleIcon as PencilSimple,
@@ -114,10 +115,18 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   const conversacionesEnBandeja = conversaciones.filter((c) => !c.archivada)
   const conversacionesArchivadas = conversaciones.filter((c) => c.archivada)
   const [mostrarArchivados, setMostrarArchivados] = useState(false)
+  /**
+   * Filtro de la bandeja. «No leídos» es el que de verdad se usa a diario:
+   * con veinte conversaciones, encontrar la que espera respuesta a ojo es
+   * justo lo que la lista deberia ahorrar.
+   */
+  const [soloSinLeer, setSoloSinLeer] = useState(false)
   const contactoArchivado = conversacionesArchivadas.some((c) => c.contactoId === selectedContactoId)
 
   // Buscar dentro de la conversación abierta
   const [buscandoEnChat, setBuscandoEnChat] = useState(false)
+  /** Panel derecho de detalles. Plegable: en pantallas estrechas estorba. */
+  const [mostrarInfo, setMostrarInfo] = useState(false)
   const [terminoEnChat, setTerminoEnChat] = useState('')
   /**
    * `null` es «todavía no se ha buscado», y no es lo mismo que una lista vacía.
@@ -704,10 +713,48 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
           </div>
         )}
 
+        {/* Filtro de la bandeja. Solo en directos: en grupos y soporte no hay
+            lista que filtrar. El contador va en la pastilla para que se vea
+            cuántas esperan respuesta sin tener que pulsar. */}
+        {activeTab === 'directos' && (
+          <div className="flex gap-1.5 px-3 pb-2">
+            {([false, true] as const).map((sinLeer) => {
+              const pendientes = conversacionesEnBandeja.filter((c) => c.sinLeer > 0).length
+              const activo = soloSinLeer === sinLeer
+              return (
+                <button
+                  key={String(sinLeer)}
+                  type="button"
+                  onClick={() => setSoloSinLeer(sinLeer)}
+                  aria-pressed={activo}
+                  className={cn(
+                    'rounded-full px-3 py-1 text-[11px] font-semibold transition',
+                    activo
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted/60 text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {sinLeer
+                    ? `${english ? 'Unread' : 'No leídos'}${pendientes > 0 ? ` (${pendientes})` : ''}`
+                    : (english ? 'All' : 'Todos')}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {/* Lista de Chats / Conversaciones */}
         <div className="flex-1 space-y-1 overflow-y-auto p-2">
+          {activeTab === 'directos' && soloSinLeer
+            && conversacionesEnBandeja.every((c) => c.sinLeer === 0) && (
+            <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+              {english ? 'Nothing left unread.' : 'No te queda nada por leer.'}
+            </p>
+          )}
           {activeTab === 'directos' &&
-            conversacionesEnBandeja.map((conv) => (
+            conversacionesEnBandeja
+              .filter((conv) => !soloSinLeer || conv.sinLeer > 0)
+              .map((conv) => (
               <button
                 key={conv.contactoId}
                 type="button"
@@ -900,51 +947,6 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
               </button>
             )}
 
-            {activeTab === 'directos' && selectedContactoId && (
-              <button
-                type="button"
-                onClick={() => void handleArchivar()}
-                className={cn(
-                  'rounded-xl border px-3 py-1.5 text-xs font-semibold transition',
-                  contactoArchivado
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border text-muted-foreground hover:text-foreground',
-                )}
-                title={contactoArchivado
-                  ? (english ? 'Move back to the inbox' : 'Devolver a la bandeja')
-                  : (english ? 'Archive this conversation' : 'Archivar esta conversación')}
-              >
-                {contactoArchivado
-                  ? (english ? 'Unarchive' : 'Desarchivar')
-                  : (english ? 'Archive' : 'Archivar')}
-              </button>
-            )}
-
-            {activeTab === 'directos' && selectedContactoId && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void handleBloqueo()}
-                  className={cn(
-                    'rounded-xl border px-3 py-1.5 text-xs font-semibold transition',
-                    contactoBloqueado
-                      ? 'border-destructive/40 bg-destructive/10 text-destructive'
-                      : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  {contactoBloqueado ? (english ? 'Unblock' : 'Desbloquear') : (english ? 'Block' : 'Bloquear')}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setModalReportar(true)}
-                  className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
-                >
-                  {english ? 'Report' : 'Reportar'}
-                </button>
-              </>
-            )}
-
             {activeTab === 'grupos' && selectedGrupoId && (
               <button
                 type="button"
@@ -953,6 +955,27 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
               >
                 <UsersThree className="size-4 text-primary" />
                 <span>{english ? 'Members' : 'Miembros'}</span>
+              </button>
+            )}
+
+            {/* Archivar, bloquear y reportar se movieron al panel de la
+                derecha. Eran cuatro botones de texto apretados en la cabecera,
+                y los tres que se van son los que casi nunca se usan: los que se
+                usan a diario son escribir y buscar. */}
+            {((activeTab === 'directos' && selectedContactoId) || (activeTab === 'grupos' && selectedGrupoId)) && (
+              <button
+                type="button"
+                onClick={() => setMostrarInfo((abierto) => !abierto)}
+                className={cn(
+                  'rounded-xl border px-3 py-1.5 text-xs font-semibold transition',
+                  mostrarInfo
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:text-foreground',
+                )}
+                title={english ? 'Conversation details' : 'Detalles de la conversación'}
+                aria-expanded={mostrarInfo}
+              >
+                <Info className="size-4" />
               </button>
             )}
           </div>
@@ -1288,6 +1311,117 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
           </footer>
         )}
       </main>
+
+      {/* ── PANEL DERECHO: DETALLES DE LA CONVERSACIÓN ─────────────────────────
+          Aquí viven las acciones que antes se apretaban en la cabecera. Solo
+          lleva lo que el backend sabe hacer: buscar dentro, archivar, bloquear
+          y reportar. Sin silenciar y sin multimedia compartida, que no existen:
+          un botón que no hace nada es peor que no tenerlo. */}
+      {mostrarInfo && ((activeTab === 'directos' && selectedContactoId) || (activeTab === 'grupos' && selectedGrupoId)) && (
+        <aside className="hidden w-72 shrink-0 flex-col overflow-y-auto border-l border-border bg-muted/20 p-5 lg:flex dark:bg-[#0f172a]">
+          <div className="flex flex-col items-center text-center">
+            {activeTab === 'directos' && selectedContactoFoto ? (
+              <img
+                src={fotoDe(selectedContactoId ?? '', selectedContactoFoto) ?? undefined}
+                alt=""
+                className="size-20 rounded-full object-cover"
+              />
+            ) : activeTab === 'grupos' && selectedGrupoFoto ? (
+              <img
+                src={fotoDeGrupo(selectedGrupoId ?? '', selectedGrupoFoto) ?? undefined}
+                alt=""
+                className="size-20 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex size-20 items-center justify-center rounded-full bg-primary/20 text-2xl font-bold text-primary">
+                {activeTab === 'directos' ? (selectedContactoNombre[0] || 'C') : '👥'}
+              </div>
+            )}
+            <h4 className="mt-3 text-sm font-bold text-foreground">
+              {activeTab === 'directos' ? selectedContactoNombre : selectedGrupoNombre}
+            </h4>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {activeTab === 'directos'
+                ? (english ? 'Classmate on your programme' : 'Compañero de tu programa')
+                : (english ? 'Study group' : 'Grupo de estudio')}
+            </p>
+          </div>
+
+          <div className="mt-6 space-y-1">
+            <p className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              {english ? 'Conversation' : 'Conversación'}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setBuscandoEnChat(true)
+                setTerminoEnChat('')
+                setResultadosEnChat(null)
+              }}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-foreground transition hover:bg-muted"
+            >
+              <MagnifyingGlass className="size-4 text-primary" />
+              {english ? 'Search in conversation' : 'Buscar en la conversación'}
+            </button>
+
+            {activeTab === 'directos' && selectedContactoId && (
+              <button
+                type="button"
+                onClick={() => void handleArchivar()}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-foreground transition hover:bg-muted"
+              >
+                <ArrowBendUpLeft className="size-4 text-primary" />
+                {contactoArchivado
+                  ? (english ? 'Move back to the inbox' : 'Devolver a la bandeja')
+                  : (english ? 'Archive conversation' : 'Archivar conversación')}
+              </button>
+            )}
+
+            {activeTab === 'grupos' && selectedGrupoId && (
+              <button
+                type="button"
+                onClick={() => void abrirMiembros()}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-foreground transition hover:bg-muted"
+              >
+                <UsersThree className="size-4 text-primary" />
+                {english ? 'Members' : 'Miembros'}
+              </button>
+            )}
+          </div>
+
+          {activeTab === 'directos' && selectedContactoId && (
+            <div className="mt-6 space-y-1">
+              <p className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                {english ? 'Privacy and help' : 'Privacidad y ayuda'}
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleBloqueo()}
+                className={cn(
+                  'flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold transition hover:bg-muted',
+                  contactoBloqueado ? 'text-destructive' : 'text-foreground',
+                )}
+              >
+                <WarningCircle className="size-4" />
+                {contactoBloqueado ? (english ? 'Unblock' : 'Desbloquear') : (english ? 'Block' : 'Bloquear')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalReportar(true)}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-foreground transition hover:bg-destructive/10 hover:text-destructive"
+              >
+                <WarningCircle className="size-4" />
+                {english ? 'Report conversation' : 'Reportar conversación'}
+              </button>
+              <p className="px-3 pt-1 text-[10px] leading-4 text-muted-foreground">
+                {english
+                  ? 'Reports go to the accompaniment team with a copy of the last messages.'
+                  : 'Los reportes llegan al equipo de acompañamiento con una copia de los últimos mensajes.'}
+              </p>
+            </div>
+          )}
+        </aside>
+      )}
 
       {/* ── MODAL: CREAR GRUPO ────────────────────────────────────────────────── */}
       {modalCrearGrupo && (
