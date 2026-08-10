@@ -153,6 +153,95 @@ class ReglasDeGrupoTest {
         assertTrue(ex.getMessage().contains("60"));
     }
 
+    // ── Añadir a un grupo que ya existe ────────────────────────────────────
+
+    /**
+     * La otra puerta del grupo. Entro sin comprobar nada: bastaba con crear un
+     * grupo de dos y añadir despues para saltarse el proyecto, la cuenta activa
+     * y el tope. Estas pruebas existen para que las dos puertas no vuelvan a
+     * separarse.
+     */
+    @Test
+    void alAñadirTampocoEntraAlguienDeOtroProyecto() {
+        var g = grupo();
+        var deOtroLado = estudiante("Luis", otroPrograma);
+        when(grupos.findById(g.getId())).thenReturn(Optional.of(g));
+        when(miembros.existsByGrupoIdAndEstudianteId(g.getId(), yo.getId())).thenReturn(true);
+        when(estudiantes.findById(deOtroLado.getId())).thenReturn(Optional.of(deOtroLado));
+
+        service.agregarMiembros(g.getId(), List.of(deOtroLado.getId()), auth);
+
+        verify(miembros, never()).save(any(ChatGrupoMiembro.class));
+    }
+
+    @Test
+    void alAñadirTampocoEntraUnaCuentaDadaDeBaja() {
+        var g = grupo();
+        var retirado = estudiante("Luis", programa);
+        retirado.setActivo(false);
+        when(grupos.findById(g.getId())).thenReturn(Optional.of(g));
+        when(miembros.existsByGrupoIdAndEstudianteId(g.getId(), yo.getId())).thenReturn(true);
+        when(estudiantes.findById(retirado.getId())).thenReturn(Optional.of(retirado));
+
+        service.agregarMiembros(g.getId(), List.of(retirado.getId()), auth);
+
+        verify(miembros, never()).save(any(ChatGrupoMiembro.class));
+    }
+
+    @Test
+    void seAñadeAUnCompaneroDelMismoProyecto() {
+        var g = grupo();
+        var companero = estudiante("Luis", programa);
+        when(grupos.findById(g.getId())).thenReturn(Optional.of(g));
+        when(miembros.existsByGrupoIdAndEstudianteId(g.getId(), yo.getId())).thenReturn(true);
+        when(estudiantes.findById(companero.getId())).thenReturn(Optional.of(companero));
+
+        service.agregarMiembros(g.getId(), List.of(companero.getId()), auth);
+
+        verify(miembros).save(any(ChatGrupoMiembro.class));
+    }
+
+    /** El tope cuenta a los que ya estan dentro, no solo a los que llegan. */
+    @Test
+    void elTopeCuentaLosQueYaEstaban() {
+        var g = grupo();
+        when(grupos.findById(g.getId())).thenReturn(Optional.of(g));
+        when(miembros.existsByGrupoIdAndEstudianteId(g.getId(), yo.getId())).thenReturn(true);
+        var yaDentro = new java.util.ArrayList<ChatGrupoMiembro>();
+        for (int i = 0; i < 59; i++) yaDentro.add(miembro(g, estudiante("X", programa), false));
+        when(miembros.findByGrupoId(g.getId())).thenReturn(yaDentro);
+
+        var dos = List.of(UUID.randomUUID(), UUID.randomUUID());
+        var ex = assertThrows(BusinessException.class,
+                () -> service.agregarMiembros(g.getId(), dos, auth));
+        assertTrue(ex.getMessage().contains("60"));
+    }
+
+    @Test
+    void soloAñadeQuienEstaEnElGrupo() {
+        var g = grupo();
+        when(grupos.findById(g.getId())).thenReturn(Optional.of(g));
+        when(miembros.existsByGrupoIdAndEstudianteId(g.getId(), yo.getId())).thenReturn(false);
+
+        assertThrows(BusinessException.class,
+                () -> service.agregarMiembros(g.getId(), List.of(UUID.randomUUID()), auth));
+        verify(miembros, never()).save(any(ChatGrupoMiembro.class));
+    }
+
+    /** Quien ya esta dentro no se duplica. */
+    @Test
+    void noSeAñadeDosVecesAlQueYaEsta() {
+        var g = grupo();
+        var dentro = estudiante("Luis", programa);
+        when(grupos.findById(g.getId())).thenReturn(Optional.of(g));
+        when(miembros.existsByGrupoIdAndEstudianteId(g.getId(), yo.getId())).thenReturn(true);
+        when(miembros.existsByGrupoIdAndEstudianteId(g.getId(), dentro.getId())).thenReturn(true);
+
+        service.agregarMiembros(g.getId(), List.of(dentro.getId()), auth);
+
+        verify(miembros, never()).save(any(ChatGrupoMiembro.class));
+    }
+
     // ── Salir ──────────────────────────────────────────────────────────────
 
     /**
