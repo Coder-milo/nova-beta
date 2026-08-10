@@ -12,6 +12,8 @@ import { useAuth } from '@/lib/auth'
 import { soloEsEstudiante } from '@/lib/navigation'
 import { usePreferences } from '@/lib/preferences'
 
+import { CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight } from '@phosphor-icons/react'
+
 /**
  * Envoltorio del panel administrativo.
  * En la ruta /login, renderiza únicamente los children (sin sidebar ni header).
@@ -19,6 +21,7 @@ import { usePreferences } from '@/lib/preferences'
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const { locale } = usePreferences()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [sidebarColapsado, setSidebarColapsado] = useState(false)
   const pathname = usePathname()
   const { user } = useAuth()
   const esEstudiante = soloEsEstudiante(user?.roles)
@@ -77,11 +80,24 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <div className="ambient-grid absolute inset-0 opacity-[0.035] dark:opacity-100" />
       </div>
 
-      {/* Sidebar escritorio */}
+      {/* Sidebar escritorio con soporte de colapso */}
       <aside
-        className="relative z-20 hidden h-full w-64 shrink-0 lg:block"
+        className={cn(
+          'relative z-20 hidden h-full shrink-0 transition-all duration-300 lg:block',
+          sidebarColapsado ? 'w-18' : 'w-64',
+        )}
       >
-        <SidebarNav />
+        <SidebarNav collapsed={sidebarColapsado} />
+
+        {/* Botón flotante para colapsar/expandir el panel lateral */}
+        <button
+          type="button"
+          onClick={() => setSidebarColapsado((prev) => !prev)}
+          className="absolute -right-3 top-20 z-30 flex size-6 items-center justify-center rounded-full border border-border/80 bg-card text-foreground shadow-md transition hover:bg-primary hover:text-primary-foreground hover:scale-110"
+          title={sidebarColapsado ? 'Expandir panel lateral' : 'Colapsar panel lateral'}
+        >
+          {sidebarColapsado ? <CaretRight className="size-3.5" /> : <CaretLeft className="size-3.5" />}
+        </button>
       </aside>
 
       {/* Sidebar móvil */}

@@ -33,7 +33,8 @@ import { intervaloVisible } from '@/lib/sondeo'
 // grupos de la bandeja, y dos cosas distintas con el mismo nombre en el
 // mismo fichero se prestan a confusion aunque el compilador las tolere.
 import { Conversacion as HiloConversacion } from '@/components/ui/conversacion'
-import { TelegramChatHub } from '@/components/student/telegram-chat-hub'
+import { MessengerChatHub } from '@/components/student/messenger-chat-hub'
+import { FloatingChatPopup } from '@/components/student/floating-chat-popup'
 import { Textarea } from '@/components/ui/textarea'
 
 type HeaderProps = {
@@ -203,6 +204,12 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [messages, setMessages] = useState<MensajeResponse[]>([])
   const [pendientesServidor, setPendientesServidor] = useState<number | null>(null)
   const [messageSheetOpen, setMessageSheetOpen] = useState(false)
+  const [floatingChat, setFloatingChat] = useState<{
+    id: string
+    nombre: string
+    foto?: string | null
+    esGrupo?: boolean
+  } | null>(null)
   const [selectedMessage, setSelectedMessage] = useState<MensajeResponse | null>(null)
   const [filtroNotificacion, setFiltroNotificacion] = useState<'todas' | 'no_leidas'>('todas')
   const [reply, setReply] = useState('')
@@ -911,9 +918,63 @@ export function Header({ onOpenMobile }: HeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <IconButton label={t('messages')} badge={pendingMessages} onClick={() => setMessageSheetOpen(true)}>
-            <ChatCircle className="size-5" />
-          </IconButton>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <IconButton label={t('messages')} badge={pendingMessages}>
+                  <ChatCircle className="size-5" />
+                </IconButton>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-[min(92vw,22rem)] rounded-2xl border border-border bg-[#242526] p-3 text-foreground shadow-2xl">
+              <div className="flex items-center justify-between px-1 pb-2 border-b border-border/40">
+                <span className="text-sm font-bold text-foreground">Chats</span>
+                <button
+                  type="button"
+                  onClick={() => router.push('/mis-mensajes')}
+                  className="text-xs font-bold text-[#2d88ff] hover:underline"
+                >
+                  Ver todo en Messenger
+                </button>
+              </div>
+
+              <div className="max-h-80 space-y-1 overflow-y-auto py-1">
+                {conversaciones.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-muted-foreground">No tienes conversaciones recientes.</p>
+                ) : (
+                  conversaciones.map((conv) => (
+                    <DropdownMenuItem
+                      key={conv.contactoId}
+                      onClick={() => setFloatingChat({ id: conv.contactoId, nombre: conv.nombre, foto: conv.fotoUrl })}
+                      className="flex cursor-pointer items-center gap-3 rounded-xl p-2 transition hover:bg-[#3a3b3c]"
+                    >
+                      {conv.fotoUrl ? (
+                        <img src={conv.fotoUrl} alt="" className="size-10 rounded-full object-cover" />
+                      ) : (
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#2d88ff]/20 font-bold text-[#2d88ff]">
+                          {conv.nombre[0]}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-bold text-foreground">{conv.nombre}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {conv.mioElUltimo ? 'Tú: ' : ''}{conv.ultimoMensaje}
+                        </p>
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </div>
+
+              <DropdownMenuSeparator className="my-2 bg-border/40" />
+              <DropdownMenuItem
+                onClick={() => router.push('/mis-mensajes')}
+                className="justify-center rounded-xl py-2 text-center text-xs font-bold text-[#2d88ff] focus:bg-[#3a3b3c]"
+              >
+                Ver todo en Messenger
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -982,7 +1043,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
         <SheetContent side="right" className="h-dvh w-full max-w-none gap-0 border-l border-border bg-popover p-0 dark:bg-[#0c1714] sm:w-[min(94vw,960px)] sm:!max-w-none">
           {esEstudiante ? (
             <div className="h-full p-2">
-              <TelegramChatHub locale={locale} />
+              <MessengerChatHub locale={locale} />
             </div>
           ) : (
             <>
@@ -1252,6 +1313,16 @@ export function Header({ onOpenMobile }: HeaderProps) {
         )}
       </SheetContent>
       </Sheet>
+
+      {floatingChat && (
+        <FloatingChatPopup
+          contactoId={floatingChat.id}
+          contactoNombre={floatingChat.nombre}
+          contactoFoto={floatingChat.foto}
+          esGrupo={floatingChat.esGrupo}
+          onClose={() => setFloatingChat(null)}
+        />
+      )}
     </>
   )
 }

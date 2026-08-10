@@ -692,6 +692,34 @@ export const chatsApi = {
     apiFetch<ChatDirectoMensajeResponse>(`/api/v1/chats/directos/${contactoId}`, {
       method: 'POST', data: { contenido }, token,
     }),
+  /**
+   * Envía un mensaje con imágenes o una nota de voz.
+   *
+   * Va por una ruta distinta y no sustituye a `enviar`: el envío de solo texto
+   * es el que se usa en cada tecla y no tiene por qué pagar el coste de un
+   * multipart.
+   *
+   * `duracion` son los segundos que dice durar el audio. El servidor la acota
+   * porque la mide el navegador.
+   */
+  enviarConArchivos: (
+    contactoId: string,
+    contenido: string,
+    archivos: File[],
+    duracion?: number,
+    token?: string,
+  ) =>
+    apiUpload<ChatDirectoMensajeResponse>(
+      `/api/v1/chats/directos/${contactoId}/con-archivos`,
+      {
+        contenido,
+        archivos,
+        duracion: duracion !== undefined ? String(duracion) : undefined,
+      },
+      token,
+    ),
+  /** La URL desde la que se descarga un adjunto ya enviado. */
+  urlAdjunto: (adjuntoId: string) => `${BASE_URL}/api/v1/chats/adjuntos/${adjuntoId}`,
   editar: (mensajeId: string, contenido: string, token?: string) =>
     apiFetch<ChatDirectoMensajeResponse>(`/api/v1/chats/directos/mensajes/${mensajeId}`, {
       method: 'PUT', data: { contenido }, token,

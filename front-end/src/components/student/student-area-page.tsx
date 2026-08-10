@@ -28,7 +28,7 @@ import { StudentPerfil } from './student-perfil'
 import { StudentDocumentos } from './student-documentos'
 import { StudentPostulaciones } from './student-postulaciones'
 import { StudentHojaDeVida } from './student-hoja-de-vida'
-import { TelegramChatHub } from './telegram-chat-hub'
+import { MessengerChatHub } from './messenger-chat-hub'
 import { usePreferences } from '@/lib/preferences'
 import { Conversacion } from '@/components/ui/conversacion'
 import { Textarea } from '@/components/ui/textarea'
@@ -573,9 +573,9 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
         </div>
       )}
 
-      {/* ── Mensajes Estilo Telegram ─────────────────────────────── */}
+      {/* ── Mensajes Estilo Facebook Messenger ───────────────────── */}
       {area === 'mensajes' && (
-        <TelegramChatHub locale={locale} />
+        <MessengerChatHub locale={locale} />
       )}
 
       {/* ── Ayuda ──────────────────────────────────────────────── */}

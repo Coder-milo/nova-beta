@@ -669,6 +669,17 @@ export interface ChatConversacionResponse {
   archivada: boolean
 }
 
+/** Un archivo enviado por el chat. La URL la resuelve `chatsApi.urlAdjunto`. */
+export interface ChatAdjuntoResponse {
+  id: string
+  nombre: string
+  contentType: string
+  tamano: number
+  esAudio: boolean
+  duracionSegundos: number | null
+  url: string
+}
+
 export interface ChatDirectoMensajeResponse {
   id: string
   remitenteId: string
@@ -680,6 +691,8 @@ export interface ChatDirectoMensajeResponse {
   editado?: boolean
   enRespuestaA?: string | null
   reenviado?: boolean
+  /** Vacía si el mensaje es solo texto. */
+  adjuntos: ChatAdjuntoResponse[]
 }
 
 export interface ChatGrupoResponse {
