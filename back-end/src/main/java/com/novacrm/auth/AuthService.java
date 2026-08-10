@@ -142,16 +142,36 @@ public class AuthService {
                 // color: el mismo usuario recibía dos correos que no parecían del
                 // mismo sistema, y el de recuperación tenía toda la pinta de
                 // suplantación.
-                emailService.enviar(usuario.getEmail(), "Recupera tu contraseña — NOVA CRM",
+                var envio = emailService.enviar(usuario.getEmail(), "Recupera tu contraseña — NOVA CRM",
                         com.novacrm.correo.CorreosDelSistema.recuperacion(
                                 usuario.getNombre(), enlace, MINUTOS_VIGENCIA_RESET,
                                 marcaCorreoService.global()));
+                if (!envio.enviado()) {
+                    // Se miraba solo la excepción, y sin canal de correo no hay
+                    // ninguna: el proveedor nulo devuelve un fallo tranquilo. Así
+                    // que el «en desarrollo el token queda en el log» de aquí
+                    // abajo llevaba tiempo sin cumplirse, y en una máquina sin
+                    // SMTP no habia forma de entrar ni de probar el flujo.
+                    registrarEnlaceSinEnviar(usuario.getEmail(), envio.motivoFallo(), enlace);
+                }
             } catch (Exception e) {
-                // No propagar: en desarrollo (sin SES) el token queda en el log.
-                log.warn("No se pudo enviar el correo de recuperación a {}: {}. Enlace: {}",
-                        usuario.getEmail(), e.getMessage(), enlace);
+                registrarEnlaceSinEnviar(usuario.getEmail(), e.getMessage(), enlace);
             }
         });
+    }
+
+    /**
+     * Deja el enlace en el log cuando el correo no salió.
+     *
+     * <p>Es la salida de emergencia de una máquina sin servidor de correo: sin
+     * esto, un entorno recién levantado no tiene forma de entrar ni de probar
+     * el flujo de recuperación. Que aparezca en el log es aceptable
+     * precisamente porque ahí no hay canal de correo; donde sí lo hay, esta
+     * rama no se ejecuta.
+     */
+    private void registrarEnlaceSinEnviar(String email, String motivo, String enlace) {
+        log.warn("No se pudo enviar el correo de recuperación a {}: {}. Enlace: {}",
+                email, motivo, enlace);
     }
 
     @Transactional

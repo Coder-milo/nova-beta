@@ -39,6 +39,9 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 // MatchingConfig porque es de quien ese servicio toma los valores de partida.
 @Import({JpaConfig.class, AdminService.class, PurgeScheduler.class,
         com.novacrm.configuracion.ConfiguracionService.class,
+        // Las operaciones masivas dejan constancia de quien las hizo, asi que
+        // el contexto de esta prueba necesita el registro de auditoria.
+        com.novacrm.auditoria.AuditoriaService.class,
         com.novacrm.config.MatchingConfig.class})
 class PapeleraIntegrationTest {
 
