@@ -765,9 +765,17 @@ export const gruposApi = {
     apiFetch<ChatGrupoResponse[]>('/api/v1/chats/grupos', { token }),
   mensajes: (grupoId: string, token?: string) =>
     apiFetch<ChatGrupoMensajeResponse[]>(`/api/v1/chats/grupos/${grupoId}/mensajes`, { token }),
+  /**
+   * Escribe en el grupo.
+   *
+   * El texto va en el cuerpo y no en la URL: como parámetro acababa en los
+   * registros del servidor, en los del proxy y en el historial del navegador,
+   * y además una URL tiene límite de longitud, así que un mensaje largo
+   * fallaba con un 414 en vez de con una explicación.
+   */
   enviar: (grupoId: string, contenido: string, enRespuestaA?: string, token?: string) =>
-    apiFetch<ChatGrupoMensajeResponse>(`/api/v1/chats/grupos/${grupoId}/mensajes?contenido=${encodeURIComponent(contenido)}${enRespuestaA ? `&enRespuestaA=${enRespuestaA}` : ''}`, {
-      method: 'POST', token,
+    apiFetch<ChatGrupoMensajeResponse>(`/api/v1/chats/grupos/${grupoId}/mensajes`, {
+      method: 'POST', data: { contenido, enRespuestaA }, token,
     }),
   /**
    * El tramo anterior a un mensaje del grupo, para subir por la conversación.

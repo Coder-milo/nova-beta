@@ -112,13 +112,29 @@ public class ChatGrupoController {
         return service.mensajesDelGrupo(grupoId, auth);
     }
 
+    /**
+     * Escribe en el grupo.
+     *
+     * <p>El texto va en el cuerpo y no en la URL. Como parámetro acababa en los
+     * registros del servidor, en los del proxy y en el historial del navegador:
+     * lo que se escribe en un chat privado no puede quedar copiado en tres
+     * sitios que nadie mira hasta que alguien los mira. Además, una URL tiene
+     * límite de longitud, así que un mensaje largo fallaba con un 414 en vez de
+     * con una explicación.
+     *
+     * <p>Es también como funciona el chat de dos, que ya usaba cuerpo.
+     */
     @PostMapping("/{grupoId}/mensajes")
     @ResponseStatus(HttpStatus.CREATED)
     public ChatGrupoService.GrupoMensajeResponse enviarMensajeGrupo(
             @PathVariable UUID grupoId,
-            @RequestParam String contenido,
-            @RequestParam(required = false) UUID enRespuestaA,
+            @Valid @RequestBody MensajeDeGrupoRequest cuerpo,
             Authentication auth) {
-        return service.enviarAMensajeGrupo(grupoId, contenido, enRespuestaA, auth);
+        return service.enviarAMensajeGrupo(grupoId, cuerpo.contenido(), cuerpo.enRespuestaA(), auth);
     }
+
+    /** Lo que se escribe en un grupo. */
+    public record MensajeDeGrupoRequest(
+            @jakarta.validation.constraints.NotBlank String contenido,
+            UUID enRespuestaA) {}
 }
