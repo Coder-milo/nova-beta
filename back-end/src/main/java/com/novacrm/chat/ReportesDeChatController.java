@@ -26,9 +26,12 @@ import java.util.UUID;
 public class ReportesDeChatController {
 
     private final ReporteDeChatRepository repository;
+    private final com.novacrm.auditoria.AuditoriaService auditoriaService;
 
-    public ReportesDeChatController(ReporteDeChatRepository repository) {
+    public ReportesDeChatController(ReporteDeChatRepository repository,
+                                    com.novacrm.auditoria.AuditoriaService auditoriaService) {
         this.repository = repository;
+        this.auditoriaService = auditoriaService;
     }
 
     @GetMapping
@@ -44,14 +47,34 @@ public class ReportesDeChatController {
         return reportes.map(ReportesDeChatController::aRespuesta);
     }
 
+    /**
+     * Cierra un reporte.
+     *
+     * <p>Queda en auditoría quién lo cerró y cuándo. Aquí alguien decide que una
+     * denuncia ya está atendida, y hasta ahora esa decisión no dejaba rastro:
+     * el registro de auditoría cubría editar una empresa pero no cerrar la
+     * queja de un estudiante sobre otro. Si mañana hay que responder por cómo
+     * se llevó un caso, esto es lo único que lo cuenta.
+     *
+     * <p>No se copia el extracto al registro: ya está en el reporte, y
+     * duplicar una conversación privada en una segunda tabla es repartir lo
+     * mismo por más sitios sin ganar nada.
+     */
     @PostMapping("/{id}/revisado")
     @Operation(summary = "Marcar un reporte como revisado")
     @Transactional
     public ReporteResponse marcarRevisado(@PathVariable UUID id) {
         var reporte = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Reporte no encontrado: " + id));
+        String estadoAnterior = reporte.getEstado();
         reporte.setEstado(ReporteDeChat.REVISADO);
-        return aRespuesta(repository.save(reporte));
+        var guardado = repository.save(reporte);
+        auditoriaService.registrar("CHAT", "REPORTE_REVISADO", "ReporteDeChat",
+                id.toString(),
+                nombreDe(reporte.getDenunciante()) + " sobre " + nombreDe(reporte.getDenunciado()),
+                "{\"estado\":\"" + estadoAnterior + "\"}",
+                "{\"estado\":\"" + ReporteDeChat.REVISADO + "\"}");
+        return aRespuesta(guardado);
     }
 
     private static ReporteResponse aRespuesta(ReporteDeChat r) {
