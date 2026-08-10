@@ -649,7 +649,18 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold text-foreground">{conv.nombre}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-xs font-semibold text-foreground">{conv.nombre}</p>
+                      {/* Se puede archivar sin abrir, así que una archivada
+                          puede tener mensajes sin leer. La campana los cuenta;
+                          esconder el número aquí dejaba a la persona buscando
+                          de dónde salía. */}
+                      {conv.sinLeer > 0 && (
+                        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+                          {conv.sinLeer}
+                        </span>
+                      )}
+                    </div>
                     <p className="truncate text-[11px] text-muted-foreground">{conv.ultimoMensaje}</p>
                   </div>
                 </button>
