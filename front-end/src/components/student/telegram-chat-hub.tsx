@@ -329,6 +329,29 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
     return () => { vigente = false; window.clearTimeout(id) }
   }, [buscandoEnChat, terminoEnChat, activeTab, selectedContactoId, selectedGrupoId, english])
 
+  /**
+   * Al cambiar de conversación se suelta lo que estabas citando o editando.
+   *
+   * Las dos cosas pertenecen a la conversación en la que estabas, y se
+   * limpiaban sólo al enviar con éxito.
+   *
+   * La cita: la señalas en un grupo, te vas a otro y escribes, y se mandaba el
+   * identificador del mensaje del grupo anterior. Antes quedaba guardada una
+   * respuesta a algo que no está aquí; desde que el servidor lo rechaza, sale
+   * un error que quien lo lee no puede entender, porque la barra de cita
+   * enseña un mensaje que ya no ve por ningún lado.
+   *
+   * La edición es peor, y el servidor no puede protegerte: pulsas editar en un
+   * mensaje tuyo, cambias de conversación, escribes otra cosa y le das a
+   * enviar. Lo que sale no es un mensaje nuevo aquí: es aquel de allí,
+   * reescrito con este texto. Para el servidor todo encaja —es tu mensaje, no
+   * hay bloqueo, cabe—, así que sólo se puede evitar aquí.
+   */
+  useEffect(() => {
+    setCitandoMensaje(null)
+    setEditandoMensajeId(null)
+  }, [activeTab, selectedContactoId, selectedGrupoId])
+
   // Auto-scroll al fondo
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
