@@ -104,6 +104,18 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   const [motivoReporte, setMotivoReporte] = useState('')
   const [reportando, setReportando] = useState(false)
 
+  /**
+   * La bandeja va sin lo archivado; lo archivado, en su propia sección.
+   *
+   * El servidor ya resolvió cuál es cuál: una conversación archivada en la que
+   * escribieron después vuelve marcada como no archivada, así que aquí no hay
+   * ninguna regla que repetir.
+   */
+  const conversacionesEnBandeja = conversaciones.filter((c) => !c.archivada)
+  const conversacionesArchivadas = conversaciones.filter((c) => c.archivada)
+  const [mostrarArchivados, setMostrarArchivados] = useState(false)
+  const contactoArchivado = conversacionesArchivadas.some((c) => c.contactoId === selectedContactoId)
+
   // Buscar dentro de la conversación abierta
   const [buscandoEnChat, setBuscandoEnChat] = useState(false)
   const [terminoEnChat, setTerminoEnChat] = useState('')
@@ -323,6 +335,28 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   }
 
   // Bloquear / Desbloquear
+  /** Aparta la conversación abierta de la bandeja, o la devuelve. */
+  const handleArchivar = async () => {
+    if (!selectedContactoId) return
+    const id = selectedContactoId
+    const estaba = contactoArchivado
+    try {
+      if (estaba) await chatsApi.desarchivar(id)
+      else await chatsApi.archivar(id)
+      await cargarBandejas()
+      setAviso({
+        tipo: 'ok',
+        texto: estaba
+          ? (english ? 'Back in your inbox.' : 'Vuelve a estar en tu bandeja.')
+          : (english
+              ? 'Archived. It will come back if they write to you again.'
+              : 'Archivada. Volverá si te vuelven a escribir.'),
+      })
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'It could not be archived.' : 'No se pudo archivar.') })
+    }
+  }
+
   const handleBloqueo = async () => {
     if (!selectedContactoId) return
     const idContacto = selectedContactoId
@@ -520,7 +554,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
         {/* Lista de Chats / Conversaciones */}
         <div className="flex-1 space-y-1 overflow-y-auto p-2">
           {activeTab === 'directos' &&
-            conversaciones.map((conv) => (
+            conversacionesEnBandeja.map((conv) => (
               <button
                 key={conv.contactoId}
                 type="button"
@@ -554,6 +588,51 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                 </div>
               </button>
             ))}
+
+          {/* Archivados, plegado. Se sigue viendo cuántos hay: esconderlos del
+              todo convierte «apartar» en «perder». */}
+          {activeTab === 'directos' && conversacionesArchivadas.length > 0 && (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setMostrarArchivados((v) => !v)}
+                className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-[11px] font-semibold text-muted-foreground transition hover:bg-muted/60"
+              >
+                <span>{english ? 'Archived' : 'Archivados'}</span>
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px]">
+                  {conversacionesArchivadas.length}
+                </span>
+              </button>
+
+              {mostrarArchivados && conversacionesArchivadas.map((conv) => (
+                <button
+                  key={conv.contactoId}
+                  type="button"
+                  onClick={() => {
+                    setSelectedContactoId(conv.contactoId)
+                    setSelectedContactoNombre(conv.nombre)
+                    setSelectedContactoFoto(conv.fotoUrl)
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-xl p-2.5 text-left opacity-70 transition hover:opacity-100',
+                    selectedContactoId === conv.contactoId ? 'bg-primary/15 font-medium text-primary' : 'hover:bg-muted/60',
+                  )}
+                >
+                  {conv.fotoUrl ? (
+                    <img src={conv.fotoUrl} alt="" className="size-9 shrink-0 rounded-full object-cover" />
+                  ) : (
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted font-bold text-muted-foreground">
+                      {conv.nombre[0]}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-semibold text-foreground">{conv.nombre}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">{conv.ultimoMensaje}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
 
           {activeTab === 'grupos' &&
             grupos.map((g) => (
@@ -654,6 +733,26 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                 title={english ? 'Search in this conversation' : 'Buscar en esta conversación'}
               >
                 <MagnifyingGlass className="size-4" />
+              </button>
+            )}
+
+            {activeTab === 'directos' && selectedContactoId && (
+              <button
+                type="button"
+                onClick={() => void handleArchivar()}
+                className={cn(
+                  'rounded-xl border px-3 py-1.5 text-xs font-semibold transition',
+                  contactoArchivado
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:text-foreground',
+                )}
+                title={contactoArchivado
+                  ? (english ? 'Move back to the inbox' : 'Devolver a la bandeja')
+                  : (english ? 'Archive this conversation' : 'Archivar esta conversación')}
+              >
+                {contactoArchivado
+                  ? (english ? 'Unarchive' : 'Desarchivar')
+                  : (english ? 'Archive' : 'Archivar')}
               </button>
             )}
 
