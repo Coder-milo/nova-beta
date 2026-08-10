@@ -44,9 +44,22 @@ public final class EstadoDeContactoActual {
                 .orElse(EstadoContacto.INICIAL);
     }
 
-    /** La fecha del ultimo movimiento de contacto, si lo hubo. */
+    /**
+     * La fecha en que se supo de esa persona por ultima vez.
+     *
+     * <p>Cuenta <strong>cualquier</strong> apunte del historial, no solo los
+     * movimientos del tablero. Son dos preguntas distintas y hasta ahora las
+     * dos se respondian con la misma consulta: en que columna esta la tarjeta
+     * lo deciden solo los movimientos —un simulacro no puede cambiar de columna
+     * a nadie—, pero cuando se hablo con alguien lo dice el registro entero.
+     *
+     * <p>Con el filtro de movimientos, una coordinadora llamaba a un
+     * participante, apuntaba la llamada como LLAMADA y la tarjeta seguia
+     * diciendo «23 dias sin contacto» y en alerta. La cuenta que sirve para
+     * decidir a quien hay que llamar dejaba fuera justamente las llamadas.
+     */
     public static Optional<LocalDate> fechaUltimoContacto(List<Seguimiento> historial) {
-        return ultimoMovimiento(historial).map(Seguimiento::getFecha);
+        return ultimoApunte(historial).map(Seguimiento::getFecha);
     }
 
     /**
@@ -75,6 +88,22 @@ public final class EstadoDeContactoActual {
         return historial.stream()
                 .filter(s -> EstadoContacto.TIPO.equalsIgnoreCase(s.getTipo()))
                 .filter(s -> EstadoContacto.desde(s.getEstado()).isPresent())
+                .min(MAS_RECIENTE_PRIMERO);
+    }
+
+    /**
+     * El apunte mas reciente, del tipo que sea.
+     *
+     * <p>Una llamada, un simulacro, una nota o un movimiento del tablero: todos
+     * significan que alguien sabe algo de esa persona. Para saber si se le
+     * perdio la pista da igual como se registrase.
+     */
+    private static Optional<Seguimiento> ultimoApunte(List<Seguimiento> historial) {
+        if (historial == null || historial.isEmpty()) {
+            return Optional.empty();
+        }
+        return historial.stream()
+                .filter(s -> s.getFecha() != null)
                 .min(MAS_RECIENTE_PRIMERO);
     }
 
