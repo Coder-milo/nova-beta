@@ -36,6 +36,16 @@ public class MatchingService {
      */
     private final com.novacrm.configuracion.ConfiguracionService configuracionService;
 
+    /**
+     * Quien esta trabajando ahora mismo, segun el registro que lo dice.
+     *
+     * <p>Hasta ahora eso se preguntaba solo al enum {@code EstadoEmpleabilidad}
+     * de la ficha, que unicamente escriben la importacion antigua y la edicion
+     * manual. A quien se coloca por el CRM nadie se lo cambia, asi que seguia
+     * contando como buscando empleo.
+     */
+    private final com.novacrm.colocacion.ColocacionRepository colocacionRepository;
+
     private static final List<String> NIVELES_INGLES = List.of("A1", "A2", "B1", "B2", "C1", "C2");
 
     public MatchingService(MatchRepository matchRepository,
@@ -46,7 +56,9 @@ public class MatchingService {
                            NotificacionService notificacionService,
                            com.novacrm.postulacion.PostulacionService postulacionService,
                            com.novacrm.postulacion.PostulacionRepository postulacionRepository,
-                           com.novacrm.configuracion.ConfiguracionService configuracionService) {
+                           com.novacrm.configuracion.ConfiguracionService configuracionService,
+                           com.novacrm.colocacion.ColocacionRepository colocacionRepository) {
+        this.colocacionRepository = colocacionRepository;
         this.matchRepository = matchRepository;
         this.estudianteRepository = estudianteRepository;
         this.vacanteRepository = vacanteRepository;
@@ -244,8 +256,11 @@ public class MatchingService {
         // quien se retiro del programa y a quien ya esta empleado. Mandarles
         // recomendaciones —y avisos de WhatsApp— es ruido para ellos y trabajo
         // perdido para el equipo.
+        // Quien tiene una colocacion vigente ya no busca, lo diga o no el enum
+        // de su ficha. En una consulta para toda la corrida, no una por persona.
+        var colocados = java.util.Set.copyOf(colocacionRepository.idsColocados());
         var estudiantes = estudianteRepository.findAllByActivoTrue().stream()
-                .filter(MatchingService::buscaEmpleo)
+                .filter(e -> buscaEmpleo(e, colocados))
                 .toList();
         if (estudiantes.isEmpty()) {
             return 0;
@@ -363,10 +378,22 @@ public class MatchingService {
      * <p>Quien se retiro del programa ya no participa, y a quien esta empleado
      * recomendarle plazas no le sirve: el seguimiento de esa persona es la
      * permanencia en el puesto, no una nueva busqueda.
+     *
+     * <p>«Empleado» son dos cosas y hasta ahora se miraba solo una. El enum
+     * {@code EstadoEmpleabilidad} viene de la hoja antigua y lo escriben la
+     * importacion y la edicion manual; la colocacion es el registro real —con
+     * empresa, fecha y salario— y es por donde entra todo el que se coloca por
+     * el CRM. Mirando solo el enum, a quien acababa de encontrar trabajo con el
+     * programa se le seguian mandando vacantes recomendadas, con su aviso de
+     * WhatsApp y sus botones de si/no, mientras estaba trabajando.
+     *
+     * @param colocados ids con colocacion vigente, resueltos de una vez para
+     *                  toda la corrida
      */
-    static boolean buscaEmpleo(Estudiante e) {
+    static boolean buscaEmpleo(Estudiante e, java.util.Set<UUID> colocados) {
         return e.getEstadoAcademico() != com.novacrm.estudiante.EstadoAcademico.RETIRADO
-                && e.getEstadoEmpleabilidad() != com.novacrm.estudiante.EstadoEmpleabilidad.EMPLEADO;
+                && e.getEstadoEmpleabilidad() != com.novacrm.estudiante.EstadoEmpleabilidad.EMPLEADO
+                && !colocados.contains(e.getId());
     }
 
     /**
