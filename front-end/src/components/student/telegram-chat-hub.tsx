@@ -129,6 +129,23 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   >(null)
   const [buscandoAhora, setBuscandoAhora] = useState(false)
 
+  /**
+   * De dónde se saca la cara de un compañero.
+   *
+   * `fotoUrl` no es una dirección: es la clave con la que el archivo está
+   * guardado en el almacenamiento. Pintarla tal cual en un `<img src>` da una
+   * imagen rota siempre. La foto se pide al endpoint del chat, que la sirve
+   * con la regla del chat —mismo proyecto y activo—; el de la ficha solo deja
+   * ver la propia.
+   *
+   * Se admite una dirección completa por si algún día las fotos vienen de
+   * fuera, que es lo que ya hace la pantalla de perfil.
+   */
+  const fotoDe = (contactoId: string, clave: string | null) => {
+    if (!clave) return null
+    return clave.startsWith('http') ? clave : `/api/v1/chats/directos/${contactoId}/foto`
+  }
+
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -525,7 +542,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                 className="flex w-full items-center gap-2.5 rounded-xl p-2 text-left hover:bg-muted"
               >
                 {c.fotoUrl ? (
-                  <img src={c.fotoUrl} alt="" className="size-8 rounded-full object-cover" />
+                  <img src={fotoDe(c.id, c.fotoUrl) ?? undefined} alt="" className="size-8 rounded-full object-cover" />
                 ) : (
                   <div className="flex size-8 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
                     {c.nombre[0]}
@@ -569,7 +586,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                 )}
               >
                 {conv.fotoUrl ? (
-                  <img src={conv.fotoUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                  <img src={fotoDe(conv.contactoId, conv.fotoUrl) ?? undefined} alt="" className="size-10 shrink-0 rounded-full object-cover" />
                 ) : (
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/20 font-bold text-primary">
                     {conv.nombre[0]}
@@ -619,7 +636,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                   )}
                 >
                   {conv.fotoUrl ? (
-                    <img src={conv.fotoUrl} alt="" className="size-9 shrink-0 rounded-full object-cover" />
+                    <img src={fotoDe(conv.contactoId, conv.fotoUrl) ?? undefined} alt="" className="size-9 shrink-0 rounded-full object-cover" />
                   ) : (
                     <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted font-bold text-muted-foreground">
                       {conv.nombre[0]}
@@ -692,7 +709,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
         <header className="flex items-center justify-between border-b border-border bg-card px-5 py-3.5 pr-16 shadow-sm dark:bg-[#0f172a]">
           <div className="flex items-center gap-3">
             {activeTab === 'directos' && selectedContactoFoto ? (
-              <img src={selectedContactoFoto} alt="" className="size-9 rounded-full object-cover" />
+              <img src={fotoDe(selectedContactoId ?? '', selectedContactoFoto) ?? undefined} alt="" className="size-9 rounded-full object-cover" />
             ) : activeTab === 'grupos' && selectedGrupoFoto ? (
               <img src={selectedGrupoFoto} alt="" className="size-9 rounded-full object-cover" />
             ) : (
@@ -1178,7 +1195,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                         >
                           <div className="flex items-center gap-2">
                             {c.fotoUrl ? (
-                              <img src={c.fotoUrl} alt="" className="size-6 rounded-full object-cover" />
+                              <img src={fotoDe(c.id, c.fotoUrl) ?? undefined} alt="" className="size-6 rounded-full object-cover" />
                             ) : (
                               <div className="flex size-6 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
                                 {c.nombre[0]}
@@ -1242,7 +1259,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                     <div key={m.estudianteId} className="flex items-center justify-between rounded-lg p-2 text-xs">
                       <div className="flex items-center gap-2.5">
                         {m.fotoUrl ? (
-                          <img src={m.fotoUrl} alt="" className="size-7 rounded-full object-cover" />
+                          <img src={fotoDe(m.estudianteId, m.fotoUrl) ?? undefined} alt="" className="size-7 rounded-full object-cover" />
                         ) : (
                           <div className="flex size-7 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
                             {m.nombre[0]}
@@ -1407,7 +1424,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                   className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-muted"
                 >
                   {c.fotoUrl ? (
-                    <img src={c.fotoUrl} alt="" className="size-7 rounded-full object-cover" />
+                    <img src={fotoDe(c.contactoId, c.fotoUrl) ?? undefined} alt="" className="size-7 rounded-full object-cover" />
                   ) : (
                     <div className="flex size-7 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
                       {c.nombre[0]}

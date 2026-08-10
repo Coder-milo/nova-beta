@@ -257,17 +257,8 @@ public class EstudianteController {
         if (est.fotoUrl() == null) {
             return org.springframework.http.ResponseEntity.notFound().build();
         }
-        org.springframework.http.MediaType mediaType = org.springframework.http.MediaType.IMAGE_JPEG;
-        String keyLower = est.fotoUrl().toLowerCase();
-        if (keyLower.endsWith(".png")) {
-            mediaType = org.springframework.http.MediaType.IMAGE_PNG;
-        } else if (keyLower.endsWith(".webp")) {
-            mediaType = org.springframework.http.MediaType.parseMediaType("image/webp");
-        } else if (keyLower.endsWith(".gif")) {
-            mediaType = org.springframework.http.MediaType.IMAGE_GIF;
-        }
         return org.springframework.http.ResponseEntity.ok()
-                .contentType(mediaType)
+                .contentType(FotoDePerfil.tipoPorExtension(est.fotoUrl()))
                 .body(storageService.descargar(est.fotoUrl()));
     }
 

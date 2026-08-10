@@ -343,6 +343,22 @@ public class ChatDirectoService {
         archivadaRepository.save(archivada);
     }
 
+    /**
+     * La clave de la foto de un compañero, si se le puede ver.
+     *
+     * <p>Pasa por el mismo control que escribirle. El endpoint de la ficha no
+     * sirve para esto: solo deja ver la foto propia, asi que las caras de la
+     * lista de conversaciones eran imagenes rotas —el chat pintaba la clave de
+     * almacenamiento como si fuera una direccion—. Se resuelve aqui y no
+     * abriendo aquel, porque quien puede ver la cara de alguien es una decision
+     * del chat: compañeros del mismo proyecto, y nadie mas.
+     */
+    @Transactional(readOnly = true)
+    public String claveDeFotoDe(UUID contactoId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        return contactoValido(contactoId, propio).getFotoUrl();
+    }
+
     /** Devuelve la conversación a la bandeja. */
     @Transactional
     public void desarchivar(UUID contactoId, Authentication auth) {

@@ -6,6 +6,7 @@ import com.novacrm.chat.dto.ChatDirectoMensajeResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,8 +24,13 @@ import java.util.UUID;
 @PreAuthorize("hasRole('ESTUDIANTE')")
 public class ChatDirectoController {
     private final ChatDirectoService service;
+    private final com.novacrm.documento.StorageService storageService;
 
-    public ChatDirectoController(ChatDirectoService service) { this.service = service; }
+    public ChatDirectoController(ChatDirectoService service,
+                                 com.novacrm.documento.StorageService storageService) {
+        this.service = service;
+        this.storageService = storageService;
+    }
 
     /** Con quien se ha hablado ya, para no tener que buscarlo por el nombre. */
     @GetMapping("/conversaciones")
@@ -63,6 +69,24 @@ public class ChatDirectoController {
     @DeleteMapping("/directos/{contactoId}/bloquear")
     public void desbloquear(@PathVariable UUID contactoId, Authentication auth) {
         service.desbloquear(contactoId, auth);
+    }
+
+    /**
+     * La foto de un compañero, para pintar su cara en la lista y la cabecera.
+     *
+     * <p>Con la regla del chat: del mismo proyecto y activo. El endpoint de la
+     * ficha solo deja ver la propia, así que sin esto las caras de los demás
+     * eran imágenes rotas.
+     */
+    @GetMapping("/directos/{contactoId}/foto")
+    public ResponseEntity<byte[]> foto(@PathVariable UUID contactoId, Authentication auth) {
+        String clave = service.claveDeFotoDe(contactoId, auth);
+        if (clave == null || clave.isBlank()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok()
+                .contentType(com.novacrm.estudiante.FotoDePerfil.tipoPorExtension(clave))
+                .body(storageService.descargar(clave));
     }
 
     /** Aparta una conversación de la bandeja. Solo de quien lo pide. */
