@@ -230,6 +230,22 @@ public class ChatDirectoService {
         Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
         var mensajeOriginal = repository.findById(mensajeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Mensaje original no encontrado."));
+        // Solo se reenvia lo que uno ha recibido o escrito.
+        //
+        // Esto no estaba, y era la puerta mas grande del chat: se cogia el
+        // mensaje por identificador y se copiaba su contenido, sin mirar de
+        // quien era. Con un identificador cualquiera se podia reenviar a uno
+        // mismo una conversacion entre otras dos personas y leerla entera,
+        // mensaje a mensaje, sin haber estado nunca en ella.
+        //
+        // Mismo mensaje que cuando no existe: decir «existe pero no es tuyo»
+        // convierte esto en una forma de comprobar identificadores.
+        boolean participo = mensajeOriginal.getRemitente().getId().equals(propio.getId())
+                || mensajeOriginal.getDestinatario().getId().equals(propio.getId());
+        if (!participo) {
+            throw new ResourceNotFoundException("Mensaje original no encontrado.");
+        }
+
         Estudiante destino = contactoValido(destinoId, propio);
 
         var nuevo = new ChatDirectoMensaje();

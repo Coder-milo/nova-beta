@@ -376,6 +376,75 @@ class ReglasDeChatDirectoTest {
                 () -> service.editar(mio.getId(), "a".repeat(TextoDeMensaje.MAXIMO + 1), auth));
     }
 
+    // ── Reenviar ──────────────────────────────────────────────────────────
+
+    /**
+     * La puerta mas grande que tenia el chat. Se cogia el mensaje por
+     * identificador y se copiaba su contenido sin mirar de quien era, asi que
+     * con un identificador cualquiera se podia reenviar a uno mismo una
+     * conversacion entre otras dos personas y leerla entera sin haber estado
+     * nunca en ella.
+     */
+    @Test
+    void noSeReenviaUnMensajeDeOtraConversacion() {
+        var luis = estudiante("Luis", programa);
+        var sara = estudiante("Sara", programa);
+        var ajeno = mensajeEntre(luis, sara, "algo privado entre ellos dos");
+        when(mensajes.findById(ajeno.getId())).thenReturn(Optional.of(ajeno));
+        when(estudiantes.findById(luis.getId())).thenReturn(Optional.of(luis));
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> service.reenviar(ajeno.getId(), luis.getId(), auth));
+        verify(mensajes, never()).save(any());
+    }
+
+    /** El mismo mensaje que cuando no existe: si no, sirve para comprobar ids. */
+    @Test
+    void elErrorNoDelataQueEseMensajeExiste() {
+        var luis = estudiante("Luis", programa);
+        var sara = estudiante("Sara", programa);
+        var ajeno = mensajeEntre(luis, sara, "algo privado");
+        when(mensajes.findById(ajeno.getId())).thenReturn(Optional.of(ajeno));
+        var inventado = UUID.randomUUID();
+        when(mensajes.findById(inventado)).thenReturn(Optional.empty());
+        when(estudiantes.findById(luis.getId())).thenReturn(Optional.of(luis));
+
+        var deOtros = assertThrows(ResourceNotFoundException.class,
+                () -> service.reenviar(ajeno.getId(), luis.getId(), auth));
+        var noExiste = assertThrows(ResourceNotFoundException.class,
+                () -> service.reenviar(inventado, luis.getId(), auth));
+
+        assertEquals(noExiste.getMessage(), deOtros.getMessage());
+    }
+
+    @Test
+    void seReenviaLoRecibido() {
+        var luis = estudiante("Luis", programa);
+        var sara = estudiante("Sara", programa);
+        var recibido = mensajeEntre(luis, yo, "mira esto");
+        when(mensajes.findById(recibido.getId())).thenReturn(Optional.of(recibido));
+        when(estudiantes.findById(sara.getId())).thenReturn(Optional.of(sara));
+        when(bloqueos.hayBloqueoEntre(any(), any())).thenReturn(false);
+
+        service.reenviar(recibido.getId(), sara.getId(), auth);
+
+        verify(mensajes).save(any(ChatDirectoMensaje.class));
+    }
+
+    @Test
+    void seReenviaLoPropio() {
+        var luis = estudiante("Luis", programa);
+        var sara = estudiante("Sara", programa);
+        var mio = mensajeEntre(yo, luis, "lo que dije");
+        when(mensajes.findById(mio.getId())).thenReturn(Optional.of(mio));
+        when(estudiantes.findById(sara.getId())).thenReturn(Optional.of(sara));
+        when(bloqueos.hayBloqueoEntre(any(), any())).thenReturn(false);
+
+        service.reenviar(mio.getId(), sara.getId(), auth);
+
+        verify(mensajes).save(any(ChatDirectoMensaje.class));
+    }
+
     // ── Reportar ──────────────────────────────────────────────────────────
 
     /** Sin conversacion, el boton serviria para denunciar a desconocidos. */
