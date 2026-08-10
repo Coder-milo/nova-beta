@@ -157,6 +157,56 @@ class PapeleraIntegrationTest {
         assertThat(em.find(LinkedinConfiguracion.class, antiguoId)).isNull();
     }
 
+    // ── La purga automatica y los dias configurados ──────────────────────────
+
+    /**
+     * Los dias de retencion los decide la configuracion, tambien de madrugada.
+     *
+     * <p>La purga manual ya los respetaba; la automatica llevaba 30 escritos en
+     * el codigo. Y quien borra de verdad es la automatica: nadie purga a mano un
+     * domingo a las tres. Subir la retencion a 90 desde la pantalla no salvaba
+     * ninguna ficha del borrado del dia 31, que es irreversible.
+     */
+    @Test
+    void laPurgaProgramadaRespetaLosDiasQueDiceLaConfiguracion() {
+        var config = new com.novacrm.configuracion.ConfiguracionGlobal();
+        config.setDiasRetencionPapelera(90);
+        em.persist(config);
+
+        var programa = crearPrograma();
+        var deCuarentaDias = crearEstudianteEnPapelera(programa, Instant.now().minus(Duration.ofDays(40)));
+        var deCienDias = crearEstudianteEnPapelera(programa, Instant.now().minus(Duration.ofDays(100)));
+        em.flush();
+
+        UUID dentroDePlazo = deCuarentaDias.getId();
+        UUID fueraDePlazo = deCienDias.getId();
+
+        purgeScheduler.purgarPapelera();
+        em.clear();
+
+        assertThat(em.find(Estudiante.class, dentroDePlazo))
+                .as("con 90 dias configurados, una ficha de 40 no se toca")
+                .isNotNull();
+        assertThat(em.find(Estudiante.class, fueraDePlazo)).isNull();
+    }
+
+    /** Borrar fichas sin dejar rastro es justo lo que no puede pasar. */
+    @Test
+    void laPurgaProgramadaQuedaEnAuditoria() {
+        var programa = crearPrograma();
+        crearEstudianteEnPapelera(programa, Instant.now().minus(Duration.ofDays(40)));
+        em.flush();
+
+        purgeScheduler.purgarPapelera();
+        em.flush();
+        em.clear();
+
+        Long anotaciones = em.createQuery(
+                        "SELECT COUNT(a) FROM Auditoria a WHERE a.accion = 'PURGA_DE_PAPELERA'", Long.class)
+                .getSingleResult();
+        assertThat(anotaciones).isPositive();
+    }
+
     // ── Grupos y reportes del chat ───────────────────────────────────────────
 
     /**

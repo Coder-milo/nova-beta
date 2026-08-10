@@ -139,35 +139,10 @@ public class AdminService {
             return 0;
         }
 
-        entityManager.createQuery(
-                "DELETE FROM Credencial c WHERE c.id IN (SELECT ec.id FROM EstudianteCertificacion ec WHERE ec.estudiante.id IN :ids)")
-                .setParameter("ids", ids)
-                .executeUpdate();
-        entityManager.createQuery(
-                "DELETE FROM Match m WHERE m.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-        entityManager.createQuery(
-                "DELETE FROM Notificacion n WHERE n.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-        entityManager.createQuery(
-                "DELETE FROM EstudianteHabilidad eh WHERE eh.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-        entityManager.createQuery(
-                "DELETE FROM EstudianteCertificacion ec WHERE ec.estudiante.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-        entityManager.createQuery(
-                "DELETE FROM LinkedinConfiguracion lc WHERE lc.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
-
-        int eliminados = entityManager.createQuery(
-                "DELETE FROM Estudiante e WHERE e.id IN :ids")
-                .setParameter("ids", ids)
-                .executeUpdate();
+        // La cadena de borrado vive en un solo sitio a proposito: aqui estaba
+        // repetida entera, y una copia solo hace falta hasta que alguien anade
+        // una tabla que cuelga del estudiante y la anade en la otra.
+        int eliminados = BorradoEstudiante.borrarEnCadena(entityManager, ids);
 
         anotar("PURGA_DE_PAPELERA",
                 "Fichas con mas de " + configuracionService.diasRetencionPapelera()
