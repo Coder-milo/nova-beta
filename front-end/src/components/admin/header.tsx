@@ -167,6 +167,26 @@ export function Header({ onOpenMobile }: HeaderProps) {
       }
 
   const esEstudiante = soloEsEstudiante(user?.roles)
+
+  /**
+   * De dónde se saca la cara de alguien.
+   *
+   * `fotoUrl` no es una dirección: es la clave con la que el archivo está
+   * guardado. Pintarla tal cual en un `<img src>` da una imagen rota siempre, y
+   * eso era lo que pasaba aquí — sólo se veía bien la inicial de quien no tiene
+   * foto, que es el caso en que no se intenta cargar nada.
+   *
+   * La ruta depende de quién mira: el equipo puede pedir la foto de cualquier
+   * ficha, y un estudiante sólo las de su chat, con la regla del chat. Cada uno
+   * por su puerta, en vez de abrir la del equipo para todos.
+   */
+  const fotoDe = (id: string, clave: string | null | undefined) => {
+    if (!clave) return undefined
+    if (clave.startsWith('http')) return clave
+    return esEstudiante
+      ? `/api/v1/chats/directos/${id}/foto`
+      : `/api/v1/estudiantes/${id}/foto`
+  }
   /**
    * Solo entonces `esEstudiante` significa algo. Antes de que la sesión se
    * lea, un estudiante todavía no tiene roles y pasa por gestor: llamar aquí
@@ -984,7 +1004,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                         : adminStudentResults.length === 0 ? <p className="px-2 py-2 text-xs text-muted-foreground">{locale === 'es' ? 'No encontramos estudiantes.' : 'No students found.'}</p>
                           : adminStudentResults.map((estudiante) => (
                             <button key={estudiante.id} type="button" onClick={() => abrirChatConEstudiante(estudiante)} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-background">
-                              {estudiante.fotoUrl ? <img src={estudiante.fotoUrl} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{`${estudiante.nombre[0] ?? ''}${estudiante.apellido[0] ?? ''}`.toUpperCase()}</span>}
+                              {estudiante.fotoUrl ? <img src={fotoDe(estudiante.id, estudiante.fotoUrl)} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{`${estudiante.nombre[0] ?? ''}${estudiante.apellido[0] ?? ''}`.toUpperCase()}</span>}
                               <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{estudiante.nombre} {estudiante.apellido}</span><span className="block truncate text-[10px] text-muted-foreground">{estudiante.email}</span></span>
                             </button>
                           ))}
@@ -1004,7 +1024,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                         : contactResults.length === 0 ? <p className="px-2 py-2 text-xs text-muted-foreground">{locale === 'es' ? 'No hay compañeros con ese nombre.' : 'No classmates found.'}</p>
                           : contactResults.map((contacto) => (
                             <button key={contacto.id} type="button" onClick={() => abrirChatDirecto(contacto)} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-background">
-                              {contacto.fotoUrl ? <img src={contacto.fotoUrl} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{contacto.nombre.slice(0, 2).toUpperCase()}</span>}
+                              {contacto.fotoUrl ? <img src={fotoDe(contacto.id, contacto.fotoUrl)} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{contacto.nombre.slice(0, 2).toUpperCase()}</span>}
                               <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{contacto.nombre}</span><span className="block text-[10px] text-muted-foreground">{locale === 'es' ? 'Iniciar chat' : 'Start chat'}</span></span>
                             </button>
                           ))}
@@ -1029,7 +1049,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                       )}
                     >
                       {conversacion.fotoUrl
-                        ? <img src={conversacion.fotoUrl} alt="" className="size-7 shrink-0 rounded-full object-cover" />
+                        ? <img src={fotoDe(conversacion.contactoId, conversacion.fotoUrl)} alt="" className="size-7 shrink-0 rounded-full object-cover" />
                         : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
                             {conversacion.nombre.slice(0, 2).toUpperCase()}
                           </span>}
@@ -1056,13 +1076,13 @@ export function Header({ onOpenMobile }: HeaderProps) {
               )}
               {directContact && esEstudiante && (
                 <button type="button" onClick={() => abrirChatDirecto(directContact)} className="mb-1 flex w-full items-center gap-2.5 rounded-xl border border-primary/20 bg-background px-3 py-3 text-left shadow-sm dark:bg-[#13221d]">
-                  {directContact.fotoUrl ? <img src={directContact.fotoUrl} alt="" className="size-8 rounded-full object-cover" /> : <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{directContact.nombre.slice(0, 2).toUpperCase()}</span>}
+                  {directContact.fotoUrl ? <img src={fotoDe(directContact.id, directContact.fotoUrl)} alt="" className="size-8 rounded-full object-cover" /> : <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{directContact.nombre.slice(0, 2).toUpperCase()}</span>}
                   <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{directContact.nombre}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{directMessages[directMessages.length - 1]?.contenido || (locale === 'es' ? 'Conversación nueva' : 'New conversation')}</span></span>
                 </button>
               )}
               {adminTarget && !esEstudiante && (
                 <button type="button" onClick={() => abrirChatConEstudiante(adminTarget)} className="mb-1 flex w-full items-center gap-2 rounded-xl border border-primary/20 bg-background px-2.5 py-2.5 text-left shadow-sm dark:bg-[#13221d]">
-                  {adminTarget.fotoUrl ? <img src={adminTarget.fotoUrl} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{`${adminTarget.nombre[0] ?? ''}${adminTarget.apellido[0] ?? ''}`.toUpperCase()}</span>}
+                  {adminTarget.fotoUrl ? <img src={fotoDe(adminTarget.id, adminTarget.fotoUrl)} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{`${adminTarget.nombre[0] ?? ''}${adminTarget.apellido[0] ?? ''}`.toUpperCase()}</span>}
                   <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{adminTarget.nombre} {adminTarget.apellido}</span><span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{locale === 'es' ? 'Conversación nueva' : 'New conversation'}</span></span>
                 </button>
               )}
