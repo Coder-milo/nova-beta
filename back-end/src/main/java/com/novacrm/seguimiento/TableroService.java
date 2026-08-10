@@ -131,6 +131,27 @@ public class TableroService {
             throw new BusinessException("Falta el estado al que se mueve la tarjeta");
         }
 
+        // Soltar la tarjeta donde ya estaba no es un movimiento.
+        //
+        // Como aqui se escribe un registro nuevo y el estado actual es el del
+        // ultimo, sin esto cada vez que alguien suelta la tarjeta donde la
+        // cogio se apunta un movimiento a la misma columna. Ese historial es lo
+        // que lee el equipo para entender que ha pasado con la persona, y se
+        // llenaba de lineas que no cuentan nada.
+        //
+        // La comprobacion estaba solo en la pantalla, que es el sitio
+        // equivocado para una regla: el asistente tambien mueve tarjetas, y
+        // cualquier cliente futuro tambien.
+        //
+        // Con observacion si se apunta, aunque la columna no cambie: entonces
+        // lo que se registra es la nota, y descartarla por no haber cambio de
+        // columna seria tirar lo unico que traia informacion.
+        boolean sinNota = observacion == null || observacion.isBlank();
+        var historialPrevio = seguimientoRepository.findByEstudianteIdOrderByFechaDesc(estudianteId);
+        if (sinNota && EstadoDeContactoActual.de(historialPrevio) == nuevoEstado) {
+            return tarjetaDe(estudiante, LocalDate.now());
+        }
+
         var movimiento = new Seguimiento();
         movimiento.setEstudiante(estudiante);
         movimiento.setTipo(EstadoContacto.TIPO);
