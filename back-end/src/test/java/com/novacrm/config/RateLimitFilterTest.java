@@ -1,10 +1,16 @@
 package com.novacrm.config;
 
+import com.novacrm.auth.JwtClaims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -193,5 +199,108 @@ class RateLimitFilterTest {
         assertTrue(filtro.contadoresVivos() <= 3_000,
                 "los contadores no deben crecer mas alla de las IPs vistas");
         assertTrue(filtro.contadoresVivos() > 0, "deben seguir existiendo contadores activos");
+    }
+
+    // --- Cupo por usuario en el resto de la API ---
+
+    private static final String SECRETO = "secreto_de_prueba_para_el_rate_limit_con_32_bytes_o_mas";
+
+    /** Deja {@code jwtSecretActivo} listo para poder firmar tokens de prueba. */
+    private static void prepararSecreto() {
+        var config = new SecurityConfig();
+        ReflectionTestUtils.setField(config, "jwtSecret", SECRETO);
+        ReflectionTestUtils.setField(config, "allowEphemeralSecret", false);
+        config.validarJwtSecret();
+    }
+
+    private static String tokenDe(String sujeto) {
+        prepararSecreto();
+        return Jwts.builder()
+                .subject(sujeto)
+                .claim(JwtClaims.TYPE, JwtClaims.TYPE_ACCESS)
+                .signWith(Keys.hmacShaKeyFor(SECRETO.getBytes(StandardCharsets.UTF_8)))
+                .compact();
+    }
+
+    private int pedirApi(RateLimitFilter filtro, String remoteAddr, String token) throws Exception {
+        var request = new MockHttpServletRequest("GET", "/api/v1/estudiantes");
+        request.setRequestURI("/api/v1/estudiantes");
+        request.setRemoteAddr(remoteAddr);
+        if (token != null) {
+            request.addHeader("Authorization", "Bearer " + token);
+        }
+        var response = new MockHttpServletResponse();
+        filtro.doFilter(request, response, new MockFilterChain());
+        return response.getStatus();
+    }
+
+    /**
+     * El caso real: el centro de formacion sale a internet por una sola IP, asi
+     * que con el contador por IP los estudiantes se robaban el cupo entre ellos
+     * y el 429 le tocaba a quien pasara por ahi.
+     */
+    @Test
+    void dosUsuariosEnLaMismaIpNoSeGastanElCupoElUnoAlOtro() throws Exception {
+        var filtro = filtro(PROXY);
+        String ana = tokenDe("ana@novacrm.test");
+        String luis = tokenDe("luis@novacrm.test");
+
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.9", ana));
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.9", ana));
+        assertEquals(429, pedirApi(filtro, "203.0.113.9", ana),
+                "ana si debe agotar su propio cupo");
+
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.9", luis),
+                "luis comparte la IP con ana, pero no su cupo");
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.9", luis));
+    }
+
+    /**
+     * Si un token inventado estrenara contador, bastaria con cambiar la cabecera
+     * en cada peticion para no tener limite ninguno. Sin identificar, se cuenta
+     * por IP igual que antes.
+     */
+    @Test
+    void unTokenInventadoNoEstrenaContador() throws Exception {
+        var filtro = filtro(PROXY);
+
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.10", "basura-1"));
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.10", "basura-2"));
+        assertEquals(429, pedirApi(filtro, "203.0.113.10", "basura-3"),
+                "sin firma valida se cuenta por IP: cambiar el token no da cupo nuevo");
+    }
+
+    /** Un token bien firmado pero de refresco tampoco identifica: cuenta por IP. */
+    @Test
+    void elTokenDeRefrescoNoIdentificaParaElCupo() throws Exception {
+        var filtro = filtro(PROXY);
+        prepararSecreto();
+        String refresco = Jwts.builder()
+                .subject("ana@novacrm.test")
+                .claim(JwtClaims.TYPE, JwtClaims.TYPE_REFRESH)
+                .signWith(Keys.hmacShaKeyFor(SECRETO.getBytes(StandardCharsets.UTF_8)))
+                .compact();
+
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.11", refresco));
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.11", refresco));
+        assertEquals(429, pedirApi(filtro, "203.0.113.11", null),
+                "el refresco cae al contador por IP, el mismo que una peticion sin token");
+    }
+
+    /** El login sigue contando por IP aunque llegue con un token valido. */
+    @Test
+    void elLoginSigueContandoPorIpAunqueVengaConToken() throws Exception {
+        var filtro = filtro(PROXY);
+        String ana = tokenDe("ana@novacrm.test");
+
+        var request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        request.setRequestURI("/api/v1/auth/login");
+        request.setRemoteAddr("203.0.113.12");
+        request.addHeader("Authorization", "Bearer " + ana);
+        filtro.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
+
+        pedirLogin(filtro, "203.0.113.12", null);
+        assertEquals(429, pedirLogin(filtro, "203.0.113.12", null),
+                "un token valido no puede servir para ampliar el cupo anti fuerza bruta");
     }
 }

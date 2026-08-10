@@ -1,8 +1,12 @@
 package com.novacrm.config;
 
+import com.novacrm.auth.JwtClaims;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,16 +17,23 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import javax.crypto.SecretKey;
+
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Rate limiting por IP con bucket4j. Aplica un limite estricto al login (anti
- * fuerza bruta) y otro mas amplio al resto de la API. Los limites se configuran
- * en {@code app.rate-limit.*}.
+ * Rate limiting con bucket4j. Aplica un limite estricto al login (anti fuerza
+ * bruta) y otro mas amplio al resto de la API. Los limites se configuran en
+ * {@code app.rate-limit.*}.
+ *
+ * <p>El login cuenta por IP; el resto de la API cuenta por usuario cuando la
+ * peticion trae un access token valido, y por IP cuando no. El motivo esta en
+ * {@link #identidadApi}.
  *
  * <p>La IP se obtiene con {@link ClientIpResolver}, que solo cree la cabecera
  * {@code X-Forwarded-For} cuando la peticion llega desde un proxy declarado en
@@ -40,10 +51,10 @@ import java.util.concurrent.atomic.AtomicLong;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    /** Tiempo sin trafico tras el cual se olvida el contador de una IP. */
+    /** Tiempo sin trafico tras el cual se olvida un contador. */
     private static final Duration TTL_INACTIVIDAD = Duration.ofMinutes(30);
 
-    /** Tope de IPs distintas en memoria antes de forzar una limpieza. */
+    /** Tope de contadores distintos en memoria antes de forzar una limpieza. */
     private static final int MAX_ENTRADAS = 50_000;
 
     /** Cada cuantas peticiones se revisa si toca limpiar. */
@@ -150,10 +161,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         limpiarSiCorresponde();
 
-        String ip = clientIpResolver.resolver(request);
+        // El login cuenta por IP a proposito: todavia no hay token, y es
+        // justamente la IP lo que hay que frenar contra la fuerza bruta.
+        String clave = registro == loginBuckets
+                ? clientIpResolver.resolver(request)
+                : identidadApi(request);
         final int maxFinal = max;
         final int ventanaFinal = ventanaMinutos;
-        Contador contador = registro.computeIfAbsent(ip,
+        Contador contador = registro.computeIfAbsent(clave,
                 k -> new Contador(nuevoBucket(maxFinal, ventanaFinal)));
 
         if (!contador.consumir()) {
@@ -167,6 +182,42 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         chain.doFilter(request, response);
+    }
+
+    /**
+     * Con que contador se asocia una peticion de la API. Las llamadas
+     * autenticadas cuentan por usuario, no por IP.
+     *
+     * <p>El centro de formacion sale a internet por una sola direccion, asi que
+     * con el contador por IP los ~108 estudiantes compartian un unico cubo de
+     * {@code api-max}. Entre las pantallas que refrescan solas eso se agota sin
+     * que nadie abuse, y el 429 le toca a quien pase por ahi. Por usuario, el
+     * limite vuelve a medir lo que dice medir.
+     *
+     * <p>Solo cuenta como usuario un access token con firma valida. Un token
+     * inventado cae al contador por IP: si no, bastaria con cambiar la cabecera
+     * en cada peticion para estrenar cubo y saltarse el limite entero.
+     */
+    private String identidadApi(HttpServletRequest request) {
+        String cabecera = request.getHeader("Authorization");
+        if (cabecera != null && cabecera.startsWith("Bearer ")) {
+            try {
+                SecretKey clave = Keys.hmacShaKeyFor(
+                        SecurityConfig.jwtSecretActivo().getBytes(StandardCharsets.UTF_8));
+                Claims claims = Jwts.parser().verifyWith(clave).build()
+                        .parseSignedClaims(cabecera.substring(7))
+                        .getPayload();
+                if (JwtClaims.TYPE_ACCESS.equals(claims.get(JwtClaims.TYPE, String.class))
+                        && claims.getSubject() != null) {
+                    return "u:" + claims.getSubject();
+                }
+            } catch (Exception e) {
+                // Token ilegible, caducado o de refresco. Rechazarlo es tarea
+                // del filtro de seguridad; aqui solo significa "no se quien
+                // eres", y quien no se identifica cuenta por su IP.
+            }
+        }
+        return "ip:" + clientIpResolver.resolver(request);
     }
 
     /**
