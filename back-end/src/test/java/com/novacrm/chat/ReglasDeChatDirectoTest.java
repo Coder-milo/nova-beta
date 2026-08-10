@@ -52,7 +52,8 @@ class ReglasDeChatDirectoTest {
         bloqueos = mock(BloqueoDeChatRepository.class);
         archivadas = mock(ConversacionArchivadaRepository.class);
         service = new ChatDirectoService(mensajes, estudiantes, ownership, notificaciones,
-                reportes, bloqueos, archivadas);
+                reportes, bloqueos, archivadas,
+                mock(ChatAdjuntoRepository.class), mock(com.novacrm.documento.StorageService.class));
 
         programa = new Programa();
         programa.setId(UUID.randomUUID());

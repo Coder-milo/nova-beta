@@ -2,12 +2,14 @@ package com.novacrm.chat;
 
 import com.novacrm.estudiante.Estudiante;
 import com.novacrm.shared.BaseEntity;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 /** Mensaje privado entre dos estudiantes del mismo proyecto. */
@@ -63,6 +65,18 @@ public class ChatDirectoMensaje extends BaseEntity {
      */
     @Column(name = "leido_at")
     private java.time.Instant leidoAt;
+
+    /**
+     * Los archivos que acompanan al mensaje.
+     *
+     * <p>Se cargan con el mensaje porque la pantalla los pinta en la misma
+     * burbuja: pedirlos aparte serian tantas consultas como mensajes tenga la
+     * conversacion.
+     */
+    @OneToMany(mappedBy = "mensaje", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<ChatAdjunto> adjuntos = new java.util.ArrayList<>();
+
+    public java.util.List<ChatAdjunto> getAdjuntos() { return adjuntos; }
 
     public java.time.Instant getLeidoAt() { return leidoAt; }
     public void setLeidoAt(java.time.Instant leidoAt) { this.leidoAt = leidoAt; }

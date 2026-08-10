@@ -3,6 +3,7 @@ package com.novacrm.chat;
 import com.novacrm.chat.dto.ChatContactoResponse;
 import com.novacrm.chat.dto.ChatDirectoMensajeRequest;
 import com.novacrm.chat.dto.ChatDirectoMensajeResponse;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -135,6 +136,55 @@ public class ChatDirectoController {
                                              @Valid @RequestBody ChatDirectoMensajeRequest request,
                                              Authentication auth) {
         return service.enviar(contactoId, request.contenido(), auth);
+    }
+
+    /**
+     * El mismo envio, con archivos.
+     *
+     * <p>Va aparte y no sustituye al de JSON: el envio de solo texto es el que
+     * se usa en cada tecla y no tiene por que pagar el coste de un multipart.
+     *
+     * @param duracion segundos que dice durar una nota de voz; se acota en el
+     *                 servidor porque lo manda el navegador
+     */
+    @PostMapping(value = "/directos/{contactoId}/con-archivos",
+            consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Enviar un mensaje con imagenes o notas de voz")
+    public ChatDirectoMensajeResponse enviarConArchivos(
+            @PathVariable UUID contactoId,
+            @RequestParam(required = false) String contenido,
+            @RequestParam(value = "archivos", required = false) java.util.List<org.springframework.web.multipart.MultipartFile> archivos,
+            @RequestParam(required = false) Integer duracion,
+            Authentication auth) {
+        return service.enviar(contactoId, contenido, archivos, duracion, auth);
+    }
+
+    /**
+     * Descarga un adjunto del chat.
+     *
+     * <p>El servicio comprueba que quien lo pide participa en esa conversacion,
+     * asi que conocer el id no basta para bajarselo.
+     */
+    @GetMapping("/adjuntos/{adjuntoId}")
+    @Operation(summary = "Descargar un archivo enviado por el chat")
+    public org.springframework.http.ResponseEntity<byte[]> adjunto(@PathVariable UUID adjuntoId,
+                                                                   Authentication auth) {
+        var archivo = service.descargarAdjunto(adjuntoId, auth);
+        return org.springframework.http.ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        com.novacrm.shared.NombreDeDescarga.enLinea(archivo.nombre()))
+                .contentType(tipoAnalizable(archivo.contentType()))
+                .body(archivo.contenido());
+    }
+
+    /** Un tipo ilegible no puede tumbar la descarga; se sirve como binario. */
+    private static org.springframework.http.MediaType tipoAnalizable(String contentType) {
+        try {
+            return org.springframework.http.MediaType.parseMediaType(contentType);
+        } catch (IllegalArgumentException e) {
+            // InvalidMediaTypeException hereda de esta, asi que cubre las dos.
+            return org.springframework.http.MediaType.APPLICATION_OCTET_STREAM;
+        }
     }
 
     @org.springframework.web.bind.annotation.PutMapping("/directos/mensajes/{mensajeId}")

@@ -36,4 +36,19 @@ public final class TextoDeMensaje {
         }
         return texto;
     }
+
+    /**
+     * Igual, pero admitiendo que no haya texto.
+     *
+     * <p>Para los mensajes que llevan un archivo: mandar una foto sin comentario
+     * es normal, y exigir una palabra para poder mandarla no protege de nada. El
+     * tope de longitud sigue aplicando.
+     */
+    public static String validadoOVacio(String contenido) {
+        String texto = contenido == null ? "" : contenido.trim();
+        if (texto.isBlank()) {
+            return "";
+        }
+        return validado(texto);
+    }
 }

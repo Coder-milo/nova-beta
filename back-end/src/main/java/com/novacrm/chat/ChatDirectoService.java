@@ -26,6 +26,8 @@ public class ChatDirectoService {
     private final ReporteDeChatRepository reporteRepository;
     private final BloqueoDeChatRepository bloqueoRepository;
     private final ConversacionArchivadaRepository archivadaRepository;
+    private final ChatAdjuntoRepository adjuntoRepository;
+    private final com.novacrm.documento.StorageService storageService;
 
     public ChatDirectoService(ChatDirectoMensajeRepository repository,
                               EstudianteRepository estudianteRepository,
@@ -33,7 +35,9 @@ public class ChatDirectoService {
                               com.novacrm.notificacion.NotificacionService notificacionService,
                               ReporteDeChatRepository reporteRepository,
                               BloqueoDeChatRepository bloqueoRepository,
-                              ConversacionArchivadaRepository archivadaRepository) {
+                              ConversacionArchivadaRepository archivadaRepository,
+                              ChatAdjuntoRepository adjuntoRepository,
+                              com.novacrm.documento.StorageService storageService) {
         this.repository = repository;
         this.estudianteRepository = estudianteRepository;
         this.ownershipService = ownershipService;
@@ -41,6 +45,8 @@ public class ChatDirectoService {
         this.reporteRepository = reporteRepository;
         this.bloqueoRepository = bloqueoRepository;
         this.archivadaRepository = archivadaRepository;
+        this.adjuntoRepository = adjuntoRepository;
+        this.storageService = storageService;
     }
 
     /**
@@ -177,19 +183,97 @@ public class ChatDirectoService {
 
     @Transactional
     public ChatDirectoMensajeResponse enviar(UUID contactoId, String contenido, Authentication auth) {
+        return enviar(contactoId, contenido, java.util.List.of(), null, auth);
+    }
+
+    /**
+     * Manda un mensaje, con archivos si los lleva.
+     *
+     * <p>Con adjuntos el texto puede ir vacio: mandar una foto sin comentario es
+     * normal. Sin adjuntos sigue haciendo falta escribir algo, que un mensaje
+     * vacio no es un mensaje.
+     *
+     * @param duracionSegundos duracion declarada por el navegador para una nota
+     *                         de voz; se acota y se ignora si no encaja
+     */
+    @Transactional
+    public ChatDirectoMensajeResponse enviar(UUID contactoId, String contenido,
+                                             java.util.List<org.springframework.web.multipart.MultipartFile> archivos,
+                                             Integer duracionSegundos, Authentication auth) {
         Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
         Estudiante contacto = contactoValido(contactoId, propio);
-        String texto = TextoDeMensaje.validado(contenido);
         comprobarQueNoHayBloqueo(propio, contacto);
+
+        var adjuntos = archivos == null ? java.util.List.<org.springframework.web.multipart.MultipartFile>of()
+                : archivos.stream().filter(a -> a != null && !a.isEmpty()).toList();
+        if (adjuntos.size() > AdjuntoDeChat.MAXIMO_POR_MENSAJE) {
+            throw new BusinessException(
+                    "Puedes enviar hasta " + AdjuntoDeChat.MAXIMO_POR_MENSAJE + " archivos por mensaje.");
+        }
+
+        String texto = adjuntos.isEmpty()
+                ? TextoDeMensaje.validado(contenido)
+                : TextoDeMensaje.validadoOVacio(contenido);
 
         var mensaje = new ChatDirectoMensaje();
         mensaje.setRemitente(propio);
         mensaje.setDestinatario(contacto);
         mensaje.setContenido(texto);
         var guardado = repository.save(mensaje);
+
+        for (var archivo : adjuntos) {
+            guardado.getAdjuntos().add(guardarAdjunto(guardado, archivo, duracionSegundos));
+        }
+
         notificacionService.registrarMensajeDeCompanero(contacto, propio.getId(), nombreDe(propio));
         return respuesta(guardado, propio.getId());
     }
+
+    private ChatAdjunto guardarAdjunto(ChatDirectoMensaje mensaje,
+                                       org.springframework.web.multipart.MultipartFile archivo,
+                                       Integer duracionSegundos) {
+        String tipo = AdjuntoDeChat.tipoValidado(archivo);
+        String nombre = AdjuntoDeChat.nombreSeguro(archivo.getOriginalFilename());
+        try {
+            var adjunto = new ChatAdjunto();
+            adjunto.setMensaje(mensaje);
+            adjunto.setNombre(nombre);
+            adjunto.setContentType(tipo);
+            adjunto.setTamano(archivo.getSize());
+            adjunto.setDuracionSegundos(AdjuntoDeChat.duracionValidada(duracionSegundos, tipo));
+            adjunto.setObjectKey(storageService.subir("chat", nombre, archivo.getBytes(), tipo));
+            return adjuntoRepository.save(adjunto);
+        } catch (java.io.IOException e) {
+            throw new BusinessException("No fue posible leer el archivo adjunto.");
+        }
+    }
+
+    /**
+     * El archivo, solo si quien lo pide participa en esa conversacion.
+     *
+     * <p>La comprobacion es la misma que para leer el mensaje: si no puedes ver
+     * la conversacion, no puedes bajarte lo que se mando en ella. Sin esto,
+     * conocer el id de un adjunto —o acertarlo— bastaria para descargarlo.
+     */
+    @Transactional(readOnly = true)
+    public ArchivoDeChat descargarAdjunto(UUID adjuntoId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        var adjunto = adjuntoRepository.findById(adjuntoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Adjunto no encontrado."));
+        var mensaje = adjunto.getMensaje();
+        boolean participo = mensaje.getRemitente().getId().equals(propio.getId())
+                || mensaje.getDestinatario().getId().equals(propio.getId());
+        if (!participo) {
+            // Mismo texto que si no existiera: quien pregunta por un adjunto
+            // ajeno no tiene por que enterarse de que existe.
+            throw new ResourceNotFoundException("Adjunto no encontrado.");
+        }
+        return new ArchivoDeChat(adjunto.getNombre(), adjunto.getContentType(),
+                storageService.descargar(adjunto.getObjectKey()));
+    }
+
+    /** Un archivo del chat listo para responderlo. */
+    public record ArchivoDeChat(String nombre, String contentType, byte[] contenido) { }
 
     @Transactional
     public ChatDirectoMensajeResponse editar(UUID mensajeId, String nuevoContenido, Authentication auth) {
@@ -524,6 +608,9 @@ public class ChatDirectoService {
         return new ChatDirectoMensajeResponse(mensaje.getId(), mensaje.getRemitente().getId(),
                 nombreDe(mensaje.getRemitente()), mensaje.getContenido(), mensaje.getCreatedAt(),
                 mensaje.getRemitente().getId().equals(propioId), mensaje.getLeidoAt(),
-                mensaje.isEditado(), mensaje.getEnRespuestaA(), mensaje.isReenviado());
+                mensaje.isEditado(), mensaje.getEnRespuestaA(), mensaje.isReenviado(),
+                mensaje.getAdjuntos().stream()
+                        .map(com.novacrm.chat.dto.ChatAdjuntoResponse::de)
+                        .toList());
     }
 }
