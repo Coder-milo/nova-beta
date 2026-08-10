@@ -48,6 +48,21 @@ public class ChatGrupoService {
             Instant createdAt
     ) {}
 
+    /**
+     * Quién está en el grupo.
+     *
+     * <p>{@code soyYo} viaja resuelto desde el servidor para que la pantalla no
+     * tenga que saber quién es el estudiante autenticado sólo para no ofrecerle
+     * el botón de sacarse a sí mismo.
+     */
+    public record MiembroResponse(
+            UUID estudianteId,
+            String nombre,
+            String fotoUrl,
+            boolean esAdmin,
+            boolean soyYo
+    ) {}
+
     public record GrupoMensajeResponse(
             UUID id,
             UUID grupoId,
@@ -175,6 +190,27 @@ public class ChatGrupoService {
         return new GrupoMensajeResponse(guardado.getId(), grupo.getId(), propio.getId(),
                 nombreDe(propio), guardado.getContenido(), guardado.getCreatedAt(),
                 true, false, enRespuestaA, false);
+    }
+
+    /**
+     * Los miembros del grupo, para poder verlos y administrarlos.
+     *
+     * <p>Solo los ve quien pertenece: la lista de un grupo dice con quién se
+     * junta la gente, y eso no es de dominio público dentro del proyecto.
+     */
+    public List<MiembroResponse> miembros(UUID grupoId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        if (!miembroRepository.existsByGrupoIdAndEstudianteId(grupoId, propio.getId())) {
+            throw new BusinessException("No perteneces a este grupo.");
+        }
+        return miembroRepository.findByGrupoIdOrderByCreatedAtAsc(grupoId).stream()
+                .map(m -> new MiembroResponse(
+                        m.getEstudiante().getId(),
+                        nombreDe(m.getEstudiante()),
+                        m.getEstudiante().getFotoUrl(),
+                        m.isEsAdmin(),
+                        m.getEstudiante().getId().equals(propio.getId())))
+                .toList();
     }
 
     /**

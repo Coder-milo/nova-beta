@@ -1415,3 +1415,12 @@ export interface ReporteChatResponse {
   estado: 'ABIERTO' | 'REVISADO'
   fecha: string
 }
+
+/** Alguien dentro de un grupo del chat. */
+export interface ChatGrupoMiembroResponse {
+  estudianteId: string
+  nombre: string
+  fotoUrl: string | null
+  esAdmin: boolean
+  soyYo: boolean
+}

@@ -31,6 +31,13 @@ public class ChatGrupoController {
         return service.misGrupos(auth);
     }
 
+    /** Quién está en el grupo. Solo lo ven sus miembros. */
+    @GetMapping("/{grupoId}/miembros")
+    public List<ChatGrupoService.MiembroResponse> miembros(@PathVariable UUID grupoId,
+                                                           Authentication auth) {
+        return service.miembros(grupoId, auth);
+    }
+
     /** Salir del grupo. Si sale el último, el grupo se va con él. */
     @DeleteMapping("/{grupoId}/miembros/yo")
     @ResponseStatus(HttpStatus.NO_CONTENT)

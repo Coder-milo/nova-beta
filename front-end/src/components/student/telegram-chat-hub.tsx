@@ -26,6 +26,7 @@ import type {
   ChatDirectoMensajeResponse,
   ChatGrupoResponse,
   ChatGrupoMensajeResponse,
+  ChatGrupoMiembroResponse,
   MensajeResponse,
 } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -83,6 +84,12 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
 
   const [modalSalirGrupo, setModalSalirGrupo] = useState(false)
   const [saliendo, setSaliendo] = useState(false)
+
+  const [modalMiembros, setModalMiembros] = useState(false)
+  const [miembros, setMiembros] = useState<ChatGrupoMiembroResponse[]>([])
+  const [cargandoMiembros, setCargandoMiembros] = useState(false)
+  /** Si quien mira administra el grupo, decide qué botones tiene sentido ver. */
+  const soyAdminDelGrupo = miembros.some((m) => m.soyYo && m.esAdmin)
 
   /** A quiénes bloqueó quien mira, para saber qué botón enseñar. */
   const [bloqueados, setBloqueados] = useState<string[]>([])
@@ -254,6 +261,34 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
       }
     } catch (e) {
       setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The block could not be changed.' : 'No se pudo cambiar el bloqueo.') })
+    }
+  }
+
+  /** Abre la lista de miembros del grupo y la pide al servidor. */
+  const abrirMiembros = async () => {
+    if (!selectedGrupoId) return
+    setModalMiembros(true)
+    setCargandoMiembros(true)
+    try {
+      setMiembros(await gruposApi.miembros(selectedGrupoId))
+    } catch (e) {
+      setModalMiembros(false)
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The members could not be loaded.' : 'No se pudo cargar la lista de miembros.') })
+    } finally {
+      setCargandoMiembros(false)
+    }
+  }
+
+  /** Sacar a alguien del grupo. El servidor exige ser administrador. */
+  const handleExpulsar = async (estudianteId: string, nombre: string) => {
+    if (!selectedGrupoId) return
+    try {
+      await gruposApi.expulsar(selectedGrupoId, estudianteId)
+      setMiembros((prev) => prev.filter((m) => m.estudianteId !== estudianteId))
+      void cargarBandejas()
+      setAviso({ tipo: 'ok', texto: english ? `${nombre} is no longer in the group.` : `${nombre} ya no está en el grupo.` })
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'That person could not be removed.' : 'No se pudo sacar a esa persona del grupo.') })
     }
   }
 
@@ -562,6 +597,17 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
               title={english ? 'Report this conversation' : 'Reportar esta conversación'}
             >
               {english ? 'Report' : 'Reportar'}
+            </button>
+          )}
+
+          {activeTab === 'grupos' && selectedGrupoId && (
+            <button
+              type="button"
+              onClick={() => void abrirMiembros()}
+              className="ml-auto mr-2 rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              title={english ? 'See who is in the group' : 'Ver quién está en el grupo'}
+            >
+              {english ? 'Members' : 'Miembros'}
             </button>
           )}
 
@@ -946,6 +992,59 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                   : (english ? 'Report' : 'Reportar')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {modalMiembros && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm space-y-3 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:bg-[#0f172a]">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-sm font-bold text-foreground">
+                {english ? 'Group members' : 'Miembros del grupo'}
+              </h3>
+              <button type="button" onClick={() => setModalMiembros(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {cargandoMiembros && (
+              <div className="flex items-center gap-2 py-4 text-xs text-muted-foreground">
+                <CircleNotch className="size-4 animate-spin text-primary" />
+                {english ? 'Loading…' : 'Cargando…'}
+              </div>
+            )}
+
+            {!cargandoMiembros && (
+              <ul className="max-h-72 space-y-1 overflow-y-auto">
+                {miembros.map((m) => (
+                  <li key={m.estudianteId} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/40">
+                    <span className="min-w-0 truncate text-xs text-foreground">
+                      {m.nombre}
+                      {m.soyYo && <span className="text-muted-foreground"> ({english ? 'you' : 'tú'})</span>}
+                      {m.esAdmin && (
+                        <span className="ml-1.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          {english ? 'admin' : 'admin'}
+                        </span>
+                      )}
+                    </span>
+                    {/* Sacar sólo lo puede un administrador, y no a otro
+                        administrador ni a sí mismo: para eso está salir. El
+                        servidor lo exige igual; aquí sólo se evita ofrecer un
+                        botón que va a fallar. */}
+                    {soyAdminDelGrupo && !m.soyYo && !m.esAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => void handleExpulsar(m.estudianteId, m.nombre)}
+                        className="shrink-0 rounded-lg border border-border px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+                      >
+                        {english ? 'Remove' : 'Sacar'}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       )}

@@ -667,7 +667,7 @@ export const EMOJIS_REACCION = ['👍', '❤️', '🎉', '👏', '😀', '😮'
 
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
-import type { ChatContactoResponse, ChatConversacionResponse, ChatDirectoMensajeResponse, ChatGrupoResponse, ChatGrupoMensajeResponse } from './types'
+import type { ChatContactoResponse, ChatConversacionResponse, ChatDirectoMensajeResponse, ChatGrupoResponse, ChatGrupoMensajeResponse, ChatGrupoMiembroResponse } from './types'
 
 export const chatsApi = {
   contactos: (consulta: string, token?: string) =>
@@ -741,6 +741,9 @@ export const gruposApi = {
     apiFetch<ChatGrupoMensajeResponse>(`/api/v1/chats/grupos/${grupoId}/mensajes?contenido=${encodeURIComponent(contenido)}${enRespuestaA ? `&enRespuestaA=${enRespuestaA}` : ''}`, {
       method: 'POST', token,
     }),
+  /** Quién está en el grupo. Solo lo ven sus miembros. */
+  miembros: (grupoId: string, token?: string) =>
+    apiFetch<ChatGrupoMiembroResponse[]>(`/api/v1/chats/grupos/${grupoId}/miembros`, { token }),
   /** Salir del grupo. Si sale el último, el grupo se va con él. */
   salir: (grupoId: string, token?: string) =>
     apiFetch<void>(`/api/v1/chats/grupos/${grupoId}/miembros/yo`, {
