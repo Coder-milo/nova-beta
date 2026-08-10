@@ -703,6 +703,14 @@ export const chatsApi = {
     apiFetch<void>(`/api/v1/chats/directos/${contactoId}/reportar`, {
       method: 'POST', data: { motivo }, token,
     }),
+  /** Deja de recibir mensajes de esa persona, y de poder escribirle. */
+  bloquear: (contactoId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/chats/directos/${contactoId}/bloquear`, { method: 'POST', token }),
+  desbloquear: (contactoId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/chats/directos/${contactoId}/bloquear`, { method: 'DELETE', token }),
+  /** Los ids a los que bloqueó quien pregunta. */
+  bloqueados: (token?: string) =>
+    apiFetch<string[]>('/api/v1/chats/bloqueados', { token }),
 }
 
 export const gruposApi = {

@@ -84,6 +84,10 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   const [modalSalirGrupo, setModalSalirGrupo] = useState(false)
   const [saliendo, setSaliendo] = useState(false)
 
+  /** A quiénes bloqueó quien mira, para saber qué botón enseñar. */
+  const [bloqueados, setBloqueados] = useState<string[]>([])
+  const contactoBloqueado = !!selectedContactoId && bloqueados.includes(selectedContactoId)
+
   /**
    * Lo que sale mal, dicho.
    *
@@ -100,14 +104,16 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   const cargarBandejas = useCallback(async () => {
     setCargando(true)
     try {
-      const [convs, grps, sop] = await Promise.all([
+      const [convs, grps, sop, bloqs] = await Promise.all([
         chatsApi.conversaciones().catch(() => []),
         gruposApi.misGrupos().catch(() => []),
         mensajesApi.mios().catch(() => []),
+        chatsApi.bloqueados().catch(() => [] as string[]),
       ])
       setConversaciones(convs)
       setGrupos(grps)
       setSoporteHilos(sop)
+      setBloqueados(bloqs)
       if (convs.length && !selectedContactoId && activeTab === 'directos') {
         setSelectedContactoId(convs[0].contactoId)
         setSelectedContactoNombre(convs[0].nombre)
@@ -220,6 +226,37 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
    * El motivo es opcional a propósito: obligar a explicarse por escrito, justo
    * cuando alguien acaba de recibir algo desagradable, hace que no se reporte.
    */
+  /**
+   * Bloquear o desbloquear al contacto abierto.
+   *
+   * El bloqueo corta en las dos direcciones: mientras exista, ninguno de los
+   * dos puede escribir al otro. Lo ya escrito sigue ahí, para poder leerlo y
+   * para poder reportarlo.
+   */
+  const handleBloqueo = async () => {
+    if (!selectedContactoId) return
+    const idContacto = selectedContactoId
+    const bloqueadoAhora = bloqueados.includes(idContacto)
+    try {
+      if (bloqueadoAhora) {
+        await chatsApi.desbloquear(idContacto)
+        setBloqueados((prev) => prev.filter((id) => id !== idContacto))
+        setAviso({ tipo: 'ok', texto: english ? 'Unblocked.' : 'Desbloqueado.' })
+      } else {
+        await chatsApi.bloquear(idContacto)
+        setBloqueados((prev) => (prev.includes(idContacto) ? prev : [...prev, idContacto]))
+        setAviso({
+          tipo: 'ok',
+          texto: english
+            ? 'Blocked. Neither of you can write to the other until you undo it.'
+            : 'Bloqueado. Ninguno de los dos puede escribirle al otro hasta que lo deshagas.',
+        })
+      }
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The block could not be changed.' : 'No se pudo cambiar el bloqueo.') })
+    }
+  }
+
   /** Salir del grupo abierto y volver a la lista. */
   const handleSalirGrupo = async () => {
     if (!selectedGrupoId) return
@@ -497,6 +534,26 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
           {/* Reportar. Solo con una conversación de dos abierta: en el canal de
               soporte se está hablando ya con el equipo, y un grupo necesita
               decir a quién se reporta, que no es lo mismo. */}
+          {activeTab === 'directos' && selectedContactoId && (
+            <button
+              type="button"
+              onClick={() => void handleBloqueo()}
+              className={cn(
+                'ml-auto mr-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors',
+                contactoBloqueado
+                  ? 'border-destructive/40 text-destructive'
+                  : 'border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive',
+              )}
+              title={contactoBloqueado
+                ? (english ? 'Unblock this person' : 'Desbloquear a esta persona')
+                : (english ? 'Block this person' : 'Bloquear a esta persona')}
+            >
+              {contactoBloqueado
+                ? (english ? 'Unblock' : 'Desbloquear')
+                : (english ? 'Block' : 'Bloquear')}
+            </button>
+          )}
+
           {activeTab === 'directos' && selectedContactoId && (
             <button
               type="button"

@@ -24,17 +24,20 @@ public class ChatDirectoService {
     private final OwnershipService ownershipService;
     private final com.novacrm.notificacion.NotificacionService notificacionService;
     private final ReporteDeChatRepository reporteRepository;
+    private final BloqueoDeChatRepository bloqueoRepository;
 
     public ChatDirectoService(ChatDirectoMensajeRepository repository,
                               EstudianteRepository estudianteRepository,
                               OwnershipService ownershipService,
                               com.novacrm.notificacion.NotificacionService notificacionService,
-                              ReporteDeChatRepository reporteRepository) {
+                              ReporteDeChatRepository reporteRepository,
+                              BloqueoDeChatRepository bloqueoRepository) {
         this.repository = repository;
         this.estudianteRepository = estudianteRepository;
         this.ownershipService = ownershipService;
         this.notificacionService = notificacionService;
         this.reporteRepository = reporteRepository;
+        this.bloqueoRepository = bloqueoRepository;
     }
 
     /**
@@ -107,15 +110,18 @@ public class ChatDirectoService {
             coincidencia = List.of();
         }
 
-        if (coincidencia.isEmpty()) {
-            coincidencia = estudianteRepository.findAll().stream()
-                    .filter(e -> e.isActivo() && !e.getId().equals(propio.getId()))
-                    .filter(e -> nombreDe(e).toLowerCase(Locale.ROOT).contains(termino))
-                    .limit(MAXIMO_CONTACTOS)
-                    .toList();
-        }
+        // Aqui habia un plan B: si la busqueda por programa no encontraba nada,
+        // se recorria estudianteRepository.findAll() y se comparaba el nombre.
+        // Es decir, cuando en tu proyecto no habia ninguna Ana, aparecian las
+        // Anas de todos los demas proyectos. Devolvia nombres de gente real de
+        // fuera de tu grupo, y ademas no servia de nada: al pulsarlas,
+        // contactoValido las rechaza. Sin resultados es la respuesta correcta.
 
+        // A quien bloqueaste, y quien te bloqueo, no se ofrece: una fila que
+        // siempre da error al pulsarla es peor que no estar.
+        var sinChat = new java.util.HashSet<>(bloqueoRepository.sinChatPosibleCon(propio.getId()));
         return coincidencia.stream()
+                .filter(estudiante -> !sinChat.contains(estudiante.getId()))
                 .map(estudiante -> new ChatContactoResponse(estudiante.getId(), nombreDe(estudiante), estudiante.getFotoUrl()))
                 .toList();
     }
@@ -155,6 +161,7 @@ public class ChatDirectoService {
         String texto = contenido == null ? "" : contenido.trim();
         if (texto.isBlank()) throw new BusinessException("Escribe un mensaje antes de enviarlo.");
         if (texto.length() > 5000) throw new BusinessException("El mensaje no puede superar 5000 caracteres.");
+        comprobarQueNoHayBloqueo(propio, contacto);
 
         var mensaje = new ChatDirectoMensaje();
         mensaje.setRemitente(propio);
@@ -202,6 +209,7 @@ public class ChatDirectoService {
         var nuevo = new ChatDirectoMensaje();
         nuevo.setRemitente(propio);
         nuevo.setDestinatario(destino);
+        comprobarQueNoHayBloqueo(propio, destino);
         nuevo.setContenido(mensajeOriginal.getContenido());
         nuevo.setReenviado(true);
         var guardado = repository.save(nuevo);
@@ -231,6 +239,62 @@ public class ChatDirectoService {
             throw new ResourceNotFoundException("Compañero no encontrado.");
         }
         return contacto;
+    }
+
+    /**
+     * Deja de recibir mensajes de esa persona, y de poder escribirle.
+     *
+     * <p>Corta en las dos direcciones aunque se guarde en una. Si solo cortara
+     * el sentido de quien bloquea hacia quien es bloqueado, el que bloquea
+     * podria seguir escribiendo: la herramienta para protegerse serviria para
+     * insistir.
+     *
+     * <p>Lo ya escrito no se borra. Sigue estando para leerlo y, sobre todo,
+     * para reportarlo: bloquear no debe hacer desaparecer la prueba.
+     */
+    @Transactional
+    public void bloquear(UUID contactoId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        if (contactoId.equals(propio.getId())) {
+            throw new BusinessException("No puedes bloquearte a ti mismo.");
+        }
+        Estudiante contacto = estudianteRepository.findById(contactoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Compañero no encontrado."));
+        if (bloqueoRepository.findByBloqueadorIdAndBloqueadoId(propio.getId(), contactoId).isPresent()) {
+            return; // Ya estaba bloqueado: pulsarlo otra vez no es un error.
+        }
+        var bloqueo = new BloqueoDeChat();
+        bloqueo.setBloqueador(propio);
+        bloqueo.setBloqueado(contacto);
+        bloqueoRepository.save(bloqueo);
+    }
+
+    /**
+     * Corta el envío si hay bloqueo, lo haya puesto quien lo haya puesto.
+     *
+     * <p>El mensaje no dice quién bloqueó a quién: enterarte de que te han
+     * bloqueado es información sobre la otra persona, y decirla convierte el
+     * bloqueo en un aviso que invita a buscar otra vía.
+     */
+    private void comprobarQueNoHayBloqueo(Estudiante propio, Estudiante contacto) {
+        if (bloqueoRepository.hayBloqueoEntre(propio.getId(), contacto.getId())) {
+            throw new BusinessException("No es posible enviar mensajes en esta conversación.");
+        }
+    }
+
+    /** Deshace el bloqueo. Solo puede deshacerlo quien lo puso. */
+    @Transactional
+    public void desbloquear(UUID contactoId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        bloqueoRepository.findByBloqueadorIdAndBloqueadoId(propio.getId(), contactoId)
+                .ifPresent(bloqueoRepository::delete);
+    }
+
+    /** A quienes bloqueó esta persona, para poder pintarlo y deshacerlo. */
+    @Transactional(readOnly = true)
+    public List<UUID> bloqueados(Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        return bloqueoRepository.aQuienesBloqueo(propio.getId());
     }
 
     /** Cuantos mensajes se guardan como prueba al reportar. */

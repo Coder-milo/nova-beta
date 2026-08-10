@@ -6,6 +6,7 @@ import com.novacrm.chat.dto.ChatDirectoMensajeResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,6 +52,24 @@ public class ChatDirectoController {
 
     /** El motivo es opcional: obligar a explicarse hace que no se reporte. */
     public record ReporteRequest(String motivo) {}
+
+    /** Deja de recibir mensajes de esa persona, y de poder escribirle. */
+    @PostMapping("/directos/{contactoId}/bloquear")
+    public void bloquear(@PathVariable UUID contactoId, Authentication auth) {
+        service.bloquear(contactoId, auth);
+    }
+
+    /** Deshace el bloqueo. Solo puede deshacerlo quien lo puso. */
+    @DeleteMapping("/directos/{contactoId}/bloquear")
+    public void desbloquear(@PathVariable UUID contactoId, Authentication auth) {
+        service.desbloquear(contactoId, auth);
+    }
+
+    /** A quiénes bloqueó, para poder pintarlo y deshacerlo. */
+    @GetMapping("/bloqueados")
+    public List<UUID> bloqueados(Authentication auth) {
+        return service.bloqueados(auth);
+    }
 
     @GetMapping("/directos/{contactoId}")
     public List<ChatDirectoMensajeResponse> conversacion(@PathVariable UUID contactoId, Authentication auth) {
