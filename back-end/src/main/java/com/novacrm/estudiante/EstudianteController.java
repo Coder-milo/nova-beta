@@ -257,9 +257,7 @@ public class EstudianteController {
         if (est.fotoUrl() == null) {
             return org.springframework.http.ResponseEntity.notFound().build();
         }
-        return org.springframework.http.ResponseEntity.ok()
-                .contentType(FotoDePerfil.tipoPorExtension(est.fotoUrl()))
-                .body(storageService.descargar(est.fotoUrl()));
+        return FotoDePerfil.respuesta(est.fotoUrl(), storageService.descargar(est.fotoUrl()));
     }
 
     @GetMapping("/{id}")

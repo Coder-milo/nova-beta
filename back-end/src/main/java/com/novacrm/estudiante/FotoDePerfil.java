@@ -13,7 +13,30 @@ import java.util.Locale;
  */
 public final class FotoDePerfil {
 
+    /**
+     * Cuanto puede reutilizar el navegador una foto sin volver a pedirla.
+     *
+     * <p>Una hora. Estas fotos casi nunca cambian y la lista de conversaciones
+     * pinta una por fila: sin esto, abrir el chat con veinte conversaciones son
+     * veinte peticiones a la API en cada carga, y desde que el limite se cuenta
+     * por usuario esas veinte salen de su cupo. Quien mas chatea seria el
+     * primero en llevarse un 429 por mirar caras.
+     *
+     * <p>{@code private} y no {@code public}: la foto se sirve porque quien
+     * pregunta tiene derecho a verla, asi que puede quedarse en su navegador
+     * pero no en una cache compartida por el camino.
+     */
+    private static final java.time.Duration CACHE = java.time.Duration.ofHours(1);
+
     private FotoDePerfil() {}
+
+    /** La respuesta completa: tipo, cache y bytes. */
+    public static org.springframework.http.ResponseEntity<byte[]> respuesta(String clave, byte[] contenido) {
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(tipoPorExtension(clave))
+                .cacheControl(org.springframework.http.CacheControl.maxAge(CACHE).cachePrivate())
+                .body(contenido);
+    }
 
     /**
      * El tipo de imagen segun la extension de la clave guardada.

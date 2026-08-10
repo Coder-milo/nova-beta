@@ -42,9 +42,7 @@ public class ChatGrupoController {
         if (clave == null || clave.isBlank()) {
             return org.springframework.http.ResponseEntity.notFound().build();
         }
-        return org.springframework.http.ResponseEntity.ok()
-                .contentType(com.novacrm.estudiante.FotoDePerfil.tipoPorExtension(clave))
-                .body(storageService.descargar(clave));
+        return com.novacrm.estudiante.FotoDePerfil.respuesta(clave, storageService.descargar(clave));
     }
 
     /** Busca dentro del grupo. Solo quien pertenece. */

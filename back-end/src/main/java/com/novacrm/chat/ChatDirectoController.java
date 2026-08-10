@@ -84,9 +84,7 @@ public class ChatDirectoController {
         if (clave == null || clave.isBlank()) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok()
-                .contentType(com.novacrm.estudiante.FotoDePerfil.tipoPorExtension(clave))
-                .body(storageService.descargar(clave));
+        return com.novacrm.estudiante.FotoDePerfil.respuesta(clave, storageService.descargar(clave));
     }
 
     /** Aparta una conversación de la bandeja. Solo de quien lo pide. */
