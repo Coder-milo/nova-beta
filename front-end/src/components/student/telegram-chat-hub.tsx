@@ -398,6 +398,25 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   const handleEnviar = async () => {
     const texto = borrador.trim()
     if ((!texto && archivosAdjuntos.length === 0) || enviando) return
+
+    // El chat entre estudiantes todavía no guarda adjuntos: `chatsApi.enviar`
+    // y `gruposApi.enviar` mandan solo texto. Hasta ahora esta función los
+    // limpiaba junto con el borrador, así que quien adjuntaba una foto veía
+    // salir su mensaje y la foto desaparecía sin que nada lo dijera.
+    //
+    // Se avisa y se dejan puestos: perder un archivo en silencio es peor que
+    // no poder mandarlo. La bandeja de mensajes con el equipo sí los admite y
+    // es donde hay que mandarlos mientras tanto.
+    if (archivosAdjuntos.length > 0) {
+      setAviso({
+        tipo: 'error',
+        texto: english
+          ? 'Attachments are not available in student chat yet. Send the text, or use Messages with the team to share files.'
+          : 'El chat entre estudiantes todavía no admite archivos. Envía el texto, o usa Mensajes con el equipo para compartir archivos.',
+      })
+      if (!texto) return
+    }
+
     setEnviando(true)
 
     try {
@@ -416,7 +435,8 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
       // También el guardado: si no, al volver a esta conversación reaparece lo
       // que ya se envió, como si no se hubiera mandado.
       setBorradores((previos) => ({ ...previos, [claveDeConversacion]: '' }))
-      setArchivosAdjuntos([])
+      // Los adjuntos NO se limpian aquí: no se han enviado. Limpiarlos daba a
+      // entender que sí, que es justo lo que había que dejar de hacer.
       setCitandoMensaje(null)
       setMostrarEmojis(false)
       void cargarBandejas()
