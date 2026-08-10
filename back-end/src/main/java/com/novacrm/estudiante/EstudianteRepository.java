@@ -58,6 +58,34 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     long countByEstadoAcademicoAndCreatedAtLessThan(EstadoAcademico estado, Instant hasta);
     long countByEstadoEmpleabilidad(EstadoEmpleabilidad estado);
 
+    /**
+     * Cuantos estan trabajando de verdad.
+     *
+     * <p>«Empleado» son dos cosas. El enum {@code estadoEmpleabilidad} viene de
+     * la hoja antigua y solo lo escriben la importacion y la edicion manual; la
+     * colocacion es el registro real —empresa, fecha, salario— y es por donde
+     * entra todo el que se coloca por el CRM. Contando solo el enum, la grafica
+     * de empleabilidad del panel dejaba fuera justamente los resultados que el
+     * programa consiguio: la persona registraba su colocacion y la dona seguia
+     * contandola como «buscando».
+     */
+    @Query("""
+            select count(e) from Estudiante e
+            where e.estadoEmpleabilidad = com.novacrm.estudiante.EstadoEmpleabilidad.EMPLEADO
+               or exists (select 1 from Colocacion c
+                          where c.estudiante.id = e.id and c.activa = true)
+            """)
+    long contarEmpleadosConColocacionOEnum();
+
+    /** Los de ese estado que ademas no tienen ninguna colocacion vigente. */
+    @Query("""
+            select count(e) from Estudiante e
+            where e.estadoEmpleabilidad = :estado
+              and not exists (select 1 from Colocacion c
+                              where c.estudiante.id = e.id and c.activa = true)
+            """)
+    long contarPorEmpleabilidadSinColocacion(@Param("estado") EstadoEmpleabilidad estado);
+
     // --- Dashboard: graficos ---
     @Query("""
             select e.programa.id as programaId, e.programa.nombre as nombre, count(e) as total

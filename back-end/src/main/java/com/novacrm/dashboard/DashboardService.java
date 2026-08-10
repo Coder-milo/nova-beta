@@ -93,9 +93,15 @@ public class DashboardService {
                 .toList();
 
         // Dona: empleabilidad con porcentaje.
-        long empleados = estudianteRepository.countByEstadoEmpleabilidad(EstadoEmpleabilidad.EMPLEADO);
-        long buscando = estudianteRepository.countByEstadoEmpleabilidad(EstadoEmpleabilidad.BUSCANDO);
-        long sinInfo = estudianteRepository.countByEstadoEmpleabilidad(EstadoEmpleabilidad.SIN_INFO);
+        //
+        // Cuenta las colocaciones registradas y no solo el enum de la ficha. El
+        // enum lo escriben la importacion antigua y la edicion manual; a quien
+        // se coloca por el CRM nadie se lo cambia, asi que la grafica dejaba
+        // fuera justamente los resultados que consiguio el programa: la persona
+        // registraba su colocacion y aqui seguia apareciendo como «buscando».
+        long empleados = estudianteRepository.contarEmpleadosConColocacionOEnum();
+        long buscando = estudianteRepository.contarPorEmpleabilidadSinColocacion(EstadoEmpleabilidad.BUSCANDO);
+        long sinInfo = estudianteRepository.contarPorEmpleabilidadSinColocacion(EstadoEmpleabilidad.SIN_INFO);
         long totalEmp = empleados + buscando + sinInfo;
         List<PuntoDato> empleabilidad = List.of(
                 new PuntoDato("Empleado", empleados, pct(empleados, totalEmp)),
