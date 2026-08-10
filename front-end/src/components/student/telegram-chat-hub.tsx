@@ -347,9 +347,46 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
    * reescrito con este texto. Para el servidor todo encaja —es tu mensaje, no
    * hay bloqueo, cabe—, así que sólo se puede evitar aquí.
    */
+  /**
+   * Un borrador por conversación.
+   *
+   * El borrador tenía el mismo problema que los adjuntos —escribes para Ana,
+   * cambias a Luis y le das a enviar— pero borrarlo al cambiar pierde texto que
+   * alguien acaba de escribir. Guardarlo por conversación no pierde nada y no
+   * manda nada a quien no era: al volver, está donde lo dejaste.
+   */
+  const claveDeConversacion = activeTab === 'grupos'
+    ? `g:${selectedGrupoId ?? ''}`
+    : activeTab === 'directos'
+      ? `d:${selectedContactoId ?? ''}`
+      : `s:${selectedSoporteId ?? ''}`
+  const [borradores, setBorradores] = useState<Record<string, string>>({})
+  const claveAnterior = useRef(claveDeConversacion)
+
+  useEffect(() => {
+    // Se guarda el de la conversación que se deja y se recupera el de la que
+    // se abre. El efecto solo corre al cambiar de clave, así que `borrador` es
+    // justo lo que había escrito en la anterior.
+    const salida = claveAnterior.current
+    setBorradores((previos) => ({ ...previos, [salida]: borrador }))
+    setBorrador(borradores[claveDeConversacion] ?? '')
+    claveAnterior.current = claveDeConversacion
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claveDeConversacion])
+
   useEffect(() => {
     setCitandoMensaje(null)
     setEditandoMensajeId(null)
+    // Y los adjuntos. Un archivo elegido para una persona no puede irse a
+    // otra porque entre medias cambiaste de conversación: aquí lo que se
+    // manda suele ser una hoja de vida o un documento personal, y ese error no
+    // se deshace. Volver a elegirlo cuesta un clic; mandarlo a quien no era,
+    // no tiene arreglo.
+    setArchivosAdjuntos([])
+    // Los resultados de búsqueda son de la conversación en la que se buscó.
+    // Dejarlos puestos enseña mensajes de otra conversación bajo este nombre.
+    setTerminoEnChat('')
+    setResultadosEnChat(null)
   }, [activeTab, selectedContactoId, selectedGrupoId])
 
   // Auto-scroll al fondo
@@ -376,6 +413,9 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
         setMensajesGrupo((prev) => [...prev, nuevo])
       }
       setBorrador('')
+      // También el guardado: si no, al volver a esta conversación reaparece lo
+      // que ya se envió, como si no se hubiera mandado.
+      setBorradores((previos) => ({ ...previos, [claveDeConversacion]: '' }))
       setArchivosAdjuntos([])
       setCitandoMensaje(null)
       setMostrarEmojis(false)
