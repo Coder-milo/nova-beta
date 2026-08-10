@@ -48,6 +48,16 @@ services:
       # Origenes permitidos del frontend (coma-separados). Ajustar al desplegar el front.
       - key: CORS_ORIGINS
         sync: false
+      # Direccion publica del frontend. De aqui cuelga el enlace de los correos
+      # que abren cuenta y de los que recuperan contrasena, que es lo unico que
+      # un estudiante puede pulsar para entrar por primera vez.
+      #
+      # Faltaba, y su valor por defecto es http://localhost:3000: sin ponerla,
+      # el correo se envia, el log dice que se envio, y son los 107
+      # destinatarios los que descubren que el enlace no lleva a ninguna parte.
+      # La aplicacion lo avisa al arrancar (UrlDelFrontend).
+      - key: FRONTEND_URL
+        sync: false
       # IPs/CIDRs de proxies de confianza para X-Forwarded-For (coma-separados).
       # El default de la app trata TODA red privada como proxy de confianza, lo
       # que permite spoofear el rate-limit de login si el backend es alcanzable
