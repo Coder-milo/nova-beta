@@ -387,7 +387,7 @@ class ReglasDeGrupoTest {
         mio.setGrupo(g);
         mio.setRemitente(yo);
         mio.setContenido("lo que respondi");
-        when(mensajes.findByGrupoIdOrderByCreatedAtDesc(eq(g.getId()), any()))
+        when(mensajes.findByGrupoIdOrderByCreatedAtDescSecuenciaDesc(eq(g.getId()), any()))
                 .thenReturn(List.of(mio, suyo));
 
         var capturado = org.mockito.ArgumentCaptor.forClass(ReporteDeChat.class);

@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ChatGrupoMensajeRepository extends JpaRepository<ChatGrupoMensaje, UUID> {
-    List<ChatGrupoMensaje> findByGrupoIdOrderByCreatedAtDesc(UUID grupoId, Pageable pageable);
+    List<ChatGrupoMensaje> findByGrupoIdOrderByCreatedAtDescSecuenciaDesc(UUID grupoId, Pageable pageable);
 
     /**
      * Busca dentro de un grupo, sin distinguir tildes ni mayusculas.
@@ -21,7 +21,7 @@ public interface ChatGrupoMensajeRepository extends JpaRepository<ChatGrupoMensa
             where m.grupo.id = :grupoId
               and novacrm_normalizar(m.contenido)
                     like concat('%', novacrm_normalizar(cast(:q as string)), '%')
-            order by m.createdAt desc
+            order by m.createdAt desc, m.secuencia desc
             """)
     List<ChatGrupoMensaje> buscarEnElGrupo(
             @org.springframework.data.repository.query.Param("grupoId") UUID grupoId,

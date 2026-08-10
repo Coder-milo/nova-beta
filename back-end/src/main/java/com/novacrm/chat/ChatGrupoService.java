@@ -192,7 +192,7 @@ public class ChatGrupoService {
             throw new BusinessException("No perteneces a este grupo.");
         }
 
-        var mensajes = mensajeRepository.findByGrupoIdOrderByCreatedAtDesc(grupoId,
+        var mensajes = mensajeRepository.findByGrupoIdOrderByCreatedAtDescSecuenciaDesc(grupoId,
                 org.springframework.data.domain.PageRequest.of(0, 200));
         var ordenados = new java.util.ArrayList<>(mensajes);
         java.util.Collections.reverse(ordenados);
@@ -337,7 +337,7 @@ public class ChatGrupoService {
                     "Ya reportaste a esta persona. El equipo lo está revisando.");
         }
 
-        var recientes = mensajeRepository.findByGrupoIdOrderByCreatedAtDesc(grupoId,
+        var recientes = mensajeRepository.findByGrupoIdOrderByCreatedAtDescSecuenciaDesc(grupoId,
                 org.springframework.data.domain.PageRequest.of(0, MENSAJES_DEL_EXTRACTO));
         var enOrden = new java.util.ArrayList<>(recientes);
         java.util.Collections.reverse(enOrden);

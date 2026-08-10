@@ -24,7 +24,7 @@ public interface ChatDirectoMensajeRepository extends JpaRepository<ChatDirectoM
             join fetch m.destinatario
             where (m.remitente.id = :uno and m.destinatario.id = :otro)
                or (m.remitente.id = :otro and m.destinatario.id = :uno)
-            order by m.createdAt desc
+            order by m.createdAt desc, m.secuencia desc
             """)
     List<ChatDirectoMensaje> ultimosDeLaConversacion(@Param("uno") UUID uno, @Param("otro") UUID otro,
                                                      Pageable pageable);
@@ -55,7 +55,7 @@ public interface ChatDirectoMensajeRepository extends JpaRepository<ChatDirectoM
                 or (m.remitente.id = :otro and m.destinatario.id = :uno))
               and novacrm_normalizar(m.contenido)
                     like concat('%', novacrm_normalizar(cast(:q as string)), '%')
-            order by m.createdAt desc
+            order by m.createdAt desc, m.secuencia desc
             """)
     List<ChatDirectoMensaje> buscarEnLaConversacion(@Param("uno") UUID uno, @Param("otro") UUID otro,
                                                     @Param("q") String q, Pageable pageable);
@@ -83,11 +83,11 @@ public interface ChatDirectoMensajeRepository extends JpaRepository<ChatDirectoM
                    (t.remitente_id = :yo) AS mioElUltimo
             FROM (
                 SELECT CASE WHEN m.remitente_id = :yo THEN m.destinatario_id ELSE m.remitente_id END AS otro_id,
-                       m.contenido, m.created_at, m.remitente_id
+                       m.contenido, m.created_at, m.secuencia, m.remitente_id
                 FROM chat_directo_mensaje m
                 WHERE m.remitente_id = :yo OR m.destinatario_id = :yo
             ) t
-            ORDER BY t.otro_id, t.created_at DESC
+            ORDER BY t.otro_id, t.created_at DESC, t.secuencia DESC
             """, nativeQuery = true)
     List<ResumenConversacion> conversacionesDe(@Param("yo") UUID yo);
 

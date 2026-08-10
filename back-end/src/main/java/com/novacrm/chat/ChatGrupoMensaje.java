@@ -20,6 +20,21 @@ public class ChatGrupoMensaje extends BaseEntity {
     @JoinColumn(name = "remitente_id", nullable = false)
     private Estudiante remitente;
 
+    /**
+     * Orden de llegada, puesto por la base al insertar.
+     *
+     * <p>{@code createdAt} no basta para ordenar: lo pone el reloj del sistema
+     * y dos mensajes escritos en el mismo milisegundo salen con el mismo valor,
+     * con lo que la conversacion puede leerse al reves.
+     *
+     * <p>No lo escribe la aplicacion: si lo hiciera volveriamos a depender del
+     * reloj, que es el problema.
+     */
+    @Column(name = "secuencia", insertable = false, updatable = false)
+    private Long secuencia;
+
+    public Long getSecuencia() { return secuencia; }
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String contenido;
 
