@@ -70,7 +70,7 @@ public class ReporteService {
     private DatosReporte construirDatos(String tipo, UUID programaId) {
         return switch (tipo) {
             case "estudiantes" -> datosEstudiantes(programaId);
-            case "empleabilidad" -> datosAgrupados("Reporte de empleabilidad", "estadoEmpleabilidad", programaId);
+            case "empleabilidad" -> datosEmpleabilidad(programaId);
             case "academico" -> datosAgrupados("Reporte academico", "estadoAcademico", programaId);
             case "proyectos" -> datosProyectos(programaId);
             default -> throw new BusinessException("Tipo de reporte no valido: " + tipo);
@@ -109,6 +109,56 @@ public class ReporteService {
             new String[] {"Documento", "Nombre", "Apellido", "Email", "Celular", "Ciudad",
                 "Programa", "Estado académico", "Estado empleabilidad", "Fecha registro"},
             filas);
+    }
+
+    /**
+     * Cuantos estan trabajando, cuantos buscan y de cuantos no se sabe.
+     *
+     * <p>No se agrupa por el enum {@code estadoEmpleabilidad} como el reporte
+     * academico agrupa por el suyo, aunque se pareciesen. Ese enum viene de la
+     * hoja antigua y solo lo escriben la importacion y la edicion manual: a
+     * quien se coloca por el CRM nadie se lo cambia. Agrupando por el, este
+     * reporte —que se exporta a PDF y se manda fuera— dejaba fuera justamente
+     * las colocaciones que consiguio el programa.
+     *
+     * <p>Manda la colocacion vigente, que es el registro real —empresa, fecha,
+     * salario—; el enum solo cuenta para las fichas antiguas que nunca tuvieron
+     * colocacion registrada. Misma regla que el panel y que el pipeline.
+     */
+    private DatosReporte datosEmpleabilidad(UUID programaId) {
+        String activos = "SELECT COUNT(e) FROM Estudiante e WHERE e.activo = true"
+                + (programaId != null ? " AND e.programa.id = :programaId" : "");
+        String tieneColocacion =
+                " EXISTS (SELECT 1 FROM Colocacion c WHERE c.estudiante.id = e.id AND c.activa = true)";
+
+        long empleados = contar(activos
+                + " AND (e.estadoEmpleabilidad = com.novacrm.estudiante.EstadoEmpleabilidad.EMPLEADO"
+                + " OR" + tieneColocacion + ")", programaId);
+        long buscando = contar(activos
+                + " AND e.estadoEmpleabilidad = com.novacrm.estudiante.EstadoEmpleabilidad.BUSCANDO"
+                + " AND NOT" + tieneColocacion, programaId);
+        // El nulo cuenta como sin informacion, que es lo que es. El reporte
+        // anterior lo hacia al pintar; aqui se hace al contar, o esas fichas
+        // desaparecerian del total.
+        long sinInfo = contar(activos
+                + " AND (e.estadoEmpleabilidad = com.novacrm.estudiante.EstadoEmpleabilidad.SIN_INFO"
+                + " OR e.estadoEmpleabilidad IS NULL)"
+                + " AND NOT" + tieneColocacion, programaId);
+
+        return new DatosReporte("Reporte de empleabilidad",
+                new String[] {"Estado", "Cantidad"},
+                List.of(
+                        new String[] {"EMPLEADO", String.valueOf(empleados)},
+                        new String[] {"BUSCANDO", String.valueOf(buscando)},
+                        new String[] {"SIN_INFO", String.valueOf(sinInfo)}));
+    }
+
+    private long contar(String jpql, UUID programaId) {
+        TypedQuery<Long> query = entityManager.createQuery(jpql, Long.class);
+        if (programaId != null) {
+            query.setParameter("programaId", programaId);
+        }
+        return query.getSingleResult();
     }
 
     private DatosReporte datosAgrupados(String titulo, String campo, UUID programaId) {
