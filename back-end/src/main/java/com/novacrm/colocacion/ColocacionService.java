@@ -131,6 +131,8 @@ public class ColocacionService {
         colocacionRepository.save(colocacion);
         anotar(colocacion, autor, "Colocacion cerrada en " + colocacion.nombreEmpresa()
                 + (motivo == null || motivo.isBlank() ? "." : ": " + motivo.trim()));
+        devolverTableroSiYaNoTrabaja(colocacion, autor,
+                "Termino su vinculacion en " + colocacion.nombreEmpresa() + ".");
     }
 
     @Transactional
@@ -145,6 +147,10 @@ public class ColocacionService {
             postulacionRepository.save(colocacion.getPostulacion());
         }
         colocacionRepository.delete(colocacion);
+        // Igual que al cerrarla: si borrar esta le deja sin ninguna vigente, la
+        // tarjeta no puede quedarse en COLOCADO.
+        devolverTableroSiYaNoTrabaja(colocacion, autor,
+                "Se elimino su colocacion en " + colocacion.nombreEmpresa() + ".");
         String nombreEstudiante = colocacion.getEstudiante() != null ? (colocacion.getEstudiante().getNombre() + " " + colocacion.getEstudiante().getApellido()) : "Estudiante";
         auditoriaService.registrar("Colocaciones", "Eliminación", "Colocacion",
                 id.toString(), nombreEstudiante + " - " + colocacion.nombreEmpresa(), null, null);
@@ -241,6 +247,41 @@ public class ColocacionService {
      * {@code AvanceDelTablero}: una colocacion la registra el equipo con
      * contrato delante, no es una postulacion que alguien dice haber ganado.
      */
+    /**
+     * Saca la tarjeta de COLOCADO cuando la persona ya no tiene ningun empleo.
+     *
+     * <p>Registrar una colocacion movia la tarjeta a COLOCADO y cerrarla no la
+     * devolvia, asi que quien perdia el trabajo seguia marcado como colocado
+     * para siempre. Y el tablero es lo que mira el equipo para decidir a quien
+     * hay que acompañar: la persona que mas lo necesita —acaba de quedarse sin
+     * empleo— era justo la que parecia resuelta.
+     *
+     * <p>Vuelve a EN_PROCESO y no al estado que tuviera antes, que no se
+     * guarda en ningun sitio: sin empleo y con el programa detras, EN_PROCESO
+     * es lo que describe su situacion.
+     *
+     * <p>Solo si no le queda ninguna otra vigente. Alguien puede tener dos
+     * vinculaciones y dejar una: eso no le deja sin trabajo.
+     */
+    private void devolverTableroSiYaNoTrabaja(Colocacion colocacion, String autor, String motivo) {
+        if (!colocacion.getTipoVinculacion().esEmpleo()) {
+            return;
+        }
+        var estudiante = colocacion.getEstudiante();
+        if (estudiante == null
+                || colocacionRepository.existsByEstudianteIdAndActivaTrue(estudiante.getId())) {
+            return;
+        }
+        var movimiento = new Seguimiento();
+        movimiento.setEstudiante(estudiante);
+        movimiento.setTipo(EstadoContacto.TIPO);
+        movimiento.setEstado(EstadoContacto.EN_PROCESO.name());
+        movimiento.setFecha(LocalDate.now());
+        movimiento.setResponsable(autor);
+        movimiento.setObservacion(motivo);
+        seguimientoRepository.save(movimiento);
+    }
+
     private void moverTableroAColocado(Colocacion colocacion, String autor) {
         if (!colocacion.getTipoVinculacion().esEmpleo()) {
             return;
