@@ -704,6 +704,15 @@ export const chatsApi = {
       method: 'POST', data: { motivo }, token,
     }),
   /**
+   * El tramo anterior a un mensaje, para subir por la conversación.
+   *
+   * Abrirla trae los últimos 200; esto es lo de antes. Lista vacía significa
+   * que ya no hay más arriba.
+   */
+  anteriores: (contactoId: string, antesDe: string, token?: string) =>
+    apiFetch<ChatDirectoMensajeResponse[]>(
+      `/api/v1/chats/directos/${contactoId}/anteriores?antesDe=${antesDe}`, { token }),
+  /**
    * Busca dentro de una conversación, sin distinguir tildes ni mayúsculas.
    *
    * Pasa por el mismo control que abrirla: quien no puede leerla, tampoco

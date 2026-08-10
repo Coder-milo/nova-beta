@@ -152,6 +152,32 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
     return clave.startsWith('http') ? clave : `/api/v1/chats/grupos/${grupoId}/foto`
   }
 
+  /**
+   * Si puede quedar conversación por encima de lo cargado.
+   *
+   * Se deduce de que la ventana venga llena: el servidor trae 200 al abrir y
+   * 200 por tramo, así que menos de eso significa que ya no hay más. Empieza
+   * en falso para no ofrecer el botón antes de haber cargado nada.
+   */
+  const [hayMasArriba, setHayMasArriba] = useState(false)
+  const [cargandoAnteriores, setCargandoAnteriores] = useState(false)
+
+  /** Trae el tramo anterior y lo pone por encima de lo que ya se ve. */
+  const cargarAnteriores = async () => {
+    if (!selectedContactoId || mensajesDirectos.length === 0) return
+    setCargandoAnteriores(true)
+    try {
+      const masViejo = mensajesDirectos[0]
+      const tramo = await chatsApi.anteriores(selectedContactoId, masViejo.id)
+      setMensajesDirectos((actual) => [...tramo, ...actual])
+      setHayMasArriba(tramo.length >= 200)
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'Earlier messages could not be loaded.' : 'No se pudieron cargar los mensajes anteriores.') })
+    } finally {
+      setCargandoAnteriores(false)
+    }
+  }
+
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -193,7 +219,10 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
     setCargandoMensajes(true)
     chatsApi.conversacion(selectedContactoId)
       .then((msgs) => {
-        if (active) setMensajesDirectos(msgs)
+        if (!active) return
+        setMensajesDirectos(msgs)
+        // La ventana llena es la señal de que puede haber más arriba.
+        setHayMasArriba(msgs.length >= 200)
       })
       .catch(() => undefined)
       .finally(() => { if (active) setCargandoMensajes(false) })
@@ -893,6 +922,24 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
             <div className="flex items-center justify-center py-12 text-xs text-muted-foreground">
               <CircleNotch className="mr-2 size-4 animate-spin text-primary" />
               {english ? 'Loading chat...' : 'Cargando conversación...'}
+            </div>
+          )}
+
+          {/* Subir por la conversación. Solo con la ventana llena: con menos
+              de 200 mensajes ya se está viendo todo, y ofrecer «anteriores»
+              para que no aparezca nada es prometer algo que no hay. */}
+          {activeTab === 'directos' && !cargandoMensajes && hayMasArriba && (
+            <div className="flex justify-center pb-2">
+              <button
+                type="button"
+                onClick={() => void cargarAnteriores()}
+                disabled={cargandoAnteriores}
+                className="rounded-xl border border-border px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-60"
+              >
+                {cargandoAnteriores
+                  ? (english ? 'Loading…' : 'Cargando…')
+                  : (english ? 'Load earlier messages' : 'Ver mensajes anteriores')}
+              </button>
             </div>
           )}
 

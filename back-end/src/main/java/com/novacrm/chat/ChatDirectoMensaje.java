@@ -36,6 +36,11 @@ public class ChatDirectoMensaje extends BaseEntity {
      * <p>No lo escribe la aplicacion: si lo hiciera volveriamos a depender del
      * reloj, que es el problema.
      */
+    // @Generated: la pone la base al insertar y hay que volver a leerla. Sin
+    // esto, la entidad recien guardada se queda con la secuencia en nulo, y
+    // cualquier comparacion contra ese nulo deja fuera la fila —se pierde un
+    // mensaje al subir por la conversacion, sin error ninguno—.
+    @org.hibernate.annotations.Generated(event = org.hibernate.generator.EventType.INSERT)
     @Column(name = "secuencia", insertable = false, updatable = false)
     private Long secuencia;
 

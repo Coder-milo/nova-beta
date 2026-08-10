@@ -99,6 +99,18 @@ public class ChatDirectoController {
         service.desarchivar(contactoId, auth);
     }
 
+    /**
+     * Lo anterior a un mensaje, para subir por la conversación.
+     *
+     * <p>Abrirla trae los últimos doscientos; esto es el tramo de antes.
+     */
+    @GetMapping("/directos/{contactoId}/anteriores")
+    public List<ChatDirectoMensajeResponse> anteriores(@PathVariable UUID contactoId,
+                                                       @RequestParam UUID antesDe,
+                                                       Authentication auth) {
+        return service.anteriores(contactoId, antesDe, auth);
+    }
+
     /** Busca dentro de una conversación. Mismo control que abrirla. */
     @GetMapping("/directos/{contactoId}/buscar")
     public List<ChatDirectoMensajeResponse> buscar(@PathVariable UUID contactoId,

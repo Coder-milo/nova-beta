@@ -60,6 +60,32 @@ public interface ChatDirectoMensajeRepository extends JpaRepository<ChatDirectoM
     List<ChatDirectoMensaje> buscarEnLaConversacion(@Param("uno") UUID uno, @Param("otro") UUID otro,
                                                     @Param("q") String q, Pageable pageable);
 
+    /**
+     * El tramo anterior a un punto de la conversacion.
+     *
+     * <p>Abrir un chat trae los ultimos doscientos, y hasta ahora lo de mas
+     * atras no habia forma de verlo: existia y no se alcanzaba, sin nada en
+     * pantalla que lo dijera. Esto es lo que hay antes de un mensaje dado.
+     *
+     * <p>El corte va por fecha y, a igualdad, por secuencia. Con solo la fecha,
+     * dos mensajes del mismo milisegundo harian que al pedir «lo anterior» se
+     * repitiera uno o se saltara otro, segun cual quedara al borde.
+     */
+    @Query("""
+            select m from ChatDirectoMensaje m
+            join fetch m.remitente
+            join fetch m.destinatario
+            where ((m.remitente.id = :uno and m.destinatario.id = :otro)
+                or (m.remitente.id = :otro and m.destinatario.id = :uno))
+              and (m.createdAt < :fecha
+                   or (m.createdAt = :fecha and m.secuencia < :secuencia))
+            order by m.createdAt desc, m.secuencia desc
+            """)
+    List<ChatDirectoMensaje> anterioresA(@Param("uno") UUID uno, @Param("otro") UUID otro,
+                                         @Param("fecha") java.time.Instant fecha,
+                                         @Param("secuencia") Long secuencia,
+                                         Pageable pageable);
+
     /** Con quien se ha hablado, con lo ultimo que se dijo. Una fila por persona. */
     interface ResumenConversacion {
         UUID getOtroId();

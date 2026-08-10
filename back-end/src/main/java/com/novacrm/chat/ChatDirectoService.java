@@ -367,6 +367,45 @@ public class ChatDirectoService {
                 .ifPresent(archivadaRepository::delete);
     }
 
+    /**
+     * El tramo anterior a un mensaje, para poder subir por la conversación.
+     *
+     * <p>Abrir el chat trae los últimos doscientos. Lo de más atrás existía y no
+     * había forma de alcanzarlo: la conversación se cortaba sin que nada lo
+     * dijera, y quien buscaba algo de hace meses no encontraba ni el mensaje ni
+     * la explicación.
+     *
+     * <p>Mismo control que abrirla, y el mensaje de referencia tiene que ser de
+     * esta conversación: si no, bastaría con el identificador de un mensaje
+     * ajeno para empezar a leer desde cualquier punto de cualquier chat.
+     */
+    @Transactional(readOnly = true)
+    public List<ChatDirectoMensajeResponse> anteriores(UUID contactoId, UUID antesDeId,
+                                                       Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        Estudiante contacto = contactoValido(contactoId, propio);
+
+        var referencia = repository.findById(antesDeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mensaje no encontrado."));
+        boolean esDeEstaConversacion =
+                (referencia.getRemitente().getId().equals(propio.getId())
+                        && referencia.getDestinatario().getId().equals(contacto.getId()))
+                || (referencia.getRemitente().getId().equals(contacto.getId())
+                        && referencia.getDestinatario().getId().equals(propio.getId()));
+        if (!esDeEstaConversacion) {
+            throw new ResourceNotFoundException("Mensaje no encontrado.");
+        }
+
+        var recientes = repository.anterioresA(propio.getId(), contacto.getId(),
+                referencia.getCreatedAt(), referencia.getSecuencia(),
+                org.springframework.data.domain.PageRequest.of(0, MENSAJES_AL_ABRIR));
+        var enOrden = new java.util.ArrayList<>(recientes);
+        java.util.Collections.reverse(enOrden);
+        return enOrden.stream()
+                .map(mensaje -> respuesta(mensaje, propio.getId()))
+                .toList();
+    }
+
     /** Cuantos resultados devuelve una busqueda dentro del chat. */
     private static final int RESULTADOS_DE_BUSQUEDA = 50;
 
