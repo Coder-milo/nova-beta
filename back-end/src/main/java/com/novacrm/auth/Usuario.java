@@ -69,7 +69,21 @@ public class Usuario extends BaseEntity {
     public java.time.LocalDateTime getResetTokenExpira() { return resetTokenExpira; }
     public void setResetTokenExpira(java.time.LocalDateTime resetTokenExpira) { this.resetTokenExpira = resetTokenExpira; }
     public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    /**
+     * Siempre en minúsculas y sin espacios sobrantes.
+     *
+     * <p>La búsqueda ya no distingue mayúsculas y el índice único va sobre
+     * {@code lower(email)}, así que guardarlo con otra caja solo sirve para que
+     * la misma cuenta se lea distinta según la pantalla. Se normaliza aquí, en
+     * el único sitio por el que pasan todos los caminos que lo escriben.
+     *
+     * <p>{@code Locale.ROOT} y no el del sistema: en turco, {@code "I"} en
+     * minúscula no es {@code "i"}, y un servidor con esa configuración
+     * regional dejaría fuera a quien tuviera una I en el correo.
+     */
+    public void setEmail(String email) {
+        this.email = email == null ? null : email.trim().toLowerCase(java.util.Locale.ROOT);
+    }
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
     public String getNombre() { return nombre; }

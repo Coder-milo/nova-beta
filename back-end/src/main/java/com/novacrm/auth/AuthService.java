@@ -70,7 +70,7 @@ public class AuthService {
      */
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        var usuario = usuarioRepository.findByEmail(request.email())
+        var usuario = usuarioRepository.findByEmailIgnoreCase(request.email())
                 .orElseThrow(() -> new CredencialesInvalidasException(CREDENCIALES_INVALIDAS));
 
         if (!passwordEncoder.matches(request.password(), usuario.getPassword())) {
@@ -97,7 +97,7 @@ public class AuthService {
         if (!JwtClaims.TYPE_REFRESH.equals(claims.get(JwtClaims.TYPE, String.class))) {
             throw new CredencialesInvalidasException("El token no es un refresh token");
         }
-        var usuario = usuarioRepository.findByEmail(claims.getSubject())
+        var usuario = usuarioRepository.findByEmailIgnoreCase(claims.getSubject())
                 .filter(Usuario::isActivo)
                 .orElseThrow(() -> new CredencialesInvalidasException("Usuario no valido"));
         if (emitidoAntesDelCambio(claims, usuario)) {
@@ -128,7 +128,7 @@ public class AuthService {
     /** Genera el token de recuperación y envía el correo. Silencioso ante emails desconocidos. */
     @Transactional
     public void forgotPassword(String email) {
-        usuarioRepository.findByEmail(email).filter(Usuario::isActivo).ifPresent(usuario -> {
+        usuarioRepository.findByEmailIgnoreCase(email).filter(Usuario::isActivo).ifPresent(usuario -> {
             byte[] bytes = new byte[32];
             RANDOM.nextBytes(bytes);
             String token = HexFormat.of().formatHex(bytes);

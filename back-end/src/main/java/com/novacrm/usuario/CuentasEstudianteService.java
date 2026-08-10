@@ -172,7 +172,7 @@ public class CuentasEstudianteService {
                     e.getId(),
                     nombreCompleto(e),
                     sinCorreo ? null : email,
-                    !sinCorreo && usuarioRepository.findByEmail(email).isPresent(),
+                    !sinCorreo && usuarioRepository.findByEmailIgnoreCase(email).isPresent(),
                     !sinCorreo && destinatarioPermitido(email));
         }).toList();
 
@@ -228,7 +228,7 @@ public class CuentasEstudianteService {
                     EnvioCorreo.SIN_DIRECCION, "La ficha no tiene correo registrado");
         }
 
-        var existente = usuarioRepository.findByEmail(email);
+        var existente = usuarioRepository.findByEmailIgnoreCase(email);
 
         if (simulacion) {
             return existente.isPresent()

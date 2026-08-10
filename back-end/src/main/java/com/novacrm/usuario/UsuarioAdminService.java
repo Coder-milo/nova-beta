@@ -38,7 +38,7 @@ public class UsuarioAdminService {
 
     @Transactional
     public UsuarioResponse crear(UsuarioRequest request) {
-        if (usuarioRepository.existsByEmail(request.email())) {
+        if (usuarioRepository.existsByEmailIgnoreCase(request.email())) {
             throw new BusinessException("Ya existe un usuario con el email: " + request.email());
         }
         Usuario usuario = new Usuario();

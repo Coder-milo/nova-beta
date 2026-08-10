@@ -6,8 +6,20 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
-    Optional<Usuario> findByEmail(String email);
+
+    /**
+     * La cuenta por su correo, sin distinguir mayusculas.
+     *
+     * <p>Se buscaba con igualdad exacta mientras la ficha del estudiante se
+     * busca sin distinguir: la misma persona era dos cosas distintas segun la
+     * mitad del sistema. En un movil que pone la primera letra en mayuscula por
+     * su cuenta, eso se vive como "mi correo no existe".
+     *
+     * <p>Desde V45 los correos se guardan en minusculas y hay un indice unico
+     * sobre {@code lower(email)}, asi que esto no puede devolver dos cuentas.
+     */
+    Optional<Usuario> findByEmailIgnoreCase(String email);
 
     Optional<Usuario> findByResetToken(String resetToken);
-    boolean existsByEmail(String email);
+    boolean existsByEmailIgnoreCase(String email);
 }
