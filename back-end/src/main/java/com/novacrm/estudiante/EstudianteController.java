@@ -201,7 +201,7 @@ public class EstudianteController {
             throw new com.novacrm.exception.BusinessException("Sube una imagen válida (JPG/PNG/WebP)");
         }
         try {
-            byte[] bytesProcesados = redimensionarImagen(archivo.getBytes(), archivo.getContentType());
+            byte[] bytesProcesados = FotoDePerfil.prepararCuadrada(archivo.getBytes());
             // El nombre pierde la extensión original a propósito: el contenido
             // sale siempre como JPEG del reescalado, y conservar un ".png" en la
             // clave hacía que la descarga respondiera `Content-Type: image/png`
@@ -223,34 +223,6 @@ public class EstudianteController {
         return base + ".jpg";
     }
 
-    private byte[] redimensionarImagen(byte[] bytesOriginales, String contentType) {
-        try {
-            java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(bytesOriginales);
-            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bais);
-            if (img == null) return bytesOriginales;
-
-            int w = img.getWidth();
-            int h = img.getHeight();
-            int minSquare = Math.min(w, h);
-            int cropX = (w - minSquare) / 2;
-            int cropY = (h - minSquare) / 2;
-
-            java.awt.image.BufferedImage cropped = img.getSubimage(cropX, cropY, minSquare, minSquare);
-            int targetSize = Math.min(minSquare, 250);
-
-            java.awt.image.BufferedImage resized = new java.awt.image.BufferedImage(targetSize, targetSize, java.awt.image.BufferedImage.TYPE_INT_RGB);
-            java.awt.Graphics2D g = resized.createGraphics();
-            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.drawImage(cropped, 0, 0, targetSize, targetSize, null);
-            g.dispose();
-
-            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-            javax.imageio.ImageIO.write(resized, "jpg", baos);
-            return baos.toByteArray();
-        } catch (Exception e) {
-            return bytesOriginales;
-        }
-    }
 
     private org.springframework.http.ResponseEntity<byte[]> descargarFotoInterno(UUID id) {
         var est = estudianteService.obtener(id);
