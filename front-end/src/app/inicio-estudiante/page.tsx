@@ -107,7 +107,7 @@ export default function InicioEstudiantePage() {
           matchesApi.obtenerMisMatches(0, 100),
           seguimientosApi.mio(),
           documentosApi.mios({ size: 1 }),
-          notificacionesApi.contarNoLeidas(p.id),
+          notificacionesApi.misNoLeidas(),
           whatsappApi.mio(),
           plataformasApi.mias(),
         ])

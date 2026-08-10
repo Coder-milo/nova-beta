@@ -261,7 +261,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
           setActividades(await actividadesApi.mias())
         if (area === 'notificaciones')
           setNotificaciones(
-            (await notificacionesApi.listarPorEstudiante(p.id, 0, 100)).content,
+            (await notificacionesApi.mias(0, 100)).content,
           )
         if (area === 'mensajes') setMensajes(await mensajesApi.mios())
       } catch (e) {
@@ -277,7 +277,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
     await notificacionesApi.marcarLeida(n.id)
     setNotificaciones((v) => v.map((x) => (x.id === n.id ? { ...x, leida: true } : x)))
     if (perfil) {
-      const noLeidas = await notificacionesApi.contarNoLeidas(perfil.id)
+      const noLeidas = await notificacionesApi.misNoLeidas()
       window.dispatchEvent(new CustomEvent('nova:notifications-updated', { detail: noLeidas }))
     }
   }
@@ -292,7 +292,7 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
     if (!perfil) return
     setMarcandoTodas(true)
     try {
-      await notificacionesApi.marcarTodasLeidas(perfil.id)
+      await notificacionesApi.marcarMisLeidas()
       setNotificaciones((v) => v.map((x) => ({ ...x, leida: true })))
       window.dispatchEvent(new CustomEvent('nova:notifications-updated', { detail: 0 }))
     } catch (e) {

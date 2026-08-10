@@ -548,6 +548,21 @@ export const matchesApi = {
 import type { NotificacionResponse, MensajeResponse, MensajeTurnoResponse, ReaccionResumen } from './types'
 
 export const notificacionesApi = {
+  /**
+   * Las del estudiante autenticado, sin mandar su id.
+   *
+   * Las rutas con `estudianteId` son del equipo, que sí consulta fichas
+   * ajenas y por eso comprueban la propiedad. Desde el portal no hace falta
+   * enviar un identificador que el cliente podría cambiar, y así tampoco hay
+   * que pedir el perfil entero sólo para saberlo.
+   */
+  mias: (page = 0, size = 20, token?: string) =>
+    apiFetch<Page<NotificacionResponse>>(
+      `/api/v1/notificaciones/mias?page=${page}&size=${size}`, { token }),
+  misNoLeidas: (token?: string) =>
+    apiFetch<number>('/api/v1/notificaciones/mias/no-leidas', { token }),
+  marcarMisLeidas: (token?: string) =>
+    apiFetch<void>('/api/v1/notificaciones/mias/marcar-leidas', { method: 'PUT', token }),
   listarPorEstudiante: (estudianteId: string, page = 0, size = 20, token?: string) =>
     apiFetch<Page<NotificacionResponse>>(
       `/api/v1/notificaciones?estudianteId=${estudianteId}&page=${page}&size=${size}`,
