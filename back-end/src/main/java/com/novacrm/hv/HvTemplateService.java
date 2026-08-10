@@ -461,6 +461,14 @@ public class HvTemplateService {
     private String convertirACirculoPngBase64(String base64) {
         try {
             byte[] bytes = java.util.Base64.getDecoder().decode(base64);
+            // Se comprueba antes de abrirla. El comentario de abajo ya avisaba
+            // del coste de una foto grande, pero el reescalado llega tarde:
+            // para entonces la imagen ya esta descomprimida en memoria. Y aqui
+            // las fotos vienen del almacenamiento, donde hay algunas anteriores
+            // a que la subida comprobara nada. Una foto inmanejable no puede
+            // tumbar una generacion masiva de 500 hojas de vida: se omite esa y
+            // se sigue, que es lo que ya hace el `return null`.
+            if (!com.novacrm.shared.ImagenSegura.sePuedeAbrir(bytes)) return null;
             java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(bytes);
             java.awt.image.BufferedImage src = javax.imageio.ImageIO.read(bais);
             if (src == null) return null;

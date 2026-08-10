@@ -77,6 +77,11 @@ public class ImagenBrandingService {
         BufferedImage imagen;
         try {
             contenido = archivo.getBytes();
+            // Antes de abrirla, no despues: descomprimir es donde un archivo
+            // pequeño se convierte en algo enorme, y quedarse sin memoria lanza
+            // un Error que no atrapa ningun catch de los de aqui abajo. Sube
+            // coordinacion y no un estudiante, pero la aplicacion se cae igual.
+            com.novacrm.shared.ImagenSegura.comprobar(contenido);
             imagen = ImageIO.read(new ByteArrayInputStream(contenido));
         } catch (IOException e) {
             throw new BusinessException("No se pudo leer el archivo: " + e.getMessage());
