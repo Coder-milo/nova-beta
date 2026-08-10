@@ -260,7 +260,6 @@ function textos(english: boolean) {
         plantilla: 'Template',
         candidato: 'Candidate',
         estudiante: 'Student',
-        profesional: 'Professional',
         diplomado: 'Diploma course',
         certificacion: 'Certificate',
         curso: 'Course',
@@ -437,7 +436,6 @@ function textos(english: boolean) {
         plantilla: 'Plantilla',
         candidato: 'Candidato',
         estudiante: 'Estudiante',
-        profesional: 'Profesional',
         diplomado: 'Diplomado',
         certificacion: 'Certificación',
         curso: 'Curso',
@@ -753,9 +751,19 @@ export default function HojasDeVidaPage() {
         idiomas: res.datosEstructurados?.idiomas ?? mapa.get('idiomas') ?? '',
         titulo: res.datosEstructurados?.titulo ?? '',
         institucionEducativa: res.datosEstructurados?.institucionEducativa ?? '',
-        nivelEducativo: res.datosEstructurados?.nivelEducativo ?? T.profesional,
+        // Sin nivel por defecto: se imprime junto a la institución («SENA —
+        // Profesional») y poner uno que nadie escribió es afirmar una
+        // titulación ajena en la hoja de vida que esa persona manda a empresas.
+        nivelEducativo: res.datosEstructurados?.nivelEducativo ?? '',
         experiencias: res.datosEstructurados?.experiencias ?? [],
         formaciones: res.datosEstructurados?.formaciones ?? [],
+        // Los seis que el PDF sabe pintar y aquí se quedaban por el camino.
+        telefono: res.datosEstructurados?.telefono ?? '',
+        nacionalidad: res.datosEstructurados?.nacionalidad ?? '',
+        linkedinUrl: res.datosEstructurados?.linkedinUrl ?? '',
+        portafolioUrl: res.datosEstructurados?.portafolioUrl ?? '',
+        nivelIngles: res.datosEstructurados?.nivelIngles ?? '',
+        logros: res.datosEstructurados?.logros ?? [],
       }
 
       setDatosExt(dtoCompleto)

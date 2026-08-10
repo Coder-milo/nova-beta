@@ -936,6 +936,19 @@ export interface DatosHvDto {
   nivelEducativo: string | null
   experiencias: ExperienciaDto[]
   formaciones: FormacionDto[]
+  /**
+   * Los seis últimos existen en el backend desde que la línea de contacto se
+   * construye en Java. Este tipo se quedó con quince campos, así que la
+   * pantalla de extraer y convertir armaba el DTO sin ellos y el PDF salía sin
+   * enlace de LinkedIn, sin portafolio, sin país, sin fijo, sin nivel de inglés
+   * y sin la sección de logros —datos que el sistema ya tenía—.
+   */
+  telefono?: string | null
+  nacionalidad?: string | null
+  linkedinUrl?: string | null
+  portafolioUrl?: string | null
+  nivelIngles?: string | null
+  logros?: string[] | null
 }
 
 export interface CampoExtraido {

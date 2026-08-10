@@ -134,9 +134,15 @@ public class ExtraccionHvService {
         }
 
         String linkedinVal = null;
+        String linkedinUrlVal = null;
         var mLi = LINKEDIN.matcher(texto);
         if (mLi.find()) {
             linkedinVal = mLi.group(1);
+            // La direccion completa, no solo el identificador: el PDF pone un
+            // enlace, y quien lo construye antepone "https://" a lo que reciba.
+            // Con el identificador suelto salia <a href="https://ana-perez">, un
+            // enlace roto en la hoja de vida que esa persona manda a empresas.
+            linkedinUrlVal = mLi.group();
             campos.add(new CampoExtraido("linkedinUserId", linkedinVal, 90));
         }
 
@@ -212,14 +218,19 @@ public class ExtraccionHvService {
                 idiomasVal,
                 tituloVal,
                 institucionVal,
-                "Profesional",
+                // Sin nivel educativo: aqui iba "Profesional" fijo, y ese texto
+                // se imprime en la hoja de vida junto a la institucion —«SENA —
+                // Profesional»—. En una cohorte de tecnicos y bachilleres es
+                // afirmar una titulacion que nadie escribio, en el documento que
+                // esa persona manda a las empresas. Que lo ponga quien lo tenga.
+                null,
                 experiencias,
                 formaciones,
                 null,
                 null,
                 // Lo que se extrae del PDF es la direccion del perfil, no el id
                 // de la integracion OAuth: alimenta el enlace de la cabecera.
-                linkedinVal,
+                linkedinUrlVal,
                 null,
                 null,
                 null
