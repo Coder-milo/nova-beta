@@ -68,15 +68,34 @@ public class WhatsappWebhookService {
      * token de verificación coincide con la variable de entorno, o null si no.
      */
     public String verificarSuscripcion(String mode, String verifyToken, String challenge) {
-        String esperado = System.getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN");
-        if (!"subscribe".equals(mode) || verifyToken == null || esperado == null
-                || !MessageDigest.isEqual(
-                        verifyToken.getBytes(StandardCharsets.UTF_8),
-                        esperado.getBytes(StandardCharsets.UTF_8))) {
+        if (!tokenDeVerificacionValido(mode, verifyToken, System.getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN"))) {
             log.warn("Verificacion de webhook rechazada (mode={})", mode);
             return null;
         }
         return challenge;
+    }
+
+    /**
+     * Si el token que manda Meta es el que esta configurado.
+     *
+     * <p>El token esperado se comprueba con {@code isBlank} y no solo con
+     * {@code null}: con la variable definida y vacia, lo esperado era la cadena
+     * vacia, y cualquiera que mandara {@code hub.verify_token=} pasaba la
+     * verificacion. Es la misma comprobacion que ya hacian
+     * {@code WHATSAPP_APP_SECRET} y {@code WHATSAPP_TOKEN_KEY}; esta se habia
+     * quedado atras.
+     *
+     * <p>Recibe el token esperado como argumento, igual que {@link #validarFirma},
+     * para que se pueda probar sin tocar el entorno del proceso.
+     */
+    static boolean tokenDeVerificacionValido(String mode, String verifyToken, String esperado) {
+        if (!"subscribe".equals(mode) || verifyToken == null
+                || esperado == null || esperado.isBlank()) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                verifyToken.getBytes(StandardCharsets.UTF_8),
+                esperado.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
