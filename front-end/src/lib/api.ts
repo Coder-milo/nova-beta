@@ -769,6 +769,14 @@ export const gruposApi = {
     apiFetch<ChatGrupoMensajeResponse>(`/api/v1/chats/grupos/${grupoId}/mensajes?contenido=${encodeURIComponent(contenido)}${enRespuestaA ? `&enRespuestaA=${enRespuestaA}` : ''}`, {
       method: 'POST', token,
     }),
+  /**
+   * El tramo anterior a un mensaje del grupo, para subir por la conversación.
+   *
+   * Lista vacía significa que ya no hay más arriba.
+   */
+  anteriores: (grupoId: string, antesDe: string, token?: string) =>
+    apiFetch<ChatGrupoMensajeResponse[]>(
+      `/api/v1/chats/grupos/${grupoId}/anteriores?antesDe=${antesDe}`, { token }),
   /** Busca dentro del grupo. Solo quien pertenece. */
   buscarEnGrupo: (grupoId: string, q: string, token?: string) =>
     apiFetch<ChatGrupoMensajeResponse[]>(

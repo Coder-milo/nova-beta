@@ -197,12 +197,7 @@ public class ChatGrupoService {
         var ordenados = new java.util.ArrayList<>(mensajes);
         java.util.Collections.reverse(ordenados);
 
-        return ordenados.stream().map(m -> new GrupoMensajeResponse(
-                m.getId(), m.getGrupo().getId(), m.getRemitente().getId(),
-                nombreDe(m.getRemitente()), m.getContenido(), m.getCreatedAt(),
-                m.getRemitente().getId().equals(propio.getId()),
-                m.isEditado(), m.getEnRespuestaA(), m.isReenviado()
-        )).toList();
+        return ordenados.stream().map(m -> comoRespuesta(m, propio.getId())).toList();
     }
 
     @Transactional
@@ -269,6 +264,52 @@ public class ChatGrupoService {
                 .getFotoUrl();
     }
 
+    /** Cuantos mensajes se traen al abrir un grupo, y por tramo al subir. */
+    private static final int MENSAJES_POR_TRAMO = 200;
+
+    /**
+     * Un mensaje de grupo, como lo ve quien pregunta.
+     *
+     * <p>Estaba escrito tres veces con los mismos diez argumentos en el mismo
+     * orden. Diez argumentos posicionales copiados a mano son diez ocasiones
+     * de cruzar dos, y el compilador no dice nada cuando los dos son del mismo
+     * tipo: {@code editado} y {@code reenviado} son ambos booleanos.
+     */
+    private static GrupoMensajeResponse comoRespuesta(ChatGrupoMensaje m, UUID propioId) {
+        return new GrupoMensajeResponse(
+                m.getId(), m.getGrupo().getId(), m.getRemitente().getId(),
+                nombreDe(m.getRemitente()), m.getContenido(), m.getCreatedAt(),
+                m.getRemitente().getId().equals(propioId),
+                m.isEditado(), m.getEnRespuestaA(), m.isReenviado());
+    }
+
+    /**
+     * El tramo anterior a un mensaje del grupo.
+     *
+     * <p>Solo para quien pertenece, igual que leerlo. Y el mensaje de
+     * referencia tiene que ser de este grupo: si no, bastaría con el
+     * identificador de un mensaje de otro para empezar a leerlo desde
+     * cualquier punto.
+     */
+    public List<GrupoMensajeResponse> anteriores(UUID grupoId, UUID antesDeId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        if (!miembroRepository.existsByGrupoIdAndEstudianteId(grupoId, propio.getId())) {
+            throw new BusinessException("No perteneces a este grupo.");
+        }
+        var referencia = mensajeRepository.findById(antesDeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mensaje no encontrado."));
+        if (!referencia.getGrupo().getId().equals(grupoId)) {
+            throw new ResourceNotFoundException("Mensaje no encontrado.");
+        }
+
+        var recientes = mensajeRepository.anterioresA(grupoId,
+                referencia.getCreatedAt(), referencia.getSecuencia(),
+                org.springframework.data.domain.PageRequest.of(0, MENSAJES_POR_TRAMO));
+        var enOrden = new java.util.ArrayList<>(recientes);
+        java.util.Collections.reverse(enOrden);
+        return enOrden.stream().map(m -> comoRespuesta(m, propio.getId())).toList();
+    }
+
     /** Cuantos resultados devuelve una busqueda dentro del grupo. */
     private static final int RESULTADOS_DE_BUSQUEDA = 50;
 
@@ -292,11 +333,7 @@ public class ChatGrupoService {
         return mensajeRepository.buscarEnElGrupo(grupoId, termino,
                         org.springframework.data.domain.PageRequest.of(0, RESULTADOS_DE_BUSQUEDA))
                 .stream()
-                .map(m -> new GrupoMensajeResponse(
-                        m.getId(), grupoId, m.getRemitente().getId(),
-                        nombreDe(m.getRemitente()), m.getContenido(), m.getCreatedAt(),
-                        m.getRemitente().getId().equals(propio.getId()),
-                        m.isEditado(), m.getEnRespuestaA(), m.isReenviado()))
+                .map(m -> comoRespuesta(m, propio.getId()))
                 .toList();
     }
 

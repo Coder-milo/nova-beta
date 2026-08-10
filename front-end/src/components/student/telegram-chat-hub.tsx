@@ -162,15 +162,31 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   const [hayMasArriba, setHayMasArriba] = useState(false)
   const [cargandoAnteriores, setCargandoAnteriores] = useState(false)
 
-  /** Trae el tramo anterior y lo pone por encima de lo que ya se ve. */
+  /**
+   * Trae el tramo anterior y lo pone por encima de lo que ya se ve.
+   *
+   * Sirve para los dos: en un grupo se sube igual que en un chat de dos, y el
+   * botón es el mismo. Escribirlo dos veces era la forma de que uno de los dos
+   * se quedara sin el arreglo del día que haya que tocarlo.
+   */
   const cargarAnteriores = async () => {
-    if (!selectedContactoId || mensajesDirectos.length === 0) return
+    const enGrupo = activeTab === 'grupos'
+    const lista = enGrupo ? mensajesGrupo : mensajesDirectos
+    const id = enGrupo ? selectedGrupoId : selectedContactoId
+    if (!id || lista.length === 0) return
+
     setCargandoAnteriores(true)
     try {
-      const masViejo = mensajesDirectos[0]
-      const tramo = await chatsApi.anteriores(selectedContactoId, masViejo.id)
-      setMensajesDirectos((actual) => [...tramo, ...actual])
-      setHayMasArriba(tramo.length >= 200)
+      const masViejo = lista[0]
+      if (enGrupo) {
+        const tramo = await gruposApi.anteriores(id, masViejo.id)
+        setMensajesGrupo((actual) => [...tramo, ...actual])
+        setHayMasArriba(tramo.length >= 200)
+      } else {
+        const tramo = await chatsApi.anteriores(id, masViejo.id)
+        setMensajesDirectos((actual) => [...tramo, ...actual])
+        setHayMasArriba(tramo.length >= 200)
+      }
     } catch (e) {
       setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'Earlier messages could not be loaded.' : 'No se pudieron cargar los mensajes anteriores.') })
     } finally {
@@ -237,7 +253,9 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
     setCargandoMensajes(true)
     gruposApi.mensajes(selectedGrupoId)
       .then((msgs) => {
-        if (active) setMensajesGrupo(msgs)
+        if (!active) return
+        setMensajesGrupo(msgs)
+        setHayMasArriba(msgs.length >= 200)
       })
       .catch(() => undefined)
       .finally(() => { if (active) setCargandoMensajes(false) })
@@ -928,7 +946,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
           {/* Subir por la conversación. Solo con la ventana llena: con menos
               de 200 mensajes ya se está viendo todo, y ofrecer «anteriores»
               para que no aparezca nada es prometer algo que no hay. */}
-          {activeTab === 'directos' && !cargandoMensajes && hayMasArriba && (
+          {activeTab !== 'soporte' && !cargandoMensajes && hayMasArriba && (
             <div className="flex justify-center pb-2">
               <button
                 type="button"

@@ -45,6 +45,14 @@ public class ChatGrupoController {
         return com.novacrm.estudiante.FotoDePerfil.respuesta(clave, storageService.descargar(clave));
     }
 
+    /** Lo anterior a un mensaje del grupo, para subir por la conversación. */
+    @GetMapping("/{grupoId}/anteriores")
+    public List<ChatGrupoService.GrupoMensajeResponse> anteriores(@PathVariable UUID grupoId,
+                                                                  @RequestParam UUID antesDe,
+                                                                  Authentication auth) {
+        return service.anteriores(grupoId, antesDe, auth);
+    }
+
     /** Busca dentro del grupo. Solo quien pertenece. */
     @GetMapping("/{grupoId}/buscar")
     public List<ChatGrupoService.GrupoMensajeResponse> buscar(@PathVariable UUID grupoId,
