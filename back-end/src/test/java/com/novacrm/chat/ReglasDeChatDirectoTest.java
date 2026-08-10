@@ -321,6 +321,61 @@ class ReglasDeChatDirectoTest {
         verify(archivadas, never()).save(any());
     }
 
+    // ── Editar ────────────────────────────────────────────────────────────
+
+    /**
+     * La puerta que dejaba abierta el bloqueo. Quien es bloqueado no puede
+     * mandar nada nuevo, pero podia reescribir cualquiera de sus mensajes
+     * anteriores, y el texto nuevo aparece en la conversacion de la otra
+     * persona. Bloquear tiene que cortar tambien eso.
+     */
+    @Test
+    void conBloqueoTampocoSePuedeEditarLoYaEscrito() {
+        var otro = estudiante("Luis", programa);
+        var mio = mensajeEntre(yo, otro, "lo que escribi antes");
+        when(mensajes.findById(mio.getId())).thenReturn(Optional.of(mio));
+        when(bloqueos.hayBloqueoEntre(yo.getId(), otro.getId())).thenReturn(true);
+
+        assertThrows(BusinessException.class,
+                () -> service.editar(mio.getId(), "texto nuevo", auth));
+        assertEquals("lo que escribi antes", mio.getContenido(), "no se toca el contenido");
+    }
+
+    @Test
+    void sinBloqueoSiSeEdita() {
+        var otro = estudiante("Luis", programa);
+        var mio = mensajeEntre(yo, otro, "con una errata");
+        when(mensajes.findById(mio.getId())).thenReturn(Optional.of(mio));
+        when(bloqueos.hayBloqueoEntre(any(), any())).thenReturn(false);
+
+        service.editar(mio.getId(), "sin la errata", auth);
+
+        assertEquals("sin la errata", mio.getContenido());
+        assertTrue(mio.isEditado(), "queda marcado como editado");
+    }
+
+    @Test
+    void soloSeEditaLoPropio() {
+        var otro = estudiante("Luis", programa);
+        var suyo = mensajeEntre(otro, yo, "lo que escribio el");
+        when(mensajes.findById(suyo.getId())).thenReturn(Optional.of(suyo));
+
+        assertThrows(BusinessException.class,
+                () -> service.editar(suyo.getId(), "se lo cambio", auth));
+    }
+
+    /** Editar tenia que respetar el limite: si no, se salta enviando corto. */
+    @Test
+    void editarNoSirveParaSaltarseElLimite() {
+        var otro = estudiante("Luis", programa);
+        var mio = mensajeEntre(yo, otro, "corto");
+        when(mensajes.findById(mio.getId())).thenReturn(Optional.of(mio));
+        when(bloqueos.hayBloqueoEntre(any(), any())).thenReturn(false);
+
+        assertThrows(BusinessException.class,
+                () -> service.editar(mio.getId(), "a".repeat(TextoDeMensaje.MAXIMO + 1), auth));
+    }
+
     // ── Reportar ──────────────────────────────────────────────────────────
 
     /** Sin conversacion, el boton serviria para denunciar a desconocidos. */

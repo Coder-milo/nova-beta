@@ -202,6 +202,12 @@ public class ChatDirectoService {
         // Editar tiene el mismo limite que escribir: si no, se manda uno corto
         // y se edita para dejar el megabyte que el envio no admitia.
         String texto = TextoDeMensaje.validado(nuevoContenido);
+        // Y el mismo bloqueo. Sin esto, a quien bloquean le queda una puerta
+        // abierta: no puede mandar nada nuevo, pero si reescribir cualquiera de
+        // sus mensajes anteriores, y el texto nuevo aparece en la conversacion
+        // de la otra persona. Bloquear tiene que cortar tambien eso, que es
+        // justo para lo que se bloquea a alguien.
+        comprobarQueNoHayBloqueo(propio, mensaje.getDestinatario());
         mensaje.setContenido(texto);
         mensaje.setEditado(true);
         var guardado = repository.save(mensaje);
