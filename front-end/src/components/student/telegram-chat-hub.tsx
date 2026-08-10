@@ -77,6 +77,20 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   const [modalReenviar, setModalReenviar] = useState(false)
   const [mensajeAReenviarId, setMensajeAReenviarId] = useState<string | null>(null)
 
+  const [modalReportar, setModalReportar] = useState(false)
+  const [motivoReporte, setMotivoReporte] = useState('')
+  const [reportando, setReportando] = useState(false)
+
+  /**
+   * Lo que sale mal, dicho.
+   *
+   * Antes cada `catch` de esta pantalla iba a `console.error` y nada más: el
+   * mensaje no se enviaba y quien escribía no se enteraba. En un reporte eso
+   * es peor todavía —creer que has pedido ayuda y no haberla pedido—, así que
+   * aquí se ve.
+   */
+  const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Cargar conversaciones iniciales
@@ -181,7 +195,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
       setCitandoMensaje(null)
       void cargarBandejas()
     } catch (e) {
-      console.error(e)
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The message could not be sent.' : 'No se pudo enviar el mensaje.') })
     } finally {
       setEnviando(false)
     }
@@ -193,7 +207,33 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
       await chatsApi.borrar(id)
       setMensajesDirectos((prev) => prev.filter((m) => m.id !== id))
     } catch (e) {
-      console.error(e)
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The message could not be deleted.' : 'No se pudo borrar el mensaje.') })
+    }
+  }
+
+  /**
+   * Reporta al compañero de la conversación abierta.
+   *
+   * El motivo es opcional a propósito: obligar a explicarse por escrito, justo
+   * cuando alguien acaba de recibir algo desagradable, hace que no se reporte.
+   */
+  const handleReportar = async () => {
+    if (!selectedContactoId) return
+    setReportando(true)
+    try {
+      await chatsApi.reportar(selectedContactoId, motivoReporte.trim())
+      setModalReportar(false)
+      setMotivoReporte('')
+      setAviso({
+        tipo: 'ok',
+        texto: english
+          ? 'Reported. The support team will review this conversation.'
+          : 'Reportado. El equipo de acompañamiento va a revisar esta conversación.',
+      })
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The report could not be sent.' : 'No se pudo enviar el reporte.') })
+    } finally {
+      setReportando(false)
     }
   }
 
@@ -431,7 +471,43 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
               </p>
             </div>
           </div>
+
+          {/* Reportar. Solo con una conversación de dos abierta: en el canal de
+              soporte se está hablando ya con el equipo, y un grupo necesita
+              decir a quién se reporta, que no es lo mismo. */}
+          {activeTab === 'directos' && selectedContactoId && (
+            <button
+              type="button"
+              onClick={() => setModalReportar(true)}
+              className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+              title={english ? 'Report this conversation' : 'Reportar esta conversación'}
+            >
+              {english ? 'Report' : 'Reportar'}
+            </button>
+          )}
         </header>
+
+        {aviso && (
+          <div
+            role="status"
+            className={cn(
+              'flex items-start justify-between gap-3 border-b px-5 py-2.5 text-xs',
+              aviso.tipo === 'ok'
+                ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : 'border-destructive/25 bg-destructive/10 text-destructive',
+            )}
+          >
+            <span>{aviso.texto}</span>
+            <button
+              type="button"
+              onClick={() => setAviso(null)}
+              className="shrink-0 opacity-70 hover:opacity-100"
+              aria-label={english ? 'Dismiss' : 'Cerrar aviso'}
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Cuerpo del Chat */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -728,6 +804,56 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                   <span className="truncate text-xs font-semibold text-foreground">{c.nombre}</span>
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalReportar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:bg-[#0f172a]">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-sm font-bold text-foreground">
+                {english ? `Report ${selectedContactoNombre}` : `Reportar a ${selectedContactoNombre}`}
+              </h3>
+              <button type="button" onClick={() => setModalReportar(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              {english
+                ? 'The support team will see a copy of the latest messages in this conversation, so it stays available even if they are deleted afterwards.'
+                : 'El equipo de acompañamiento verá una copia de los últimos mensajes de esta conversación, para que siga estando aunque después se borren.'}
+            </p>
+
+            <textarea
+              value={motivoReporte}
+              onChange={(e) => setMotivoReporte(e.target.value)}
+              rows={3}
+              maxLength={1000}
+              placeholder={english ? 'What happened? (optional)' : '¿Qué pasó? (opcional)'}
+              className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setModalReportar(false)}
+                className="rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+              >
+                {english ? 'Cancel' : 'Cancelar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleReportar()}
+                disabled={reportando}
+                className="rounded-lg bg-destructive px-3 py-2 text-xs font-semibold text-destructive-foreground disabled:opacity-60"
+              >
+                {reportando
+                  ? (english ? 'Sending…' : 'Enviando…')
+                  : (english ? 'Report' : 'Reportar')}
+              </button>
             </div>
           </div>
         </div>

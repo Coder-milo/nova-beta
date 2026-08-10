@@ -693,6 +693,16 @@ export const chatsApi = {
     apiFetch<ChatDirectoMensajeResponse>(`/api/v1/chats/directos/mensajes/${mensajeId}/reenviar?destinoId=${destinoId}`, {
       method: 'POST', token,
     }),
+  /**
+   * Reporta a un compañero por lo que escribió.
+   *
+   * El servidor guarda copia de lo último de la conversación: quien acosa
+   * borra, y un reporte que apunta a mensajes borrados no le sirve a nadie.
+   */
+  reportar: (contactoId: string, motivo: string, token?: string) =>
+    apiFetch<void>(`/api/v1/chats/directos/${contactoId}/reportar`, {
+      method: 'POST', data: { motivo }, token,
+    }),
 }
 
 export const gruposApi = {
