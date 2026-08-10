@@ -1,4 +1,4 @@
-import { ApiCallError } from './api'
+import { ApiCallError } from './api-error'
 
 /**
  * Traduce un fallo de la API a algo que el usuario pueda leer.

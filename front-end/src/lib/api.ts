@@ -26,16 +26,10 @@ async function cerrarSesionCaducada(): Promise<void> {
   }
 }
 
-export class ApiCallError extends Error {
-  constructor(
-    public readonly status: number,
-    public readonly body: ApiError,
-    message?: string,
-  ) {
-    super(message ?? body.message ?? `HTTP ${status}`)
-    this.name = 'ApiCallError'
-  }
-}
+// Vive en su propio modulo para poder probarlo con node --test; se reexporta
+// para que nada de lo que ya lo importaba desde aqui tenga que cambiar.
+export { ApiCallError } from './api-error'
+import { ApiCallError } from './api-error'
 
 /**
  * Mensaje legible de un error, para mostrarlo al usuario.
@@ -44,9 +38,26 @@ export class ApiCallError extends Error {
  * es un error de API, cae al mensaje del `Error`; y si no, al respaldo. Evita
  * que un 409/422 con detalle útil se muestre como un texto genérico.
  */
+/**
+ * El texto que se le enseña a alguien cuando algo falla.
+ *
+ * Solo se repite el mensaje del servidor: ese lo escribimos nosotros, en el
+ * idioma de la persona y diciendo qué hacer. Cualquier otro error cae al
+ * respaldo, que es la frase que puso la pantalla y siempre encaja con lo que
+ * la persona estaba intentando.
+ *
+ * Antes se devolvía `e.message` de cualquier `Error`, y eso enseñaba dos cosas
+ * que no ayudan a nadie: los fallos de red del navegador —«Failed to fetch»,
+ * que es lo que sale cuando se cae el wifi— y las cadenas técnicas que lanza
+ * el propio código, como «API Error». Quien lo leía no podía hacer nada con
+ * eso, y encima tapaba la frase que sí explicaba el caso.
+ *
+ * El error original va a la consola: quien programa lo sigue teniendo, quien
+ * usa la aplicación no.
+ */
 export function mensajeDeError(e: unknown, respaldo: string): string {
   if (e instanceof ApiCallError) return e.body.message ?? `Error ${e.status}`
-  if (e instanceof Error && e.message) return e.message
+  if (e !== undefined && e !== null) console.error(e)
   return respaldo
 }
 
