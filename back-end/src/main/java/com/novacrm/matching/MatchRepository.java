@@ -56,6 +56,28 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
     /** Postulaciones efectivamente enviadas por el estudiante. */
     long countByEstudianteIdAndPostuladoTrue(UUID estudianteId);
 
+    /** Una fila por estudiante que tenga al menos una postulacion enviada. */
+    interface PostuladosPorEstudiante {
+        UUID getEstudianteId();
+        long getTotal();
+    }
+
+    /**
+     * Lo mismo para varios de una vez.
+     *
+     * <p>El tablero lo pedia estudiante por estudiante. Solo aparecen quienes
+     * tienen alguna, asi que quien lo use debe tratar la ausencia como cero:
+     * un {@code group by} no devuelve fila para quien no tiene ninguna.
+     */
+    @Query("""
+            select m.estudiante.id as estudianteId, count(m) as total
+            from Match m
+            where m.postulado = true and m.estudiante.id in :estudianteIds
+            group by m.estudiante.id
+            """)
+    List<PostuladosPorEstudiante> contarPostuladosDeVarios(
+            @Param("estudianteIds") java.util.Collection<UUID> estudianteIds);
+
     /**
      * Empresas distintas alcanzadas por las postulaciones del estudiante. Se
      * cuenta la empresa, no la vacante: varias vacantes de una misma empresa

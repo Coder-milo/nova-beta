@@ -68,8 +68,29 @@ public class TableroService {
         }
 
         List<Estudiante> estudiantes = estudianteRepository.findAllByActivoTrue();
+
+        // El historial y las postulaciones de toda la cohorte, en dos consultas
+        // y no en 216. Antes se pedian dentro de cada tarjeta: 108 viajes a la
+        // base para el historial y otros 108 para el conteo, cada vez que se
+        // abre el tablero y despues de cada movimiento de tarjeta.
+        var ids = estudiantes.stream().map(Estudiante::getId).toList();
+        Map<UUID, List<Seguimiento>> historialPorEstudiante = ids.isEmpty()
+                ? Map.of()
+                : seguimientoRepository.historialDeVarios(ids).stream()
+                        .collect(java.util.stream.Collectors.groupingBy(s -> s.getEstudiante().getId()));
+        Map<UUID, Long> postuladosPorEstudiante = ids.isEmpty()
+                ? Map.of()
+                : matchRepository.contarPostuladosDeVarios(ids).stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                MatchRepository.PostuladosPorEstudiante::getEstudianteId,
+                                MatchRepository.PostuladosPorEstudiante::getTotal));
+
         for (Estudiante estudiante : estudiantes) {
-            var tarjeta = tarjetaDe(estudiante, hoy);
+            var tarjeta = tarjetaDe(estudiante, hoy,
+                    // Sin fila en el agrupado significa cero, no ausencia: un
+                    // `group by` no devuelve nada para quien no tiene ninguna.
+                    historialPorEstudiante.getOrDefault(estudiante.getId(), List.of()),
+                    postuladosPorEstudiante.getOrDefault(estudiante.getId(), 0L));
             porEstado.get(tarjeta.estadoContacto()).add(tarjeta);
         }
 
@@ -95,8 +116,22 @@ public class TableroService {
         return new Tablero(estudiantes.size(), columnas);
     }
 
+    /** Para una tarjeta suelta: pide lo suyo y delega. */
     private TarjetaTablero tarjetaDe(Estudiante estudiante, LocalDate hoy) {
-        var historial = seguimientoRepository.findByEstudianteIdOrderByFechaDesc(estudiante.getId());
+        return tarjetaDe(estudiante, hoy,
+                seguimientoRepository.findByEstudianteIdOrderByFechaDesc(estudiante.getId()),
+                matchRepository.countByEstudianteIdAndPostuladoTrue(estudiante.getId()));
+    }
+
+    /**
+     * La tarjeta, con lo que ya se trajo por su cuenta.
+     *
+     * <p>El historial y el conteo llegan de fuera para que el tablero pueda
+     * traerlos de toda la cohorte en dos consultas. Armar la tarjeta no cambia:
+     * lo unico distinto es quien pide los datos.
+     */
+    private TarjetaTablero tarjetaDe(Estudiante estudiante, LocalDate hoy,
+                                     List<Seguimiento> historial, long postulados) {
         // Con la ficha, no con su identificador: la version por identificador
         // la vuelve a buscar, y aqui ya la tenemos leida.
         var pipeline = pipelineService.calcular(estudiante);
@@ -108,7 +143,7 @@ public class TableroService {
                 pipeline.etapa(),
                 pipeline.porcentajeAvance(),
                 EstadoDeContactoActual.de(historial),
-                (int) matchRepository.countByEstudianteIdAndPostuladoTrue(estudiante.getId()),
+                (int) postulados,
                 EstadoDeContactoActual.accionesRegistradas(historial),
                 EstadoDeContactoActual.fechaUltimoContacto(historial).orElse(null),
                 EstadoDeContactoActual.diasSinContacto(historial, hoy),

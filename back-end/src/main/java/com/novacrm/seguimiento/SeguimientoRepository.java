@@ -4,11 +4,31 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
 public interface SeguimientoRepository extends JpaRepository<Seguimiento, UUID> {
     List<Seguimiento> findByEstudianteIdOrderByFechaDesc(UUID estudianteId);
+
+    /**
+     * El historial de varios estudiantes de una vez.
+     *
+     * <p>El tablero pedia el de cada uno por separado: 108 viajes a la base
+     * para armar una pantalla que se rehace entera al abrirla y despues de
+     * cada movimiento de tarjeta. Con la cohorte completa cabe de sobra en
+     * memoria, y agruparlo por estudiante cuesta menos que ir 108 veces.
+     *
+     * <p>El orden es el mismo que la version de uno —lo mas reciente primero—
+     * porque de ahi sale el estado actual de la tarjeta: quien lo agrupe puede
+     * confiar en que la primera fila de cada persona es la ultima que paso.
+     */
+    @Query("""
+            select s from Seguimiento s
+            where s.estudiante.id in :estudianteIds
+            order by s.fecha desc
+            """)
+    List<Seguimiento> historialDeVarios(@Param("estudianteIds") Collection<UUID> estudianteIds);
 
     /**
      * Indica si al estudiante ya se le hizo el simulacro de entrevista.
