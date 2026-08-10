@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRightIcon as ArrowRight, BuildingsIcon as Buildings, CircleNotchIcon as CircleNotch, CompassIcon as Compass, FileCsvIcon as FileCsv, GearIcon as Gear, PaperPlaneTiltIcon as PaperPlaneTilt, SparkleIcon as Sparkle, TrashIcon as Trash, UsersIcon as Users, XIcon as X } from '@phosphor-icons/react'
 import { usePathname, useRouter } from '@/compat/next-navigation'
 import { usePreferences } from '@/lib/preferences'
+import { ZorroAsistente } from '@/components/ui/zorro-asistente'
 import { cn } from '@/lib/utils'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -152,6 +153,9 @@ export function AdminAssistantChat() {
   )
 
   const [open, setOpen] = useState(false)
+  // El panel sale del lado en el que esté el zorro; si no, se abriría
+  // cruzando la pantalla desde el otro extremo.
+  const [ladoZorro, setLadoZorro] = useState<'izquierda' | 'derecha'>('derecha')
   const [draft, setDraft] = useState('')
   const [typing, setTyping] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -306,20 +310,26 @@ export function AdminAssistantChat() {
   }
 
   return (
-    <div className="fixed right-5 bottom-5 z-50 flex flex-col items-end sm:right-6 sm:bottom-6">
+    <div
+      className={cn(
+        'pointer-events-none fixed bottom-5 z-40 flex flex-col sm:bottom-6',
+        ladoZorro === 'derecha' ? 'right-20 items-end sm:right-24' : 'left-20 items-start sm:left-24',
+      )}
+    >
       {/* Ventana Chat con Animación Gota / macOS Spring Scale */}
       <section
         ref={chatRef}
         aria-label={labels.title}
         className={cn(
-          'absolute bottom-14 right-0 flex h-[min(72dvh,620px)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] origin-bottom-right transform-gpu dark:bg-[#090d16]/95 dark:border-primary/20',
+          'absolute bottom-0 flex h-[min(72dvh,620px)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform-gpu dark:border-primary/20',
+          ladoZorro === 'derecha' ? 'right-0 origin-bottom-right' : 'left-0 origin-bottom-left',
           open
             ? 'pointer-events-auto scale-100 opacity-100 translate-y-0 translate-x-0 blur-none'
-            : 'pointer-events-none scale-0 opacity-0 translate-y-12 translate-x-4 blur-sm',
+            : 'pointer-events-none scale-0 opacity-0 translate-y-12 blur-sm',
         )}
       >
         {/* Header */}
-        <header className="relative overflow-hidden border-b border-primary/15 bg-[linear-gradient(125deg,color-mix(in_srgb,var(--primary)_22%,transparent),transparent_65%)] px-4 py-3.5 dark:bg-[#0f172a]">
+        <header className="relative overflow-hidden border-b border-primary/15 bg-[linear-gradient(125deg,color-mix(in_srgb,var(--primary)_22%,transparent),transparent_65%)] px-4 py-3.5">
           <div className="absolute -right-5 -top-8 size-28 rounded-full bg-primary/10 blur-2xl dark:hidden" />
           <div className="relative flex items-center gap-3">
             <span
@@ -341,7 +351,7 @@ export function AdminAssistantChat() {
               onClick={limpiar}
               title={labels.clear}
               aria-label={labels.clear}
-              className="rounded-xl p-2 text-muted-foreground transition hover:bg-background/70 hover:text-foreground dark:hover:bg-[#090d16]"
+              className="rounded-xl p-2 text-muted-foreground transition hover:bg-background/70 hover:text-foreground"
             >
               <Trash className="size-4" />
             </button>
@@ -349,7 +359,7 @@ export function AdminAssistantChat() {
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close"
-              className="rounded-xl p-2 text-muted-foreground transition hover:bg-background/70 hover:text-foreground dark:hover:bg-[#090d16]"
+              className="rounded-xl p-2 text-muted-foreground transition hover:bg-background/70 hover:text-foreground"
             >
               <X className="size-4" />
             </button>
@@ -357,7 +367,7 @@ export function AdminAssistantChat() {
         </header>
 
         {/* Mensajes */}
-        <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,color-mix(in_srgb,var(--primary)_3%,transparent),transparent_34%)] p-4 dark:bg-[#090d16]">
+        <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,color-mix(in_srgb,var(--primary)_3%,transparent),transparent_34%)] p-4">
           {messages.map((message, indice) => (
             <div
               key={message.id}
@@ -367,7 +377,7 @@ export function AdminAssistantChat() {
                 className={cn(
                   'max-w-[86%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-5 shadow-sm',
                   message.author === 'bot'
-                    ? 'rounded-tl-md border border-border bg-card text-foreground dark:bg-[#0f172a]'
+                    ? 'rounded-tl-md border border-border bg-card text-foreground'
                     : 'rounded-tr-md bg-primary text-primary-foreground',
                 )}
               >
@@ -376,7 +386,7 @@ export function AdminAssistantChat() {
 
               {/* Tarjeta de Plan de Acción con Confirmación */}
               {message.author === 'bot' && message.planAccion && (
-                <div className="mt-2.5 w-full max-w-[92%] rounded-2xl border border-primary/30 bg-card p-3 shadow-md dark:bg-[#0f172a]">
+                <div className="mt-2.5 w-full max-w-[92%] rounded-2xl border border-primary/30 bg-card p-3 shadow-md">
                   <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
                     <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
                       <Sparkle className="size-3.5" />
@@ -456,7 +466,7 @@ export function AdminAssistantChat() {
 
           {typing && (
             <div className="flex">
-              <div className="flex items-center gap-2 rounded-2xl rounded-tl-md border border-border bg-card px-3.5 py-2.5 text-xs text-muted-foreground dark:bg-[#0f172a]">
+              <div className="flex items-center gap-2 rounded-2xl rounded-tl-md border border-border bg-card px-3.5 py-2.5 text-xs text-muted-foreground">
                 <CircleNotch className="size-3.5 animate-spin text-primary" />
                 {labels.typingText}
               </div>
@@ -504,7 +514,7 @@ export function AdminAssistantChat() {
         </div>
 
         {/* Formulario de Entrada */}
-        <div className="border-t border-border bg-card p-3 dark:bg-[#0f172a]">
+        <div className="border-t border-border bg-card p-3">
           <form
             className="flex items-center gap-2"
             onSubmit={(event) => {
@@ -525,7 +535,7 @@ export function AdminAssistantChat() {
               maxLength={500}
               minRows={1}
               maxRows={4}
-              className="max-h-32 min-h-10 min-w-0 flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15 dark:bg-[#090d16]"
+              className="max-h-32 min-h-10 min-w-0 flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
             />
             <button
               type="submit"
@@ -539,32 +549,14 @@ export function AdminAssistantChat() {
         </div>
       </section>
 
-      {/* Botón Flotante / Gota macOS (Compacto & Elegante) */}
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen((val) => !val)}
-        aria-label={open ? 'Close Assistant' : labels.title}
-        title={open ? 'Close Assistant' : labels.title}
-        className={cn(
-          'group relative flex h-11 items-center gap-2.5 rounded-full border border-primary/25 bg-card/90 px-3.5 text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.15)] backdrop-blur-xl transition-all duration-300 hover:scale-105 hover:border-primary/50 hover:shadow-primary/20 active:scale-95 dark:bg-[#090d16]/90',
-          open && 'bg-primary text-primary-foreground border-primary hover:bg-primary',
-        )}
-      >
-        <span className="absolute inset-0 rounded-full bg-primary/20 blur-md transition group-hover:blur-lg" />
-        {open ? (
-          <X className="relative size-5 text-primary-foreground transition-transform duration-300 rotate-0 group-hover:rotate-90" />
-        ) : (
-          <>
-            <span className="relative flex size-6 items-center justify-center rounded-full bg-primary/15 text-primary transition group-hover:scale-110">
-              <Compass className="size-4 text-primary transition-transform duration-300 group-hover:rotate-45" weight="duotone" />
-            </span>
-            <span className="relative text-xs font-semibold tracking-wide text-foreground group-hover:text-primary">
-              {english ? 'Nova AI' : 'Asistente AI'}
-            </span>
-          </>
-        )}
-      </button>
+      {/* El lanzador es el zorro: vive fuera de este contenedor porque se
+          arrastra por toda la ventana y se pega al lado que el usuario elija. */}
+      <ZorroAsistente
+        abierto={open}
+        onToggle={() => setOpen((val) => !val)}
+        etiqueta={open ? (english ? 'Close assistant' : 'Cerrar asistente') : labels.title}
+        onLadoChange={setLadoZorro}
+      />
     </div>
   )
 }

@@ -101,24 +101,37 @@ function asuntoConversacion(asunto: string, respaldo: string): string {
   while (prefijo.test(limpio)) limpio = limpio.replace(prefijo, '').trim()
   return limpio || respaldo
 }
+/**
+ * Botón redondo de la barra superior.
+ *
+ * <p>Reenvía todo lo que le llegue, incluida la ref. Es la parte que faltaba:
+ * varios de estos botones se usan como disparador de un menú
+ * (`<DropdownMenuTrigger render={<IconButton …/>} />`), y el menú les pasa su
+ * `onClick`, su `ref` y sus `aria-*` como props. Al quedarse solo con
+ * `label`, `children`, `badge` y `onClick`, todo lo demás se perdía: sin la ref
+ * el menú no sabe cuál es su ancla, así que ni pulsar fuera ni volver a pulsar
+ * el icono lo cerraban. Pasaba en mensajes, notificaciones e idioma a la vez,
+ * porque el fallo estaba aquí y no en cada menú.
+ */
 function IconButton({
   label,
   children,
   badge,
-  onClick,
-}: {
+  ...props
+}: React.ComponentPropsWithRef<'button'> & {
   label: string
-  children: React.ReactNode
   badge?: number
-  onClick?: () => void
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
       aria-label={label}
       title={label}
-      className="relative flex size-9 items-center justify-center rounded-xl border border-border/50 bg-card/95 text-foreground shadow-sm backdrop-blur-xl transition-all duration-200 hover:border-primary/30 hover:bg-card hover:text-primary hover:scale-105 active:scale-95"
+      {...props}
+      className={cn(
+        'relative flex size-9 items-center justify-center rounded-xl border border-border/50 bg-card/95 text-foreground shadow-sm backdrop-blur-xl transition-all duration-200 hover:border-primary/30 hover:bg-card hover:text-primary hover:scale-105 active:scale-95',
+        props.className,
+      )}
     >
       {children}
       {!!badge && (
@@ -812,7 +825,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                 </IconButton>
               }
             />
-            <DropdownMenuContent align="end" className="w-[min(92vw,24rem)] rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-[0_20px_50px_rgba(0,0,0,0.25)] dark:bg-[#0c1714]">
+            <DropdownMenuContent align="end" className="w-[min(92vw,24rem)] rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-[0_20px_50px_rgba(0,0,0,0.25)]">
               <div className="flex items-center justify-between px-1 pb-2">
                 <span className="text-sm font-bold text-foreground">{t('notifications')}</span>
                 {esEstudiante && studentUnreadNotifications > 0 && (
@@ -926,13 +939,13 @@ export function Header({ onOpenMobile }: HeaderProps) {
                 </IconButton>
               }
             />
-            <DropdownMenuContent align="end" className="w-[min(92vw,22rem)] rounded-2xl border border-border bg-[#242526] p-3 text-foreground shadow-2xl">
+            <DropdownMenuContent align="end" className="w-[min(92vw,22rem)] rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-2xl">
               <div className="flex items-center justify-between px-1 pb-2 border-b border-border/40">
                 <span className="text-sm font-bold text-foreground">Chats</span>
                 <button
                   type="button"
                   onClick={() => router.push('/mis-mensajes')}
-                  className="text-xs font-bold text-[#2d88ff] hover:underline"
+                  className="text-xs font-bold text-primary hover:underline"
                 >
                   Ver todo en Messenger
                 </button>
@@ -946,12 +959,12 @@ export function Header({ onOpenMobile }: HeaderProps) {
                     <DropdownMenuItem
                       key={conv.contactoId}
                       onClick={() => setFloatingChat({ id: conv.contactoId, nombre: conv.nombre, foto: conv.fotoUrl })}
-                      className="flex cursor-pointer items-center gap-3 rounded-xl p-2 transition hover:bg-[#3a3b3c]"
+                      className="flex cursor-pointer items-center gap-3 rounded-xl p-2 transition hover:bg-muted"
                     >
                       {conv.fotoUrl ? (
                         <img src={conv.fotoUrl} alt="" className="size-10 rounded-full object-cover" />
                       ) : (
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#2d88ff]/20 font-bold text-[#2d88ff]">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 font-bold text-primary">
                           {conv.nombre[0]}
                         </div>
                       )}
@@ -969,7 +982,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
               <DropdownMenuSeparator className="my-2 bg-border/40" />
               <DropdownMenuItem
                 onClick={() => router.push('/mis-mensajes')}
-                className="justify-center rounded-xl py-2 text-center text-xs font-bold text-[#2d88ff] focus:bg-[#3a3b3c]"
+                className="justify-center rounded-xl py-2 text-center text-xs font-bold text-primary focus:bg-muted"
               >
                 Ver todo en Messenger
               </DropdownMenuItem>
@@ -1040,24 +1053,24 @@ export function Header({ onOpenMobile }: HeaderProps) {
       </Sheet>
 
       <Sheet open={messageSheetOpen} onOpenChange={setMessageSheetOpen}>
-        <SheetContent side="right" className="h-dvh w-full max-w-none gap-0 border-l border-border bg-popover p-0 dark:bg-[#0c1714] sm:w-[min(94vw,960px)] sm:!max-w-none">
+        <SheetContent side="right" className="h-dvh w-full max-w-none gap-0 border-l border-border bg-popover p-0 sm:w-[min(94vw,960px)] sm:!max-w-none">
           {esEstudiante ? (
             <div className="h-full p-2">
               <MessengerChatHub locale={locale} />
             </div>
           ) : (
             <>
-              <SheetHeader className="shrink-0 border-b border-border/60 bg-[linear-gradient(115deg,color-mix(in_srgb,var(--primary)_17%,transparent),transparent_58%)] pr-14 dark:bg-[#13221d]">
+              <SheetHeader className="shrink-0 border-b border-border/60 bg-[linear-gradient(115deg,color-mix(in_srgb,var(--primary)_17%,transparent),transparent_58%)] pr-14">
                 <SheetTitle>{messageCopy.title}</SheetTitle>
                 <SheetDescription>{messageCopy.subtitle}</SheetDescription>
               </SheetHeader>
               <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(190px,0.68fr)_minmax(0,1.9fr)]">
-                <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 dark:bg-[#101d19] lg:max-h-none lg:border-b-0 lg:border-r">
+                <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 lg:max-h-none lg:border-b-0 lg:border-r">
               {!esEstudiante && (
                 <div className="mb-2 border-b border-border/60 pb-2">
                   <div className="relative">
                     <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input value={adminStudentQuery} onChange={(event) => setAdminStudentQuery(event.target.value)} placeholder={locale === 'es' ? 'Buscar estudiante…' : 'Search student…'} className="h-9 rounded-xl bg-background pl-9 text-xs dark:bg-[#0a1512]" />
+                    <Input value={adminStudentQuery} onChange={(event) => setAdminStudentQuery(event.target.value)} placeholder={locale === 'es' ? 'Buscar estudiante…' : 'Search student…'} className="h-9 rounded-xl bg-background pl-9 text-xs" />
                   </div>
                   {adminStudentQuery.trim().length >= 2 && (
                     <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">
@@ -1077,7 +1090,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                 <div className="mb-2 border-b border-border/60 pb-2">
                   <div className="relative">
                     <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input value={contactQuery} onChange={(event) => setContactQuery(event.target.value)} placeholder={locale === 'es' ? 'Buscar compañeros…' : 'Search classmates…'} className="h-9 rounded-xl bg-background pl-9 text-xs dark:bg-[#0a1512]" />
+                    <Input value={contactQuery} onChange={(event) => setContactQuery(event.target.value)} placeholder={locale === 'es' ? 'Buscar compañeros…' : 'Search classmates…'} className="h-9 rounded-xl bg-background pl-9 text-xs" />
                   </div>
                   {contactQuery.trim().length >= 2 && (
                     <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">
@@ -1136,13 +1149,13 @@ export function Header({ onOpenMobile }: HeaderProps) {
                 </div>
               )}
               {directContact && esEstudiante && (
-                <button type="button" onClick={() => abrirChatDirecto(directContact)} className="mb-1 flex w-full items-center gap-2.5 rounded-xl border border-primary/20 bg-background px-3 py-3 text-left shadow-sm dark:bg-[#13221d]">
+                <button type="button" onClick={() => abrirChatDirecto(directContact)} className="mb-1 flex w-full items-center gap-2.5 rounded-xl border border-primary/20 bg-background px-3 py-3 text-left shadow-sm">
                   {directContact.fotoUrl ? <img src={fotoDe(directContact.id, directContact.fotoUrl)} alt="" className="size-8 rounded-full object-cover" /> : <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{directContact.nombre.slice(0, 2).toUpperCase()}</span>}
                   <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{directContact.nombre}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{directMessages[directMessages.length - 1]?.contenido || (locale === 'es' ? 'Conversación nueva' : 'New conversation')}</span></span>
                 </button>
               )}
               {adminTarget && !esEstudiante && (
-                <button type="button" onClick={() => abrirChatConEstudiante(adminTarget)} className="mb-1 flex w-full items-center gap-2 rounded-xl border border-primary/20 bg-background px-2.5 py-2.5 text-left shadow-sm dark:bg-[#13221d]">
+                <button type="button" onClick={() => abrirChatConEstudiante(adminTarget)} className="mb-1 flex w-full items-center gap-2 rounded-xl border border-primary/20 bg-background px-2.5 py-2.5 text-left shadow-sm">
                   {adminTarget.fotoUrl ? <img src={fotoDe(adminTarget.id, adminTarget.fotoUrl)} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{`${adminTarget.nombre[0] ?? ''}${adminTarget.apellido[0] ?? ''}`.toUpperCase()}</span>}
                   <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{adminTarget.nombre} {adminTarget.apellido}</span><span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{locale === 'es' ? 'Conversación nueva' : 'New conversation'}</span></span>
                 </button>
@@ -1153,7 +1166,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                   alcance. Ahora cada asunto es su propia conversacion, que es
                   lo que el modelo de turnos guarda de verdad. */}
               {hilos.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : hilos.map((hilo) => (
-                <button key={hilo.id} type="button" onClick={() => abrirMensaje(hilo)} className={cn('mb-0.5 w-full rounded-xl border border-transparent px-2.5 py-2 text-left transition-all hover:border-primary/15 hover:bg-background dark:hover:bg-[#13221d]', selectedMessage?.id === hilo.id && 'border-primary/20 bg-background shadow-sm dark:bg-[#13221d]')}>
+                <button key={hilo.id} type="button" onClick={() => abrirMensaje(hilo)} className={cn('mb-0.5 w-full rounded-xl border border-transparent px-2.5 py-2 text-left transition-all hover:border-primary/15 hover:bg-background', selectedMessage?.id === hilo.id && 'border-primary/20 bg-background shadow-sm')}>
                   <div className="flex items-start gap-2">
                     <span className={cn('mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', hilo.estado === 'ABIERTO' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>
                       {(esEstudiante ? 'AC' : hilo.estudianteNombre || 'E').slice(0, 2).toUpperCase()}
@@ -1173,7 +1186,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                 </button>
               ))}
             </div>
-            <div className="flex min-h-0 min-w-0 flex-col bg-muted/[0.12] dark:bg-[#0d1815]">
+            <div className="flex min-h-0 min-w-0 flex-col bg-muted/[0.12]">
               <div className="min-h-0 flex-1 overflow-y-auto p-3.5 sm:p-4">
                 {directContact ? (
                   <div className="mx-auto flex h-full max-w-xl flex-col">
@@ -1186,7 +1199,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                         : directMessages.length === 0 ? <p className="py-10 text-center text-sm text-muted-foreground">{locale === 'es' ? ('Aún no hay mensajes con ' + directContact.nombre + '.') : ('There are no messages with ' + directContact.nombre + ' yet.')}</p>
                           : directMessages.map((mensaje) => (
                             <div key={mensaje.id} className={cn('flex', mensaje.enviadoPorMi ? 'justify-end' : 'justify-start')}>
-                              <div className={cn('w-fit max-w-[68%] break-words rounded-2xl px-3 py-2 text-[13px] leading-5 shadow-sm whitespace-pre-wrap sm:max-w-[64%]', mensaje.enviadoPorMi ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground dark:bg-[#13221d]')}>
+                              <div className={cn('w-fit max-w-[68%] break-words rounded-2xl px-3 py-2 text-[13px] leading-5 shadow-sm whitespace-pre-wrap sm:max-w-[64%]', mensaje.enviadoPorMi ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground')}>
                                 {!mensaje.enviadoPorMi && <p className="mb-1 text-[10px] font-semibold text-muted-foreground">{mensaje.remitenteNombre}</p>}
                                 <p>{mensaje.contenido}</p>
                                 <p className={cn('mt-1 flex items-center gap-1 text-[10px]', mensaje.enviadoPorMi ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
@@ -1218,7 +1231,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                       /* El hilo completo: turnos, citas, adjuntos y reacciones.
                          Sustituye al par pregunta/respuesta, que solo sabia
                          pintar un intercambio por mensaje. */
-                      <div className="h-[30rem] overflow-hidden rounded-2xl border border-border/70 bg-background dark:bg-[#13221d]">
+                      <div className="h-[30rem] overflow-hidden rounded-2xl border border-border/70 bg-background">
                         <HiloConversacion
                           mensajeId={selectedMessage.id}
                           soyEstudiante={esEstudiante}
@@ -1230,7 +1243,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                     ) : <div className="rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-8 text-center text-sm text-muted-foreground">{locale === 'es' ? 'Escribe el primer mensaje para iniciar la conversación.' : 'Write the first message to start the conversation.'}</div>}
                   </div>
                   {!esEstudiante && !selectedMessage && (
-                    <div className="space-y-2 rounded-2xl border border-border/70 bg-background p-3 dark:bg-[#13221d]">
+                    <div className="space-y-2 rounded-2xl border border-border/70 bg-background p-3">
                       <label htmlFor="respuesta-mensaje" className="text-sm font-medium text-foreground">{messageCopy.reply}</label>
                       {replyAttachments.length > 0 && <div className="flex flex-wrap gap-2">{replyAttachments.map((archivo, indice) => (
                         <span key={`${archivo.name}-${archivo.lastModified}-${indice}`} className="inline-flex max-w-full items-center gap-2 rounded-xl border border-border/70 bg-muted/25 px-2.5 py-1.5 text-xs text-foreground"><Paperclip className="size-3.5 shrink-0 text-primary" /><span className="max-w-40 truncate font-medium">{archivo.name}</span><span className="text-muted-foreground">{formatFileSize(archivo.size)}</span><button type="button" onClick={() => quitarAdjuntoRespuesta(indice)} aria-label={`${locale === 'es' ? 'Quitar' : 'Remove'} ${archivo.name}`} className="rounded p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"><X className="size-3.5" /></button></span>
@@ -1248,7 +1261,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                 )}
               </div>
               {esEstudiante && !selectedMessage && (
-                <div className="shrink-0 border-t border-border/60 bg-card px-4 py-3 dark:bg-[#13221d] sm:px-5">
+                <div className="shrink-0 border-t border-border/60 bg-card px-4 py-3 sm:px-5">
                   <div className="mx-auto max-w-xl">
                     {!directContact && studentAttachments.length > 0 && (
                       <div className="mb-2 flex flex-wrap gap-2">

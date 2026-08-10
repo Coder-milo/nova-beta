@@ -352,7 +352,7 @@ export function MessengerChatHub({ locale = 'es' }: Props) {
     try {
       const lista = await gruposApi.miembros(selectedGrupoId)
       setMiembrosGrupo(lista)
-      const contactos = await chatsApi.contactos('a')
+      const contactos = await chatsApi.contactos('')
       setContactosParaGrupo(contactos)
     } catch (e) {
       setAviso({ tipo: 'error', texto: mensajeDeError(e, 'No se pudo cargar miembros.') })
@@ -375,7 +375,7 @@ export function MessengerChatHub({ locale = 'es' }: Props) {
               type="button"
               onClick={() => {
                 setModalCrearGrupo(true)
-                void chatsApi.contactos('a').then(setContactosParaGrupo)
+                void chatsApi.contactos('').then(setContactosParaGrupo)
               }}
               className="flex size-9 items-center justify-center rounded-full bg-muted text-foreground hover:bg-muted/80 transition"
               title="Nuevo grupo"

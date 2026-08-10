@@ -125,8 +125,13 @@ public class ChatDirectoService {
     @Transactional(readOnly = true)
     public List<ChatContactoResponse> contactos(String consulta, Authentication auth) {
         Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        // Sin termino se devuelve la lista de companeros, no una lista vacia.
+        // La pantalla de crear grupo la pedia con la letra "a" para simular un
+        // "traemelos todos", y con el minimo de dos caracteres eso no devolvia
+        // a nadie: no habia forma de elegir con quien montar un grupo. Buscar y
+        // listar son dos usos del mismo endpoint, y el tope de abajo protege
+        // los dos por igual.
         String termino = consulta == null ? "" : consulta.trim().toLowerCase(Locale.ROOT);
-        if (termino.length() < 2) return List.of();
 
         UUID programaId = propio.getPrograma() != null ? propio.getPrograma().getId() : null;
         List<Estudiante> coincidencia;

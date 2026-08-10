@@ -40,7 +40,8 @@ public class ChatDirectoController {
     }
 
     @GetMapping("/contactos")
-    public List<ChatContactoResponse> contactos(@RequestParam String q, Authentication auth) {
+    public List<ChatContactoResponse> contactos(
+            @RequestParam(required = false, defaultValue = "") String q, Authentication auth) {
         return service.contactos(q, auth);
     }
 
