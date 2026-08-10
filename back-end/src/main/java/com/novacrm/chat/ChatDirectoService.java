@@ -1,6 +1,7 @@
 package com.novacrm.chat;
 
 import com.novacrm.auth.OwnershipService;
+import com.novacrm.chat.ChatDirectoMensajeRepository.ResumenConversacion;
 import com.novacrm.chat.dto.ChatContactoResponse;
 import com.novacrm.chat.dto.ChatDirectoMensajeResponse;
 import com.novacrm.estudiante.Estudiante;
@@ -62,26 +63,39 @@ public class ChatDirectoService {
         }
         // Los nombres en una sola consulta y no uno por fila.
         var porId = estudianteRepository.findAllById(
-                        resumenes.stream().map(r -> r.getOtroId()).toList()).stream()
+                        resumenes.stream().map(ResumenConversacion::getOtroId).toList()).stream()
                 .collect(java.util.stream.Collectors.toMap(Estudiante::getId, e -> e));
 
-        return resumenes.stream()
-                .map(r -> porId.get(r.getOtroId()))
-                .filter(java.util.Objects::nonNull)
-                .map(otro -> {
-                    var r = resumenes.stream().filter(x -> x.getOtroId().equals(otro.getId())).findFirst().orElseThrow();
-                    return new com.novacrm.chat.dto.ChatConversacionResponse(
-                            otro.getId(), nombreDe(otro), otro.getFotoUrl(),
-                            recortar(r.getUltimoMensaje()), r.getUltimaFecha(),
-                            r.getMioElUltimo(), sinLeer.getOrDefault(otro.getId(), 0L));
-                })
-                .sorted((a, b) -> b.ultimaFecha().compareTo(a.ultimaFecha()))
-                .toList();
+        UUID miPrograma = programaDe(propio).getId();
+        var lista = new java.util.ArrayList<com.novacrm.chat.dto.ChatConversacionResponse>();
+        for (var r : resumenes) {
+            Estudiante otro = porId.get(r.getOtroId());
+            // Solo lo que se puede abrir. Quien se retiro del programa o se
+            // cambio a otro ya no pasa el control de `enviar` ni el de
+            // `conversacion`, asi que su fila seria una que siempre da error
+            // al pulsarla. Preferible no ofrecerla.
+            if (otro == null || !otro.isActivo()) continue;
+            var programaDelOtro = otro.getPrograma();
+            if (programaDelOtro == null || !programaDelOtro.getId().equals(miPrograma)) continue;
+
+            lista.add(new com.novacrm.chat.dto.ChatConversacionResponse(
+                    otro.getId(), nombreDe(otro), otro.getFotoUrl(),
+                    recortar(r.getUltimoMensaje()), r.getUltimaFecha(),
+                    r.getMioElUltimo(), sinLeer.getOrDefault(otro.getId(), 0L)));
+        }
+        lista.sort((a, b) -> b.ultimaFecha().compareTo(a.ultimaFecha()));
+        return lista;
     }
 
     private static String recortar(String texto) {
         if (texto == null) return "";
-        String limpio = texto.strip().replaceAll("\s+", " ");
+        // `\s+` y no `\s+`: desde Java 15 esto ultimo es un escape valido que
+        // significa un espacio, asi que compilaba y dejaba pasar los saltos de
+        // linea. Decia una cosa y hacia otra.
+        // \\s+ y no \s+: desde Java 15 esto ultimo es un escape valido que
+        // significa un espacio, asi que compilaba y dejaba pasar los saltos de
+        // linea. Decia una cosa y hacia otra, y las dos formas se leen igual.
+        String limpio = texto.strip().replaceAll("\\s+", " ");
         return limpio.length() <= RESUMEN_MAXIMO ? limpio : limpio.substring(0, RESUMEN_MAXIMO) + "…";
     }
 
