@@ -195,6 +195,14 @@ app:
     # Vaciarla habilita el envio real a todos.
     destinatarios-permitidos: ${CORREO_DESTINATARIOS_PERMITIDOS:}
 
+  whatsapp:
+    # Lo mismo para el otro canal, que no lo tenia. Mientras esta lista tenga
+    # numeros, SOLO se escribe a ellos. Aqui pesa mas: el proveedor por defecto
+    # es Meta —el de verdad, no el simulado— y una plantilla enviada ni se
+    # recoge ni se deja de pagar. Se comparan normalizados, asi que da igual
+    # escribirlos con espacios o sin el indicativo.
+    destinatarios-permitidos: ${WHATSAPP_DESTINATARIOS_PERMITIDOS:}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
