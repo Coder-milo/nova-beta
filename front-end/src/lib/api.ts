@@ -1244,6 +1244,7 @@ export const brandingApi = {
 import type {
   ColocacionRequest,
   ColocacionResponse,
+  CanalDeSoporteResponse,
   MensajeWhatsappResponse,
   PipelineEmpleabilidadResponse,
   PostulacionResponse,
@@ -1256,7 +1257,7 @@ import type {
 
 export const whatsappApi = {
   /** El canal del programa del propio usuario. Lo usa el portal del estudiante. */
-  mio: (token?: string) => apiFetch<WhatsappResponse>('/api/v1/whatsapp/mio', { token }),
+  mio: (token?: string) => apiFetch<CanalDeSoporteResponse>('/api/v1/whatsapp/mio', { token }),
 
   consultar: (programaId: string, token?: string) =>
     apiFetch<WhatsappResponse>(`/api/v1/whatsapp/${programaId}`, { token }),

@@ -47,10 +47,18 @@ public class WhatsappConfigService {
         return leer(programaId);
     }
 
-    /** El canal del programa del propio estudiante, sin que tenga que saber su id. */
+    /**
+     * El canal del programa del propio estudiante, sin que tenga que saber su
+     * id y sin la configuracion de la integracion.
+     *
+     * <p>Devuelve {@link CanalDeSoporteResponse} y no la ficha completa: al
+     * portal le hace falta el numero al que escribir, no el identificador de
+     * telefono de Meta ni si hay token guardado.
+     */
     @Transactional(readOnly = true)
-    public WhatsappResponse consultarElMio(Authentication auth) {
-        return leer(ownershipService.programaDelEstudianteAutenticado(auth));
+    public CanalDeSoporteResponse consultarElMio(Authentication auth) {
+        return CanalDeSoporteResponse.de(
+                leer(ownershipService.programaDelEstudianteAutenticado(auth)));
     }
 
     /** La conversación del programa, de más nueva a más vieja. */

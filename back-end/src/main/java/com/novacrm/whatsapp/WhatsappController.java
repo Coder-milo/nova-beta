@@ -35,7 +35,7 @@ public class WhatsappController {
     @GetMapping("/mio")
     @Operation(summary = "Canal de WhatsApp del programa del usuario autenticado")
     @PreAuthorize("isAuthenticated()")
-    public WhatsappResponse mio(Authentication auth) {
+    public CanalDeSoporteResponse mio(Authentication auth) {
         return configService.consultarElMio(auth);
     }
 

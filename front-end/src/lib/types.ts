@@ -1233,6 +1233,19 @@ export interface WhatsappResponse {
   activo: boolean
 }
 
+/**
+ * El canal visto desde el portal del estudiante.
+ *
+ * <p>No lleva `phoneId` ni `tokenConfigurado`: son de la pantalla de
+ * configuración, y el identificador de teléfono de Meta no pinta nada en el
+ * navegador de un participante.
+ */
+export interface CanalDeSoporteResponse {
+  configurado: boolean
+  activo: boolean
+  numeroWhatsapp: string | null
+}
+
 export interface MensajeWhatsappResponse {
   id: string
   tipo: string
