@@ -188,19 +188,43 @@ export default function SeguimientoPage() {
   const [estadoSeleccionado, setEstadoSeleccionado] = useState<EstadoContacto>('SIN_CONTACTO')
   const [guardandoAsignacion, setGuardandoAsignacion] = useState(false)
 
+  const turnoDeLectura = useRef(0)
+
+  /**
+   * Lee el tablero y lo pinta sólo si sigue siendo la lectura más reciente.
+   *
+   * Mover dos tarjetas seguidas lanza dos lecturas, y la que responde última no
+   * es siempre la que se pidió última. Si gana la vieja, la segunda tarjeta se
+   * vuelve sola a su columna anterior aunque el servidor sí la haya movido: la
+   * pantalla acaba contando algo que no es verdad, y el siguiente que abra el
+   * tablero ve otra cosa.
+   */
+  const leerTablero = useCallback(async () => {
+    const turno = ++turnoDeLectura.current
+    const datos = await tableroApi.obtener()
+    if (turno === turnoDeLectura.current) setTablero(datos)
+  }, [])
+
   const cargar = useCallback(async () => {
     setCargando(true); setError(null)
     try {
-      setTablero(await tableroApi.obtener())
+      await leerTablero()
     } catch (e) {
       setError(mensajeDeError(e, T.noSePudoCargar))
     } finally { setCargando(false) }
-  }, [T.noSePudoCargar])
+  }, [leerTablero, T.noSePudoCargar])
 
   useEffect(() => { void cargar() }, [cargar])
 
   const mover = async (estudianteId: string, estado: EstadoContacto, estadoActual?: EstadoContacto) => {
-    if (estadoActual && estado === estadoActual) return
+    // Soltar una tarjeta en la columna donde ya estaba no es un cambio. Quien
+    // arrastra no dice de dónde venía, así que se mira aquí: sin esto, cada vez
+    // que alguien suelta la tarjeta donde la cogió se manda el cambio de estado
+    // al servidor y se recarga el tablero entero para dejarlo igual.
+    const origen = estadoActual ?? tablero?.columnas.find(
+      (col) => col.tarjetas.some((t) => t.estudianteId === estudianteId),
+    )?.estado
+    if (origen && estado === origen) return
     setMoviendo(estudianteId)
 
     // Actualización optimista del estado local para respuesta instantánea sin refresco visual
@@ -227,8 +251,7 @@ export default function SeguimientoPage() {
 
     try {
       await tableroApi.mover(estudianteId, estado)
-      const actualizado = await tableroApi.obtener()
-      setTablero(actualizado)
+      await leerTablero()
     } catch (e) {
       mostrarError(mensajeDeError(e, T.noSePudoMover))
       void cargar()
