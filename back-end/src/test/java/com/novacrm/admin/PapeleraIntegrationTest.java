@@ -156,4 +156,81 @@ class PapeleraIntegrationTest {
         assertThat(em.find(Estudiante.class, antiguoId)).isNull();
         assertThat(em.find(LinkedinConfiguracion.class, antiguoId)).isNull();
     }
+
+    // ── Grupos y reportes del chat ───────────────────────────────────────────
+
+    /**
+     * Misma trampa que BE-02, dos tablas mas tarde.
+     *
+     * <p>Las tablas de grupos y de reportes entraron con FK a estudiante sin
+     * ON DELETE. Cualquiera que hubiera creado un grupo, escrito en uno o
+     * aparecido en un reporte bloqueaba su propio borrado, y como la purga
+     * borra el lote entero con un solo DELETE, esa persona se llevaba por
+     * delante la purga de todas las demas.
+     *
+     * <p>Y no valia el CASCADE de siempre para las cuatro: el grupo tiene que
+     * sobrevivir a quien lo creo —es de sus miembros— y el reporte tiene que
+     * sobrevivir a las dos partes, porque si se fuera con el denunciado, dar de
+     * baja la cuenta denunciada borraria la denuncia.
+     */
+    @Test
+    void purgaEliminaAQuienCreoUnGrupoYAparecioEnUnReporteSinLlevarselosPorDelante() {
+        var programa = crearPrograma();
+        var antiguo = crearEstudianteEnPapelera(programa, Instant.now().minus(Duration.ofDays(40)));
+        var companero = crearEstudiante(programa);
+
+        var grupo = new com.novacrm.chat.ChatGrupo();
+        grupo.setNombre("Grupo de la cohorte");
+        grupo.setCreadoPor(antiguo);
+        em.persist(grupo);
+
+        for (var miembro : new Estudiante[]{antiguo, companero}) {
+            var fila = new com.novacrm.chat.ChatGrupoMiembro();
+            fila.setGrupo(grupo);
+            fila.setEstudiante(miembro);
+            em.persist(fila);
+        }
+
+        var mensaje = new com.novacrm.chat.ChatGrupoMensaje();
+        mensaje.setGrupo(grupo);
+        mensaje.setRemitente(antiguo);
+        mensaje.setContenido("Hola a todos");
+        em.persist(mensaje);
+
+        var reporte = new com.novacrm.chat.ReporteDeChat();
+        reporte.setDenunciante(companero);
+        reporte.setDenunciado(antiguo);
+        reporte.setMotivo("Mensajes ofensivos");
+        reporte.setExtracto("[10:04] Ana: ...");
+        em.persist(reporte);
+        em.flush();
+
+        UUID antiguoId = antiguo.getId();
+        UUID grupoId = grupo.getId();
+        UUID mensajeId = mensaje.getId();
+        UUID reporteId = reporte.getId();
+
+        assertThatCode(() -> adminService.purgarPapelera()).doesNotThrowAnyException();
+        em.clear();
+
+        assertThat(em.find(Estudiante.class, antiguoId)).isNull();
+
+        var grupoRecargado = em.find(com.novacrm.chat.ChatGrupo.class, grupoId);
+        assertThat(grupoRecargado)
+                .as("el grupo es de sus miembros, no de quien pulso crear")
+                .isNotNull();
+        assertThat(grupoRecargado.getCreadoPor()).isNull();
+
+        assertThat(em.find(com.novacrm.chat.ChatGrupoMensaje.class, mensajeId))
+                .as("lo que alguien escribio no sobrevive a su ficha")
+                .isNull();
+
+        var reporteRecargado = em.find(com.novacrm.chat.ReporteDeChat.class, reporteId);
+        assertThat(reporteRecargado)
+                .as("borrar al denunciado no puede borrar la denuncia")
+                .isNotNull();
+        assertThat(reporteRecargado.getDenunciado()).isNull();
+        assertThat(reporteRecargado.getExtracto()).isEqualTo("[10:04] Ana: ...");
+        assertThat(reporteRecargado.getDenunciante()).isNotNull();
+    }
 }

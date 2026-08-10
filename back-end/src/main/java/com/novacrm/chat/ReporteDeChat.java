@@ -18,14 +18,21 @@ import jakarta.persistence.*;
 })
 public class ReporteDeChat extends BaseEntity {
 
-    /** Quién reporta. */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "denunciante_id", nullable = false)
+    /**
+     * Quién reporta. Queda en null si después se borra su ficha.
+     *
+     * <p>Por la misma razón por la que el extracto se copia en vez de apuntar
+     * al mensaje: el reporte tiene que seguir siendo legible cuando ya no está
+     * lo que describe. Si se fuera con el denunciado, dar de baja la cuenta
+     * denunciada borraría la denuncia.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "denunciante_id")
     private Estudiante denunciante;
 
-    /** A quién se reporta. */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "denunciado_id", nullable = false)
+    /** A quién se reporta. Igual que el denunciante: puede quedar en null. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "denunciado_id")
     private Estudiante denunciado;
 
     /** Lo que el estudiante quiera contar. Puede estar vacío. */

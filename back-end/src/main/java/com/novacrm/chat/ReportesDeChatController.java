@@ -80,12 +80,28 @@ public class ReportesDeChatController {
     private static ReporteResponse aRespuesta(ReporteDeChat r) {
         return new ReporteResponse(
                 r.getId(),
-                r.getDenunciante().getId(), nombreDe(r.getDenunciante()),
-                r.getDenunciado().getId(), nombreDe(r.getDenunciado()),
+                idDe(r.getDenunciante()), nombreDe(r.getDenunciante()),
+                idDe(r.getDenunciado()), nombreDe(r.getDenunciado()),
                 r.getMotivo(), r.getExtracto(), r.getEstado(), r.getCreatedAt());
     }
 
+    private static UUID idDe(com.novacrm.estudiante.Estudiante estudiante) {
+        return estudiante == null ? null : estudiante.getId();
+    }
+
+    /**
+     * El nombre de una de las partes, o que ya no está.
+     *
+     * <p>Un reporte sobrevive al borrado de las fichas que nombra —es lo que
+     * queda del caso—, así que aquí puede llegar un null. Se dice, en vez de
+     * dejar la casilla vacía: quien lo lee tiene que poder distinguir «no sé
+     * quién es» de «esta persona ya no está en el programa», porque son dos
+     * situaciones distintas y solo una de las dos se puede seguir atendiendo.
+     */
     private static String nombreDe(com.novacrm.estudiante.Estudiante estudiante) {
+        if (estudiante == null) {
+            return "Ficha eliminada";
+        }
         String nombre = ((estudiante.getNombre() == null ? "" : estudiante.getNombre()) + " "
                 + (estudiante.getApellido() == null ? "" : estudiante.getApellido())).trim();
         return nombre.isBlank() ? "Estudiante CAC" : nombre;

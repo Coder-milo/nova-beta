@@ -20,8 +20,15 @@ public class ChatGrupo extends BaseEntity {
     @Column(name = "foto_url", length = 500)
     private String fotoUrl;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "creado_por", nullable = false)
+    /**
+     * Quién lo creó, si su ficha sigue existiendo.
+     *
+     * <p>Se queda en null cuando se borra a esa persona, en vez de llevarse el
+     * grupo por delante: un grupo es de sus miembros, y que se dé de baja a
+     * quien pulsó «crear» no puede vaciarle la conversación a los demás.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "creado_por")
     private Estudiante creadoPor;
 
     @OneToMany(mappedBy = "grupo", cascade = CascadeType.ALL, orphanRemoval = true)

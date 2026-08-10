@@ -1414,9 +1414,10 @@ export interface PlataformaAsignacionRequest {
  */
 export interface ReporteChatResponse {
   id: string
-  denuncianteId: string
+  /** Null si se borró la ficha: el reporte sobrevive a las personas que nombra. */
+  denuncianteId: string | null
   denunciante: string
-  denunciadoId: string
+  denunciadoId: string | null
   denunciado: string
   motivo: string | null
   extracto: string | null
