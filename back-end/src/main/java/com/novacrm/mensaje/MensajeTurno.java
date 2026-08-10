@@ -26,6 +26,21 @@ public class MensajeTurno extends BaseEntity {
     private MensajeEstudiante mensaje;
 
     /**
+     * Orden de llegada dentro del hilo, puesto por la base al insertar.
+     *
+     * <p>Existe porque {@code createdAt} no basta para ordenar: lo pone el reloj
+     * del sistema y dos intervenciones escritas en el mismo milisegundo salen
+     * con el mismo valor, con lo que la conversación puede leerse al revés.
+     *
+     * <p>No lo escribe la aplicación —de ahí {@code insertable=false}—: si lo
+     * pusiera ella volveríamos a depender del reloj, que es el problema.
+     */
+    @Column(name = "secuencia", insertable = false, updatable = false)
+    private Long secuencia;
+
+    public Long getSecuencia() { return secuencia; }
+
+    /**
      * Correo de quien escribe.
      *
      * <p>No es una referencia a la tabla de usuarios a proposito: el equipo

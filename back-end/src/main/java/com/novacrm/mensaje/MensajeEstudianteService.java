@@ -268,7 +268,7 @@ public class MensajeEstudianteService {
     /** El hilo completo, en orden, con sus adjuntos y reacciones. */
     public List<MensajeTurnoResponse> turnos(UUID mensajeId, Authentication auth) {
         var mensaje = hiloAlQuePuedeAcceder(mensajeId, auth);
-        var listaTurnos = turnoRepository.findByMensajeIdOrderByCreatedAtAsc(mensaje.getId());
+        var listaTurnos = turnoRepository.findByMensajeIdOrderByCreatedAtAscSecuenciaAsc(mensaje.getId());
         // Hilos anteriores a que cada envio se guardara como turno: se
         // reconstruyen para poder leerlos, pero no existen como fila. Van
         // marcados `historico` para que la pantalla no ofrezca reaccionar ni

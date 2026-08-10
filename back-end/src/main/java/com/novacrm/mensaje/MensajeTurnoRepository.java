@@ -18,8 +18,14 @@ public interface MensajeTurnoRepository extends JpaRepository<MensajeTurno, UUID
      * son justo lo que se lee de cada turno al dibujar el hilo, y sin el fetch
      * una conversacion de veinte intervenciones dispara sesenta consultas.
      */
+    /**
+     * <p>Se ordena tambien por {@code secuencia}: {@code createdAt} lo pone el
+     * reloj del sistema y dos intervenciones escritas en el mismo milisegundo
+     * salen con el mismo valor, con lo que la base devolvia el orden que
+     * quisiera y la conversacion podia leerse al reves.
+     */
     @EntityGraph(attributePaths = {"reacciones", "adjuntos", "enRespuestaA"})
-    List<MensajeTurno> findByMensajeIdOrderByCreatedAtAsc(UUID mensajeId);
+    List<MensajeTurno> findByMensajeIdOrderByCreatedAtAscSecuenciaAsc(UUID mensajeId);
 
     /** Cuantas intervenciones tiene cada hilo, para la lista de la bandeja. */
     @Query("SELECT t.mensaje.id, COUNT(t) FROM MensajeTurno t WHERE t.mensaje.id IN :ids GROUP BY t.mensaje.id")
