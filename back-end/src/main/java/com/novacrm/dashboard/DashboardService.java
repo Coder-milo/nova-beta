@@ -31,6 +31,7 @@ public class DashboardService {
     private final com.novacrm.seguimiento.SeguimientoRepository seguimientoRepository;
     private final com.novacrm.vacante.VacanteRepository vacanteRepository;
     private final com.novacrm.scraper.ScrapingEjecucionRepository scrapingEjecucionRepository;
+    private final com.novacrm.chat.ReporteDeChatRepository reporteDeChatRepository;
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
@@ -39,12 +40,14 @@ public class DashboardService {
                             ProgramaRepository programaRepository,
                             com.novacrm.seguimiento.SeguimientoRepository seguimientoRepository,
                             com.novacrm.vacante.VacanteRepository vacanteRepository,
-                            com.novacrm.scraper.ScrapingEjecucionRepository scrapingEjecucionRepository) {
+                            com.novacrm.scraper.ScrapingEjecucionRepository scrapingEjecucionRepository,
+                            com.novacrm.chat.ReporteDeChatRepository reporteDeChatRepository) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
         this.seguimientoRepository = seguimientoRepository;
         this.vacanteRepository = vacanteRepository;
         this.scrapingEjecucionRepository = scrapingEjecucionRepository;
+        this.reporteDeChatRepository = reporteDeChatRepository;
     }
 
     public DashboardSummaryResponse resumen() {
@@ -106,6 +109,21 @@ public class DashboardService {
 
     public List<AlertaResponse> alertas() {
         List<AlertaResponse> alertas = new ArrayList<>();
+
+        // Reportes del chat sin revisar. Va lo primero y en severidad alta
+        // porque es el unico aviso de esta lista que puede ser una persona
+        // pidiendo ayuda. Hasta ahora el reporte se guardaba y nadie se
+        // enteraba salvo que entrara a mirar la bandeja: una salvaguarda que
+        // nadie vigila no es una salvaguarda.
+        long reportesAbiertos = reporteDeChatRepository.countByEstado(
+                com.novacrm.chat.ReporteDeChat.ABIERTO);
+        if (reportesAbiertos > 0) {
+            alertas.add(new AlertaResponse(
+                    "CHAT_REPORTADO", "ALTA",
+                    "Reportes del chat sin revisar",
+                    reportesAbiertos + " estudiante(s) reportaron una conversación y esperan respuesta.",
+                    null, "/reportes-chat"));
+        }
 
         long conDatosFaltantes = estudianteRepository.contarActivosConDatosFaltantes();
         if (conDatosFaltantes > 0) {

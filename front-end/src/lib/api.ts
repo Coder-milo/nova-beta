@@ -713,6 +713,21 @@ export const chatsApi = {
     apiFetch<string[]>('/api/v1/chats/bloqueados', { token }),
 }
 
+import type { ReporteChatResponse } from './types'
+
+/** La bandeja de reportes del chat, para coordinación y administración. */
+export const reportesChatApi = {
+  listar: (estado?: string, token?: string) =>
+    apiFetch<Page<ReporteChatResponse>>(
+      `/api/v1/chats/reportes${estado ? `?estado=${encodeURIComponent(estado)}` : ''}`,
+      { token },
+    ),
+  marcarRevisado: (id: string, token?: string) =>
+    apiFetch<ReporteChatResponse>(`/api/v1/chats/reportes/${id}/revisado`, {
+      method: 'POST', token,
+    }),
+}
+
 export const gruposApi = {
   crear: (data: { nombre: string; descripcion?: string; miembroIds?: string[] }, token?: string) =>
     apiFetch<ChatGrupoResponse>('/api/v1/chats/grupos', {

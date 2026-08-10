@@ -1397,3 +1397,21 @@ export interface PlataformaRequest {
 export interface PlataformaAsignacionRequest {
   plataformaIds: string[]
 }
+
+/**
+ * Un reporte del chat, tal como lo ve el equipo.
+ *
+ * El extracto es la copia que se guardó al reportar, no la conversación en
+ * vivo: sigue estando aunque después se borren los mensajes.
+ */
+export interface ReporteChatResponse {
+  id: string
+  denuncianteId: string
+  denunciante: string
+  denunciadoId: string
+  denunciado: string
+  motivo: string | null
+  extracto: string | null
+  estado: 'ABIERTO' | 'REVISADO'
+  fecha: string
+}

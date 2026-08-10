@@ -42,6 +42,7 @@ const RecuperarContrasenaPage = lazy(
   () => import('@/app/recuperar-contrasena/page'),
 )
 const ReportesPage = lazy(() => import('@/app/reportes/page'))
+const ReportesChatPage = lazy(() => import('@/app/reportes-chat/page'))
 const VacantesPage = lazy(() => import('@/app/vacantes/page'))
 const MiProcesoPage = lazy(() => import('@/app/mi-proceso/page'))
 const MisActividadesPage = lazy(() => import('@/app/mis-actividades/page'))
@@ -72,6 +73,7 @@ const exactRoutes: Record<string, ComponentType> = {
   '/proyectos': ProyectosPage,
   '/recuperar-contrasena': RecuperarContrasenaPage,
   '/reportes': ReportesPage,
+  '/reportes-chat': ReportesChatPage,
   '/seguimiento': SeguimientoPage,
   '/vacantes': VacantesPage,
   // Compatibilidad para enlaces guardados: el perfil ahora vive en Configuración.

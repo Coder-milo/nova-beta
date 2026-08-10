@@ -20,4 +20,7 @@ public interface ReporteDeChatRepository extends JpaRepository<ReporteDeChat, UU
      */
     boolean existsByDenuncianteIdAndDenunciadoIdAndEstado(
             UUID denuncianteId, UUID denunciadoId, String estado);
+
+    /** Cuantos esperan respuesta, para el aviso del panel del equipo. */
+    long countByEstado(String estado);
 }
