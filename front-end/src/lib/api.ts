@@ -744,6 +744,10 @@ export const gruposApi = {
   /** Quién está en el grupo. Solo lo ven sus miembros. */
   miembros: (grupoId: string, token?: string) =>
     apiFetch<ChatGrupoMiembroResponse[]>(`/api/v1/chats/grupos/${grupoId}/miembros`, { token }),
+  agregarMiembros: (grupoId: string, estudianteIds: string[], token?: string) =>
+    apiFetch<void>(`/api/v1/chats/grupos/${grupoId}/miembros`, {
+      method: 'POST', data: estudianteIds, token,
+    }),
   /** Salir del grupo. Si sale el último, el grupo se va con él. */
   salir: (grupoId: string, token?: string) =>
     apiFetch<void>(`/api/v1/chats/grupos/${grupoId}/miembros/yo`, {

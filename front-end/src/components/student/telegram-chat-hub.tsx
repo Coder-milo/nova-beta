@@ -9,6 +9,7 @@ import {
   CircleNotchIcon as CircleNotch,
   DotsThreeVerticalIcon as DotsThreeVertical,
   MagnifyingGlassIcon as MagnifyingGlass,
+  PaperclipIcon as Paperclip,
   PencilSimpleIcon as PencilSimple,
   PlusIcon as Plus,
   ShareFatIcon as ShareFat,
@@ -18,6 +19,8 @@ import {
   UsersThreeIcon as UsersThree,
   XIcon as X,
   PaperPlaneTiltIcon as PaperPlaneTilt,
+  WarningCircleIcon as WarningCircle,
+  SignOutIcon as SignOut,
 } from '@phosphor-icons/react'
 import { chatsApi, gruposApi, mensajesApi, EMOJIS_REACCION, mensajeDeError } from '@/lib/api'
 import type {
@@ -38,6 +41,8 @@ interface Props {
   locale?: 'es' | 'en'
 }
 
+const EMOJIS_RAPIDOS = ['😊', '👍', '❤️', '😂', '🎉', '🔥', '🚀', '👏', '💡', '🙌']
+
 export function TelegramChatHub({ locale = 'es' }: Props) {
   const english = locale === 'en'
 
@@ -48,8 +53,12 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   
   const [selectedContactoId, setSelectedContactoId] = useState<string | null>(null)
   const [selectedContactoNombre, setSelectedContactoNombre] = useState<string>('')
+  const [selectedContactoFoto, setSelectedContactoFoto] = useState<string | null>(null)
+
   const [selectedGrupoId, setSelectedGrupoId] = useState<string | null>(null)
   const [selectedGrupoNombre, setSelectedGrupoNombre] = useState<string>('')
+  const [selectedGrupoFoto, setSelectedGrupoFoto] = useState<string | null>(null)
+
   const [selectedSoporteId, setSelectedSoporteId] = useState<string | null>(null)
 
   const [mensajesDirectos, setMensajesDirectos] = useState<ChatDirectoMensajeResponse[]>([])
@@ -60,86 +69,70 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   const [cargando, setCargando] = useState(false)
   const [cargandoMensajes, setCargandoMensajes] = useState(false)
 
-  // Input de envío
+  // Input de envío y adjuntos
   const [borrador, setBorrador] = useState('')
+  const [archivosAdjuntos, setArchivosAdjuntos] = useState<File[]>([])
   const [enviando, setEnviando] = useState(false)
+  const [mostrarEmojis, setMostrarEmojis] = useState(false)
 
-  // Acciones en mensaje (Editar, Citar, Reenviar)
+  // Acciones en mensaje
   const [editandoMensajeId, setEditandoMensajeId] = useState<string | null>(null)
   const [citandoMensaje, setCitandoMensaje] = useState<{ id: string; texto: string; autor: string } | null>(null)
+  const [bloqueados, setBloqueados] = useState<string[]>([])
 
-  // Modales
+  // Modal: Crear Grupo
   const [modalCrearGrupo, setModalCrearGrupo] = useState(false)
   const [nombreNuevoGrupo, setNombreNuevoGrupo] = useState('')
   const [descNuevoGrupo, setDescNuevoGrupo] = useState('')
   const [miembrosSeleccionados, setMiembrosSeleccionados] = useState<string[]>([])
   const [contactosParaGrupo, setContactosParaGrupo] = useState<ChatContactoResponse[]>([])
+  const [busquedaGrupoInput, setBusquedaGrupoInput] = useState('')
 
+  // Modal: Ver / Añadir Miembros a Grupo existente
+  const [modalMiembros, setModalMiembros] = useState(false)
+  const [miembrosGrupo, setMiembrosGrupo] = useState<ChatGrupoMiembroResponse[]>([])
+  const [cargandoMiembros, setCargandoMiembros] = useState(false)
+  const [mostrarAgregarMiembros, setMostrarAgregarMiembros] = useState(false)
+  const [nuevosMiembrosSeleccionados, setNuevosMiembrosSeleccionados] = useState<string[]>([])
+
+  // Modal: Reenviar
   const [modalReenviar, setModalReenviar] = useState(false)
   const [mensajeAReenviarId, setMensajeAReenviarId] = useState<string | null>(null)
 
-  /**
-   * A quién se está reportando, si a alguien.
-   *
-   * Lleva el grupo cuando el reporte sale de la lista de miembros: es la misma
-   * conversación con el equipo, pero la prueba que se guarda es la del grupo y
-   * no la del chat de dos.
-   */
-  const [reporteDe, setReporteDe] = useState<
-    { estudianteId: string; nombre: string; grupoId?: string } | null
-  >(null)
+  // Modal: Reportar
+  const [modalReportar, setModalReportar] = useState(false)
   const [motivoReporte, setMotivoReporte] = useState('')
   const [reportando, setReportando] = useState(false)
 
-  const [modalSalirGrupo, setModalSalirGrupo] = useState(false)
-  const [saliendo, setSaliendo] = useState(false)
-
-  const [modalMiembros, setModalMiembros] = useState(false)
-  const [miembros, setMiembros] = useState<ChatGrupoMiembroResponse[]>([])
-  const [cargandoMiembros, setCargandoMiembros] = useState(false)
-  /** Si quien mira administra el grupo, decide qué botones tiene sentido ver. */
-  const soyAdminDelGrupo = miembros.some((m) => m.soyYo && m.esAdmin)
-
-  /** A quiénes bloqueó quien mira, para saber qué botón enseñar. */
-  const [bloqueados, setBloqueados] = useState<string[]>([])
-  const contactoBloqueado = !!selectedContactoId && bloqueados.includes(selectedContactoId)
-
-  /**
-   * Lo que sale mal, dicho.
-   *
-   * Antes cada `catch` de esta pantalla iba a `console.error` y nada más: el
-   * mensaje no se enviaba y quien escribía no se enteraba. En un reporte eso
-   * es peor todavía —creer que has pedido ayuda y no haberla pedido—, así que
-   * aquí se ve.
-   */
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
-
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Cargar conversaciones iniciales
   const cargarBandejas = useCallback(async () => {
     setCargando(true)
     try {
-      const [convs, grps, sop, bloqs] = await Promise.all([
+      const [convs, grps, sop, blqs] = await Promise.all([
         chatsApi.conversaciones().catch(() => []),
         gruposApi.misGrupos().catch(() => []),
         mensajesApi.mios().catch(() => []),
-        chatsApi.bloqueados().catch(() => [] as string[]),
+        chatsApi.bloqueados().catch(() => []),
       ])
       setConversaciones(convs)
       setGrupos(grps)
       setSoporteHilos(sop)
-      setBloqueados(bloqs)
+      setBloqueados(blqs)
       if (convs.length && !selectedContactoId && activeTab === 'directos') {
         setSelectedContactoId(convs[0].contactoId)
         setSelectedContactoNombre(convs[0].nombre)
+        setSelectedContactoFoto(convs[0].fotoUrl)
       }
     } catch (e) {
-      console.error(e)
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The inbox could not be loaded.' : 'No se pudo cargar la bandeja.') })
     } finally {
       setCargando(false)
     }
-  }, [activeTab, selectedContactoId])
+  }, [activeTab, selectedContactoId, english])
 
   useEffect(() => {
     void cargarBandejas()
@@ -175,7 +168,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
     return () => { active = false }
   }, [selectedGrupoId, activeTab])
 
-  // Búsqueda dinámica de contactos
+  // Búsqueda dinámica de contactos en el sidebar
   useEffect(() => {
     if (searchQuery.trim().length < 2) {
       setBusquedaResultados([])
@@ -190,37 +183,48 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
     return () => { active = false }
   }, [searchQuery])
 
+  // Cargar contactos para modal de grupo
+  const cargarContactosGrupo = useCallback(async (query: string = '') => {
+    try {
+      const res = await chatsApi.contactos(query.trim() || 'a')
+      setContactosParaGrupo(res)
+    } catch (e) {
+      // Sin esto, la lista de a quién invitar sale vacía y parece que no hay
+      // nadie en el proyecto, que es una respuesta creíble y falsa.
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The contact list could not be loaded.' : 'No se pudo cargar la lista de compañeros.') })
+    }
+  }, [english])
+
   // Auto-scroll al fondo
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensajesDirectos.length, mensajesGrupo.length])
 
-  // Enviar mensaje directo o grupal
+  // Enviar mensaje
   const handleEnviar = async () => {
     const texto = borrador.trim()
-    if (!texto || enviando) return
+    if ((!texto && archivosAdjuntos.length === 0) || enviando) return
     setEnviando(true)
 
     try {
       if (editandoMensajeId) {
-        // Editar mensaje directo
         const actualizado = await chatsApi.editar(editandoMensajeId, texto)
         setMensajesDirectos((prev) => prev.map((m) => (m.id === editandoMensajeId ? actualizado : m)))
         setEditandoMensajeId(null)
       } else if (activeTab === 'directos' && selectedContactoId) {
-        // Nuevo mensaje directo
         const nuevo = await chatsApi.enviar(selectedContactoId, texto)
         setMensajesDirectos((prev) => [...prev, nuevo])
       } else if (activeTab === 'grupos' && selectedGrupoId) {
-        // Nuevo mensaje grupal
         const nuevo = await gruposApi.enviar(selectedGrupoId, texto, citandoMensaje?.id)
         setMensajesGrupo((prev) => [...prev, nuevo])
       }
       setBorrador('')
+      setArchivosAdjuntos([])
       setCitandoMensaje(null)
+      setMostrarEmojis(false)
       void cargarBandejas()
     } catch (e) {
-      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The message could not be sent.' : 'No se pudo enviar el mensaje.') })
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'Failed to send message.' : 'No se pudo enviar el mensaje.') })
     } finally {
       setEnviando(false)
     }
@@ -232,116 +236,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
       await chatsApi.borrar(id)
       setMensajesDirectos((prev) => prev.filter((m) => m.id !== id))
     } catch (e) {
-      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The message could not be deleted.' : 'No se pudo borrar el mensaje.') })
-    }
-  }
-
-  /**
-   * Reporta al compañero de la conversación abierta.
-   *
-   * El motivo es opcional a propósito: obligar a explicarse por escrito, justo
-   * cuando alguien acaba de recibir algo desagradable, hace que no se reporte.
-   */
-  /**
-   * Bloquear o desbloquear al contacto abierto.
-   *
-   * El bloqueo corta en las dos direcciones: mientras exista, ninguno de los
-   * dos puede escribir al otro. Lo ya escrito sigue ahí, para poder leerlo y
-   * para poder reportarlo.
-   */
-  const handleBloqueo = async () => {
-    if (!selectedContactoId) return
-    const idContacto = selectedContactoId
-    const bloqueadoAhora = bloqueados.includes(idContacto)
-    try {
-      if (bloqueadoAhora) {
-        await chatsApi.desbloquear(idContacto)
-        setBloqueados((prev) => prev.filter((id) => id !== idContacto))
-        setAviso({ tipo: 'ok', texto: english ? 'Unblocked.' : 'Desbloqueado.' })
-      } else {
-        await chatsApi.bloquear(idContacto)
-        setBloqueados((prev) => (prev.includes(idContacto) ? prev : [...prev, idContacto]))
-        setAviso({
-          tipo: 'ok',
-          texto: english
-            ? 'Blocked. Neither of you can write to the other until you undo it.'
-            : 'Bloqueado. Ninguno de los dos puede escribirle al otro hasta que lo deshagas.',
-        })
-      }
-    } catch (e) {
-      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The block could not be changed.' : 'No se pudo cambiar el bloqueo.') })
-    }
-  }
-
-  /** Abre la lista de miembros del grupo y la pide al servidor. */
-  const abrirMiembros = async () => {
-    if (!selectedGrupoId) return
-    setModalMiembros(true)
-    setCargandoMiembros(true)
-    try {
-      setMiembros(await gruposApi.miembros(selectedGrupoId))
-    } catch (e) {
-      setModalMiembros(false)
-      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The members could not be loaded.' : 'No se pudo cargar la lista de miembros.') })
-    } finally {
-      setCargandoMiembros(false)
-    }
-  }
-
-  /** Sacar a alguien del grupo. El servidor exige ser administrador. */
-  const handleExpulsar = async (estudianteId: string, nombre: string) => {
-    if (!selectedGrupoId) return
-    try {
-      await gruposApi.expulsar(selectedGrupoId, estudianteId)
-      setMiembros((prev) => prev.filter((m) => m.estudianteId !== estudianteId))
-      void cargarBandejas()
-      setAviso({ tipo: 'ok', texto: english ? `${nombre} is no longer in the group.` : `${nombre} ya no está en el grupo.` })
-    } catch (e) {
-      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'That person could not be removed.' : 'No se pudo sacar a esa persona del grupo.') })
-    }
-  }
-
-  /** Salir del grupo abierto y volver a la lista. */
-  const handleSalirGrupo = async () => {
-    if (!selectedGrupoId) return
-    setSaliendo(true)
-    try {
-      await gruposApi.salir(selectedGrupoId)
-      setModalSalirGrupo(false)
-      setSelectedGrupoId(null)
-      setSelectedGrupoNombre('')
-      setMensajesGrupo([])
-      void cargarBandejas()
-      setAviso({ tipo: 'ok', texto: english ? 'You left the group.' : 'Saliste del grupo.' })
-    } catch (e) {
-      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'You could not leave the group.' : 'No se pudo salir del grupo.') })
-    } finally {
-      setSaliendo(false)
-    }
-  }
-
-  const handleReportar = async () => {
-    if (!reporteDe) return
-    setReportando(true)
-    try {
-      const motivo = motivoReporte.trim()
-      if (reporteDe.grupoId) {
-        await gruposApi.reportarMiembro(reporteDe.grupoId, reporteDe.estudianteId, motivo)
-      } else {
-        await chatsApi.reportar(reporteDe.estudianteId, motivo)
-      }
-      setReporteDe(null)
-      setMotivoReporte('')
-      setAviso({
-        tipo: 'ok',
-        texto: english
-          ? 'Reported. The support team will review this conversation.'
-          : 'Reportado. El equipo de acompañamiento va a revisar esta conversación.',
-      })
-    } catch (e) {
-      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The report could not be sent.' : 'No se pudo enviar el reporte.') })
-    } finally {
-      setReportando(false)
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'Failed to delete message.' : 'No se pudo borrar el mensaje.') })
     }
   }
 
@@ -352,9 +247,46 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
       await chatsApi.reenviar(mensajeAReenviarId, destinoId)
       setModalReenviar(false)
       setMensajeAReenviarId(null)
+      setAviso({ tipo: 'ok', texto: english ? 'Message forwarded.' : 'Mensaje reenviado correctamente.' })
       void cargarBandejas()
     } catch (e) {
-      console.error(e)
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'Failed to forward message.' : 'No se pudo reenviar el mensaje.') })
+    }
+  }
+
+  // Reportar estudiante
+  const handleEnviarReporte = async () => {
+    if (!selectedContactoId) return
+    setReportando(true)
+    try {
+      await chatsApi.reportar(selectedContactoId, motivoReporte.trim())
+      setModalReportar(false)
+      setMotivoReporte('')
+      setAviso({ tipo: 'ok', texto: english ? 'Report sent to administrators.' : 'Reporte enviado a administración.' })
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'Failed to submit report.' : 'No se pudo enviar el reporte.') })
+    } finally {
+      setReportando(false)
+    }
+  }
+
+  // Bloquear / Desbloquear
+  const handleBloqueo = async () => {
+    if (!selectedContactoId) return
+    const idContacto = selectedContactoId
+    const bloqueadoAhora = bloqueados.includes(idContacto)
+    try {
+      if (bloqueadoAhora) {
+        await chatsApi.desbloquear(idContacto)
+        setBloqueados((prev) => prev.filter((id) => id !== idContacto))
+        setAviso({ tipo: 'ok', texto: english ? 'Unblocked.' : 'Contacto desbloqueado.' })
+      } else {
+        await chatsApi.bloquear(idContacto)
+        setBloqueados((prev) => [...prev, idContacto])
+        setAviso({ tipo: 'ok', texto: english ? 'Blocked.' : 'Contacto bloqueado.' })
+      }
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'Failed to change block status.' : 'No se pudo cambiar el estado de bloqueo.') })
     }
   }
 
@@ -374,19 +306,69 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
       void cargarBandejas()
       setSelectedGrupoId(nuevo.id)
       setSelectedGrupoNombre(nuevo.nombre)
+      setSelectedGrupoFoto(nuevo.fotoUrl)
       setActiveTab('grupos')
     } catch (e) {
-      console.error(e)
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'Failed to create group.' : 'No se pudo crear el grupo.') })
+    }
+  }
+
+  // Abrir modal ver/añadir miembros de grupo
+  const abrirMiembros = async () => {
+    if (!selectedGrupoId) return
+    setModalMiembros(true)
+    setCargandoMiembros(true)
+    setMostrarAgregarMiembros(false)
+    try {
+      const lista = await gruposApi.miembros(selectedGrupoId)
+      setMiembrosGrupo(lista)
+      await cargarContactosGrupo()
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'Failed to load members.' : 'No se pudo cargar la lista de miembros.') })
+    } finally {
+      setCargandoMiembros(false)
+    }
+  }
+
+  // Añadir miembros a grupo existente
+  const handleAgregarNuevosMiembros = async () => {
+    if (!selectedGrupoId || nuevosMiembrosSeleccionados.length === 0) return
+    try {
+      await gruposApi.agregarMiembros(selectedGrupoId, nuevosMiembrosSeleccionados)
+      setNuevosMiembrosSeleccionados([])
+      setMostrarAgregarMiembros(false)
+      const lista = await gruposApi.miembros(selectedGrupoId)
+      setMiembrosGrupo(lista)
+      setAviso({ tipo: 'ok', texto: english ? 'Members added.' : 'Miembros añadidos con éxito.' })
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'Failed to add members.' : 'No se pudo añadir los miembros.') })
+    }
+  }
+
+  // Salir de grupo
+  const handleSalirGrupo = async () => {
+    if (!selectedGrupoId) return
+    try {
+      await gruposApi.salir(selectedGrupoId)
+      setModalMiembros(false)
+      setSelectedGrupoId(null)
+      setSelectedGrupoNombre('')
+      void cargarBandejas()
+      setAviso({ tipo: 'ok', texto: english ? 'You left the group.' : 'Has salido del grupo.' })
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'Failed to leave group.' : 'No se pudo salir del grupo.') })
     }
   }
 
   const abrirModalCrearGrupo = () => {
     setModalCrearGrupo(true)
-    void chatsApi.contactos('a').then(setContactosParaGrupo).catch(() => undefined)
+    void cargarContactosGrupo()
   }
 
+  const contactoBloqueado = selectedContactoId ? bloqueados.includes(selectedContactoId) : false
+
   return (
-    <div className="flex h-[calc(100vh-10rem)] min-h-[38rem] overflow-hidden rounded-2xl border border-border bg-card shadow-lg dark:bg-[#090d16]">
+    <div className="flex h-[calc(100vh-8rem)] min-h-[38rem] overflow-hidden rounded-2xl border border-border bg-card shadow-lg dark:bg-[#090d16]">
       {/* ── BARRA LATERAL IZQUIERDA ────────────────────────────────────────────── */}
       <aside className="flex w-80 flex-col border-r border-border bg-muted/20 dark:bg-[#0f172a]">
         {/* Pestañas Telegram */}
@@ -437,7 +419,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
           </div>
         </div>
 
-        {/* Resultados de búsqueda */}
+        {/* Resultados de búsqueda en vivo */}
         {searchQuery.trim().length >= 2 && (
           <div className="border-b border-border bg-background p-2">
             <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -450,21 +432,26 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                 onClick={() => {
                   setSelectedContactoId(c.id)
                   setSelectedContactoNombre(c.nombre)
+                  setSelectedContactoFoto(c.fotoUrl)
                   setSearchQuery('')
                   setActiveTab('directos')
                 }}
                 className="flex w-full items-center gap-2.5 rounded-xl p-2 text-left hover:bg-muted"
               >
-                <div className="flex size-8 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-                  {c.nombre[0]}
-                </div>
+                {c.fotoUrl ? (
+                  <img src={c.fotoUrl} alt="" className="size-8 rounded-full object-cover" />
+                ) : (
+                  <div className="flex size-8 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                    {c.nombre[0]}
+                  </div>
+                )}
                 <span className="truncate text-xs font-semibold text-foreground">{c.nombre}</span>
               </button>
             ))}
           </div>
         )}
 
-        {/* Botón "+ Crear Grupo" en la pestaña de grupos */}
+        {/* Botón "+ Crear Nuevo Grupo" */}
         {activeTab === 'grupos' && (
           <div className="px-3 pb-2">
             <button
@@ -488,15 +475,20 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                 onClick={() => {
                   setSelectedContactoId(conv.contactoId)
                   setSelectedContactoNombre(conv.nombre)
+                  setSelectedContactoFoto(conv.fotoUrl)
                 }}
                 className={cn(
                   'flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition',
                   selectedContactoId === conv.contactoId ? 'bg-primary/15 font-medium text-primary' : 'hover:bg-muted/60',
                 )}
               >
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/20 font-bold text-primary">
-                  {conv.nombre[0]}
-                </div>
+                {conv.fotoUrl ? (
+                  <img src={conv.fotoUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/20 font-bold text-primary">
+                    {conv.nombre[0]}
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
                     <p className="truncate text-xs font-bold text-foreground">{conv.nombre}</p>
@@ -519,15 +511,20 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                 onClick={() => {
                   setSelectedGrupoId(g.id)
                   setSelectedGrupoNombre(g.nombre)
+                  setSelectedGrupoFoto(g.fotoUrl)
                 }}
                 className={cn(
                   'flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition',
                   selectedGrupoId === g.id ? 'bg-primary/15 font-medium text-primary' : 'hover:bg-muted/60',
                 )}
               >
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 font-bold text-emerald-600 dark:text-emerald-400">
-                  <UsersThree className="size-5" />
-                </div>
+                {g.fotoUrl ? (
+                  <img src={g.fotoUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 font-bold text-emerald-600 dark:text-emerald-400">
+                    <UsersThree className="size-5" />
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-bold text-foreground">{g.nombre}</p>
                   <p className="text-[11px] text-muted-foreground">{g.totalMiembros} {english ? 'members' : 'miembros'}</p>
@@ -560,12 +557,18 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
 
       {/* ── ÁREA PRINCIPAL DE CONVERSACIÓN ────────────────────────────────────── */}
       <main className="flex flex-1 flex-col overflow-hidden bg-background">
-        {/* Cabecera limpia sin duplicación de nombres */}
-        <header className="flex items-center justify-between border-b border-border bg-card px-5 py-3.5 shadow-sm dark:bg-[#0f172a]">
+        {/* Cabecera limpia con pr-16 para NUNCA chocar con el botón X de cerrar */}
+        <header className="flex items-center justify-between border-b border-border bg-card px-5 py-3.5 pr-16 shadow-sm dark:bg-[#0f172a]">
           <div className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-full bg-primary/20 font-bold text-primary">
-              {activeTab === 'directos' ? (selectedContactoNombre[0] || 'C') : activeTab === 'grupos' ? '👥' : '🎧'}
-            </div>
+            {activeTab === 'directos' && selectedContactoFoto ? (
+              <img src={selectedContactoFoto} alt="" className="size-9 rounded-full object-cover" />
+            ) : activeTab === 'grupos' && selectedGrupoFoto ? (
+              <img src={selectedGrupoFoto} alt="" className="size-9 rounded-full object-cover" />
+            ) : (
+              <div className="flex size-9 items-center justify-center rounded-full bg-primary/20 font-bold text-primary">
+                {activeTab === 'directos' ? (selectedContactoNombre[0] || 'C') : activeTab === 'grupos' ? '👥' : '🎧'}
+              </div>
+            )}
             <div>
               <h3 className="text-sm font-bold text-foreground">
                 {activeTab === 'directos'
@@ -580,81 +583,56 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
             </div>
           </div>
 
-          {/* Reportar. Solo con una conversación de dos abierta: en el canal de
-              soporte se está hablando ya con el equipo, y un grupo necesita
-              decir a quién se reporta, que no es lo mismo. */}
-          {activeTab === 'directos' && selectedContactoId && (
-            <button
-              type="button"
-              onClick={() => void handleBloqueo()}
-              className={cn(
-                'ml-auto mr-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors',
-                contactoBloqueado
-                  ? 'border-destructive/40 text-destructive'
-                  : 'border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive',
-              )}
-              title={contactoBloqueado
-                ? (english ? 'Unblock this person' : 'Desbloquear a esta persona')
-                : (english ? 'Block this person' : 'Bloquear a esta persona')}
-            >
-              {contactoBloqueado
-                ? (english ? 'Unblock' : 'Desbloquear')
-                : (english ? 'Block' : 'Bloquear')}
-            </button>
-          )}
+          {/* Acciones de la cabecera (Bloquear, Reportar, Ver Miembros) */}
+          <div className="flex items-center gap-2">
+            {activeTab === 'directos' && selectedContactoId && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void handleBloqueo()}
+                  className={cn(
+                    'rounded-xl border px-3 py-1.5 text-xs font-semibold transition',
+                    contactoBloqueado
+                      ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                      : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  {contactoBloqueado ? (english ? 'Unblock' : 'Desbloquear') : (english ? 'Block' : 'Bloquear')}
+                </button>
 
-          {activeTab === 'directos' && selectedContactoId && (
-            <button
-              type="button"
-              onClick={() => setReporteDe({ estudianteId: selectedContactoId, nombre: selectedContactoNombre })}
-              className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
-              title={english ? 'Report this conversation' : 'Reportar esta conversación'}
-            >
-              {english ? 'Report' : 'Reportar'}
-            </button>
-          )}
+                <button
+                  type="button"
+                  onClick={() => setModalReportar(true)}
+                  className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                >
+                  {english ? 'Report' : 'Reportar'}
+                </button>
+              </>
+            )}
 
-          {activeTab === 'grupos' && selectedGrupoId && (
-            <button
-              type="button"
-              onClick={() => void abrirMiembros()}
-              className="ml-auto mr-2 rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-              title={english ? 'See who is in the group' : 'Ver quién está en el grupo'}
-            >
-              {english ? 'Members' : 'Miembros'}
-            </button>
-          )}
-
-          {/* A un grupo se entra porque otro te mete; sin esto no habia salida. */}
-          {activeTab === 'grupos' && selectedGrupoId && (
-            <button
-              type="button"
-              onClick={() => setModalSalirGrupo(true)}
-              className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
-              title={english ? 'Leave this group' : 'Salir de este grupo'}
-            >
-              {english ? 'Leave' : 'Salir'}
-            </button>
-          )}
+            {activeTab === 'grupos' && selectedGrupoId && (
+              <button
+                type="button"
+                onClick={() => void abrirMiembros()}
+                className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted"
+              >
+                <UsersThree className="size-4 text-primary" />
+                <span>{english ? 'Members' : 'Miembros'}</span>
+              </button>
+            )}
+          </div>
         </header>
 
+        {/* Notificaciones flotantes */}
         {aviso && (
           <div
-            role="status"
             className={cn(
-              'flex items-start justify-between gap-3 border-b px-5 py-2.5 text-xs',
-              aviso.tipo === 'ok'
-                ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                : 'border-destructive/25 bg-destructive/10 text-destructive',
+              'flex items-center justify-between px-4 py-2 text-xs font-semibold',
+              aviso.tipo === 'ok' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-destructive/15 text-destructive',
             )}
           >
             <span>{aviso.texto}</span>
-            <button
-              type="button"
-              onClick={() => setAviso(null)}
-              className="shrink-0 opacity-70 hover:opacity-100"
-              aria-label={english ? 'Dismiss' : 'Cerrar aviso'}
-            >
+            <button type="button" onClick={() => setAviso(null)} className="ml-2 hover:opacity-75">
               <X className="size-3.5" />
             </button>
           </div>
@@ -814,7 +792,44 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
           </div>
         )}
 
-        {/* Input Bar Estilo Telegram */}
+        {/* Archivos seleccionados para adjuntar */}
+        {archivosAdjuntos.length > 0 && (
+          <div className="flex flex-wrap gap-2 border-t border-border bg-muted/20 px-4 py-2">
+            {archivosAdjuntos.map((file, idx) => (
+              <div key={idx} className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs">
+                <Paperclip className="size-3.5 text-primary" />
+                <span className="max-w-40 truncate">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setArchivosAdjuntos((prev) => prev.filter((_, i) => i !== idx))}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Selector de Emojis */}
+        {mostrarEmojis && (
+          <div className="flex flex-wrap gap-1.5 border-t border-border bg-card p-2 dark:bg-[#0f172a]">
+            {EMOJIS_RAPIDOS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => {
+                  setBorrador((prev) => prev + emoji)
+                }}
+                className="rounded-lg p-1.5 text-base transition hover:bg-muted"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Input Bar Estilo Telegram con Adjuntos y Emojis */}
         {activeTab !== 'soporte' && (
           <footer className="border-t border-border bg-card p-3 dark:bg-[#0f172a]">
             <form
@@ -824,20 +839,50 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
               }}
               className="flex items-center gap-2"
             >
+              {/* Botón Emojis */}
+              <button
+                type="button"
+                onClick={() => setMostrarEmojis((prev) => !prev)}
+                className="flex size-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                title="Emojis"
+              >
+                <Smiley className="size-5" />
+              </button>
+
+              {/* Botón Adjuntar Archivos */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => setArchivosAdjuntos((prev) => [...prev, ...Array.from(e.target.files ?? [])])}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex size-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                title="Adjuntar archivo"
+              >
+                <Paperclip className="size-5" />
+              </button>
+
               <input
                 type="text"
                 value={borrador}
                 onChange={(e) => setBorrador(e.target.value)}
+                disabled={contactoBloqueado}
                 placeholder={
-                  editandoMensajeId
+                  contactoBloqueado
+                    ? (english ? 'Contact blocked.' : 'Contacto bloqueado.')
+                    : editandoMensajeId
                     ? (english ? 'Edit message...' : 'Editar mensaje...')
                     : (english ? 'Write a message...' : 'Escribe un mensaje...')
                 }
-                className="flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
               />
               <button
                 type="submit"
-                disabled={!borrador.trim() || enviando}
+                disabled={(!borrador.trim() && archivosAdjuntos.length === 0) || enviando || contactoBloqueado}
                 className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow transition hover:brightness-110 disabled:opacity-50"
               >
                 <PaperPlaneTilt className="size-4" />
@@ -883,28 +928,54 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
 
               <div>
                 <label className="text-xs font-semibold text-foreground">{english ? 'Add Members' : 'Añadir Miembros'}</label>
-                <div className="mt-1 max-h-36 overflow-y-auto space-y-1 rounded-xl border border-border bg-background p-2">
-                  {contactosParaGrupo.map((c) => {
-                    const selected = miembrosSeleccionados.includes(c.id)
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => {
-                          setMiembrosSeleccionados((prev) =>
-                            selected ? prev.filter((id) => id !== c.id) : [...prev, c.id],
-                          )
-                        }}
-                        className={cn(
-                          'flex w-full items-center justify-between rounded-lg p-1.5 text-xs transition',
-                          selected ? 'bg-primary/15 text-primary font-semibold' : 'hover:bg-muted',
-                        )}
-                      >
-                        <span>{c.nombre}</span>
-                        {selected && <Check className="size-3.5 text-primary" />}
-                      </button>
-                    )
-                  })}
+                <div className="relative mt-1 mb-2">
+                  <MagnifyingGlass className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={busquedaGrupoInput}
+                    onChange={(e) => {
+                      setBusquedaGrupoInput(e.target.value)
+                      void cargarContactosGrupo(e.target.value)
+                    }}
+                    placeholder="Buscar compañero..."
+                    className="w-full rounded-lg border border-border bg-background py-1.5 pl-8 pr-2.5 text-xs text-foreground focus:outline-none"
+                  />
+                </div>
+                <div className="max-h-40 overflow-y-auto space-y-1 rounded-xl border border-border bg-background p-2">
+                  {contactosParaGrupo.length === 0 ? (
+                    <p className="p-2 text-center text-xs text-muted-foreground">{english ? 'No classmates found.' : 'No se encontraron compañeros.'}</p>
+                  ) : (
+                    contactosParaGrupo.map((c) => {
+                      const selected = miembrosSeleccionados.includes(c.id)
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setMiembrosSeleccionados((prev) =>
+                              selected ? prev.filter((id) => id !== c.id) : [...prev, c.id],
+                            )
+                          }}
+                          className={cn(
+                            'flex w-full items-center justify-between rounded-lg p-2 text-xs transition',
+                            selected ? 'bg-primary/15 text-primary font-semibold' : 'hover:bg-muted',
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            {c.fotoUrl ? (
+                              <img src={c.fotoUrl} alt="" className="size-6 rounded-full object-cover" />
+                            ) : (
+                              <div className="flex size-6 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
+                                {c.nombre[0]}
+                              </div>
+                            )}
+                            <span>{c.nombre}</span>
+                          </div>
+                          {selected && <Check className="size-4 text-primary" />}
+                        </button>
+                      )
+                    })
+                  )}
                 </div>
               </div>
             </div>
@@ -921,6 +992,177 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
               <button
                 type="button"
                 onClick={() => setModalCrearGrupo(false)}
+                className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
+              >
+                {english ? 'Cancel' : 'Cancelar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: VER / AÑADIR MIEMBROS DE GRUPO ────────────────────────────── */}
+      {modalMiembros && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:bg-[#0f172a]">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-sm font-bold text-foreground">
+                {english ? 'Group Members' : 'Miembros del Grupo'} ({miembrosGrupo.length})
+              </h3>
+              <button type="button" onClick={() => setModalMiembros(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {cargandoMiembros ? (
+              <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+                <CircleNotch className="mr-2 size-4 animate-spin text-primary" />
+                {english ? 'Loading members...' : 'Cargando miembros...'}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Lista de Miembros Actuales */}
+                <div className="max-h-48 overflow-y-auto space-y-1.5 rounded-xl border border-border bg-background p-2">
+                  {miembrosGrupo.map((m) => (
+                    <div key={m.estudianteId} className="flex items-center justify-between rounded-lg p-2 text-xs">
+                      <div className="flex items-center gap-2.5">
+                        {m.fotoUrl ? (
+                          <img src={m.fotoUrl} alt="" className="size-7 rounded-full object-cover" />
+                        ) : (
+                          <div className="flex size-7 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
+                            {m.nombre[0]}
+                          </div>
+                        )}
+                        <span className="font-semibold text-foreground">{m.nombre}</span>
+                      </div>
+                      {m.esAdmin && (
+                        <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
+                          Admin
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Sección para añadir nuevos miembros */}
+                {!mostrarAgregarMiembros ? (
+                  <button
+                    type="button"
+                    onClick={() => setMostrarAgregarMiembros(true)}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary/10 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20"
+                  >
+                    <UserPlus className="size-4" />
+                    <span>{english ? 'Add More Members' : 'Añadir Más Miembros'}</span>
+                  </button>
+                ) : (
+                  <div className="space-y-2 border-t border-border pt-3">
+                    <p className="text-xs font-semibold text-foreground">{english ? 'Select classmates to add:' : 'Selecciona compañeros para añadir:'}</p>
+                    <div className="max-h-36 overflow-y-auto space-y-1 rounded-xl border border-border bg-background p-2">
+                      {contactosParaGrupo
+                        .filter((c) => !miembrosGrupo.some((m) => m.estudianteId === c.id))
+                        .map((c) => {
+                          const selected = nuevosMiembrosSeleccionados.includes(c.id)
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setNuevosMiembrosSeleccionados((prev) =>
+                                  selected ? prev.filter((id) => id !== c.id) : [...prev, c.id],
+                                )
+                              }}
+                              className={cn(
+                                'flex w-full items-center justify-between rounded-lg p-1.5 text-xs transition',
+                                selected ? 'bg-primary/15 text-primary font-semibold' : 'hover:bg-muted',
+                              )}
+                            >
+                              <span>{c.nombre}</span>
+                              {selected && <Check className="size-3.5 text-primary" />}
+                            </button>
+                          )
+                        })}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleAgregarNuevosMiembros()}
+                        disabled={nuevosMiembrosSeleccionados.length === 0}
+                        className="flex-1 rounded-xl bg-primary py-2 text-xs font-semibold text-primary-foreground shadow transition hover:brightness-110 disabled:opacity-50"
+                      >
+                        {english ? 'Add Selected' : 'Añadir Seleccionados'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMostrarAgregarMiembros(false)}
+                        className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
+                      >
+                        {english ? 'Cancel' : 'Cancelar'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between border-t border-border pt-3">
+              <button
+                type="button"
+                onClick={() => void handleSalirGrupo()}
+                className="flex items-center gap-1.5 text-xs font-semibold text-destructive hover:underline"
+              >
+                <SignOut className="size-4" />
+                <span>{english ? 'Leave Group' : 'Salir del Grupo'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalMiembros(false)}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
+              >
+                {english ? 'Close' : 'Cerrar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: REPORTAR COMPAÑERO ─────────────────────────────────────────── */}
+      {modalReportar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:bg-[#0f172a]">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-sm font-bold text-foreground">{english ? 'Report Student' : 'Reportar Compañero'}</h3>
+              <button type="button" onClick={() => setModalReportar(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                {english
+                  ? 'Tell us why you are reporting this conversation. Administrators will review it.'
+                  : 'Cuéntanos el motivo por el cual reportas a esta persona. La administración lo revisará.'}
+              </p>
+              <textarea
+                value={motivoReporte}
+                onChange={(e) => setMotivoReporte(e.target.value)}
+                placeholder="ej. Comportamiento inadecuado o spam"
+                rows={3}
+                className="w-full rounded-xl border border-border bg-background p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void handleEnviarReporte()}
+                disabled={reportando}
+                className="flex-1 rounded-xl bg-destructive py-2 text-xs font-semibold text-destructive-foreground shadow transition hover:brightness-110 disabled:opacity-50"
+              >
+                {reportando ? (english ? 'Sending...' : 'Enviando...') : (english ? 'Submit Report' : 'Enviar Reporte')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalReportar(false)}
                 className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
               >
                 {english ? 'Cancel' : 'Cancelar'}
@@ -949,180 +1191,16 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                   onClick={() => void handleReenviar(c.contactoId)}
                   className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-muted"
                 >
-                  <div className="flex size-7 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-                    {c.nombre[0]}
-                  </div>
+                  {c.fotoUrl ? (
+                    <img src={c.fotoUrl} alt="" className="size-7 rounded-full object-cover" />
+                  ) : (
+                    <div className="flex size-7 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                      {c.nombre[0]}
+                    </div>
+                  )}
                   <span className="truncate text-xs font-semibold text-foreground">{c.nombre}</span>
                 </button>
               ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {reporteDe && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:bg-[#0f172a]">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-sm font-bold text-foreground">
-                {english ? `Report ${reporteDe.nombre}` : `Reportar a ${reporteDe.nombre}`}
-              </h3>
-              <button type="button" onClick={() => setReporteDe(null)} className="text-muted-foreground hover:text-foreground">
-                <X className="size-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              {reporteDe.grupoId
-                ? (english
-                    ? 'The support team will see a copy of the latest messages in the group, including those of other people, so what was said can be understood in context.'
-                    : 'El equipo de acompañamiento verá una copia de los últimos mensajes del grupo, incluidos los de otras personas, para poder entender lo que se dijo.')
-                : (english
-                    ? 'The support team will see a copy of the latest messages in this conversation, so it stays available even if they are deleted afterwards.'
-                    : 'El equipo de acompañamiento verá una copia de los últimos mensajes de esta conversación, para que siga estando aunque después se borren.')}
-            </p>
-
-            <textarea
-              value={motivoReporte}
-              onChange={(e) => setMotivoReporte(e.target.value)}
-              rows={3}
-              maxLength={1000}
-              placeholder={english ? 'What happened? (optional)' : '¿Qué pasó? (opcional)'}
-              className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary"
-            />
-
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setReporteDe(null)}
-                className="rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
-              >
-                {english ? 'Cancel' : 'Cancelar'}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleReportar()}
-                disabled={reportando}
-                className="rounded-lg bg-destructive px-3 py-2 text-xs font-semibold text-destructive-foreground disabled:opacity-60"
-              >
-                {reportando
-                  ? (english ? 'Sending…' : 'Enviando…')
-                  : (english ? 'Report' : 'Reportar')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modalMiembros && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm space-y-3 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:bg-[#0f172a]">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-sm font-bold text-foreground">
-                {english ? 'Group members' : 'Miembros del grupo'}
-              </h3>
-              <button type="button" onClick={() => setModalMiembros(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="size-4" />
-              </button>
-            </div>
-
-            {cargandoMiembros && (
-              <div className="flex items-center gap-2 py-4 text-xs text-muted-foreground">
-                <CircleNotch className="size-4 animate-spin text-primary" />
-                {english ? 'Loading…' : 'Cargando…'}
-              </div>
-            )}
-
-            {!cargandoMiembros && (
-              <ul className="max-h-72 space-y-1 overflow-y-auto">
-                {miembros.map((m) => (
-                  <li key={m.estudianteId} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/40">
-                    <span className="min-w-0 truncate text-xs text-foreground">
-                      {m.nombre}
-                      {m.soyYo && <span className="text-muted-foreground"> ({english ? 'you' : 'tú'})</span>}
-                      {m.esAdmin && (
-                        <span className="ml-1.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                          {english ? 'admin' : 'admin'}
-                        </span>
-                      )}
-                    </span>
-                    {/* Sacar sólo lo puede un administrador, y no a otro
-                        administrador ni a sí mismo: para eso está salir. El
-                        servidor lo exige igual; aquí sólo se evita ofrecer un
-                        botón que va a fallar. */}
-                    <span className="flex shrink-0 items-center gap-1">
-                      {/* Reportar lo puede cualquiera del grupo: quien recibe
-                          algo desagradable no suele ser quien administra. */}
-                      {!m.soyYo && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setModalMiembros(false)
-                            setReporteDe({
-                              estudianteId: m.estudianteId,
-                              nombre: m.nombre,
-                              grupoId: selectedGrupoId ?? undefined,
-                            })
-                          }}
-                          className="rounded-lg border border-border px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
-                        >
-                          {english ? 'Report' : 'Reportar'}
-                        </button>
-                      )}
-                      {soyAdminDelGrupo && !m.soyYo && !m.esAdmin && (
-                        <button
-                          type="button"
-                          onClick={() => void handleExpulsar(m.estudianteId, m.nombre)}
-                          className="rounded-lg border border-border px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
-                        >
-                          {english ? 'Remove' : 'Sacar'}
-                        </button>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      )}
-
-      {modalSalirGrupo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:bg-[#0f172a]">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-sm font-bold text-foreground">
-                {english ? `Leave ${selectedGrupoNombre}` : `Salir de ${selectedGrupoNombre}`}
-              </h3>
-              <button type="button" onClick={() => setModalSalirGrupo(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="size-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              {english
-                ? 'You will stop receiving its messages. To come back, someone in the group has to add you again.'
-                : 'Dejarás de recibir sus mensajes. Para volver, alguien del grupo tiene que añadirte otra vez.'}
-            </p>
-
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setModalSalirGrupo(false)}
-                className="rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
-              >
-                {english ? 'Cancel' : 'Cancelar'}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSalirGrupo()}
-                disabled={saliendo}
-                className="rounded-lg bg-destructive px-3 py-2 text-xs font-semibold text-destructive-foreground disabled:opacity-60"
-              >
-                {saliendo
-                  ? (english ? 'Leaving…' : 'Saliendo…')
-                  : (english ? 'Leave' : 'Salir')}
-              </button>
             </div>
           </div>
         </div>

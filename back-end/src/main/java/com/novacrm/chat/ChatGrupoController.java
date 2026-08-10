@@ -38,6 +38,14 @@ public class ChatGrupoController {
         return service.miembros(grupoId, auth);
     }
 
+    @PostMapping("/{grupoId}/miembros")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void agregarMiembros(@PathVariable UUID grupoId,
+                                @RequestBody List<UUID> estudianteIds,
+                                Authentication auth) {
+        service.agregarMiembros(grupoId, estudianteIds, auth);
+    }
+
     /**
      * Reporta a alguien del grupo por lo que escribió en él.
      *

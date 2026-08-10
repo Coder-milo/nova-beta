@@ -106,40 +106,74 @@ public class ChatGrupoService {
         adminMiembro.setEsAdmin(true);
         miembroRepository.save(adminMiembro);
 
-        // Agregar miembros invitados
+        // Agregar miembros invitados. Por la misma puerta que los que se añaden
+        // despues: son la misma decision —a quien se admite en este grupo— y
+        // escrita dos veces acabo, otra vez, con una de las dos sin comprobar
+        // el proyecto.
         if (req.miembroIds() != null) {
-            if (req.miembroIds().size() > MAXIMO_MIEMBROS) {
-                throw new BusinessException(
-                        "Un grupo admite hasta " + MAXIMO_MIEMBROS + " personas.");
-            }
-            UUID miPrograma = programaDe(creador).getId();
-            var yaInvitados = new java.util.HashSet<UUID>();
-            for (UUID id : req.miembroIds()) {
-                if (id.equals(creador.getId())) continue;
-                // La misma lista puede traer el mismo id dos veces; la base lo
-                // rechaza por la clave unica, pero conviene no llegar a eso.
-                if (!yaInvitados.add(id)) continue;
-                estudianteRepository.findById(id)
-                        // Del mismo proyecto y en activo, igual que el chat de
-                        // dos: si no, bastaba con conocer un id para meter en un
-                        // grupo a alguien de otro proyecto, y a partir de ahi
-                        // todos se leen entre si.
-                        .filter(Estudiante::isActivo)
-                        .filter(e -> e.getPrograma() != null
-                                && e.getPrograma().getId().equals(miPrograma))
-                        .ifPresent(e -> {
-                            var m = new ChatGrupoMiembro();
-                            m.setGrupo(guardado);
-                            m.setEstudiante(e);
-                            m.setEsAdmin(false);
-                            miembroRepository.save(m);
-                        });
-            }
+            admitir(guardado, req.miembroIds(), creador, 1);
         }
 
         int total = miembroRepository.findByGrupoId(guardado.getId()).size();
         return new GrupoResponse(guardado.getId(), guardado.getNombre(), guardado.getDescripcion(),
                 guardado.getFotoUrl(), creador.getId(), total, guardado.getCreatedAt());
+    }
+
+    @Transactional
+    public void agregarMiembros(UUID grupoId, List<UUID> estudianteIds, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        ChatGrupo grupo = grupoRepository.findById(grupoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado."));
+        if (!miembroRepository.existsByGrupoIdAndEstudianteId(grupoId, propio.getId())) {
+            throw new BusinessException("No perteneces a este grupo.");
+        }
+        if (estudianteIds == null) return;
+        int yaDentro = miembroRepository.findByGrupoId(grupoId).size();
+        admitir(grupo, estudianteIds, propio, yaDentro);
+    }
+
+    /**
+     * Mete en el grupo a quien puede entrar, y a nadie mas.
+     *
+     * <p>La regla vive aqui y no repetida en cada puerta. Al crear el grupo se
+     * comprobaba el proyecto, la cuenta activa y el tope; al añadir despues no
+     * se comprobaba ninguna de las tres, asi que bastaba con crear un grupo de
+     * dos y añadir luego para saltarse todo: gente de otro proyecto leyendose
+     * entre si, cuentas dadas de baja dentro, y sin limite de tamaño. Dos
+     * puertas para lo mismo y solo una cerrada, otra vez.
+     *
+     * <p>A quien no cumple se le ignora en silencio, sin decir por que: la
+     * alternativa —«ese id existe pero es de otro proyecto»— convierte esto en
+     * una forma de averiguar quien esta en el sistema.
+     */
+    private void admitir(ChatGrupo grupo, List<UUID> estudianteIds, Estudiante quienInvita,
+                         int yaDentro) {
+        if (estudianteIds.size() + yaDentro > MAXIMO_MIEMBROS) {
+            throw new BusinessException(
+                    "Un grupo admite hasta " + MAXIMO_MIEMBROS + " personas.");
+        }
+        UUID suPrograma = programaDe(quienInvita).getId();
+        var vistos = new java.util.HashSet<UUID>();
+        for (UUID id : estudianteIds) {
+            if (id.equals(quienInvita.getId())) continue;
+            // La misma lista puede traer el mismo id dos veces. La clave unica
+            // de la tabla lo rechaza, pero conviene no llegar a eso: dentro de
+            // una misma transaccion, la comprobacion de "ya esta" no ve todavia
+            // lo que se acaba de insertar.
+            if (!vistos.add(id)) continue;
+            if (miembroRepository.existsByGrupoIdAndEstudianteId(grupo.getId(), id)) continue;
+            estudianteRepository.findById(id)
+                    .filter(Estudiante::isActivo)
+                    .filter(e -> e.getPrograma() != null
+                            && e.getPrograma().getId().equals(suPrograma))
+                    .ifPresent(e -> {
+                        var m = new ChatGrupoMiembro();
+                        m.setGrupo(grupo);
+                        m.setEstudiante(e);
+                        m.setEsAdmin(false);
+                        miembroRepository.save(m);
+                    });
+        }
     }
 
     public List<GrupoResponse> misGrupos(Authentication auth) {
