@@ -7,8 +7,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,6 +18,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -71,17 +74,7 @@ public class DocumentoController {
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public ResponseEntity<byte[]> descargar(@PathVariable UUID id) {
         var doc = documentoService.obtenerEntidad(id);
-        byte[] contenido = documentoService.contenido(id);
-        String headerCd = org.springframework.http.ContentDisposition.builder("attachment")
-                .filename(doc.getNombre() != null ? doc.getNombre() : "documento", java.nio.charset.StandardCharsets.UTF_8)
-                .build()
-                .toString();
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, headerCd)
-                .contentType(doc.getContentType() != null
-                        ? MediaType.parseMediaType(doc.getContentType())
-                        : MediaType.APPLICATION_OCTET_STREAM)
-                .body(contenido);
+        return comoDescarga(doc, documentoService.contenido(id));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -109,14 +102,47 @@ public class DocumentoController {
     @Operation(summary = "Descargar un documento propio")
     @PreAuthorize("hasRole('ESTUDIANTE')")
     public ResponseEntity<byte[]> descargarMio(@PathVariable UUID id, Authentication auth) {
-        var doc = documentoService.obtenerEntidad(id);
         byte[] contenido = documentoService.contenidoMio(id, auth);
+        return comoDescarga(documentoService.obtenerEntidad(id), contenido);
+    }
+
+    /**
+     * Respuesta de descarga de un archivo guardado.
+     *
+     * <p>El nombre y el tipo los eligió quien subió el archivo, así que ninguno
+     * de los dos puede entrar tal cual en una cabecera. El nombre se codifica
+     * con {@link ContentDisposition}: pegándolo entre comillas a mano, un nombre
+     * que ya lleve comillas cierra el parámetro antes de tiempo y el resto se
+     * lee como más parámetros de la cabecera. Y el tipo se descarta cuando no es
+     * analizable, en vez de tumbar la descarga con un 500 — el estudiante
+     * declara ese tipo al subir, y basta con que sea basura para que su propio
+     * archivo, y el de la lista del coordinador, dejen de poder abrirse.
+     *
+     * <p>Los dos caminos de descarga pasan por aquí a propósito: estaban
+     * escritos por separado y sólo uno de los dos codificaba el nombre, que era
+     * justo el del estudiante.
+     */
+    private ResponseEntity<byte[]> comoDescarga(Documento doc, byte[] contenido) {
+        String disposicion = ContentDisposition.builder("attachment")
+                .filename(doc.getNombre() != null && !doc.getNombre().isBlank()
+                        ? doc.getNombre() : "documento", StandardCharsets.UTF_8)
+                .build()
+                .toString();
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + doc.getNombre() + "\"")
-                .contentType(doc.getContentType() != null
-                        ? MediaType.parseMediaType(doc.getContentType())
-                        : MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposicion)
+                .contentType(tipoAnalizable(doc.getContentType()))
                 .body(contenido);
+    }
+
+    static MediaType tipoAnalizable(String contentType) {
+        if (contentType == null || contentType.isBlank()) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+        try {
+            return MediaType.parseMediaType(contentType);
+        } catch (InvalidMediaTypeException e) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
