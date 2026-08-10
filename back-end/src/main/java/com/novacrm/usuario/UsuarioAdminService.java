@@ -63,7 +63,10 @@ public class UsuarioAdminService {
             usuario.setActivo(request.activo());
         }
         if (request.password() != null && !request.password().isBlank()) {
-            usuario.setPassword(passwordEncoder.encode(request.password()));
+            // cambiarPassword y no setPassword: si un administrador cambia la
+            // contrasena de alguien es porque esa cuenta ya no es de fiar, y
+            // dejarle la sesion abierta vacia el gesto.
+            usuario.cambiarPassword(passwordEncoder.encode(request.password()));
         }
         return toResponse(usuarioRepository.save(usuario));
     }

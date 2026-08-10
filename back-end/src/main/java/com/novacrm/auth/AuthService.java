@@ -100,7 +100,29 @@ public class AuthService {
         var usuario = usuarioRepository.findByEmail(claims.getSubject())
                 .filter(Usuario::isActivo)
                 .orElseThrow(() -> new CredencialesInvalidasException("Usuario no valido"));
+        if (emitidoAntesDelCambio(claims, usuario)) {
+            throw new CredencialesInvalidasException(
+                    "La contraseña cambió; vuelve a iniciar sesión");
+        }
         return respuestaConTokens(usuario);
+    }
+
+    /**
+     * Si el token se emitió antes del último cambio de contraseña.
+     *
+     * <p>La comprobación vive en el refresco y no en cada petición a propósito:
+     * aquí ya se lee el usuario de la base de datos, mientras que el filtro que
+     * valida el access token es deliberadamente apátrida. El access token dura
+     * poco; el refresh, una semana. Cortando el refresco, una sesión ajena se
+     * apaga sola en cuanto caduca su access token.
+     */
+    private static boolean emitidoAntesDelCambio(Claims claims, Usuario usuario) {
+        if (usuario.getCredencialesDesde() == null || claims.getIssuedAt() == null) {
+            return false;
+        }
+        var emitido = LocalDateTime.ofInstant(
+                claims.getIssuedAt().toInstant(), java.time.ZoneId.systemDefault());
+        return emitido.isBefore(usuario.getCredencialesDesde());
     }
 
     /** Genera el token de recuperación y envía el correo. Silencioso ante emails desconocidos. */
@@ -134,12 +156,16 @@ public class AuthService {
 
     @Transactional
     public void resetPassword(String token, String nuevaPassword) {
+        // El filtro por activo va aquí y no solo en forgotPassword: entre pedir
+        // el enlace y usarlo, la cuenta puede haberse dado de baja. Sin esto,
+        // quien sale del programa conserva una hora para estrenar contraseña.
         var usuario = usuarioRepository.findByResetToken(token)
+                .filter(Usuario::isActivo)
                 .orElseThrow(() -> new BusinessException("El enlace de recuperación no es válido"));
         if (usuario.getResetTokenExpira() == null || usuario.getResetTokenExpira().isBefore(LocalDateTime.now())) {
             throw new BusinessException("El enlace de recuperación expiró. Solicita uno nuevo");
         }
-        usuario.setPassword(passwordEncoder.encode(nuevaPassword));
+        usuario.cambiarPassword(passwordEncoder.encode(nuevaPassword));
         usuario.setResetToken(null);
         usuario.setResetTokenExpira(null);
     }

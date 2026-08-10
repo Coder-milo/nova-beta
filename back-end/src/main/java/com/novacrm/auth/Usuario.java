@@ -33,6 +33,37 @@ public class Usuario extends BaseEntity {
     @Column(name = "reset_token_expira")
     private java.time.LocalDateTime resetTokenExpira;
 
+    /**
+     * Desde cuándo valen las credenciales de esta cuenta.
+     *
+     * <p>Los tokens emitidos antes de esta marca dejan de poder renovarse. Sin
+     * ella, cambiar la contraseña no echaba a nadie: quien ya tuviera una sesión
+     * abierta —que es justo el motivo por el que uno cambia la contraseña—
+     * seguía renovándola durante los siete días que dura el refresh.
+     *
+     * <p>Nula mientras nadie haya cambiado la suya: no hay nada que invalidar.
+     */
+    @Column(name = "credenciales_desde")
+    private java.time.LocalDateTime credencialesDesde;
+
+    /**
+     * Cambia la contraseña y corta las sesiones anteriores.
+     *
+     * <p>La marca se trunca al segundo porque el {@code iat} de un JWT va en
+     * segundos enteros: sin truncarla, un token emitido en el mismo segundo del
+     * cambio parece anterior a la marca y se rechazaría sin motivo.
+     */
+    public void cambiarPassword(String passwordCodificada) {
+        this.password = passwordCodificada;
+        this.credencialesDesde = java.time.LocalDateTime.now()
+                .truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+    }
+
+    public java.time.LocalDateTime getCredencialesDesde() { return credencialesDesde; }
+    public void setCredencialesDesde(java.time.LocalDateTime credencialesDesde) {
+        this.credencialesDesde = credencialesDesde;
+    }
+
     public String getResetToken() { return resetToken; }
     public void setResetToken(String resetToken) { this.resetToken = resetToken; }
     public java.time.LocalDateTime getResetTokenExpira() { return resetTokenExpira; }
