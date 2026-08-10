@@ -27,11 +27,22 @@ import java.util.List;
 @Component
 public class CelularesPermitidos {
 
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(CelularesPermitidos.class);
+
+    /** Si alguien puso algo en la propiedad, aunque no se entienda. */
+    private final boolean configurada;
     private final List<String> permitidos;
 
     public CelularesPermitidos(
             @Value("${app.whatsapp.destinatarios-permitidos:}") String configurados) {
+        this.configurada = configurados != null && !configurados.isBlank();
         this.permitidos = normalizar(configurados);
+        if (configurada && permitidos.isEmpty()) {
+            log.warn("app.whatsapp.destinatarios-permitidos tiene valor pero no se entendio "
+                    + "ningun numero: no saldra ningun WhatsApp hasta corregirla. "
+                    + "Se separan por comas y en formato +57XXXXXXXXXX.");
+        }
     }
 
     private static List<String> normalizar(String configurados) {
@@ -46,13 +57,33 @@ public class CelularesPermitidos {
                 .toList();
     }
 
-    /** Vacia = sin restriccion. Con valores = solo a esos numeros. */
+    /**
+     * Vacia = sin restriccion. Con valores = solo a esos numeros.
+     *
+     * <p>Mira si la propiedad trae algo, no si se entendio. Antes miraba la
+     * lista ya normalizada, y los numeros que no se entienden se descartan en
+     * silencio: separar con punto y coma en vez de con coma dejaba la lista
+     * vacia y con ella <em>desaparecia la restriccion entera</em>. Es decir,
+     * escribir mal el freno soltaba el freno, y el envio salia a los celulares
+     * reales de los 108 participantes.
+     *
+     * <p>Ahora una lista que no se entiende no deja pasar nada. Se nota en
+     * seguida —no sale ningun mensaje— y el log dice por que, que es la forma
+     * segura de equivocarse.
+     */
     public boolean hayRestriccion() {
-        return !permitidos.isEmpty();
+        return configurada;
     }
 
+    /**
+     * Sin restriccion pasa todo; con restriccion, solo los de la lista.
+     *
+     * <p>La condicion es «no hay nada configurado», no «la lista quedo vacia»:
+     * son distintas justo cuando lo que se escribio no se entendio, que es
+     * cuando hace falta frenar y no soltar.
+     */
     public boolean permite(String celular) {
-        if (permitidos.isEmpty()) {
+        if (!configurada) {
             return true;
         }
         String normalizado = WhatsappSender.normalizarDestino(celular);

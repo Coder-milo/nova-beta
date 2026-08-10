@@ -83,6 +83,35 @@ class WhatsappSoloACelularesPermitidosTest {
         verify(proveedor, never()).enviarTexto(any(), any(), any());
     }
 
+    /**
+     * Escribir mal el freno no puede soltar el freno.
+     *
+     * <p>Los numeros que no se entienden se descartan al normalizar. Si la
+     * restriccion se decidia mirando la lista ya normalizada, separar con punto
+     * y coma en vez de con coma la dejaba vacia y con ella desaparecia la
+     * restriccion entera: el envio salia a los celulares reales de los 108
+     * participantes justo por haber configurado mal lo que existe para
+     * impedirlo.
+     */
+    @Test
+    void unaListaQueNoSeEntiendeNoDejaPasarNada() {
+        // Punto y coma en vez de coma: es una sola entrada y no se entiende.
+        var sender = senderCon("3001111111; 3002222222");
+
+        assertFalse(sender.enviarTexto(PROGRAMA, "+573001111111", "Hola").enviado());
+        assertFalse(sender.enviarTexto(PROGRAMA, "+573009999999", "Hola").enviado());
+        verify(proveedor, never()).enviarTexto(any(), any(), any());
+    }
+
+    /** Una entrada mala no invalida las buenas que la acompanan. */
+    @Test
+    void unNumeroIlegibleNoAnulaLosDemas() {
+        var sender = senderCon("no-es-un-numero, 3001111111");
+
+        assertTrue(sender.enviarTexto(PROGRAMA, "+573001111111", "Hola").enviado());
+        assertFalse(sender.enviarTexto(PROGRAMA, "+573009999999", "Hola").enviado());
+    }
+
     @Test
     void variosNumerosEnLaLista() {
         var sender = senderCon("3001111111, 3002222222");
