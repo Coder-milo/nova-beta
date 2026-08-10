@@ -42,7 +42,7 @@ public final class PostulacionDtos {
                      message = "El enlace debe empezar por http:// o https://")
             @Size(max = 1000) String urlOferta,
 
-            String observaciones) {}
+            @Size(max = 2000) String observaciones) {}
 
     /**
      * Actualizacion del seguimiento de una postulacion.
@@ -50,12 +50,20 @@ public final class PostulacionDtos {
      * <p>Es lo que el estudiante toca desde su cuenta. Los campos nulos no se
      * tocan, para que actualizar solo el estado no borre la nota que dejo el
      * coordinador la semana pasada.
+     *
+     * <p>Los topes de {@code resultado} y {@code observaciones} llegaron tarde
+     * porque sus columnas son TEXT y la base no se quejaba: los limites de este
+     * archivo estan donde el motor los obligaba, no donde hacen falta. Los dos
+     * campos los escribe el rol con menos permisos y {@code resultado} ademas se
+     * copia al historial de seguimiento, que es lo que el equipo lee para
+     * entender que ha pasado con esa persona; sin tope, una sola nota puede
+     * dejar ese panel inservible.
      */
     public record ActualizarPostulacion(
             EstadoPostulacion estado,
             LocalDate fechaRespuesta,
-            String resultado,
-            String observaciones,
+            @Size(max = 1000) String resultado,
+            @Size(max = 2000) String observaciones,
             @Size(max = 60) String canal) {}
 
     public record PostulacionResponse(
