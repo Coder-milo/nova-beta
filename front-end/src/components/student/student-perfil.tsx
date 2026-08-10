@@ -212,7 +212,7 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
                 const file = e.target.files?.[0]
                 if (!file) return
                 try {
-                  const res = await estudiantesApi.subirFoto(perfil.id, file)
+                  const res = await estudiantesApi.subirMiFoto(file)
                   onUpdate(res)
                 } catch (err) {
                   mostrarError(mensajeDeError(err, T.errorFoto))

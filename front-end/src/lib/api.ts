@@ -371,6 +371,17 @@ export const estudiantesApi = {
     apiFetch<Page<EstudianteResponse>>(`/api/v1/estudiantes/buscar?${aQueryParams({ ...params, page: params.page ?? 0, size: params.size ?? 20 })}`, { token }),
   subirFoto: (id: string, archivo: File, token?: string) =>
     apiUpload<EstudianteResponse>(`/api/v1/estudiantes/${id}/foto`, { archivo }, token),
+  /**
+   * La foto del propio estudiante, sin mandar ningún id.
+   *
+   * El servidor resuelve de quién es a partir de la sesión. La ruta con id
+   * existe para el equipo, que sí edita fichas ajenas, y comprueba la
+   * propiedad antes de aceptar; pero desde el portal no hace falta enviar un
+   * identificador que el cliente podría cambiar. Menos que comprobar es menos
+   * que pueda fallar.
+   */
+  subirMiFoto: (archivo: File, token?: string) =>
+    apiUpload<EstudianteResponse>('/api/v1/estudiantes/mi-perfil/foto', { archivo }, token),
   obtenerMiPerfil: (token?: string) =>
     apiFetch<EstudianteResponse>('/api/v1/estudiantes/mi-perfil', { token }),
   actualizarMiPerfil: (body: EstudianteRequest, token?: string) =>
