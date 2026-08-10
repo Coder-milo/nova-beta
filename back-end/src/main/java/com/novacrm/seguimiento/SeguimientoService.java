@@ -37,14 +37,16 @@ public class SeguimientoService {
      * misma consulta que usa el equipo administrativo; asi no se expone ni se
      * acepta un identificador de otro estudiante en la URL.
      */
-    public List<SeguimientoResponse> listarPorEmail(String email) {
+    public List<com.novacrm.seguimiento.dto.SeguimientoDelEstudianteResponse> listarPorEmail(String email) {
         // Ignorando la caja: los correos se cargaron desde Excel tal y como
         // venian escritos y algunos llevan mayusculas. Con igualdad exacta,
         // esas personas abrian su historial de seguimiento y les decia que su
         // ficha no existe.
         var estudiante = estudianteRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado para la sesion actual"));
-        return listar(estudiante.getId());
+        return listar(estudiante.getId()).stream()
+                .map(com.novacrm.seguimiento.dto.SeguimientoDelEstudianteResponse::de)
+                .toList();
     }
 
     @Transactional

@@ -735,6 +735,23 @@ export interface DocumentoResponse {
   createdAt: string
 }
 
+/**
+ * El historial que ve el propio estudiante: el mismo sin `responsable`.
+ *
+ * <p>Ese campo se rellena con el correo de quien anota en los caminos
+ * automáticos, y ninguna pantalla del portal lo pinta.
+ */
+export interface SeguimientoDelEstudianteResponse {
+  id: string
+  fecha: string | null
+  tipo: string
+  observacion: string | null
+  proximaAccion: string | null
+  fechaProxima: string | null
+  estado: string
+  createdAt: string
+}
+
 export interface SeguimientoResponse {
   id: string
   fecha: string

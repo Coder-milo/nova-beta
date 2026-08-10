@@ -964,10 +964,10 @@ export const perfilApi = {
 
 // ─── Seguimientos ────────────────────────────────────────────────────────────
 
-import type { SeguimientoRequest, SeguimientoResponse } from './types'
+import type { SeguimientoDelEstudianteResponse, SeguimientoRequest, SeguimientoResponse } from './types'
 
 export const seguimientosApi = {
-  mio: (token?: string) => apiFetch<SeguimientoResponse[]>('/api/v1/seguimientos/mio', { token }),
+  mio: (token?: string) => apiFetch<SeguimientoDelEstudianteResponse[]>('/api/v1/seguimientos/mio', { token }),
   listar: (estudianteId: string, token?: string) =>
     apiFetch<SeguimientoResponse[]>(`/api/v1/estudiantes/${estudianteId}/seguimientos`, { token }),
   crear: (estudianteId: string, body: SeguimientoRequest, token?: string) =>

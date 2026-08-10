@@ -19,7 +19,7 @@ import type {
   MensajeResponse,
   PipelineEmpleabilidadResponse,
   ColocacionResponse,
-  SeguimientoResponse,
+  SeguimientoDelEstudianteResponse,
 } from '@/lib/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -188,7 +188,7 @@ function textosArea(english: boolean) {
 
 export function StudentAreaPage({ area }: { area: StudentArea }) {
   const [perfil, setPerfil] = useState<EstudianteResponse | null>(null)
-  const [seguimientos, setSeguimientos] = useState<SeguimientoResponse[]>([])
+  const [seguimientos, setSeguimientos] = useState<SeguimientoDelEstudianteResponse[]>([])
   const [pipeline, setPipeline] = useState<PipelineEmpleabilidadResponse | null>(null)
   const [colocaciones, setColocaciones] = useState<ColocacionResponse[]>([])
   const [actividades, setActividades] = useState<ActividadResponse[]>([])

@@ -12,7 +12,7 @@ import {
   seguimientosApi,
   whatsappApi,
 } from '@/lib/api'
-import type { EstudianteResponse, PlataformaResponse, SeguimientoResponse } from '@/lib/types'
+import type { EstudianteResponse, PlataformaResponse, SeguimientoDelEstudianteResponse } from '@/lib/types'
 import { useBranding } from '@/lib/branding'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -92,7 +92,7 @@ export default function InicioEstudiantePage() {
   const [vacantes, setVacantes] = useState(0)
   const [postulaciones, setPostulaciones] = useState(0)
   const [documentos, setDocumentos] = useState(0)
-  const [seguimientos, setSeguimientos] = useState<SeguimientoResponse[]>([])
+  const [seguimientos, setSeguimientos] = useState<SeguimientoDelEstudianteResponse[]>([])
   const [plataformas, setPlataformas] = useState<PlataformaResponse[]>([])
   const [noLeidas, setNoLeidas] = useState(0)
   const [whatsapp, setWhatsapp] = useState<string | null>(null)
