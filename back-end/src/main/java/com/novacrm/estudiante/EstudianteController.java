@@ -85,11 +85,11 @@ public class EstudianteController {
                 new com.novacrm.hv.dto.GenerarHvOpcionesRequest(plantillaId, idioma, null, null));
         byte[] pdfBytes = hvService.pdf(hv.id());
 
-        String filename = ("HV-CAC-" + estEntity.getNombre() + "-" + estEntity.getApellido() + ".pdf")
-                .replaceAll("[^a-zA-Z0-9.\\-]", "_");
+        String filename = "HV-CAC-" + estEntity.getNombre() + "-" + estEntity.getApellido() + ".pdf";
 
         return org.springframework.http.ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        com.novacrm.shared.NombreDeDescarga.adjunto(filename))
                 .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
                 .body(pdfBytes);
     }

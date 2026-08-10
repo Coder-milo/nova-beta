@@ -140,7 +140,7 @@ public class HvController {
                 + "-v" + hv.getNumeroVersion() + ".pdf";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + nombre.replaceAll("[^a-zA-Z0-9.\\-]", "_") + "\"")
+                        com.novacrm.shared.NombreDeDescarga.adjunto(nombre))
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(hvService.pdf(id));
     }
@@ -208,10 +208,11 @@ public class HvController {
         byte[] pdfBytes = pdfService.generar(datos, "#1C315E", idioma, request.seccionesExcluidas(), request.camposExcluidos());
 
         String nombreNombre = datos != null && datos.nombre() != null ? datos.nombre() : "Candidato";
-        String nombreArchivo = "HV-CAC-" + nombreNombre.replaceAll("[^a-zA-Z0-9.\\-]", "_") + ".pdf";
+        String nombreArchivo = "HV-CAC-" + nombreNombre + ".pdf";
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nombreArchivo + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        com.novacrm.shared.NombreDeDescarga.adjunto(nombreArchivo))
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdfBytes);
     }
