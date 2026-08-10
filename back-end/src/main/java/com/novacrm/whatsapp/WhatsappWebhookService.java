@@ -140,7 +140,7 @@ public class WhatsappWebhookService {
             atenderInteresTexto(programaId, e);
         } else {
             registrarBandeja(programaId, e, entrante.celular(), entrante.texto());
-            whatsappSender.enviarTexto(programaId, entrante.celular(),
+            responder(programaId, entrante.celular(),
                     "Gracias por tu mensaje. El equipo de acompañamiento te responderá pronto.");
         }
     }
@@ -159,18 +159,18 @@ public class WhatsappWebhookService {
                 matchingService.marcarPostulado(matchId, "WhatsApp", true);
                 registrarBandeja(programaId, e, entrante.celular(),
                         "Sí me interesa (botón) — postulación registrada");
-                whatsappSender.enviarTexto(programaId, entrante.celular(),
+                responder(programaId, entrante.celular(),
                         "¡Listo! Quedó registrada tu postulación. El equipo te contactará con los siguientes pasos.");
             } catch (com.novacrm.exception.BusinessException ex) {
                 registrarBandeja(programaId, e, entrante.celular(),
                         "Sí me interesa (botón) — " + ex.getMessage());
-                whatsappSender.enviarTexto(programaId, entrante.celular(),
+                responder(programaId, entrante.celular(),
                         "Ya tenías una postulación registrada para esa vacante. ¡Buen trabajo!");
             }
         } else {
             matchingService.descartarMatch(matchId, "WhatsApp");
             registrarBandeja(programaId, e, entrante.celular(), "No, gracias (botón)");
-            whatsappSender.enviarTexto(programaId, entrante.celular(),
+            responder(programaId, entrante.celular(),
                     "Entendido. Te avisaremos cuando aparezca otra vacante que encaje contigo.");
         }
     }
@@ -180,7 +180,7 @@ public class WhatsappWebhookService {
                 .findFirstByEstudianteIdAndPostuladoFalseOrderByCreatedAtDesc(e.getId())
                 .orElse(null);
         if (match == null) {
-            whatsappSender.enviarTexto(programaId, e.getCelular(),
+            responder(programaId, e.getCelular(),
                     "No hay vacantes pendientes por confirmar. Cuando aparezca una, te la avisamos.");
             return;
         }
@@ -188,12 +188,31 @@ public class WhatsappWebhookService {
             matchingService.marcarPostulado(match.getId(), "WhatsApp", true);
             registrarBandeja(programaId, e, e.getCelular(),
                     "Sí me interesa — postulación registrada a " + match.getVacante().getTitulo());
-            whatsappSender.enviarTexto(programaId, e.getCelular(),
+            responder(programaId, e.getCelular(),
                     "¡Listo! Quedó registrada tu postulación a " + match.getVacante().getTitulo()
                             + ". El equipo te contactará con los siguientes pasos.");
         } catch (com.novacrm.exception.BusinessException ex) {
-            whatsappSender.enviarTexto(programaId, e.getCelular(),
+            responder(programaId, e.getCelular(),
                     "Ya tenías una postulación registrada para esa vacante. ¡Buen trabajo!");
+        }
+    }
+
+    /**
+     * Contesta al estudiante y deja constancia si no se pudo.
+     *
+     * <p>Las siete respuestas de este webhook se mandaban descartando el
+     * resultado. La peor era la del botón «Sí me interesa»: la postulación
+     * queda registrada en la base y el «¡Listo!» podía no llegar nunca, así que
+     * la persona se quedaba esperando una confirmación que el sistema daba por
+     * dada. Un envío puede fallar por causas normales —el token del programa
+     * caducó, la ventana de 24 horas se cerró, Meta rechaza la plantilla— y
+     * ninguna se veía desde aquí.
+     */
+    private void responder(UUID programaId, String celular, String texto) {
+        var resultado = whatsappSender.enviarTexto(programaId, celular, texto);
+        if (!resultado.enviado()) {
+            log.warn("No se pudo responder por WhatsApp a {} (programa {}): {}",
+                    celular, programaId, resultado.motivoFallo());
         }
     }
 
