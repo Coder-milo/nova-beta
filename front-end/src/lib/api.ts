@@ -703,6 +703,15 @@ export const chatsApi = {
     apiFetch<void>(`/api/v1/chats/directos/${contactoId}/reportar`, {
       method: 'POST', data: { motivo }, token,
     }),
+  /**
+   * Busca dentro de una conversación, sin distinguir tildes ni mayúsculas.
+   *
+   * Pasa por el mismo control que abrirla: quien no puede leerla, tampoco
+   * puede buscar dentro.
+   */
+  buscarEnConversacion: (contactoId: string, q: string, token?: string) =>
+    apiFetch<ChatDirectoMensajeResponse[]>(
+      `/api/v1/chats/directos/${contactoId}/buscar?q=${encodeURIComponent(q)}`, { token }),
   /** Deja de recibir mensajes de esa persona, y de poder escribirle. */
   bloquear: (contactoId: string, token?: string) =>
     apiFetch<void>(`/api/v1/chats/directos/${contactoId}/bloquear`, { method: 'POST', token }),
@@ -741,6 +750,10 @@ export const gruposApi = {
     apiFetch<ChatGrupoMensajeResponse>(`/api/v1/chats/grupos/${grupoId}/mensajes?contenido=${encodeURIComponent(contenido)}${enRespuestaA ? `&enRespuestaA=${enRespuestaA}` : ''}`, {
       method: 'POST', token,
     }),
+  /** Busca dentro del grupo. Solo quien pertenece. */
+  buscarEnGrupo: (grupoId: string, q: string, token?: string) =>
+    apiFetch<ChatGrupoMensajeResponse[]>(
+      `/api/v1/chats/grupos/${grupoId}/buscar?q=${encodeURIComponent(q)}`, { token }),
   /** Quién está en el grupo. Solo lo ven sus miembros. */
   miembros: (grupoId: string, token?: string) =>
     apiFetch<ChatGrupoMiembroResponse[]>(`/api/v1/chats/grupos/${grupoId}/miembros`, { token }),

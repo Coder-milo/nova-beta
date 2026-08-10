@@ -31,6 +31,14 @@ public class ChatGrupoController {
         return service.misGrupos(auth);
     }
 
+    /** Busca dentro del grupo. Solo quien pertenece. */
+    @GetMapping("/{grupoId}/buscar")
+    public List<ChatGrupoService.GrupoMensajeResponse> buscar(@PathVariable UUID grupoId,
+                                                              @RequestParam String q,
+                                                              Authentication auth) {
+        return service.buscar(grupoId, q, auth);
+    }
+
     /** Quién está en el grupo. Solo lo ven sus miembros. */
     @GetMapping("/{grupoId}/miembros")
     public List<ChatGrupoService.MiembroResponse> miembros(@PathVariable UUID grupoId,

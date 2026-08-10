@@ -297,6 +297,33 @@ public class ChatDirectoService {
         return bloqueoRepository.aQuienesBloqueo(propio.getId());
     }
 
+    /** Cuantos resultados devuelve una busqueda dentro del chat. */
+    private static final int RESULTADOS_DE_BUSQUEDA = 50;
+
+    /** Minimo para buscar. Con una letra, el resultado es la conversacion entera. */
+    private static final int MINIMO_PARA_BUSCAR = 2;
+
+    /**
+     * Busca dentro de una conversacion.
+     *
+     * <p>Pasa por el mismo control que abrirla: si no se puede leer, tampoco se
+     * puede buscar dentro. Sin eso, la busqueda seria una puerta de atras para
+     * leer conversaciones ajenas trozo a trozo.
+     */
+    @Transactional(readOnly = true)
+    public List<ChatDirectoMensajeResponse> buscar(UUID contactoId, String consulta, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        Estudiante contacto = contactoValido(contactoId, propio);
+        String termino = consulta == null ? "" : consulta.trim();
+        if (termino.length() < MINIMO_PARA_BUSCAR) return List.of();
+
+        return repository.buscarEnLaConversacion(propio.getId(), contacto.getId(), termino,
+                        org.springframework.data.domain.PageRequest.of(0, RESULTADOS_DE_BUSQUEDA))
+                .stream()
+                .map(mensaje -> respuesta(mensaje, propio.getId()))
+                .toList();
+    }
+
     /** Cuantos mensajes se guardan como prueba al reportar. */
     private static final int MENSAJES_DEL_EXTRACTO = 30;
 

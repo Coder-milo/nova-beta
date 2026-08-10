@@ -104,6 +104,19 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   const [motivoReporte, setMotivoReporte] = useState('')
   const [reportando, setReportando] = useState(false)
 
+  // Buscar dentro de la conversación abierta
+  const [buscandoEnChat, setBuscandoEnChat] = useState(false)
+  const [terminoEnChat, setTerminoEnChat] = useState('')
+  /**
+   * `null` es «todavía no se ha buscado», y no es lo mismo que una lista vacía.
+   * Sin distinguirlos, al abrir la lupa se anuncia «sin resultados» antes de
+   * que nadie haya escrito nada.
+   */
+  const [resultadosEnChat, setResultadosEnChat] = useState<
+    Array<{ id: string; contenido: string; autor: string; fecha: string }> | null
+  >(null)
+  const [buscandoAhora, setBuscandoAhora] = useState(false)
+
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -194,6 +207,45 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
       setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The contact list could not be loaded.' : 'No se pudo cargar la lista de compañeros.') })
     }
   }, [english])
+
+  /**
+   * Busca en la conversación abierta, un poco después de dejar de teclear.
+   *
+   * Los 300 ms no son cosmética: sin ellos cada letra es una petición, y este
+   * usuario ya comparte el cupo de la API con toda su cohorte. Con menos de
+   * dos caracteres no se pregunta nada, porque el resultado seria la
+   * conversación entera.
+   */
+  useEffect(() => {
+    if (!buscandoEnChat) return
+    const termino = terminoEnChat.trim()
+    if (termino.length < 2) {
+      setResultadosEnChat(null)
+      return
+    }
+    let vigente = true
+    setBuscandoAhora(true)
+    const id = window.setTimeout(() => {
+      const peticion = activeTab === 'grupos' && selectedGrupoId
+        ? gruposApi.buscarEnGrupo(selectedGrupoId, termino).then((msgs) =>
+            msgs.map((m) => ({ id: m.id, contenido: m.contenido, autor: m.remitenteNombre, fecha: m.createdAt })))
+        : selectedContactoId
+          ? chatsApi.buscarEnConversacion(selectedContactoId, termino).then((msgs) =>
+              msgs.map((m) => ({ id: m.id, contenido: m.contenido, autor: m.remitenteNombre, fecha: m.createdAt })))
+          : Promise.resolve([])
+
+      peticion
+        .then((res) => { if (vigente) setResultadosEnChat(res) })
+        .catch((e) => {
+          if (!vigente) return
+          setResultadosEnChat([])
+          setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'The search failed.' : 'No se pudo buscar.') })
+        })
+        .finally(() => { if (vigente) setBuscandoAhora(false) })
+    }, 300)
+
+    return () => { vigente = false; window.clearTimeout(id) }
+  }, [buscandoEnChat, terminoEnChat, activeTab, selectedContactoId, selectedGrupoId, english])
 
   // Auto-scroll al fondo
   useEffect(() => {
@@ -583,8 +635,28 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
             </div>
           </div>
 
-          {/* Acciones de la cabecera (Bloquear, Reportar, Ver Miembros) */}
+          {/* Acciones de la cabecera (Buscar, Bloquear, Reportar, Ver Miembros) */}
           <div className="flex items-center gap-2">
+            {((activeTab === 'directos' && selectedContactoId) || (activeTab === 'grupos' && selectedGrupoId)) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBuscandoEnChat((abierto) => !abierto)
+                  setTerminoEnChat('')
+                  setResultadosEnChat(null)
+                }}
+                className={cn(
+                  'rounded-xl border px-3 py-1.5 text-xs font-semibold transition',
+                  buscandoEnChat
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:text-foreground',
+                )}
+                title={english ? 'Search in this conversation' : 'Buscar en esta conversación'}
+              >
+                <MagnifyingGlass className="size-4" />
+              </button>
+            )}
+
             {activeTab === 'directos' && selectedContactoId && (
               <>
                 <button
@@ -624,6 +696,50 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
         </header>
 
         {/* Notificaciones flotantes */}
+        {buscandoEnChat && (
+          <div className="border-b border-border bg-card/60 px-5 py-3 dark:bg-[#0f172a]/60">
+            <div className="relative">
+              <MagnifyingGlass className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+              <input
+                autoFocus
+                value={terminoEnChat}
+                onChange={(e) => setTerminoEnChat(e.target.value)}
+                placeholder={english ? 'Search in this conversation…' : 'Buscar en esta conversación…'}
+                className="w-full rounded-xl border border-border bg-background py-2 pl-9 pr-3 text-xs text-foreground outline-none focus:border-primary"
+              />
+            </div>
+
+            {buscandoAhora && (
+              <p className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+                <CircleNotch className="size-3 animate-spin text-primary" />
+                {english ? 'Searching…' : 'Buscando…'}
+              </p>
+            )}
+
+            {/* Sólo cuando ya se buscó: `null` es «aún no», y anunciar «sin
+                resultados» antes de que nadie escriba nada es decir algo falso. */}
+            {!buscandoAhora && resultadosEnChat?.length === 0 && (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                {english ? 'Nothing found in this conversation.' : 'No se encontró nada en esta conversación.'}
+              </p>
+            )}
+
+            {!buscandoAhora && resultadosEnChat && resultadosEnChat.length > 0 && (
+              <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto">
+                {resultadosEnChat.map((r) => (
+                  <li key={r.id} className="rounded-lg border border-border/60 bg-background px-3 py-2">
+                    <p className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                      <span className="font-medium text-foreground">{r.autor}</span>
+                      <span>{new Date(r.fecha).toLocaleString(english ? 'en-GB' : 'es-CO')}</span>
+                    </p>
+                    <p className="mt-0.5 line-clamp-3 text-xs text-foreground">{r.contenido}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
         {aviso && (
           <div
             className={cn(

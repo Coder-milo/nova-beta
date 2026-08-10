@@ -65,6 +65,14 @@ public class ChatDirectoController {
         service.desbloquear(contactoId, auth);
     }
 
+    /** Busca dentro de una conversación. Mismo control que abrirla. */
+    @GetMapping("/directos/{contactoId}/buscar")
+    public List<ChatDirectoMensajeResponse> buscar(@PathVariable UUID contactoId,
+                                                   @RequestParam String q,
+                                                   Authentication auth) {
+        return service.buscar(contactoId, q, auth);
+    }
+
     /** A quiénes bloqueó, para poder pintarlo y deshacerlo. */
     @GetMapping("/bloqueados")
     public List<UUID> bloqueados(Authentication auth) {

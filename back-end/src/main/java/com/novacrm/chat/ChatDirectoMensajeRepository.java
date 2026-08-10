@@ -29,6 +29,29 @@ public interface ChatDirectoMensajeRepository extends JpaRepository<ChatDirectoM
     List<ChatDirectoMensaje> ultimosDeLaConversacion(@Param("uno") UUID uno, @Param("otro") UUID otro,
                                                      Pageable pageable);
 
+    /**
+     * Busca dentro de una conversacion, sin distinguir tildes ni mayusculas.
+     *
+     * <p>Con la misma funcion que la busqueda de personas y por el mismo
+     * motivo: quien escribio «práctica» rara vez lo teclea con tilde al
+     * buscarlo, y una busqueda que exige acertar el acento no encuentra lo que
+     * la persona sabe que dijo.
+     *
+     * <p>De lo mas nuevo a lo mas viejo: lo que se busca en un chat suele ser
+     * algo reciente que no se quiere subir a mano.
+     */
+    @Query("""
+            select m from ChatDirectoMensaje m
+            join fetch m.remitente
+            where ((m.remitente.id = :uno and m.destinatario.id = :otro)
+                or (m.remitente.id = :otro and m.destinatario.id = :uno))
+              and novacrm_normalizar(m.contenido)
+                    like concat('%', novacrm_normalizar(cast(:q as string)), '%')
+            order by m.createdAt desc
+            """)
+    List<ChatDirectoMensaje> buscarEnLaConversacion(@Param("uno") UUID uno, @Param("otro") UUID otro,
+                                                    @Param("q") String q, Pageable pageable);
+
     /** Con quien se ha hablado, con lo ultimo que se dijo. Una fila por persona. */
     interface ResumenConversacion {
         UUID getOtroId();

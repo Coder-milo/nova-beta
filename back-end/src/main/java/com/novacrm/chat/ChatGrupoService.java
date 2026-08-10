@@ -250,6 +250,37 @@ public class ChatGrupoService {
                 .toList();
     }
 
+    /** Cuantos resultados devuelve una busqueda dentro del grupo. */
+    private static final int RESULTADOS_DE_BUSQUEDA = 50;
+
+    /** Minimo para buscar. Con una letra, el resultado es el grupo entero. */
+    private static final int MINIMO_PARA_BUSCAR = 2;
+
+    /**
+     * Busca dentro de un grupo.
+     *
+     * <p>Solo lo puede hacer quien pertenece, igual que leerlo: si no, buscar
+     * seria una forma de leer un grupo ajeno trozo a trozo.
+     */
+    public List<GrupoMensajeResponse> buscar(UUID grupoId, String consulta, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        if (!miembroRepository.existsByGrupoIdAndEstudianteId(grupoId, propio.getId())) {
+            throw new BusinessException("No perteneces a este grupo.");
+        }
+        String termino = consulta == null ? "" : consulta.trim();
+        if (termino.length() < MINIMO_PARA_BUSCAR) return List.of();
+
+        return mensajeRepository.buscarEnElGrupo(grupoId, termino,
+                        org.springframework.data.domain.PageRequest.of(0, RESULTADOS_DE_BUSQUEDA))
+                .stream()
+                .map(m -> new GrupoMensajeResponse(
+                        m.getId(), grupoId, m.getRemitente().getId(),
+                        nombreDe(m.getRemitente()), m.getContenido(), m.getCreatedAt(),
+                        m.getRemitente().getId().equals(propio.getId()),
+                        m.isEditado(), m.getEnRespuestaA(), m.isReenviado()))
+                .toList();
+    }
+
     /** Cuantos mensajes del grupo se guardan como prueba al reportar. */
     private static final int MENSAJES_DEL_EXTRACTO = 30;
 
