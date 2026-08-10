@@ -64,7 +64,7 @@ class PlataformaServiceTest {
         estudiante.setEmail(email);
         estudiante.setPrograma(programa);
 
-        when(estudianteRepository.findByEmail(email)).thenReturn(Optional.of(estudiante));
+        when(estudianteRepository.findByEmailIgnoreCase(email)).thenReturn(Optional.of(estudiante));
         when(programaPlataformaRepository.findPlataformaIdsByProgramaId(programaId))
                 .thenReturn(List.of(plat1Id, plat2Id));
 

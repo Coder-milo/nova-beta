@@ -180,7 +180,10 @@ public class PlataformaService {
      * proyecto (programa) en el que está inscrito el estudiante.
      */
     public List<PlataformaResponse> plataformasDeEstudiantePorEmail(String email) {
-        var est = estudianteRepository.findByEmail(email)
+        // Ignorando la caja, como el resto del portal: con igualdad exacta,
+        // quien tiene una mayuscula en su correo se quedaba sin ver ni una de
+        // las plataformas de su programa.
+        var est = estudianteRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado para la sesion actual"));
         if (est.getPrograma() == null) {
             return List.of();

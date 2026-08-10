@@ -246,7 +246,13 @@ public class ExcelService {
         for (FilaImportada fila : filas) {
             try {
                 var estudiante = construirEstudiante(fila.datos(), columnMap, esFormatoMaestra);
-                if (estudianteRepository.findByEmail(estudiante.getEmail()).isPresent()) {
+                // La misma pregunta que hara la importacion de verdad, con la
+                // misma respuesta. Aqui se comparaba solo el correo y con
+                // igualdad exacta, mientras la importacion busca primero por
+                // documento y luego por correo ignorando la caja: la pantalla
+                // que existe para mirar antes de escribir contaba como "nuevos"
+                // a personas que la importacion iba a actualizar.
+                if (buscarExistente(estudiante).isPresent()) {
                     actualizados++;
                 } else {
                     nuevos++;

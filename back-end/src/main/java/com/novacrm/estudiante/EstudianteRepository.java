@@ -20,7 +20,15 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     Page<Estudiante> findByProgramaIdAndActivoTrue(UUID programaId, Pageable pageable);
 
     List<Estudiante> findAllByProgramaIdAndActivoTrue(UUID programaId);
-    Optional<Estudiante> findByEmail(String email);
+
+    // Aqui vivia findByEmail, con igualdad exacta, y se colo en tres sitios: el
+    // historial del estudiante, sus plataformas y el conteo previo de la
+    // importacion. Los correos se cargaron desde Excel tal y como venian
+    // escritos y algunos llevan mayusculas, asi que la igualdad exacta dejaba a
+    // esas personas fuera de su propio portal. Se quita el metodo, y no solo sus
+    // usos, para que la proxima pantalla no vuelva a alcanzarlo por descuido:
+    // el que hay que usar es findByEmailIgnoreCase, mas abajo.
+
     Optional<Estudiante> findByNumeroDocumento(String numeroDocumento);
 
     /**
