@@ -33,6 +33,7 @@ import type {
   ChatGrupoMiembroResponse,
   MensajeResponse,
 } from '@/lib/types'
+import { EmojiPicker } from '@/components/ui/emoji-picker'
 import { cn } from '@/lib/utils'
 import { Conversacion } from '@/components/ui/conversacion'
 
@@ -42,7 +43,6 @@ interface Props {
   locale?: 'es' | 'en'
 }
 
-const EMOJIS_RAPIDOS = ['😊', '👍', '❤️', '😂', '🎉', '🔥', '🚀', '👏', '💡', '🙌']
 
 export function TelegramChatHub({ locale = 'es' }: Props) {
   const english = locale === 'en'
@@ -1231,22 +1231,14 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
           </div>
         )}
 
-        {/* Selector de Emojis */}
+        {/* Buscador de emojis por categorias. Antes era una tira de diez
+            fijos: servia para poner una carita y no para encontrar el emoji
+            que uno tiene en la cabeza. */}
         {mostrarEmojis && (
-          <div className="flex flex-wrap gap-1.5 border-t border-border bg-card p-2 dark:bg-[#0f172a]">
-            {EMOJIS_RAPIDOS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => {
-                  setBorrador((prev) => prev + emoji)
-                }}
-                className="rounded-lg p-1.5 text-base transition hover:bg-muted"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
+          <EmojiPicker
+            english={english}
+            onSelect={(emoji) => setBorrador((prev) => prev + emoji)}
+          />
         )}
 
         {/* Input Bar Estilo Telegram con Adjuntos y Emojis */}
