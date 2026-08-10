@@ -250,6 +250,25 @@ public class ChatGrupoService {
                 .toList();
     }
 
+    /**
+     * La clave de la foto del grupo, si quien pregunta pertenece a él.
+     *
+     * <p>Igual que la de un compañero: {@code fotoUrl} no es una dirección sino
+     * la clave con la que el archivo está guardado, así que hace falta alguien
+     * que la sirva. Hoy los grupos no tienen forma de subir foto y esto
+     * devuelve siempre vacío; existe para que el día que la tengan no aparezca
+     * rota, que es como aparecieron las de las personas durante meses.
+     */
+    public String claveDeFotoDelGrupo(UUID grupoId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        if (!miembroRepository.existsByGrupoIdAndEstudianteId(grupoId, propio.getId())) {
+            throw new BusinessException("No perteneces a este grupo.");
+        }
+        return grupoRepository.findById(grupoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado."))
+                .getFotoUrl();
+    }
+
     /** Cuantos resultados devuelve una busqueda dentro del grupo. */
     private static final int RESULTADOS_DE_BUSQUEDA = 50;
 

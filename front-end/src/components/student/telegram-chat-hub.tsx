@@ -146,6 +146,12 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
     return clave.startsWith('http') ? clave : `/api/v1/chats/directos/${contactoId}/foto`
   }
 
+  /** Lo mismo para un grupo, que la sirve su propio endpoint. */
+  const fotoDeGrupo = (grupoId: string, clave: string | null) => {
+    if (!clave) return null
+    return clave.startsWith('http') ? clave : `/api/v1/chats/grupos/${grupoId}/foto`
+  }
+
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -667,7 +673,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                 )}
               >
                 {g.fotoUrl ? (
-                  <img src={g.fotoUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                  <img src={fotoDeGrupo(g.id, g.fotoUrl) ?? undefined} alt="" className="size-10 shrink-0 rounded-full object-cover" />
                 ) : (
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 font-bold text-emerald-600 dark:text-emerald-400">
                     <UsersThree className="size-5" />
@@ -711,7 +717,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
             {activeTab === 'directos' && selectedContactoFoto ? (
               <img src={fotoDe(selectedContactoId ?? '', selectedContactoFoto) ?? undefined} alt="" className="size-9 rounded-full object-cover" />
             ) : activeTab === 'grupos' && selectedGrupoFoto ? (
-              <img src={selectedGrupoFoto} alt="" className="size-9 rounded-full object-cover" />
+              <img src={fotoDeGrupo(selectedGrupoId ?? '', selectedGrupoFoto) ?? undefined} alt="" className="size-9 rounded-full object-cover" />
             ) : (
               <div className="flex size-9 items-center justify-center rounded-full bg-primary/20 font-bold text-primary">
                 {activeTab === 'directos' ? (selectedContactoNombre[0] || 'C') : activeTab === 'grupos' ? '👥' : '🎧'}

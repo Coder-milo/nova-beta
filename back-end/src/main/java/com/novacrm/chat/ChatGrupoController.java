@@ -15,9 +15,12 @@ import java.util.UUID;
 public class ChatGrupoController {
 
     private final ChatGrupoService service;
+    private final com.novacrm.documento.StorageService storageService;
 
-    public ChatGrupoController(ChatGrupoService service) {
+    public ChatGrupoController(ChatGrupoService service,
+                               com.novacrm.documento.StorageService storageService) {
         this.service = service;
+        this.storageService = storageService;
     }
 
     @PostMapping
@@ -29,6 +32,19 @@ public class ChatGrupoController {
     @GetMapping
     public List<ChatGrupoService.GrupoResponse> misGrupos(Authentication auth) {
         return service.misGrupos(auth);
+    }
+
+    /** La foto del grupo. Solo la ven sus miembros. */
+    @GetMapping("/{grupoId}/foto")
+    public org.springframework.http.ResponseEntity<byte[]> foto(@PathVariable UUID grupoId,
+                                                                Authentication auth) {
+        String clave = service.claveDeFotoDelGrupo(grupoId, auth);
+        if (clave == null || clave.isBlank()) {
+            return org.springframework.http.ResponseEntity.notFound().build();
+        }
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(com.novacrm.estudiante.FotoDePerfil.tipoPorExtension(clave))
+                .body(storageService.descargar(clave));
     }
 
     /** Busca dentro del grupo. Solo quien pertenece. */
