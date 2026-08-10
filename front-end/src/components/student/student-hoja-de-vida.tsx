@@ -930,14 +930,22 @@ export function StudentHojaDeVida({
   const [errorPlantilla, setErrorPlantilla] = useState<string | null>(null)
 
   useEffect(() => {
+    // El catálogo de plantillas no cambia porque el estudiante elija una, y
+    // antes `plantillaId` estaba entre las dependencias: cada clic volvía a
+    // pedir la lista entera para dejarla igual. La preselección se hace ahora
+    // con la forma funcional, que es lo que hacía falta de esa dependencia:
+    // rellenar el hueco sólo si sigue vacío.
+    let vigente = true
     hvApi.plantillas().then((res) => {
+      if (!vigente) return
       setPlantillas(res)
-      if (!plantillaId && res.length > 0) {
+      if (res.length > 0) {
         const pred = res.find((p) => p.predeterminada) ?? res[0]
-        setPlantillaId(pred.id)
+        setPlantillaId((actual) => actual || pred.id)
       }
-    }).catch((e) => setErrorPlantilla(mensajeDe(e, T.errorConexion)))
-  }, [plantillaId, T.errorConexion])
+    }).catch((e) => { if (vigente) setErrorPlantilla(mensajeDe(e, T.errorConexion)) })
+    return () => { vigente = false }
+  }, [T.errorConexion])
 
   /**
    * Guarda la plantilla elegida.

@@ -235,41 +235,68 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
       }
 
   useEffect(() => {
+    /**
+     * Cambiar de sección lanza otra cadena de peticiones sin esperar a que
+     * termine la anterior, y cada sección encadena entre dos y cuatro. La
+     * respuesta de la sección que acabas de dejar llega después y escribe
+     * igual: pinta sus datos en una pantalla que ya es otra, apaga el
+     * «cargando» de la nueva, o enseña un error de algo que ya no estás
+     * mirando. Se nota justo donde más duele, en el móvil con mala conexión.
+     */
+    let vigente = true
     ;(async () => {
       setLoading(true)
       setError('')
       try {
         const p = await estudiantesApi.obtenerMiPerfil()
+        if (!vigente) return
         setPerfil(p)
         if (area === 'proceso') {
-          setSeguimientos(await seguimientosApi.mio())
+          const seguimientos = await seguimientosApi.mio()
+          if (!vigente) return
+          setSeguimientos(seguimientos)
           // Mientras se actualiza un entorno con un backend anterior, el
           // historial sigue funcionando aunque aún no exista el pipeline.
           try {
-            setPipeline(await pipelineApi.mio())
+            const pipeline = await pipelineApi.mio()
+            if (!vigente) return
+            setPipeline(pipeline)
           } catch {
+            if (!vigente) return
             setPipeline(null)
           }
           try {
-            setColocaciones(await colocacionesApi.mia())
+            const colocaciones = await colocacionesApi.mia()
+            if (!vigente) return
+            setColocaciones(colocaciones)
           } catch {
+            if (!vigente) return
             setColocaciones([])
           }
         }
 
-        if (area === 'actividades' || area === 'calendario')
-          setActividades(await actividadesApi.mias())
-        if (area === 'notificaciones')
-          setNotificaciones(
-            (await notificacionesApi.mias(0, 100)).content,
-          )
-        if (area === 'mensajes') setMensajes(await mensajesApi.mios())
+        if (area === 'actividades' || area === 'calendario') {
+          const actividades = await actividadesApi.mias()
+          if (!vigente) return
+          setActividades(actividades)
+        }
+        if (area === 'notificaciones') {
+          const pagina = await notificacionesApi.mias(0, 100)
+          if (!vigente) return
+          setNotificaciones(pagina.content)
+        }
+        if (area === 'mensajes') {
+          const mensajes = await mensajesApi.mios()
+          if (!vigente) return
+          setMensajes(mensajes)
+        }
       } catch (e) {
-        setError(e instanceof Error ? e.message : A.noFuePosibleCargar)
+        if (vigente) setError(e instanceof Error ? e.message : A.noFuePosibleCargar)
       } finally {
-        setLoading(false)
+        if (vigente) setLoading(false)
       }
     })()
+    return () => { vigente = false }
   }, [area])
 
   const marcarLeida = async (n: NotificacionResponse) => {

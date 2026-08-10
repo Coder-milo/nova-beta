@@ -451,13 +451,27 @@ type TabId = 'resumen' | 'personal' | 'academico' | 'formacion' | 'experiencia' 
 
 // ─── Componente principal ────────────────────────────────────────────────────
 
+/**
+ * La ficha se monta de nuevo por cada estudiante, y de eso se encarga la clave.
+ *
+ * Al pasar de una ficha a otra la navegación no recarga la página: cambia el
+ * `id` dentro del mismo componente. Las ocho cargas de la ficha anterior seguían
+ * en vuelo y escribían al volver, así que los datos de un estudiante acababan
+ * pintados bajo el nombre de otro —y aquí eso son datos personales de gente
+ * real, no una lista cualquiera—. Con la clave, React descarta la instancia
+ * anterior y esas respuestas ya no tienen dónde escribir.
+ */
 export default function PerfilEstudiantePage() {
+  const params = useParams<{ id: string }>()
+  const id = params.id ?? ''
+  return <FichaEstudiante key={id} id={id} />
+}
+
+function FichaEstudiante({ id }: { id: string }) {
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
   const { confirmar, dialogo } = useConfirmar()
-  const params = useParams<{ id: string }>()
-  const id = params.id
 
   const [estudiante, setEstudiante] = useState<EstudianteResponse | null>(null)
   const [loading, setLoading]       = useState(true)

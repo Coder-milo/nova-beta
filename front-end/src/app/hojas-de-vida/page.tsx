@@ -637,9 +637,16 @@ export default function HojasDeVidaPage() {
   // ── Edición: cargar estudiantes del programa seleccionado ─────────────
   useEffect(() => {
     if (!editPrograma) return
+    // Cambiar de programa antes de que conteste el anterior dejaba la lista del
+    // programa viejo bajo el nombre del nuevo: la respuesta que llega última no
+    // es siempre la que se pidió última. Aquí eso no es sólo cosmético, porque
+    // de esa lista se elige a quién se le asigna la hoja de vida.
+    let vigente = true
     estudiantesApi.listar(editPrograma, 0, 200).then((page) => {
+      if (!vigente) return
       setEditEstudiantes(page.content.map((e) => ({ id: e.id, nombre: `${e.nombre} ${e.apellido}` })))
-    }).catch(() => { setEditEstudiantes([]) })
+    }).catch(() => { if (vigente) setEditEstudiantes([]) })
+    return () => { vigente = false }
   }, [editPrograma])
 
   // ── Generación masiva ─────────────────────────────────────────────────────

@@ -1030,15 +1030,24 @@ function pestanas(T: ReturnType<typeof textos>, C: TextosAdmin): { id: TabId; la
   ]
 }
 
+/**
+ * Igual que la ficha del estudiante: la navegación entre proyectos no recarga
+ * la página, así que sin la clave el `id` cambia dentro del mismo componente y
+ * las cargas del proyecto anterior escriben encima al volver.
+ */
 export default function ProyectoDetallePage() {
+  const params = useParams<{ id: string }>()
+  const id = params.id ?? ''
+  return <DetalleProyecto key={id} id={id} />
+}
+
+function DetalleProyecto({ id }: { id: string }) {
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
   const { confirmar, dialogo } = useConfirmar()
   const { mostrarError, avisos } = useAvisos()
-  const params = useParams<{ id: string }>()
   const router = useRouter()
-  const id = params.id
 
   const [programa, setPrograma] = useState<ProgramaCompleto | null>(null)
   const [loading, setLoading]   = useState(true)
