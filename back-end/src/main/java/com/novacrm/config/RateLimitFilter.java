@@ -54,8 +54,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /** Tiempo sin trafico tras el cual se olvida un contador. */
     private static final Duration TTL_INACTIVIDAD = Duration.ofMinutes(30);
 
-    /** Tope de contadores distintos en memoria antes de forzar una limpieza. */
-    private static final int MAX_ENTRADAS = 50_000;
+    /**
+     * Tope de contadores distintos <em>por registro</em> antes de forzar una
+     * limpieza.
+     *
+     * <p>Cada mapa tiene su propio presupuesto y su propia limpieza. Antes el
+     * tope se medía sobre la suma de los dos y, al desbordarse, se vaciaban
+     * ambos: llenar el registro de la API vaciaba tambien el del login, y con
+     * el, los intentos fallidos acumulados de todo el mundo. Es decir, generar
+     * trafico desde muchas direcciones —trivial con un rango IPv6 propio—
+     * reiniciaba la proteccion contra fuerza bruta.
+     *
+     * <p>Son dos defensas distintas y una no puede apagar a la otra.
+     */
+    private static final int MAX_ENTRADAS_POR_REGISTRO = 25_000;
 
     /** Cada cuantas peticiones se revisa si toca limpiar. */
     private static final int PERIODO_REVISION = 1_000;
@@ -226,25 +238,34 @@ public class RateLimitFilter extends OncePerRequestFilter {
      * con la cabecera falseable era un camino directo a agotar la memoria.
      */
     private void limpiarSiCorresponde() {
-        boolean llenos = loginBuckets.size() + apiBuckets.size() > MAX_ENTRADAS;
+        boolean alguienLleno = loginBuckets.size() > MAX_ENTRADAS_POR_REGISTRO
+                || apiBuckets.size() > MAX_ENTRADAS_POR_REGISTRO;
         boolean tocaPorPeriodo =
                 peticionesDesdeUltimaRevision.incrementAndGet() >= PERIODO_REVISION;
 
-        if (!llenos && !tocaPorPeriodo) {
+        if (!alguienLleno && !tocaPorPeriodo) {
             return;
         }
         peticionesDesdeUltimaRevision.set(0);
 
         long ahora = System.nanoTime();
         long ttl = TTL_INACTIVIDAD.toNanos();
-        loginBuckets.values().removeIf(c -> c.caducado(ahora, ttl));
-        apiBuckets.values().removeIf(c -> c.caducado(ahora, ttl));
+        purgar(loginBuckets, ahora, ttl);
+        purgar(apiBuckets, ahora, ttl);
+    }
 
-        // Si aun asi siguen llenos se vacian: es preferible perder contadores
-        // (peor caso, alguien recupera intentos) a quedarse sin memoria.
-        if (loginBuckets.size() + apiBuckets.size() > MAX_ENTRADAS) {
-            loginBuckets.clear();
-            apiBuckets.clear();
+    /**
+     * Descarta lo inactivo de un registro y, si aun asi se pasa de su
+     * presupuesto, lo vacia.
+     *
+     * <p>Vaciar es preferible a quedarse sin memoria —el peor caso es que
+     * alguien recupere intentos—, pero cada registro paga lo suyo: llenar uno no
+     * puede vaciar el otro.
+     */
+    private static void purgar(Map<String, Contador> registro, long ahora, long ttl) {
+        registro.values().removeIf(c -> c.caducado(ahora, ttl));
+        if (registro.size() > MAX_ENTRADAS_POR_REGISTRO) {
+            registro.clear();
         }
     }
 

@@ -201,6 +201,36 @@ class RateLimitFilterTest {
         assertTrue(filtro.contadoresVivos() > 0, "deben seguir existiendo contadores activos");
     }
 
+    /**
+     * Llenar la memoria de la API no puede reiniciar el freno del login.
+     *
+     * <p>El tope se medía sobre la suma de los dos registros y, al desbordarse,
+     * se vaciaban los dos. Asi que generar trafico desde muchas direcciones
+     * —trivial con un rango IPv6 propio— borraba tambien los intentos fallidos
+     * acumulados: quien estaba adivinando una contrasena recuperaba sus cinco
+     * intentos por minuto tantas veces como quisiera.
+     *
+     * <p>Son dos defensas distintas y una no puede apagar a la otra.
+     */
+    @Test
+    void llenarElRegistroDeLaApiNoBorraElFrenoDelLogin() throws Exception {
+        var filtro = filtro(PROXY);
+        String atacante = "203.0.113.7";
+
+        assertEquals(HttpServletResponse.SC_OK, pedirLogin(filtro, atacante, null));
+        assertEquals(HttpServletResponse.SC_OK, pedirLogin(filtro, atacante, null));
+        assertEquals(429, pedirLogin(filtro, atacante, null), "el freno esta puesto");
+
+        // Trafico de la API desde muchas direcciones distintas, por encima del
+        // presupuesto de ese registro.
+        for (int i = 0; i < 26_000; i++) {
+            pedirApi(filtro, "10." + (i / 65_536) + "." + ((i / 256) % 256) + "." + (i % 256), null);
+        }
+
+        assertEquals(429, pedirLogin(filtro, atacante, null),
+                "el contador de login del atacante sigue agotado");
+    }
+
     // --- Cupo por usuario en el resto de la API ---
 
     private static final String SECRETO = "secreto_de_prueba_para_el_rate_limit_con_32_bytes_o_mas";
