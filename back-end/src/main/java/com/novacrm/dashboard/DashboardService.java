@@ -13,6 +13,7 @@ import com.novacrm.programa.ProgramaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -26,12 +27,22 @@ public class DashboardService {
 
     private static final int DIAS_ALERTA_FIN_PROGRAMA = 45;
 
+    /**
+     * Dias que puede llevar un mensaje sin respuesta antes de avisar.
+     *
+     * <p>Tres y no catorce como el tablero: alli se mide el acompanamiento a lo
+     * largo de un proceso, y aqui hay alguien que escribio una pregunta y esta
+     * esperando. Quien escribe a su programa cuenta en dias.
+     */
+    private static final int DIAS_SIN_RESPONDER = 3;
+
     private final EstudianteRepository estudianteRepository;
     private final ProgramaRepository programaRepository;
     private final com.novacrm.seguimiento.SeguimientoRepository seguimientoRepository;
     private final com.novacrm.vacante.VacanteRepository vacanteRepository;
     private final com.novacrm.scraper.ScrapingEjecucionRepository scrapingEjecucionRepository;
     private final com.novacrm.chat.ReporteDeChatRepository reporteDeChatRepository;
+    private final com.novacrm.mensaje.MensajeEstudianteRepository mensajeRepository;
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
@@ -41,13 +52,15 @@ public class DashboardService {
                             com.novacrm.seguimiento.SeguimientoRepository seguimientoRepository,
                             com.novacrm.vacante.VacanteRepository vacanteRepository,
                             com.novacrm.scraper.ScrapingEjecucionRepository scrapingEjecucionRepository,
-                            com.novacrm.chat.ReporteDeChatRepository reporteDeChatRepository) {
+                            com.novacrm.chat.ReporteDeChatRepository reporteDeChatRepository,
+                            com.novacrm.mensaje.MensajeEstudianteRepository mensajeRepository) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
         this.seguimientoRepository = seguimientoRepository;
         this.vacanteRepository = vacanteRepository;
         this.scrapingEjecucionRepository = scrapingEjecucionRepository;
         this.reporteDeChatRepository = reporteDeChatRepository;
+        this.mensajeRepository = mensajeRepository;
     }
 
     public DashboardSummaryResponse resumen() {
@@ -129,6 +142,28 @@ public class DashboardService {
                     "Reportes del chat sin revisar",
                     reportesAbiertos + " estudiante(s) reportaron una conversación y esperan respuesta.",
                     null, "/reportes-chat"));
+        }
+
+        // Un estudiante escribio al equipo y nadie le contesto. Es lo mismo que
+        // el aviso de arriba —una persona esperando respuesta— por el canal
+        // ordinario en vez de por el excepcional, y no estaba en esta lista.
+        //
+        // Existia el contador de la campana, que dice cuantos hilos hay
+        // abiertos. Con un numero a secas, uno de hace tres semanas se ve igual
+        // que uno de esta manana, y lo que importa aqui es justo cuanto lleva
+        // esperando alguien.
+        var esperando = mensajeRepository.findByEstadoAndCreatedAtBeforeOrderByCreatedAtAsc(
+                com.novacrm.mensaje.EstadoMensaje.ABIERTO,
+                Instant.now().minus(Duration.ofDays(DIAS_SIN_RESPONDER)));
+        if (!esperando.isEmpty()) {
+            long diasDelMasViejo = ChronoUnit.DAYS.between(
+                    esperando.get(0).getCreatedAt(), Instant.now());
+            alertas.add(new AlertaResponse(
+                    "MENSAJE_SIN_RESPONDER", "ALTA",
+                    "Mensajes de estudiantes sin responder",
+                    esperando.size() + " mensaje(s) llevan mas de " + DIAS_SIN_RESPONDER
+                            + " dias sin respuesta; el mas antiguo, " + diasDelMasViejo + ".",
+                    null, null));
         }
 
         long conDatosFaltantes = estudianteRepository.contarActivosConDatosFaltantes();
