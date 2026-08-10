@@ -31,6 +31,21 @@ public class ChatGrupoController {
         return service.misGrupos(auth);
     }
 
+    /** Salir del grupo. Si sale el último, el grupo se va con él. */
+    @DeleteMapping("/{grupoId}/miembros/yo")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void salir(@PathVariable UUID grupoId, Authentication auth) {
+        service.salir(grupoId, auth);
+    }
+
+    /** Sacar a alguien del grupo. Solo un administrador. */
+    @DeleteMapping("/{grupoId}/miembros/{estudianteId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void expulsar(@PathVariable UUID grupoId, @PathVariable UUID estudianteId,
+                         Authentication auth) {
+        service.expulsar(grupoId, estudianteId, auth);
+    }
+
     @GetMapping("/{grupoId}/mensajes")
     public List<ChatGrupoService.GrupoMensajeResponse> mensajesDelGrupo(@PathVariable UUID grupoId, Authentication auth) {
         return service.mensajesDelGrupo(grupoId, auth);

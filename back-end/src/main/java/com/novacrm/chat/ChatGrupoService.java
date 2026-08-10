@@ -177,6 +177,63 @@ public class ChatGrupoService {
                 true, false, enRespuestaA, false);
     }
 
+    /**
+     * Salir de un grupo.
+     *
+     * <p>Hasta ahora no se podia: a un grupo se entraba porque otro te metia, y
+     * de ahi no habia salida. Con la posibilidad de reportar puesta la semana
+     * pasada, quedarse esto sin hacer era dejar la mitad del problema.
+     *
+     * <p>Si se va el ultimo, el grupo se borra con sus mensajes: un grupo sin
+     * nadie no lo puede volver a abrir ninguno de los dos lados, y sus mensajes
+     * quedarian guardados sin que nadie pueda leerlos. Si se va el unico
+     * administrador y queda gente, hereda quien lleve mas tiempo, para que no
+     * quede un grupo que nadie puede administrar.
+     */
+    @Transactional
+    public void salir(UUID grupoId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        var miembro = miembroRepository.findByGrupoIdAndEstudianteId(grupoId, propio.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("No perteneces a este grupo."));
+        miembroRepository.delete(miembro);
+
+        var quedan = miembroRepository.findByGrupoIdOrderByCreatedAtAsc(grupoId).stream()
+                .filter(m -> !m.getId().equals(miembro.getId()))
+                .toList();
+        if (quedan.isEmpty()) {
+            grupoRepository.deleteById(grupoId);
+            return;
+        }
+        if (quedan.stream().noneMatch(ChatGrupoMiembro::isEsAdmin)) {
+            var heredero = quedan.get(0);
+            heredero.setEsAdmin(true);
+            miembroRepository.save(heredero);
+        }
+    }
+
+    /**
+     * Sacar a alguien del grupo. Solo un administrador, y no a otro
+     * administrador: para eso ese administrador se sale por su cuenta.
+     */
+    @Transactional
+    public void expulsar(UUID grupoId, UUID estudianteId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        var yo = miembroRepository.findByGrupoIdAndEstudianteId(grupoId, propio.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("No perteneces a este grupo."));
+        if (!yo.isEsAdmin()) {
+            throw new BusinessException("Solo un administrador del grupo puede sacar a alguien.");
+        }
+        if (estudianteId.equals(propio.getId())) {
+            throw new BusinessException("Para salirte del grupo usa la opción de salir.");
+        }
+        var otro = miembroRepository.findByGrupoIdAndEstudianteId(grupoId, estudianteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Esa persona no está en el grupo."));
+        if (otro.isEsAdmin()) {
+            throw new BusinessException("No puedes sacar a otro administrador del grupo.");
+        }
+        miembroRepository.delete(otro);
+    }
+
     /** El proyecto al que pertenece alguien, o un error que se entiende. */
     private static com.novacrm.programa.Programa programaDe(Estudiante estudiante) {
         var programa = estudiante.getPrograma();

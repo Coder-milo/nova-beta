@@ -10,4 +10,7 @@ public interface ChatGrupoMiembroRepository extends JpaRepository<ChatGrupoMiemb
     Optional<ChatGrupoMiembro> findByGrupoIdAndEstudianteId(UUID grupoId, UUID estudianteId);
     List<ChatGrupoMiembro> findByGrupoId(UUID grupoId);
     boolean existsByGrupoIdAndEstudianteId(UUID grupoId, UUID estudianteId);
+
+    /** Los miembros por orden de entrada: el primero hereda ser admin. */
+    List<ChatGrupoMiembro> findByGrupoIdOrderByCreatedAtAsc(UUID grupoId);
 }

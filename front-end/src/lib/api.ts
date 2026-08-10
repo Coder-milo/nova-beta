@@ -718,6 +718,16 @@ export const gruposApi = {
     apiFetch<ChatGrupoMensajeResponse>(`/api/v1/chats/grupos/${grupoId}/mensajes?contenido=${encodeURIComponent(contenido)}${enRespuestaA ? `&enRespuestaA=${enRespuestaA}` : ''}`, {
       method: 'POST', token,
     }),
+  /** Salir del grupo. Si sale el último, el grupo se va con él. */
+  salir: (grupoId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/chats/grupos/${grupoId}/miembros/yo`, {
+      method: 'DELETE', token,
+    }),
+  /** Sacar a alguien del grupo. Solo un administrador. */
+  expulsar: (grupoId: string, estudianteId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/chats/grupos/${grupoId}/miembros/${estudianteId}`, {
+      method: 'DELETE', token,
+    }),
 }
 
 export const adminApi = {

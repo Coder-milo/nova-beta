@@ -81,6 +81,9 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   const [motivoReporte, setMotivoReporte] = useState('')
   const [reportando, setReportando] = useState(false)
 
+  const [modalSalirGrupo, setModalSalirGrupo] = useState(false)
+  const [saliendo, setSaliendo] = useState(false)
+
   /**
    * Lo que sale mal, dicho.
    *
@@ -217,6 +220,25 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
    * El motivo es opcional a propósito: obligar a explicarse por escrito, justo
    * cuando alguien acaba de recibir algo desagradable, hace que no se reporte.
    */
+  /** Salir del grupo abierto y volver a la lista. */
+  const handleSalirGrupo = async () => {
+    if (!selectedGrupoId) return
+    setSaliendo(true)
+    try {
+      await gruposApi.salir(selectedGrupoId)
+      setModalSalirGrupo(false)
+      setSelectedGrupoId(null)
+      setSelectedGrupoNombre('')
+      setMensajesGrupo([])
+      void cargarBandejas()
+      setAviso({ tipo: 'ok', texto: english ? 'You left the group.' : 'Saliste del grupo.' })
+    } catch (e) {
+      setAviso({ tipo: 'error', texto: mensajeDeError(e, english ? 'You could not leave the group.' : 'No se pudo salir del grupo.') })
+    } finally {
+      setSaliendo(false)
+    }
+  }
+
   const handleReportar = async () => {
     if (!selectedContactoId) return
     setReportando(true)
@@ -483,6 +505,18 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
               title={english ? 'Report this conversation' : 'Reportar esta conversación'}
             >
               {english ? 'Report' : 'Reportar'}
+            </button>
+          )}
+
+          {/* A un grupo se entra porque otro te mete; sin esto no habia salida. */}
+          {activeTab === 'grupos' && selectedGrupoId && (
+            <button
+              type="button"
+              onClick={() => setModalSalirGrupo(true)}
+              className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+              title={english ? 'Leave this group' : 'Salir de este grupo'}
+            >
+              {english ? 'Leave' : 'Salir'}
             </button>
           )}
         </header>
@@ -853,6 +887,47 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                 {reportando
                   ? (english ? 'Sending…' : 'Enviando…')
                   : (english ? 'Report' : 'Reportar')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalSalirGrupo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:bg-[#0f172a]">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-sm font-bold text-foreground">
+                {english ? `Leave ${selectedGrupoNombre}` : `Salir de ${selectedGrupoNombre}`}
+              </h3>
+              <button type="button" onClick={() => setModalSalirGrupo(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              {english
+                ? 'You will stop receiving its messages. To come back, someone in the group has to add you again.'
+                : 'Dejarás de recibir sus mensajes. Para volver, alguien del grupo tiene que añadirte otra vez.'}
+            </p>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setModalSalirGrupo(false)}
+                className="rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+              >
+                {english ? 'Cancel' : 'Cancelar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSalirGrupo()}
+                disabled={saliendo}
+                className="rounded-lg bg-destructive px-3 py-2 text-xs font-semibold text-destructive-foreground disabled:opacity-60"
+              >
+                {saliendo
+                  ? (english ? 'Leaving…' : 'Saliendo…')
+                  : (english ? 'Leave' : 'Salir')}
               </button>
             </div>
           </div>
