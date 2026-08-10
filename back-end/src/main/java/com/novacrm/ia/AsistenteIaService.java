@@ -43,6 +43,23 @@ public class AsistenteIaService {
             "/mis-postulaciones", "/mi-calendario", "/mis-actividades", "/mis-notificaciones",
             "/mis-mensajes", "/mi-perfil", "/ayuda-estudiante", "/configuracion-estudiante");
 
+    /**
+     * Los planes de accion que el asistente puede proponer, y a quien.
+     *
+     * <p>Un plan no es una respuesta: es una tarjeta con un boton de «Confirmar
+     * y Ejecutar» que mueve a alguien de columna, cambia el tema o abre las
+     * importaciones masivas. Todos son de administracion.
+     *
+     * <p>La navegacion ya se filtraba por rol —{@code accionNavegacion} solo
+     * pasa si esta en las rutas de quien pregunta— y el plan, que hace bastante
+     * mas, no se filtraba por nada: el modelo lo escribia y salia tal cual, en
+     * la conversacion de un estudiante igual que en la de un coordinador. Hoy no
+     * se ve porque la pantalla del estudiante no pinta ese campo, que es una
+     * casualidad del frontend y no una decision del backend.
+     */
+    private static final Set<String> PLANES_ADMIN = Set.of(
+            "MOVER_ESTUDIANTE", "CAMBIAR_TEMA", "CAMBIAR_COLOR", "ABRIR_IMPORTACION");
+
     private static final String RUTA_INICIO_ADMIN = "/";
     private static final String RUTA_INICIO_ESTUDIANTE = "/portal-estudiante";
 
@@ -230,7 +247,12 @@ public class AsistenteIaService {
                                 else if (entry.getValue().isBoolean()) params.put(entry.getKey(), entry.getValue().asBoolean());
                             });
                         }
-                        if (tipo != null && titulo != null) {
+                        // Solo los planes que existen, y solo a quien puede
+                        // ejecutarlos. Mismo criterio que la navegacion de
+                        // arriba: lo que el modelo escriba fuera de la lista se
+                        // descarta en vez de reenviarse al cliente.
+                        if (tipo != null && titulo != null
+                                && administrador && PLANES_ADMIN.contains(tipo)) {
                             planAccion = new RespuestaAsistenteDto.PlanAccion(tipo, titulo, descripcion != null ? descripcion : "", params);
                         }
                     }
