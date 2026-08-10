@@ -25,17 +25,20 @@ public class ChatGrupoService {
     private final ChatGrupoMensajeRepository mensajeRepository;
     private final EstudianteRepository estudianteRepository;
     private final OwnershipService ownershipService;
+    private final ReporteDeChatRepository reporteRepository;
 
     public ChatGrupoService(ChatGrupoRepository grupoRepository,
                              ChatGrupoMiembroRepository miembroRepository,
                              ChatGrupoMensajeRepository mensajeRepository,
                              EstudianteRepository estudianteRepository,
-                             OwnershipService ownershipService) {
+                             OwnershipService ownershipService,
+                             ReporteDeChatRepository reporteRepository) {
         this.grupoRepository = grupoRepository;
         this.miembroRepository = miembroRepository;
         this.mensajeRepository = mensajeRepository;
         this.estudianteRepository = estudianteRepository;
         this.ownershipService = ownershipService;
+        this.reporteRepository = reporteRepository;
     }
 
     public record GrupoResponse(
@@ -211,6 +214,62 @@ public class ChatGrupoService {
                         m.isEsAdmin(),
                         m.getEstudiante().getId().equals(propio.getId())))
                 .toList();
+    }
+
+    /** Cuantos mensajes del grupo se guardan como prueba al reportar. */
+    private static final int MENSAJES_DEL_EXTRACTO = 30;
+
+    /**
+     * Reporta a alguien del grupo por lo que escribió en él.
+     *
+     * <p>Se reporta a una persona, no al grupo. Un grupo es un espacio de
+     * varios: cerrarlo por lo que escribió uno castiga a todos los demás, que
+     * no hicieron nada. Y el equipo necesita saber a quién mirar, no solo
+     * dónde.
+     *
+     * <p>El extracto es del grupo entero y no solo de los mensajes de esa
+     * persona: una frase suelta sin lo que se dijo antes y después casi nunca
+     * se entiende, y de eso depende que el equipo pueda juzgar.
+     */
+    @Transactional
+    public void reportar(UUID grupoId, UUID estudianteId, String motivo, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        if (!miembroRepository.existsByGrupoIdAndEstudianteId(grupoId, propio.getId())) {
+            throw new BusinessException("No perteneces a este grupo.");
+        }
+        if (estudianteId.equals(propio.getId())) {
+            throw new BusinessException("No puedes reportarte a ti mismo.");
+        }
+        var grupo = grupoRepository.findById(grupoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado."));
+        // Sin exigir que siga siendo miembro: se puede reportar a quien acaba de
+        // salirse, que es justo cuando mas falta hace.
+        Estudiante denunciado = estudianteRepository.findById(estudianteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Compañero no encontrado."));
+
+        if (reporteRepository.existsByDenuncianteIdAndDenunciadoIdAndEstado(
+                propio.getId(), denunciado.getId(), ReporteDeChat.ABIERTO)) {
+            throw new BusinessException(
+                    "Ya reportaste a esta persona. El equipo lo está revisando.");
+        }
+
+        var recientes = mensajeRepository.findByGrupoIdOrderByCreatedAtDesc(grupoId,
+                org.springframework.data.domain.PageRequest.of(0, MENSAJES_DEL_EXTRACTO));
+        var enOrden = new java.util.ArrayList<>(recientes);
+        java.util.Collections.reverse(enOrden);
+        var extracto = new StringBuilder("Grupo: ").append(grupo.getNombre()).append('\n');
+        for (var mensaje : enOrden) {
+            extracto.append(mensaje.getCreatedAt()).append(" · ")
+                    .append(nombreDe(mensaje.getRemitente())).append(": ")
+                    .append(mensaje.getContenido()).append('\n');
+        }
+
+        var reporte = new ReporteDeChat();
+        reporte.setDenunciante(propio);
+        reporte.setDenunciado(denunciado);
+        reporte.setMotivo(motivo == null ? null : motivo.trim());
+        reporte.setExtracto(extracto.toString());
+        reporteRepository.save(reporte);
     }
 
     /**

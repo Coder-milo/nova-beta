@@ -38,6 +38,22 @@ public class ChatGrupoController {
         return service.miembros(grupoId, auth);
     }
 
+    /**
+     * Reporta a alguien del grupo por lo que escribió en él.
+     *
+     * <p>Se reporta a una persona, no al grupo: cerrarlo por lo que escribió
+     * uno castiga a todos los demás, que no hicieron nada.
+     */
+    @PostMapping("/{grupoId}/miembros/{estudianteId}/reportar")
+    public void reportar(@PathVariable UUID grupoId, @PathVariable UUID estudianteId,
+                         @RequestBody(required = false) ReporteRequest cuerpo,
+                         Authentication auth) {
+        service.reportar(grupoId, estudianteId, cuerpo == null ? null : cuerpo.motivo(), auth);
+    }
+
+    /** El motivo es opcional: obligar a explicarse hace que no se reporte. */
+    public record ReporteRequest(String motivo) {}
+
     /** Salir del grupo. Si sale el último, el grupo se va con él. */
     @DeleteMapping("/{grupoId}/miembros/yo")
     @ResponseStatus(HttpStatus.NO_CONTENT)

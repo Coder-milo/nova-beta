@@ -749,6 +749,16 @@ export const gruposApi = {
     apiFetch<void>(`/api/v1/chats/grupos/${grupoId}/miembros/yo`, {
       method: 'DELETE', token,
     }),
+  /**
+   * Reporta a alguien del grupo por lo que escribió en él.
+   *
+   * Se reporta a la persona, no al grupo: cerrarlo por lo que escribió uno
+   * castiga a todos los demás, que no hicieron nada.
+   */
+  reportarMiembro: (grupoId: string, estudianteId: string, motivo: string, token?: string) =>
+    apiFetch<void>(`/api/v1/chats/grupos/${grupoId}/miembros/${estudianteId}/reportar`, {
+      method: 'POST', data: { motivo }, token,
+    }),
   /** Sacar a alguien del grupo. Solo un administrador. */
   expulsar: (grupoId: string, estudianteId: string, token?: string) =>
     apiFetch<void>(`/api/v1/chats/grupos/${grupoId}/miembros/${estudianteId}`, {

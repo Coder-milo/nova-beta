@@ -78,7 +78,16 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   const [modalReenviar, setModalReenviar] = useState(false)
   const [mensajeAReenviarId, setMensajeAReenviarId] = useState<string | null>(null)
 
-  const [modalReportar, setModalReportar] = useState(false)
+  /**
+   * A quién se está reportando, si a alguien.
+   *
+   * Lleva el grupo cuando el reporte sale de la lista de miembros: es la misma
+   * conversación con el equipo, pero la prueba que se guarda es la del grupo y
+   * no la del chat de dos.
+   */
+  const [reporteDe, setReporteDe] = useState<
+    { estudianteId: string; nombre: string; grupoId?: string } | null
+  >(null)
   const [motivoReporte, setMotivoReporte] = useState('')
   const [reportando, setReportando] = useState(false)
 
@@ -312,11 +321,16 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
   }
 
   const handleReportar = async () => {
-    if (!selectedContactoId) return
+    if (!reporteDe) return
     setReportando(true)
     try {
-      await chatsApi.reportar(selectedContactoId, motivoReporte.trim())
-      setModalReportar(false)
+      const motivo = motivoReporte.trim()
+      if (reporteDe.grupoId) {
+        await gruposApi.reportarMiembro(reporteDe.grupoId, reporteDe.estudianteId, motivo)
+      } else {
+        await chatsApi.reportar(reporteDe.estudianteId, motivo)
+      }
+      setReporteDe(null)
       setMotivoReporte('')
       setAviso({
         tipo: 'ok',
@@ -592,7 +606,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
           {activeTab === 'directos' && selectedContactoId && (
             <button
               type="button"
-              onClick={() => setModalReportar(true)}
+              onClick={() => setReporteDe({ estudianteId: selectedContactoId, nombre: selectedContactoNombre })}
               className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
               title={english ? 'Report this conversation' : 'Reportar esta conversación'}
             >
@@ -946,22 +960,26 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
         </div>
       )}
 
-      {modalReportar && (
+      {reporteDe && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:bg-[#0f172a]">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-sm font-bold text-foreground">
-                {english ? `Report ${selectedContactoNombre}` : `Reportar a ${selectedContactoNombre}`}
+                {english ? `Report ${reporteDe.nombre}` : `Reportar a ${reporteDe.nombre}`}
               </h3>
-              <button type="button" onClick={() => setModalReportar(false)} className="text-muted-foreground hover:text-foreground">
+              <button type="button" onClick={() => setReporteDe(null)} className="text-muted-foreground hover:text-foreground">
                 <X className="size-4" />
               </button>
             </div>
 
             <p className="text-xs text-muted-foreground">
-              {english
-                ? 'The support team will see a copy of the latest messages in this conversation, so it stays available even if they are deleted afterwards.'
-                : 'El equipo de acompañamiento verá una copia de los últimos mensajes de esta conversación, para que siga estando aunque después se borren.'}
+              {reporteDe.grupoId
+                ? (english
+                    ? 'The support team will see a copy of the latest messages in the group, including those of other people, so what was said can be understood in context.'
+                    : 'El equipo de acompañamiento verá una copia de los últimos mensajes del grupo, incluidos los de otras personas, para poder entender lo que se dijo.')
+                : (english
+                    ? 'The support team will see a copy of the latest messages in this conversation, so it stays available even if they are deleted afterwards.'
+                    : 'El equipo de acompañamiento verá una copia de los últimos mensajes de esta conversación, para que siga estando aunque después se borren.')}
             </p>
 
             <textarea
@@ -976,7 +994,7 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
             <div className="flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setModalReportar(false)}
+                onClick={() => setReporteDe(null)}
                 className="rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
               >
                 {english ? 'Cancel' : 'Cancelar'}
@@ -1032,15 +1050,35 @@ export function TelegramChatHub({ locale = 'es' }: Props) {
                         administrador ni a sí mismo: para eso está salir. El
                         servidor lo exige igual; aquí sólo se evita ofrecer un
                         botón que va a fallar. */}
-                    {soyAdminDelGrupo && !m.soyYo && !m.esAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => void handleExpulsar(m.estudianteId, m.nombre)}
-                        className="shrink-0 rounded-lg border border-border px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
-                      >
-                        {english ? 'Remove' : 'Sacar'}
-                      </button>
-                    )}
+                    <span className="flex shrink-0 items-center gap-1">
+                      {/* Reportar lo puede cualquiera del grupo: quien recibe
+                          algo desagradable no suele ser quien administra. */}
+                      {!m.soyYo && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setModalMiembros(false)
+                            setReporteDe({
+                              estudianteId: m.estudianteId,
+                              nombre: m.nombre,
+                              grupoId: selectedGrupoId ?? undefined,
+                            })
+                          }}
+                          className="rounded-lg border border-border px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+                        >
+                          {english ? 'Report' : 'Reportar'}
+                        </button>
+                      )}
+                      {soyAdminDelGrupo && !m.soyYo && !m.esAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => void handleExpulsar(m.estudianteId, m.nombre)}
+                          className="rounded-lg border border-border px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+                        >
+                          {english ? 'Remove' : 'Sacar'}
+                        </button>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>
