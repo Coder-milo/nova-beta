@@ -179,9 +179,7 @@ public class ChatDirectoService {
     public ChatDirectoMensajeResponse enviar(UUID contactoId, String contenido, Authentication auth) {
         Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
         Estudiante contacto = contactoValido(contactoId, propio);
-        String texto = contenido == null ? "" : contenido.trim();
-        if (texto.isBlank()) throw new BusinessException("Escribe un mensaje antes de enviarlo.");
-        if (texto.length() > 5000) throw new BusinessException("El mensaje no puede superar 5000 caracteres.");
+        String texto = TextoDeMensaje.validado(contenido);
         comprobarQueNoHayBloqueo(propio, contacto);
 
         var mensaje = new ChatDirectoMensaje();
@@ -201,8 +199,9 @@ public class ChatDirectoService {
         if (!mensaje.getRemitente().getId().equals(propio.getId())) {
             throw new BusinessException("Solo puedes editar tus propios mensajes.");
         }
-        String texto = nuevoContenido == null ? "" : nuevoContenido.trim();
-        if (texto.isBlank()) throw new BusinessException("El mensaje no puede quedar vacío.");
+        // Editar tiene el mismo limite que escribir: si no, se manda uno corto
+        // y se edita para dejar el megabyte que el envio no admitia.
+        String texto = TextoDeMensaje.validado(nuevoContenido);
         mensaje.setContenido(texto);
         mensaje.setEditado(true);
         var guardado = repository.save(mensaje);

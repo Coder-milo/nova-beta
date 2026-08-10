@@ -209,8 +209,7 @@ public class ChatGrupoService {
             throw new BusinessException("No perteneces a este grupo.");
         }
 
-        String texto = contenido == null ? "" : contenido.trim();
-        if (texto.isBlank()) throw new BusinessException("Escribe un mensaje.");
+        String texto = TextoDeMensaje.validado(contenido);
 
         var mensaje = new ChatGrupoMensaje();
         mensaje.setGrupo(grupo);
