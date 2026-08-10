@@ -242,6 +242,67 @@ class ReglasDeGrupoTest {
         verify(miembros, never()).save(any(ChatGrupoMiembro.class));
     }
 
+    // ── Escribir y citar ───────────────────────────────────────────────────
+
+    private ChatGrupoMensaje mensajeDe(ChatGrupo grupo, Estudiante quien) {
+        var m = new ChatGrupoMensaje();
+        m.setId(UUID.randomUUID());
+        m.setGrupo(grupo);
+        m.setRemitente(quien);
+        m.setContenido("algo");
+        return m;
+    }
+
+    /**
+     * El identificador del mensaje citado se guardaba sin mirar de donde salia,
+     * asi que se podia responder a uno de otro grupo. Queda guardada una
+     * respuesta a algo que no esta aqui, y el dia que alguien resuelva la cita
+     * en el servidor eso es texto de otro grupo asomando en este.
+     */
+    @Test
+    void noSeCitaUnMensajeDeOtroGrupo() {
+        var g = grupo();
+        var otroGrupo = grupo();
+        var ajeno = mensajeDe(otroGrupo, estudiante("Luis", programa));
+        when(grupos.findById(g.getId())).thenReturn(Optional.of(g));
+        when(miembros.existsByGrupoIdAndEstudianteId(g.getId(), yo.getId())).thenReturn(true);
+        when(mensajes.findById(ajeno.getId())).thenReturn(Optional.of(ajeno));
+
+        assertThrows(BusinessException.class,
+                () -> service.enviarAMensajeGrupo(g.getId(), "respondo", ajeno.getId(), auth));
+        verify(mensajes, never()).save(any(ChatGrupoMensaje.class));
+    }
+
+    @Test
+    void siSeCitaUnoDelMismoGrupo() {
+        var g = grupo();
+        var deAqui = mensajeDe(g, estudiante("Luis", programa));
+        when(grupos.findById(g.getId())).thenReturn(Optional.of(g));
+        when(miembros.existsByGrupoIdAndEstudianteId(g.getId(), yo.getId())).thenReturn(true);
+        when(mensajes.findById(deAqui.getId())).thenReturn(Optional.of(deAqui));
+        when(mensajes.save(any(ChatGrupoMensaje.class))).thenAnswer(i -> {
+            ChatGrupoMensaje m = i.getArgument(0);
+            m.setId(UUID.randomUUID());
+            return m;
+        });
+
+        service.enviarAMensajeGrupo(g.getId(), "respondo", deAqui.getId(), auth);
+
+        verify(mensajes).save(any(ChatGrupoMensaje.class));
+    }
+
+    /** El limite de longitud es el mismo que en el chat de dos. */
+    @Test
+    void noSeEscribeUnMensajeMasLargoDeLaCuenta() {
+        var g = grupo();
+        when(grupos.findById(g.getId())).thenReturn(Optional.of(g));
+        when(miembros.existsByGrupoIdAndEstudianteId(g.getId(), yo.getId())).thenReturn(true);
+
+        assertThrows(BusinessException.class, () -> service.enviarAMensajeGrupo(
+                g.getId(), "a".repeat(TextoDeMensaje.MAXIMO + 1), null, auth));
+        verify(mensajes, never()).save(any(ChatGrupoMensaje.class));
+    }
+
     // ── Salir ──────────────────────────────────────────────────────────────
 
     /**

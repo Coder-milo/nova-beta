@@ -211,6 +211,26 @@ public class ChatGrupoService {
 
         String texto = TextoDeMensaje.validado(contenido);
 
+        // Se cita un mensaje de este grupo, no uno cualquiera.
+        //
+        // El identificador se guardaba tal cual, sin mirar de donde salia, asi
+        // que se podia responder a un mensaje de otro grupo. Hoy la pantalla lo
+        // resuelve contra lo que tiene cargado y no encuentra nada, con lo que
+        // no se ve; pero queda guardada una respuesta a algo que no esta aqui,
+        // y el dia que alguien resuelva la cita en el servidor eso pasa a ser
+        // texto de otro grupo asomando en este.
+        //
+        // Es la comprobacion que la mensajeria con el equipo ya hacia, con un
+        // comentario explicando este mismo riesgo.
+        if (enRespuestaA != null) {
+            var citado = mensajeRepository.findById(enRespuestaA)
+                    .orElseThrow(() -> new ResourceNotFoundException("Mensaje citado no encontrado."));
+            if (!citado.getGrupo().getId().equals(grupoId)) {
+                throw new BusinessException(
+                        "Solo puedes responder a un mensaje de este mismo grupo.");
+            }
+        }
+
         var mensaje = new ChatGrupoMensaje();
         mensaje.setGrupo(grupo);
         mensaje.setRemitente(propio);
@@ -218,9 +238,7 @@ public class ChatGrupoService {
         mensaje.setEnRespuestaA(enRespuestaA);
         var guardado = mensajeRepository.save(mensaje);
 
-        return new GrupoMensajeResponse(guardado.getId(), grupo.getId(), propio.getId(),
-                nombreDe(propio), guardado.getContenido(), guardado.getCreatedAt(),
-                true, false, enRespuestaA, false);
+        return comoRespuesta(guardado, propio.getId());
     }
 
     /**
