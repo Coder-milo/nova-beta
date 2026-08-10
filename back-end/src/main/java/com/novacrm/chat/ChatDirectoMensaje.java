@@ -29,6 +29,20 @@ public class ChatDirectoMensaje extends BaseEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String contenido;
 
+    /**
+     * Cuando lo abrio el destinatario; nulo mientras no lo haya visto.
+     *
+     * <p>Se guarda el instante y no un si/no: el estado inicial es la ausencia
+     * de dato, asi que no hay nada que mantener al insertar, y de paso queda
+     * cuanto tardo en leerse, que es lo que dice si este canal sirve para algo
+     * urgente o solo para dejar recados.
+     */
+    @Column(name = "leido_at")
+    private java.time.Instant leidoAt;
+
+    public java.time.Instant getLeidoAt() { return leidoAt; }
+    public void setLeidoAt(java.time.Instant leidoAt) { this.leidoAt = leidoAt; }
+
     public Estudiante getRemitente() { return remitente; }
     public void setRemitente(Estudiante remitente) { this.remitente = remitente; }
     public Estudiante getDestinatario() { return destinatario; }

@@ -65,7 +65,7 @@ public class ChatDirectoService {
      */
     private static final int MENSAJES_AL_ABRIR = 200;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ChatDirectoMensajeResponse> conversacion(UUID contactoId, Authentication auth) {
         Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
         Estudiante contacto = contactoDelMismoPrograma(contactoId, propio);
@@ -75,6 +75,18 @@ public class ChatDirectoService {
         // en orden de lectura.
         var enOrden = new java.util.ArrayList<>(recientes);
         java.util.Collections.reverse(enOrden);
+        // Abrir la conversacion es haberla leido. Se marca aqui y no con una
+        // llamada aparte porque una segunda peticion que el cliente puede
+        // olvidar deja el estado a medias sin que nada lo delate.
+        var ahora = java.time.Instant.now();
+        boolean alguno = false;
+        for (var mensaje : enOrden) {
+            if (!mensaje.getDestinatario().getId().equals(propio.getId())) continue;
+            if (mensaje.getLeidoAt() != null) continue;
+            mensaje.setLeidoAt(ahora);
+            alguno = true;
+        }
+        if (alguno) repository.saveAll(enOrden);
         return enOrden.stream()
                 .map(mensaje -> respuesta(mensaje, propio.getId()))
                 .toList();
@@ -128,6 +140,6 @@ public class ChatDirectoService {
     private static ChatDirectoMensajeResponse respuesta(ChatDirectoMensaje mensaje, UUID propioId) {
         return new ChatDirectoMensajeResponse(mensaje.getId(), mensaje.getRemitente().getId(),
                 nombreDe(mensaje.getRemitente()), mensaje.getContenido(), mensaje.getCreatedAt(),
-                mensaje.getRemitente().getId().equals(propioId));
+                mensaje.getRemitente().getId().equals(propioId), mensaje.getLeidoAt());
     }
 }

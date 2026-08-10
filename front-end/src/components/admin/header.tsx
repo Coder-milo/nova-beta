@@ -145,6 +145,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
         materialDelAnuncio: 'Material del anuncio',
         abrirInformacion: 'Abrir información del anuncio',
         marcarTodasLeidas: 'Marcar todas como leídas',
+        enviado: 'Enviado',
+        visto: 'Visto',
       }
     : {
         consultaAlEquipo: 'Question for the support team',
@@ -156,6 +158,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
         materialDelAnuncio: 'Announcement material',
         abrirInformacion: 'Open announcement details',
         marcarTodasLeidas: 'Mark all as read',
+        enviado: 'Sent',
+        visto: 'Seen',
       }
 
   const esEstudiante = soloEsEstudiante(user?.roles)
@@ -1030,7 +1034,17 @@ export function Header({ onOpenMobile }: HeaderProps) {
                               <div className={cn('w-fit max-w-[68%] break-words rounded-2xl px-3 py-2 text-[13px] leading-5 shadow-sm whitespace-pre-wrap sm:max-w-[64%]', mensaje.enviadoPorMi ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground dark:bg-[#13221d]')}>
                                 {!mensaje.enviadoPorMi && <p className="mb-1 text-[10px] font-semibold text-muted-foreground">{mensaje.remitenteNombre}</p>}
                                 <p>{mensaje.contenido}</p>
-                                <p className={cn('mt-1 text-[10px]', mensaje.enviadoPorMi ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{formatMessageTime(mensaje.createdAt, locale)}</p>
+                                <p className={cn('mt-1 flex items-center gap-1 text-[10px]', mensaje.enviadoPorMi ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
+                                  {formatMessageTime(mensaje.createdAt, locale)}
+                                  {/* Sólo en los propios: si el otro leyó lo que le
+                                      escribí es información mía. Al revés no aporta
+                                      nada, porque quien lo lee ya sabe que lo leyó. */}
+                                  {mensaje.enviadoPorMi && (
+                                    <span title={mensaje.leidoAt ? avisos.visto : avisos.enviado}>
+                                      {mensaje.leidoAt ? '✓✓' : '✓'}
+                                    </span>
+                                  )}
+                                </p>
                               </div>
                             </div>
                           ))}

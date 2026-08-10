@@ -9,4 +9,6 @@ public record ChatDirectoMensajeResponse(
         String remitenteNombre,
         String contenido,
         Instant createdAt,
-        boolean enviadoPorMi) { }
+        boolean enviadoPorMi,
+        /** Cuando lo abrio el otro; nulo si aun no. Solo interesa en los mios. */
+        Instant leidoAt) { }
