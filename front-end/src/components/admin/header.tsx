@@ -33,6 +33,7 @@ import { intervaloVisible } from '@/lib/sondeo'
 // grupos de la bandeja, y dos cosas distintas con el mismo nombre en el
 // mismo fichero se prestan a confusion aunque el compilador las tolere.
 import { Conversacion as HiloConversacion } from '@/components/ui/conversacion'
+import { TelegramChatHub } from '@/components/student/telegram-chat-hub'
 import { Textarea } from '@/components/ui/textarea'
 
 type HeaderProps = {
@@ -958,13 +959,19 @@ export function Header({ onOpenMobile }: HeaderProps) {
       </Sheet>
 
       <Sheet open={messageSheetOpen} onOpenChange={setMessageSheetOpen}>
-        <SheetContent side="right" className="h-dvh w-full max-w-none gap-0 border-l border-border bg-popover p-0 dark:bg-[#0c1714] sm:w-[min(92vw,840px)] sm:!max-w-none">
-          <SheetHeader className="shrink-0 border-b border-border/60 bg-[linear-gradient(115deg,color-mix(in_srgb,var(--primary)_17%,transparent),transparent_58%)] pr-14 dark:bg-[#13221d]">
-            <SheetTitle>{messageCopy.title}</SheetTitle>
-            <SheetDescription>{messageCopy.subtitle}</SheetDescription>
-          </SheetHeader>
-          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(190px,0.68fr)_minmax(0,1.9fr)]">
-            <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 dark:bg-[#101d19] lg:max-h-none lg:border-b-0 lg:border-r">
+        <SheetContent side="right" className="h-dvh w-full max-w-none gap-0 border-l border-border bg-popover p-0 dark:bg-[#0c1714] sm:w-[min(94vw,960px)] sm:!max-w-none">
+          {esEstudiante ? (
+            <div className="h-full p-2">
+              <TelegramChatHub locale={locale} />
+            </div>
+          ) : (
+            <>
+              <SheetHeader className="shrink-0 border-b border-border/60 bg-[linear-gradient(115deg,color-mix(in_srgb,var(--primary)_17%,transparent),transparent_58%)] pr-14 dark:bg-[#13221d]">
+                <SheetTitle>{messageCopy.title}</SheetTitle>
+                <SheetDescription>{messageCopy.subtitle}</SheetDescription>
+              </SheetHeader>
+              <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(190px,0.68fr)_minmax(0,1.9fr)]">
+                <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 dark:bg-[#101d19] lg:max-h-none lg:border-b-0 lg:border-r">
               {!esEstudiante && (
                 <div className="mb-2 border-b border-border/60 pb-2">
                   <div className="relative">
@@ -1121,7 +1128,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                   <div className="mx-auto max-w-xl space-y-4">
                   <div>
                     <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{nombreChatActivo}</h2>{selectedMessage && <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', selectedMessage.estado === 'ABIERTO' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{selectedMessage.estado === 'ABIERTO' ? messageCopy.open : messageCopy.answered}</span>}</div>
-                    {selectedMessage && <p className="text-sm font-medium text-foreground">{asuntoConversacion(selectedMessage.asunto, avisos.consultaAlEquipo)}</p>}
+                    {!esEstudiante && selectedMessage && selectedMessage.asunto !== nombreChatActivo && <p className="text-sm font-medium text-foreground">{asuntoConversacion(selectedMessage.asunto, avisos.consultaAlEquipo)}</p>}
                     {!esEstudiante && <p className="text-xs text-muted-foreground">{correoChatActivo}</p>}
                     {selectedMessage && <p className="mt-1 text-xs text-muted-foreground">{formatMessageTime(selectedMessage.createdAt, locale)}</p>}
                   </div>
@@ -1219,9 +1226,11 @@ export function Header({ onOpenMobile }: HeaderProps) {
                   </div>
                 </div>
               )}
+              </div>
             </div>
-          </div>
-        </SheetContent>
+          </>
+        )}
+      </SheetContent>
       </Sheet>
     </>
   )

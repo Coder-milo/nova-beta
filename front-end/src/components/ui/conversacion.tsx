@@ -345,21 +345,21 @@ export function Conversacion({ mensajeId, soyEstudiante, locale, textos, onTurno
               )}
 
               {turno.reacciones.length > 0 && (
-                <div className={cn('mt-1 flex flex-wrap gap-1', mio ? 'justify-end' : 'justify-start')}>
+                <div className={cn('mt-1.5 flex flex-wrap gap-1', mio ? 'justify-end' : 'justify-start')}>
                   {turno.reacciones.map((reaccion) => (
                     <button
                       key={reaccion.emoji}
                       type="button"
                       onClick={() => void reaccionar(turno.id, reaccion.emoji)}
                       className={cn(
-                        'flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] transition',
+                        'inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary shadow-xs transition hover:bg-primary/20',
                         reaccion.mia
-                          ? 'border-primary/40 bg-primary/10 text-primary'
+                          ? 'border-primary bg-primary/20 text-primary'
                           : 'border-border bg-card text-muted-foreground hover:bg-secondary',
                       )}
                     >
                       <span>{reaccion.emoji}</span>
-                      <span>{reaccion.total}</span>
+                      <span className="text-[10px]">{reaccion.total}</span>
                     </button>
                   ))}
                 </div>
