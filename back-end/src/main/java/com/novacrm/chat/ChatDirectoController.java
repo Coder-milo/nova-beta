@@ -65,6 +65,18 @@ public class ChatDirectoController {
         service.desbloquear(contactoId, auth);
     }
 
+    /** Aparta una conversación de la bandeja. Solo de quien lo pide. */
+    @PostMapping("/directos/{contactoId}/archivar")
+    public void archivar(@PathVariable UUID contactoId, Authentication auth) {
+        service.archivar(contactoId, auth);
+    }
+
+    /** La devuelve a la bandeja. */
+    @DeleteMapping("/directos/{contactoId}/archivar")
+    public void desarchivar(@PathVariable UUID contactoId, Authentication auth) {
+        service.desarchivar(contactoId, auth);
+    }
+
     /** Busca dentro de una conversación. Mismo control que abrirla. */
     @GetMapping("/directos/{contactoId}/buscar")
     public List<ChatDirectoMensajeResponse> buscar(@PathVariable UUID contactoId,

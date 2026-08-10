@@ -34,6 +34,7 @@ class ReglasDeChatDirectoTest {
     private NotificacionService notificaciones;
     private ReporteDeChatRepository reportes;
     private BloqueoDeChatRepository bloqueos;
+    private ConversacionArchivadaRepository archivadas;
     private ChatDirectoService service;
 
     private Programa programa;
@@ -49,8 +50,9 @@ class ReglasDeChatDirectoTest {
         notificaciones = mock(NotificacionService.class);
         reportes = mock(ReporteDeChatRepository.class);
         bloqueos = mock(BloqueoDeChatRepository.class);
+        archivadas = mock(ConversacionArchivadaRepository.class);
         service = new ChatDirectoService(mensajes, estudiantes, ownership, notificaciones,
-                reportes, bloqueos);
+                reportes, bloqueos, archivadas);
 
         programa = new Programa();
         programa.setId(UUID.randomUUID());
@@ -218,6 +220,105 @@ class ReglasDeChatDirectoTest {
 
         assertTrue(resultado.isEmpty());
         verify(estudiantes, never()).findAll();
+    }
+
+    // ── Archivar ──────────────────────────────────────────────────────────
+
+    private ChatDirectoMensajeRepository.ResumenConversacion resumen(
+            UUID otroId, java.time.Instant cuando) {
+        var r = mock(ChatDirectoMensajeRepository.ResumenConversacion.class);
+        when(r.getOtroId()).thenReturn(otroId);
+        when(r.getUltimoMensaje()).thenReturn("hola");
+        when(r.getUltimaFecha()).thenReturn(cuando);
+        when(r.getMioElUltimo()).thenReturn(false);
+        return r;
+    }
+
+    private ConversacionArchivadaRepository.Archivada archivadaDesde(
+            UUID contactoId, java.time.Instant cuando) {
+        var a = mock(ConversacionArchivadaRepository.Archivada.class);
+        when(a.getContactoId()).thenReturn(contactoId);
+        when(a.getDesde()).thenReturn(cuando);
+        return a;
+    }
+
+    @Test
+    void unaConversacionArchivadaSaleMarcadaComoTal() {
+        var otro = estudiante("Luis", programa);
+        var hace2h = java.time.Instant.now().minusSeconds(7200);
+        // Los mocks se construyen antes: crear uno dentro de un `when` deja el
+        // anterior a medias y Mockito lo rechaza.
+        var fila = resumen(otro.getId(), hace2h);
+        var marca = archivadaDesde(otro.getId(), java.time.Instant.now());
+        when(mensajes.conversacionesDe(yo.getId())).thenReturn(List.of(fila));
+        when(mensajes.sinLeerPorContacto(yo.getId())).thenReturn(List.of());
+        when(estudiantes.findAllById(any())).thenReturn(List.of(otro));
+        when(archivadas.archivadasDe(yo.getId())).thenReturn(List.of(marca));
+
+        var lista = service.conversaciones(auth);
+
+        assertEquals(1, lista.size());
+        assertTrue(lista.get(0).archivada());
+    }
+
+    /**
+     * La regla que hace que archivar sea util y no peligroso: apartar una
+     * conversacion no puede significar dejar de enterarse de lo que pasa en
+     * ella. Si escriben despues de archivarla, vuelve a la bandeja.
+     */
+    @Test
+    void unMensajeNuevoLaDevuelveALaBandeja() {
+        var otro = estudiante("Luis", programa);
+        var ahora = java.time.Instant.now();
+        var hace1h = ahora.minusSeconds(3600);
+        var fila = resumen(otro.getId(), ahora);
+        var marca = archivadaDesde(otro.getId(), hace1h);
+        when(mensajes.conversacionesDe(yo.getId())).thenReturn(List.of(fila));
+        when(mensajes.sinLeerPorContacto(yo.getId())).thenReturn(List.of());
+        when(estudiantes.findAllById(any())).thenReturn(List.of(otro));
+        when(archivadas.archivadasDe(yo.getId())).thenReturn(List.of(marca));
+
+        var lista = service.conversaciones(auth);
+
+        assertFalse(lista.get(0).archivada(),
+                "escribieron despues de archivarla: tiene que volver a verse");
+    }
+
+    @Test
+    void loNoArchivadoNoSaleMarcado() {
+        var otro = estudiante("Luis", programa);
+        var fila = resumen(otro.getId(), java.time.Instant.now());
+        when(mensajes.conversacionesDe(yo.getId())).thenReturn(List.of(fila));
+        when(mensajes.sinLeerPorContacto(yo.getId())).thenReturn(List.of());
+        when(estudiantes.findAllById(any())).thenReturn(List.of(otro));
+        when(archivadas.archivadasDe(yo.getId())).thenReturn(List.of());
+
+        assertFalse(service.conversaciones(auth).get(0).archivada());
+    }
+
+    /** Archivar de nuevo cuenta desde ahora, no desde la primera vez. */
+    @Test
+    void archivarDosVecesRehaceLaMarca() {
+        var otro = estudiante("Luis", programa);
+        when(estudiantes.findById(otro.getId())).thenReturn(Optional.of(otro));
+        var anterior = new ConversacionArchivada();
+        when(archivadas.findByEstudianteIdAndContactoId(yo.getId(), otro.getId()))
+                .thenReturn(Optional.of(anterior));
+
+        service.archivar(otro.getId(), auth);
+
+        verify(archivadas).delete(anterior);
+        verify(archivadas).save(any(ConversacionArchivada.class));
+    }
+
+    /** No se archiva una conversacion que no se puede ni abrir. */
+    @Test
+    void noSeArchivaAAlguienDeOtroProyecto() {
+        var ajeno = estudiante("Luis", otroPrograma);
+        when(estudiantes.findById(ajeno.getId())).thenReturn(Optional.of(ajeno));
+
+        assertThrows(ResourceNotFoundException.class, () -> service.archivar(ajeno.getId(), auth));
+        verify(archivadas, never()).save(any());
     }
 
     // ── Reportar ──────────────────────────────────────────────────────────

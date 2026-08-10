@@ -25,19 +25,22 @@ public class ChatDirectoService {
     private final com.novacrm.notificacion.NotificacionService notificacionService;
     private final ReporteDeChatRepository reporteRepository;
     private final BloqueoDeChatRepository bloqueoRepository;
+    private final ConversacionArchivadaRepository archivadaRepository;
 
     public ChatDirectoService(ChatDirectoMensajeRepository repository,
                               EstudianteRepository estudianteRepository,
                               OwnershipService ownershipService,
                               com.novacrm.notificacion.NotificacionService notificacionService,
                               ReporteDeChatRepository reporteRepository,
-                              BloqueoDeChatRepository bloqueoRepository) {
+                              BloqueoDeChatRepository bloqueoRepository,
+                              ConversacionArchivadaRepository archivadaRepository) {
         this.repository = repository;
         this.estudianteRepository = estudianteRepository;
         this.ownershipService = ownershipService;
         this.notificacionService = notificacionService;
         this.reporteRepository = reporteRepository;
         this.bloqueoRepository = bloqueoRepository;
+        this.archivadaRepository = archivadaRepository;
     }
 
     /**
@@ -72,15 +75,33 @@ public class ChatDirectoService {
                         resumenes.stream().map(ResumenConversacion::getOtroId).toList()).stream()
                 .collect(java.util.stream.Collectors.toMap(Estudiante::getId, e -> e));
 
+        var archivadaDesde = new java.util.HashMap<UUID, java.time.Instant>();
+        for (var a : archivadaRepository.archivadasDe(propio.getId())) {
+            archivadaDesde.put(a.getContactoId(), a.getDesde());
+        }
+
+        UUID miPrograma = programaDe(propio).getId();
         var lista = new java.util.ArrayList<com.novacrm.chat.dto.ChatConversacionResponse>();
         for (var r : resumenes) {
             Estudiante otro = porId.get(r.getOtroId());
+            // Solo lo que se puede abrir. Quien se retiro o se cambio de
+            // proyecto ya no pasa el control de `conversacion` ni el de
+            // `enviar`, asi que su fila seria una que siempre da error al
+            // pulsarla. Preferible no ofrecerla.
             if (otro == null || !otro.isActivo()) continue;
+            var programaDelOtro = otro.getPrograma();
+            if (programaDelOtro == null || !programaDelOtro.getId().equals(miPrograma)) continue;
+
+            // Archivada solo mientras no haya pasado nada desde entonces: un
+            // mensaje nuevo la devuelve a la bandeja. Apartar una conversacion
+            // no puede significar dejar de enterarse de lo que pasa en ella.
+            var desde = archivadaDesde.get(otro.getId());
+            boolean archivada = desde != null && !r.getUltimaFecha().isAfter(desde);
 
             lista.add(new com.novacrm.chat.dto.ChatConversacionResponse(
                     otro.getId(), nombreDe(otro), otro.getFotoUrl(),
                     recortar(r.getUltimoMensaje()), r.getUltimaFecha(),
-                    r.getMioElUltimo(), sinLeer.getOrDefault(otro.getId(), 0L)));
+                    r.getMioElUltimo(), sinLeer.getOrDefault(otro.getId(), 0L), archivada));
         }
         lista.sort((a, b) -> b.ultimaFecha().compareTo(a.ultimaFecha()));
         return lista;
@@ -295,6 +316,39 @@ public class ChatDirectoService {
     public List<UUID> bloqueados(Authentication auth) {
         Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
         return bloqueoRepository.aQuienesBloqueo(propio.getId());
+    }
+
+    /**
+     * Aparta una conversación de la bandeja de quien lo pide.
+     *
+     * <p>Solo de quien lo pide: el otro no se entera y su bandeja no cambia.
+     *
+     * <p>Si ya estaba archivada se rehace la marca, y no es un detalle: la
+     * fecha es lo que decide si sigue apartada. Una conversación archivada en
+     * la que después escribieron vuelve a la bandeja, y volver a archivarla
+     * tiene que contar desde ahora y no desde la primera vez.
+     */
+    @Transactional
+    public void archivar(UUID contactoId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        Estudiante contacto = contactoValido(contactoId, propio);
+
+        archivadaRepository.findByEstudianteIdAndContactoId(propio.getId(), contacto.getId())
+                .ifPresent(archivadaRepository::delete);
+        archivadaRepository.flush();
+
+        var archivada = new ConversacionArchivada();
+        archivada.setEstudiante(propio);
+        archivada.setContacto(contacto);
+        archivadaRepository.save(archivada);
+    }
+
+    /** Devuelve la conversación a la bandeja. */
+    @Transactional
+    public void desarchivar(UUID contactoId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        archivadaRepository.findByEstudianteIdAndContactoId(propio.getId(), contactoId)
+                .ifPresent(archivadaRepository::delete);
     }
 
     /** Cuantos resultados devuelve una busqueda dentro del chat. */

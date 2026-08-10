@@ -39,6 +39,14 @@ public interface ChatDirectoMensajeRepository extends JpaRepository<ChatDirectoM
      *
      * <p>De lo mas nuevo a lo mas viejo: lo que se busca en un chat suele ser
      * algo reciente que no se quiere subir a mano.
+     *
+     * <p>El {@code like '%...%'} recorre la tabla: no hay indice que sirva para
+     * un patron que empieza por comodin. Hoy sobra —la tabla ronda las decenas
+     * de filas— y por eso no se indexa: seria mantenimiento a cambio de nada.
+     * Cuando pase de unas cien mil, la salida esta preparada: {@code V38} dejo
+     * {@code novacrm_normalizar} declarada {@code IMMUTABLE} justamente para
+     * poder colgarle un indice GIN de trigramas
+     * ({@code CREATE EXTENSION pg_trgm}). Se mide antes de ponerlo.
      */
     @Query("""
             select m from ChatDirectoMensaje m

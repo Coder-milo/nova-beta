@@ -659,6 +659,14 @@ export interface ChatConversacionResponse {
   /** Si lo último lo escribió quien mira, para anteponer «Tú:». */
   mioElUltimo: boolean
   sinLeer: number
+  /**
+   * Si quien mira la apartó de su bandeja.
+   *
+   * Lo resuelve el servidor porque la regla no es «está archivada» sino «está
+   * archivada y no ha pasado nada desde entonces»: si escriben después de
+   * archivarla, vuelve sola a la bandeja.
+   */
+  archivada: boolean
 }
 
 export interface ChatDirectoMensajeResponse {

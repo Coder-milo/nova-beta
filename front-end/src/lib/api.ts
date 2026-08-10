@@ -712,6 +712,16 @@ export const chatsApi = {
   buscarEnConversacion: (contactoId: string, q: string, token?: string) =>
     apiFetch<ChatDirectoMensajeResponse[]>(
       `/api/v1/chats/directos/${contactoId}/buscar?q=${encodeURIComponent(q)}`, { token }),
+  /**
+   * Aparta la conversación de la bandeja de quien lo pide.
+   *
+   * Solo de quien lo pide: el otro no se entera. Y si escriben después,
+   * vuelve sola a la bandeja — apartar no es dejar de enterarse.
+   */
+  archivar: (contactoId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/chats/directos/${contactoId}/archivar`, { method: 'POST', token }),
+  desarchivar: (contactoId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/chats/directos/${contactoId}/archivar`, { method: 'DELETE', token }),
   /** Deja de recibir mensajes de esa persona, y de poder escribirle. */
   bloquear: (contactoId: string, token?: string) =>
     apiFetch<void>(`/api/v1/chats/directos/${contactoId}/bloquear`, { method: 'POST', token }),
