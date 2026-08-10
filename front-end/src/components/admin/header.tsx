@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { useBranding } from '@/lib/branding'
 import { usePreferences } from '@/lib/preferences'
+import { intervaloVisible } from '@/lib/sondeo'
 // Renombrado: en este archivo ya hay un `type Conversacion` para los
 // grupos de la bandeja, y dos cosas distintas con el mismo nombre en el
 // mismo fichero se prestan a confusion aunque el compilador las tolere.
@@ -250,8 +251,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
         .catch(() => { if (activo) setAlertas([]) })
     }
     cargarAlertas()
-    const id = window.setInterval(cargarAlertas, 60_000)
-    return () => { activo = false; window.clearInterval(id) }
+    const detener = intervaloVisible(cargarAlertas, 60_000)
+    return () => { activo = false; detener() }
   }, [sesionLista, esEstudiante])
 
   useEffect(() => {
@@ -283,8 +284,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
       }
     }
     void cargarNotificaciones()
-    const refreshId = window.setInterval(() => { void cargarNotificaciones() }, 45_000)
-    return () => { active = false; window.clearInterval(refreshId) }
+    const detener = intervaloVisible(() => { void cargarNotificaciones() }, 45_000)
+    return () => { active = false; detener() }
   }, [sesionLista, esEstudiante])
 
   useEffect(() => {
@@ -419,8 +420,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
         .catch(() => undefined)
     }
     contar()
-    const refreshId = window.setInterval(contar, 45_000)
-    return () => { activo = false; window.clearInterval(refreshId) }
+    const detener = intervaloVisible(contar, 45_000)
+    return () => { activo = false; detener() }
   }, [sesionLista])
   useEffect(() => {
     const abrirBandeja = () => setMessageSheetOpen(true)
