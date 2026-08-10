@@ -53,6 +53,25 @@ class LectorHojaTest {
         assertThat(LectorHoja.fecha("no aplica")).isNull();
     }
 
+    /**
+     * Las hojas que salen de un Drive en inglés agrupan los miles con coma. Con
+     * la regla de «la última coma es el decimal», ese mismo sueldo se leía como
+     * 1423,50: el error de tres ceros que este método existe para evitar, por
+     * el otro lado.
+     */
+    @Test
+    @DisplayName("la coma también agrupa miles cuando la hoja viene en inglés")
+    void salarioConComasDeMiles() {
+        assertThat(LectorHoja.dinero("1,423,500")).isEqualByComparingTo(new BigDecimal("1423500"));
+        assertThat(LectorHoja.dinero("$ 1,423,500.50")).isEqualByComparingTo(new BigDecimal("1423500.50"));
+        // Un solo separador con dos cifras detrás sí es decimal, venga como venga.
+        assertThat(LectorHoja.dinero("1500,50")).isEqualByComparingTo(new BigDecimal("1500.50"));
+        assertThat(LectorHoja.dinero("1500.50")).isEqualByComparingTo(new BigDecimal("1500.50"));
+        // Y con tres detrás, agrupa: "1.500" son mil quinientos pesos.
+        assertThat(LectorHoja.dinero("1.500")).isEqualByComparingTo(new BigDecimal("1500"));
+        assertThat(LectorHoja.dinero("1,500")).isEqualByComparingTo(new BigDecimal("1500"));
+    }
+
     @Test
     @DisplayName("sí/no se reconoce escrito como lo escribe la gente")
     void booleanos() {
@@ -62,6 +81,28 @@ class LectorHojaTest {
         assertThat(LectorHoja.booleano("No")).isFalse();
         assertThat(LectorHoja.booleano("0")).isFalse();
         assertThat(LectorHoja.booleano("tal vez")).isNull();
+        // Las opciones reales del formulario no son "Sí" a secas.
+        assertThat(LectorHoja.booleano("Sí, tengo acceso a un computador")).isTrue();
+        assertThat(LectorHoja.booleano("✅ Sí")).isTrue();
+        assertThat(LectorHoja.booleano("⏳ Pendiente")).isFalse();
+    }
+
+    /**
+     * Lo que no se respondió no es un sí.
+     *
+     * <p>Decidir por el principio de la cadena hacía que «Sin verificar» —lo más
+     * común en una casilla que nadie tocó— entrara como afirmación, y que
+     * «Nombre» entrara como negación. La casilla que dice si una vinculación se
+     * revisó acababa marcada como revisada sin que nadie la revisara.
+     */
+    @Test
+    @DisplayName("«sin dato» no es ni sí ni no")
+    void loQueNoSeRespondioNoEsUnSi() {
+        assertThat(LectorHoja.booleano("Sin verificar")).isNull();
+        assertThat(LectorHoja.booleano("Sin datos")).isNull();
+        assertThat(LectorHoja.booleano("Sin información")).isNull();
+        assertThat(LectorHoja.booleano("N/A")).isNull();
+        assertThat(LectorHoja.booleano("Nombre")).isNull();
     }
 
     /**

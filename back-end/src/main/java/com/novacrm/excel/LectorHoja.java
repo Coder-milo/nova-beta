@@ -175,35 +175,79 @@ public final class LectorHoja {
     /**
      * Importe monetario.
      *
-     * <p>Los salarios llegan como "$ 1.423.500", "1.423.500,00" o "1423500".
-     * Se quita todo lo que no sea dígito y se usa la coma final, si la hay,
-     * como separador decimal: en Colombia el punto agrupa los miles y tomarlo
-     * por decimal convertiría 1.423.500 en algo más de mil pesos.
+     * <p>Los salarios llegan como "$ 1.423.500", "1.423.500,50" o "1423500". En
+     * Colombia el punto agrupa los miles, y tomarlo por decimal convierte un
+     * sueldo en algo más de mil pesos sin que nadie lo note.
+     *
+     * <p>Pero no todas las hojas están escritas en español. Las que salen de un
+     * Drive en inglés traen "1,423,500", y ahí la coma agrupa: la regla de
+     * «la última coma es el decimal» leía ese sueldo como 1423,50. El mismo
+     * error de tres ceros que este método existe para evitar, por el otro lado.
+     *
+     * <p>Así que decide el separador por su posición, no por cuál sea: si hay
+     * de los dos, manda el último; si solo hay de uno, es decimal cuando
+     * aparece una vez y le siguen una o dos cifras, y agrupador en cualquier
+     * otro caso.
      */
     public static BigDecimal dinero(String valor) {
         if (valor == null || valor.isBlank()) return null;
         String limpio = valor.replaceAll("[^0-9,.-]", "").trim();
         if (limpio.isEmpty()) return null;
-        int coma = limpio.lastIndexOf(',');
-        if (coma >= 0) {
-            limpio = limpio.substring(0, coma).replace(".", "").replace(",", "")
-                    + "." + limpio.substring(coma + 1).replaceAll("[^0-9]", "");
-        } else {
-            limpio = limpio.replace(".", "");
-        }
+
+        int ultimoPunto = limpio.lastIndexOf('.');
+        int ultimaComa = limpio.lastIndexOf(',');
+        int decimal = decimalEn(limpio, ultimoPunto, ultimaComa);
+
+        String entero = (decimal < 0 ? limpio : limpio.substring(0, decimal))
+                .replaceAll("[.,]", "");
+        String fraccion = decimal < 0 ? "" : limpio.substring(decimal + 1).replaceAll("[^0-9]", "");
         try {
-            return new BigDecimal(limpio);
+            return new BigDecimal(fraccion.isEmpty() ? entero : entero + "." + fraccion);
         } catch (NumberFormatException e) {
             return null;
         }
     }
 
-    /** Sí/No en cualquiera de sus formas habituales. */
+    /** Posición del separador decimal, o -1 si los que hay agrupan miles. */
+    private static int decimalEn(String limpio, int ultimoPunto, int ultimaComa) {
+        if (ultimoPunto >= 0 && ultimaComa >= 0) {
+            return Math.max(ultimoPunto, ultimaComa);
+        }
+        int unico = Math.max(ultimoPunto, ultimaComa);
+        if (unico < 0) {
+            return -1;
+        }
+        char separador = limpio.charAt(unico);
+        boolean apareceUnaVez = limpio.indexOf(separador) == unico;
+        int cifrasDetras = limpio.length() - unico - 1;
+        return apareceUnaVez && cifrasDetras >= 1 && cifrasDetras <= 2 ? unico : -1;
+    }
+
+    private static final Set<String> AFIRMACIONES =
+            Set.of("si", "true", "yes", "1", "x", "ok", "cumplido", "cumplida");
+    private static final Set<String> NEGACIONES =
+            Set.of("no", "false", "0", "pendiente", "ninguno", "ninguna");
+
+    /**
+     * Sí/No en cualquiera de sus formas habituales.
+     *
+     * <p>Decide por la primera palabra completa, no por el principio de la
+     * cadena. Es la misma leccion que ya esta escrita en los otros dos sitios
+     * donde se lee un si/no de una hoja, y la que faltaba aqui: con
+     * {@code startsWith("si")}, «Sin verificar», «Sin datos» y «Sin
+     * informacion» —lo mas comun que trae una casilla que nadie respondio—
+     * entraban como un si rotundo, y «Nombre» entraba como un no.
+     *
+     * <p>Tampoco valen las iniciales sueltas: "N/A" empieza por "n" y significa
+     * "sin dato", no "no". Un valor que no diga ni una cosa ni la otra se queda
+     * sin responder, porque "no anotado" y "verificado que no" no son lo mismo
+     * cuando lo que se audita es si algo se reviso.
+     */
     public static Boolean booleano(String valor) {
         if (valor == null || valor.isBlank()) return null;
-        String v = normalizar(valor);
-        if (v.startsWith("si") || v.equals("s") || v.equals("true") || v.equals("1") || v.startsWith("x")) return true;
-        if (v.startsWith("no") || v.equals("n") || v.equals("false") || v.equals("0")) return false;
+        var palabras = Set.of(normalizar(valor).split(" "));
+        if (palabras.stream().anyMatch(AFIRMACIONES::contains)) return true;
+        if (palabras.stream().anyMatch(NEGACIONES::contains)) return false;
         return null;
     }
 

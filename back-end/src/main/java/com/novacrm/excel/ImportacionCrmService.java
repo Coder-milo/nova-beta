@@ -262,21 +262,13 @@ public class ImportacionCrmService {
      * Un valor que no diga ni una cosa ni la otra se deja sin responder en vez
      * de darlo por incumplido: "no anotado" y "verificado que no" no son lo
      * mismo cuando lo que se audita es si la vinculacion se reviso.
+     *
+     * <p>Esto era una copia local de la lectura de si/no, escrita aparte porque
+     * la del lector se equivocaba justo con estos valores. Ahora las dos son la
+     * misma: arreglado el lector, la copia sobra.
      */
     private static Boolean casilla(String valor) {
-        if (valor == null || valor.isBlank()) {
-            return null;
-        }
-        // Palabra por palabra y no con `contains`: "Sin verificar" contiene
-        // "si" y significa justo lo contrario de "Sí".
-        var palabras = Set.of(LectorHoja.normalizar(valor).split(" "));
-        if (palabras.contains("si") || palabras.contains("ok") || palabras.contains("cumplido")) {
-            return true;
-        }
-        if (palabras.contains("pendiente") || palabras.contains("no")) {
-            return false;
-        }
-        return null;
+        return LectorHoja.booleano(valor);
     }
 
     /**
