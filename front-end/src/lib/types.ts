@@ -668,14 +668,33 @@ export interface ChatDirectoMensajeResponse {
   contenido: string
   createdAt: string
   enviadoPorMi: boolean
-  /**
-   * Cuándo lo abrió el otro; null si todavía no.
-   *
-   * Sólo se muestra en los mensajes propios: saber si el otro leyó lo que le
-   * escribí es información mía. Al revés no aporta nada, porque quien lo lee
-   * ya sabe que lo leyó.
-   */
   leidoAt: string | null
+  editado?: boolean
+  enRespuestaA?: string | null
+  reenviado?: boolean
+}
+
+export interface ChatGrupoResponse {
+  id: string
+  nombre: string
+  descripcion: string
+  fotoUrl: string | null
+  creadoPorId: string
+  totalMiembros: number
+  createdAt: string
+}
+
+export interface ChatGrupoMensajeResponse {
+  id: string
+  grupoId: string
+  remitenteId: string
+  remitenteNombre: string
+  contenido: string
+  createdAt: string
+  enviadoPorMi: boolean
+  editado?: boolean
+  enRespuestaA?: string | null
+  reenviado?: boolean
 }
 
 // ─── Módulos del diseño (proyectos enriquecidos, HV, documentos, etc.) ────────

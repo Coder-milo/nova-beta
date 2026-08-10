@@ -243,6 +243,27 @@ public class NotificacionService {
         notificacionRepository.save(notificacion);
     }
 
+    /**
+     * Da por leidos los avisos de chat de una conversacion.
+     *
+     * <p>Lo llama el chat al abrir la conversacion, y no es un adorno: como solo
+     * se crea un aviso por contacto mientras haya uno sin leer, el aviso que se
+     * queda pendiente para siempre deja de ser un aviso y pasa a ser un tapon.
+     * El estudiante ve un numero en la campana que leer el chat no baja, y al
+     * mismo tiempo los mensajes siguientes de esa persona ya no avisan de nada.
+     */
+    @Transactional
+    public void marcarLeidosLosAvisosDeChat(UUID estudianteId, UUID contactoId) {
+        var pendientes = notificacionRepository
+                .findByEstudianteIdAndTipoAndReferenciaIdAndLeidaFalse(
+                        estudianteId, TIPO_CHAT, contactoId.toString());
+        if (pendientes.isEmpty()) return;
+        for (var notificacion : pendientes) {
+            notificacion.setLeida(true);
+        }
+        notificacionRepository.saveAll(pendientes);
+    }
+
     /** Registra en la bandeja del estudiante cada mensaje enviado por el equipo. */
     @Transactional
     public void registrarMensajeDelEquipo(Estudiante estudiante, UUID mensajeId) {

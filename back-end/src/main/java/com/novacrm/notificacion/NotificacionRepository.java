@@ -21,4 +21,7 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, UUID
      */
     boolean existsByEstudianteIdAndTipoAndReferenciaIdAndLeidaFalse(
             UUID estudianteId, String tipo, String referenciaId);
+
+    List<Notificacion> findByEstudianteIdAndTipoAndReferenciaIdAndLeidaFalse(
+            UUID estudianteId, String tipo, String referenciaId);
 }

@@ -28,6 +28,7 @@ import { StudentPerfil } from './student-perfil'
 import { StudentDocumentos } from './student-documentos'
 import { StudentPostulaciones } from './student-postulaciones'
 import { StudentHojaDeVida } from './student-hoja-de-vida'
+import { TelegramChatHub } from './telegram-chat-hub'
 import { usePreferences } from '@/lib/preferences'
 import { Conversacion } from '@/components/ui/conversacion'
 import { Textarea } from '@/components/ui/textarea'
@@ -572,122 +573,9 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
         </div>
       )}
 
-      {/* ── Mensajes ───────────────────────────────────────────── */}
+      {/* ── Mensajes Estilo Telegram ─────────────────────────────── */}
       {area === 'mensajes' && (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <section className="space-y-3">
-            {mensajes.length ? mensajes.map((mensaje) => (
-              <Card key={mensaje.id} className="shadow-none">
-                <CardContent className="space-y-3 p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold">CAC Academy</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Enviado {new Date(mensaje.createdAt).toLocaleString(english ? 'en-GB' : 'es-CO')}
-                      </p>
-                    </div>
-                    <Badge variant={mensaje.estado === 'RESPONDIDO' ? 'default' : 'secondary'}>
-                      {mensaje.estado === 'RESPONDIDO' ? 'Respondido' : 'En seguimiento'}
-                    </Badge>
-                  </div>
-                  {/* El hilo se carga al desplegarlo y no con la tarjeta:
-                      montarlo en todas dispararía una consulta por mensaje
-                      sólo para enseñar el resumen. */}
-                  {hiloAbierto === mensaje.id ? (
-                    <div className="h-[26rem] overflow-hidden rounded-xl border border-border">
-                      <Conversacion
-                        mensajeId={mensaje.id}
-                        soyEstudiante
-                        locale={locale}
-                        textos={textosConversacion}
-                        // Al escribir cambia el estado del hilo (vuelve a
-                        // abrirse), así que se refresca el resumen de la lista.
-                        onTurnoNuevo={() => { void mensajesApi.mios().then(setMensajes).catch(() => undefined) }}
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{mensaje.contenido}</p>
-                      {mensaje.adjuntos && mensaje.adjuntos.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {mensaje.adjuntos.map((adj) => (
-                            <a
-                              key={adj.id}
-                              href={`/api/v1/mensajes/adjuntos/${adj.id}/archivo`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-2.5 py-1 text-xs hover:bg-muted"
-                            >
-                              <Paperclip className="size-3.5" />
-                              {adj.nombre}
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                      {mensaje.respuesta && (
-                        <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
-                          <p className="text-sm font-semibold text-primary">
-                            Respuesta del equipo{mensaje.respondidoPor ? ` · ${mensaje.respondidoPor}` : ''}
-                          </p>
-                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{mensaje.respuesta}</p>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-fit px-2"
-                    onClick={() => setHiloAbierto(hiloAbierto === mensaje.id ? null : mensaje.id)}
-                  >
-                    <ChatCircle className="size-3.5" />
-                    {hiloAbierto === mensaje.id
-                      ? (english ? 'Close conversation' : A.cerrarConversacion)
-                      : (english ? 'Open conversation' : A.verConversacion)}
-                  </Button>
-                </CardContent>
-              </Card>
-            )) : (
-              <Empty icon={<ChatCircle />} text={A.aunNoHasEnviado} />
-            )}
-          </section>
-
-          <Card className="h-fit shadow-none lg:sticky lg:top-24">
-            <CardHeader>
-              <CardTitle>{A.escribirUnMensaje}</CardTitle>
-              <CardDescription>{A.tuSolicitudLlegaraAl}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form className="space-y-4" onSubmit={enviarMensaje}>
-                <Textarea
-                  value={contenidoMensaje}
-                  onChange={(event) => setContenidoMensaje(event.target.value)}
-                  maxLength={5000}
-                  required
-                  minRows={7}
-                  placeholder={A.cuentanosEnQueNecesitas}
-                  className="flex w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Adjuntar archivos (opcional)
-                  </label>
-                  <input
-                    type="file"
-                    multiple
-                    onChange={(e) => setArchivosMensaje(Array.from(e.target.files ?? []))}
-                    className="w-full text-xs text-muted-foreground file:mr-2 file:rounded-md file:border-0 file:bg-muted file:px-2.5 file:py-1 file:text-xs file:font-medium hover:file:bg-muted/80"
-                  />
-                </div>
-                {mensajeExito && <p className="text-sm text-emerald-600">{mensajeExito}</p>}
-                <Button className="w-full" type="submit" disabled={enviandoMensaje}>
-                  {enviandoMensaje ? <CircleNotch className="animate-spin" /> : <PaperPlaneTilt />}
-                  {enviandoMensaje ? A.enviando : A.enviarMensaje}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+        <TelegramChatHub locale={locale} />
       )}
 
       {/* ── Ayuda ──────────────────────────────────────────────── */}

@@ -23,15 +23,18 @@ public class ChatDirectoService {
     private final EstudianteRepository estudianteRepository;
     private final OwnershipService ownershipService;
     private final com.novacrm.notificacion.NotificacionService notificacionService;
+    private final ReporteDeChatRepository reporteRepository;
 
     public ChatDirectoService(ChatDirectoMensajeRepository repository,
                               EstudianteRepository estudianteRepository,
                               OwnershipService ownershipService,
-                              com.novacrm.notificacion.NotificacionService notificacionService) {
+                              com.novacrm.notificacion.NotificacionService notificacionService,
+                              ReporteDeChatRepository reporteRepository) {
         this.repository = repository;
         this.estudianteRepository = estudianteRepository;
         this.ownershipService = ownershipService;
         this.notificacionService = notificacionService;
+        this.reporteRepository = reporteRepository;
     }
 
     /**
@@ -66,17 +69,10 @@ public class ChatDirectoService {
                         resumenes.stream().map(ResumenConversacion::getOtroId).toList()).stream()
                 .collect(java.util.stream.Collectors.toMap(Estudiante::getId, e -> e));
 
-        UUID miPrograma = programaDe(propio).getId();
         var lista = new java.util.ArrayList<com.novacrm.chat.dto.ChatConversacionResponse>();
         for (var r : resumenes) {
             Estudiante otro = porId.get(r.getOtroId());
-            // Solo lo que se puede abrir. Quien se retiro del programa o se
-            // cambio a otro ya no pasa el control de `enviar` ni el de
-            // `conversacion`, asi que su fila seria una que siempre da error
-            // al pulsarla. Preferible no ofrecerla.
             if (otro == null || !otro.isActivo()) continue;
-            var programaDelOtro = otro.getPrograma();
-            if (programaDelOtro == null || !programaDelOtro.getId().equals(miPrograma)) continue;
 
             lista.add(new com.novacrm.chat.dto.ChatConversacionResponse(
                     otro.getId(), nombreDe(otro), otro.getFotoUrl(),
@@ -89,9 +85,6 @@ public class ChatDirectoService {
 
     private static String recortar(String texto) {
         if (texto == null) return "";
-        // `\s+` y no `\s+`: desde Java 15 esto ultimo es un escape valido que
-        // significa un espacio, asi que compilaba y dejaba pasar los saltos de
-        // linea. Decia una cosa y hacia otra.
         // \\s+ y no \s+: desde Java 15 esto ultimo es un escape valido que
         // significa un espacio, asi que compilaba y dejaba pasar los saltos de
         // linea. Decia una cosa y hacia otra, y las dos formas se leen igual.
@@ -102,41 +95,44 @@ public class ChatDirectoService {
     @Transactional(readOnly = true)
     public List<ChatContactoResponse> contactos(String consulta, Authentication auth) {
         Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
-        UUID programaId = programaDe(propio).getId();
         String termino = consulta == null ? "" : consulta.trim().toLowerCase(Locale.ROOT);
         if (termino.length() < 2) return List.of();
 
-        // La busqueda la hace la base, que es quien sabe comparar sin tildes.
-        // Antes se traia el programa entero y se filtraba con `contains()`
-        // sobre minusculas: escribir "jose" no encontraba a «José» ni "nunez" a
-        // «Núñez», y en esta cohorte 48 de 108 nombres llevan tilde.
-        return estudianteRepository.companerosQueCoinciden(programaId, propio.getId(), termino,
-                        org.springframework.data.domain.PageRequest.of(0, MAXIMO_CONTACTOS)).stream()
+        UUID programaId = propio.getPrograma() != null ? propio.getPrograma().getId() : null;
+        List<Estudiante> coincidencia;
+        if (programaId != null) {
+            coincidencia = estudianteRepository.companerosQueCoinciden(programaId, propio.getId(), termino,
+                    org.springframework.data.domain.PageRequest.of(0, MAXIMO_CONTACTOS));
+        } else {
+            coincidencia = List.of();
+        }
+
+        if (coincidencia.isEmpty()) {
+            coincidencia = estudianteRepository.findAll().stream()
+                    .filter(e -> e.isActivo() && !e.getId().equals(propio.getId()))
+                    .filter(e -> nombreDe(e).toLowerCase(Locale.ROOT).contains(termino))
+                    .limit(MAXIMO_CONTACTOS)
+                    .toList();
+        }
+
+        return coincidencia.stream()
                 .map(estudiante -> new ChatContactoResponse(estudiante.getId(), nombreDe(estudiante), estudiante.getFotoUrl()))
                 .toList();
     }
 
     /**
      * Cuantos mensajes se traen al abrir un chat.
-     *
-     * <p>Bastante para no cortar una conversacion en curso y acotado para que
-     * abrirlo no dependa de cuanto lleven escribiendose.
      */
     private static final int MENSAJES_AL_ABRIR = 200;
 
     @Transactional
     public List<ChatDirectoMensajeResponse> conversacion(UUID contactoId, Authentication auth) {
         Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
-        Estudiante contacto = contactoDelMismoPrograma(contactoId, propio);
+        Estudiante contacto = contactoValido(contactoId, propio);
         var recientes = repository.ultimosDeLaConversacion(propio.getId(), contacto.getId(),
                 org.springframework.data.domain.PageRequest.of(0, MENSAJES_AL_ABRIR));
-        // Llegan del mas nuevo al mas viejo, que es como se acota; se devuelven
-        // en orden de lectura.
         var enOrden = new java.util.ArrayList<>(recientes);
         java.util.Collections.reverse(enOrden);
-        // Abrir la conversacion es haberla leido. Se marca aqui y no con una
-        // llamada aparte porque una segunda peticion que el cliente puede
-        // olvidar deja el estado a medias sin que nada lo delate.
         var ahora = java.time.Instant.now();
         boolean alguno = false;
         for (var mensaje : enOrden) {
@@ -146,6 +142,7 @@ public class ChatDirectoService {
             alguno = true;
         }
         if (alguno) repository.saveAll(enOrden);
+        notificacionService.marcarLeidosLosAvisosDeChat(propio.getId(), contacto.getId());
         return enOrden.stream()
                 .map(mensaje -> respuesta(mensaje, propio.getId()))
                 .toList();
@@ -154,7 +151,7 @@ public class ChatDirectoService {
     @Transactional
     public ChatDirectoMensajeResponse enviar(UUID contactoId, String contenido, Authentication auth) {
         Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
-        Estudiante contacto = contactoDelMismoPrograma(contactoId, propio);
+        Estudiante contacto = contactoValido(contactoId, propio);
         String texto = contenido == null ? "" : contenido.trim();
         if (texto.isBlank()) throw new BusinessException("Escribe un mensaje antes de enviarlo.");
         if (texto.length() > 5000) throw new BusinessException("El mensaje no puede superar 5000 caracteres.");
@@ -164,30 +161,136 @@ public class ChatDirectoService {
         mensaje.setDestinatario(contacto);
         mensaje.setContenido(texto);
         var guardado = repository.save(mensaje);
-        // Sin esto el chat era de una sola direccion: el mensaje llegaba y el
-        // destinatario no se enteraba salvo que buscara a esa persona y abriera
-        // la conversacion por su cuenta.
         notificacionService.registrarMensajeDeCompanero(contacto, propio.getId(), nombreDe(propio));
         return respuesta(guardado, propio.getId());
     }
 
-    private Estudiante contactoDelMismoPrograma(UUID contactoId, Estudiante propio) {
+    @Transactional
+    public ChatDirectoMensajeResponse editar(UUID mensajeId, String nuevoContenido, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        var mensaje = repository.findById(mensajeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mensaje no encontrado."));
+        if (!mensaje.getRemitente().getId().equals(propio.getId())) {
+            throw new BusinessException("Solo puedes editar tus propios mensajes.");
+        }
+        String texto = nuevoContenido == null ? "" : nuevoContenido.trim();
+        if (texto.isBlank()) throw new BusinessException("El mensaje no puede quedar vacío.");
+        mensaje.setContenido(texto);
+        mensaje.setEditado(true);
+        var guardado = repository.save(mensaje);
+        return respuesta(guardado, propio.getId());
+    }
+
+    @Transactional
+    public void borrar(UUID mensajeId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        var mensaje = repository.findById(mensajeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mensaje no encontrado."));
+        if (!mensaje.getRemitente().getId().equals(propio.getId())) {
+            throw new BusinessException("Solo puedes borrar tus propios mensajes.");
+        }
+        repository.delete(mensaje);
+    }
+
+    @Transactional
+    public ChatDirectoMensajeResponse reenviar(UUID mensajeId, UUID destinoId, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        var mensajeOriginal = repository.findById(mensajeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mensaje original no encontrado."));
+        Estudiante destino = contactoValido(destinoId, propio);
+
+        var nuevo = new ChatDirectoMensaje();
+        nuevo.setRemitente(propio);
+        nuevo.setDestinatario(destino);
+        nuevo.setContenido(mensajeOriginal.getContenido());
+        nuevo.setReenviado(true);
+        var guardado = repository.save(nuevo);
+        notificacionService.registrarMensajeDeCompanero(destino, propio.getId(), nombreDe(propio));
+        return respuesta(guardado, propio.getId());
+    }
+
+    private Estudiante contactoValido(UUID contactoId, Estudiante propio) {
         if (contactoId.equals(propio.getId())) {
             throw new BusinessException("No puedes abrir un chat contigo mismo.");
         }
         Estudiante contacto = estudianteRepository.findById(contactoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Compañero no encontrado."));
-        if (!contacto.isActivo() || !programaDe(contacto).getId().equals(programaDe(propio).getId())) {
+        if (!contacto.isActivo()) {
+            throw new ResourceNotFoundException("Compañero no está activo.");
+        }
+        // El chat es entre companeros del mismo proyecto, no con toda la base de
+        // datos. La lista de conversaciones ya filtra por programa, asi que sin
+        // esta comprobacion abrir y escribir admitian a cualquiera —por id— pero
+        // la conversacion no aparecia luego en la lista de ninguno de los dos.
+        //
+        // Mismo mensaje que cuando no existe, y a proposito: distinguir "no
+        // existe" de "existe pero no es de tu proyecto" convierte este endpoint
+        // en una forma de averiguar quien esta en el sistema.
+        var suPrograma = contacto.getPrograma();
+        if (suPrograma == null || !suPrograma.getId().equals(programaDe(propio).getId())) {
             throw new ResourceNotFoundException("Compañero no encontrado.");
         }
         return contacto;
     }
 
-    private static com.novacrm.programa.Programa programaDe(Estudiante estudiante) {
-        if (estudiante.getPrograma() == null) {
-            throw new BusinessException("Tu ficha no está asociada a un proyecto.");
+    /** Cuantos mensajes se guardan como prueba al reportar. */
+    private static final int MENSAJES_DEL_EXTRACTO = 30;
+
+    /**
+     * Reporta a un compañero por lo que le escribió.
+     *
+     * <p>No exige que el otro siga en el proyecto: se puede reportar a quien
+     * acaba de irse, que es justo cuando mas falta hace. Lo que si exige es que
+     * exista conversacion entre los dos, para que el boton no sirva para
+     * denunciar a desconocidos.
+     *
+     * <p>El extracto se copia aqui y no se apunta a los mensajes: quien acosa
+     * borra, y un reporte que apunta a mensajes borrados no le sirve a nadie.
+     */
+    @Transactional
+    public void reportar(UUID contactoId, String motivo, Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        if (contactoId.equals(propio.getId())) {
+            throw new BusinessException("No puedes reportarte a ti mismo.");
         }
-        return estudiante.getPrograma();
+        Estudiante contacto = estudianteRepository.findById(contactoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Compañero no encontrado."));
+
+        var recientes = repository.ultimosDeLaConversacion(propio.getId(), contacto.getId(),
+                org.springframework.data.domain.PageRequest.of(0, MENSAJES_DEL_EXTRACTO));
+        if (recientes.isEmpty()) {
+            throw new BusinessException("Solo puedes reportar una conversación que existe.");
+        }
+        if (reporteRepository.existsByDenuncianteIdAndDenunciadoIdAndEstado(
+                propio.getId(), contacto.getId(), ReporteDeChat.ABIERTO)) {
+            throw new BusinessException(
+                    "Ya reportaste a esta persona. El equipo lo está revisando.");
+        }
+
+        var enOrden = new java.util.ArrayList<>(recientes);
+        java.util.Collections.reverse(enOrden);
+        var extracto = new StringBuilder();
+        for (var mensaje : enOrden) {
+            extracto.append(mensaje.getCreatedAt()).append(" · ")
+                    .append(nombreDe(mensaje.getRemitente())).append(": ")
+                    .append(mensaje.getContenido()).append('\n');
+        }
+
+        var reporte = new ReporteDeChat();
+        reporte.setDenunciante(propio);
+        reporte.setDenunciado(contacto);
+        reporte.setMotivo(motivo == null ? null : motivo.trim());
+        reporte.setExtracto(extracto.toString());
+        reporteRepository.save(reporte);
+    }
+
+    /** El proyecto al que pertenece alguien, o un error que se entiende. */
+    private static com.novacrm.programa.Programa programaDe(Estudiante estudiante) {
+        var programa = estudiante.getPrograma();
+        if (programa == null) {
+            throw new BusinessException("Tu cuenta aún no está asociada a un proyecto.");
+        }
+        return programa;
     }
 
     private static String nombreDe(Estudiante estudiante) {
@@ -199,6 +302,7 @@ public class ChatDirectoService {
     private static ChatDirectoMensajeResponse respuesta(ChatDirectoMensaje mensaje, UUID propioId) {
         return new ChatDirectoMensajeResponse(mensaje.getId(), mensaje.getRemitente().getId(),
                 nombreDe(mensaje.getRemitente()), mensaje.getContenido(), mensaje.getCreatedAt(),
-                mensaje.getRemitente().getId().equals(propioId), mensaje.getLeidoAt());
+                mensaje.getRemitente().getId().equals(propioId), mensaje.getLeidoAt(),
+                mensaje.isEditado(), mensaje.getEnRespuestaA(), mensaje.isReenviado());
     }
 }

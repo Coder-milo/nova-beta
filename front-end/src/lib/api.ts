@@ -667,7 +667,7 @@ export const EMOJIS_REACCION = ['👍', '❤️', '🎉', '👏', '😀', '😮'
 
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
-import type { ChatContactoResponse, ChatConversacionResponse, ChatDirectoMensajeResponse } from './types'
+import type { ChatContactoResponse, ChatConversacionResponse, ChatDirectoMensajeResponse, ChatGrupoResponse, ChatGrupoMensajeResponse } from './types'
 
 export const chatsApi = {
   contactos: (consulta: string, token?: string) =>
@@ -680,6 +680,33 @@ export const chatsApi = {
   enviar: (contactoId: string, contenido: string, token?: string) =>
     apiFetch<ChatDirectoMensajeResponse>(`/api/v1/chats/directos/${contactoId}`, {
       method: 'POST', data: { contenido }, token,
+    }),
+  editar: (mensajeId: string, contenido: string, token?: string) =>
+    apiFetch<ChatDirectoMensajeResponse>(`/api/v1/chats/directos/mensajes/${mensajeId}`, {
+      method: 'PUT', data: { contenido }, token,
+    }),
+  borrar: (mensajeId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/chats/directos/mensajes/${mensajeId}`, {
+      method: 'DELETE', token,
+    }),
+  reenviar: (mensajeId: string, destinoId: string, token?: string) =>
+    apiFetch<ChatDirectoMensajeResponse>(`/api/v1/chats/directos/mensajes/${mensajeId}/reenviar?destinoId=${destinoId}`, {
+      method: 'POST', token,
+    }),
+}
+
+export const gruposApi = {
+  crear: (data: { nombre: string; descripcion?: string; miembroIds?: string[] }, token?: string) =>
+    apiFetch<ChatGrupoResponse>('/api/v1/chats/grupos', {
+      method: 'POST', data, token,
+    }),
+  misGrupos: (token?: string) =>
+    apiFetch<ChatGrupoResponse[]>('/api/v1/chats/grupos', { token }),
+  mensajes: (grupoId: string, token?: string) =>
+    apiFetch<ChatGrupoMensajeResponse[]>(`/api/v1/chats/grupos/${grupoId}/mensajes`, { token }),
+  enviar: (grupoId: string, contenido: string, enRespuestaA?: string, token?: string) =>
+    apiFetch<ChatGrupoMensajeResponse>(`/api/v1/chats/grupos/${grupoId}/mensajes?contenido=${encodeURIComponent(contenido)}${enRespuestaA ? `&enRespuestaA=${enRespuestaA}` : ''}`, {
+      method: 'POST', token,
     }),
 }
 

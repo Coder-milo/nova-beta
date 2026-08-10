@@ -36,6 +36,22 @@ public class ChatDirectoController {
         return service.contactos(q, auth);
     }
 
+    /**
+     * Reporta a un compañero por lo que escribió en el chat.
+     *
+     * <p>Guarda copia de lo último de esa conversación para que el equipo pueda
+     * mirarlo aunque después se borre.
+     */
+    @PostMapping("/directos/{contactoId}/reportar")
+    public void reportar(@PathVariable UUID contactoId,
+                         @RequestBody(required = false) ReporteRequest cuerpo,
+                         Authentication auth) {
+        service.reportar(contactoId, cuerpo == null ? null : cuerpo.motivo(), auth);
+    }
+
+    /** El motivo es opcional: obligar a explicarse hace que no se reporte. */
+    public record ReporteRequest(String motivo) {}
+
     @GetMapping("/directos/{contactoId}")
     public List<ChatDirectoMensajeResponse> conversacion(@PathVariable UUID contactoId, Authentication auth) {
         return service.conversacion(contactoId, auth);
@@ -46,5 +62,25 @@ public class ChatDirectoController {
                                              @Valid @RequestBody ChatDirectoMensajeRequest request,
                                              Authentication auth) {
         return service.enviar(contactoId, request.contenido(), auth);
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/directos/mensajes/{mensajeId}")
+    public ChatDirectoMensajeResponse editar(@PathVariable UUID mensajeId,
+                                             @Valid @RequestBody ChatDirectoMensajeRequest request,
+                                             Authentication auth) {
+        return service.editar(mensajeId, request.contenido(), auth);
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/directos/mensajes/{mensajeId}")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void borrar(@PathVariable UUID mensajeId, Authentication auth) {
+        service.borrar(mensajeId, auth);
+    }
+
+    @PostMapping("/directos/mensajes/{mensajeId}/reenviar")
+    public ChatDirectoMensajeResponse reenviar(@PathVariable UUID mensajeId,
+                                               @RequestParam UUID destinoId,
+                                               Authentication auth) {
+        return service.reenviar(mensajeId, destinoId, auth);
     }
 }
