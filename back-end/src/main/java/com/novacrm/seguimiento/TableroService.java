@@ -97,7 +97,9 @@ public class TableroService {
 
     private TarjetaTablero tarjetaDe(Estudiante estudiante, LocalDate hoy) {
         var historial = seguimientoRepository.findByEstudianteIdOrderByFechaDesc(estudiante.getId());
-        var pipeline = pipelineService.calcular(estudiante.getId());
+        // Con la ficha, no con su identificador: la version por identificador
+        // la vuelve a buscar, y aqui ya la tenemos leida.
+        var pipeline = pipelineService.calcular(estudiante);
 
         return new TarjetaTablero(
                 estudiante.getId(),

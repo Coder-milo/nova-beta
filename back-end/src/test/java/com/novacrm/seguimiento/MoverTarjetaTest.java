@@ -46,7 +46,9 @@ class MoverTarjetaTest {
         ana.setActivo(true);
         when(estudiantes.findById(ana.getId())).thenReturn(Optional.of(ana));
 
-        when(pipeline.calcular(any())).thenReturn(mock(PipelineEmpleabilidad.class));
+        // Explicito: hay dos `calcular`, por identificador y por ficha, y con
+        // `any()` a secas Java no sabe a cual se refiere.
+        when(pipeline.calcular(any(Estudiante.class))).thenReturn(mock(PipelineEmpleabilidad.class));
     }
 
     private Seguimiento movimiento(EstadoContacto estado) {

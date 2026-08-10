@@ -50,9 +50,22 @@ public class PipelineEmpleabilidadService {
     }
 
     public PipelineEmpleabilidad calcular(UUID estudianteId) {
-        var estudiante = estudianteRepository.findById(estudianteId)
+        return calcular(estudianteRepository.findById(estudianteId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "No existe el estudiante " + estudianteId));
+                        "No existe el estudiante " + estudianteId)));
+    }
+
+    /**
+     * Lo mismo, para quien ya tiene la ficha en la mano.
+     *
+     * <p>El tablero recorre los 108 estudiantes que acaba de leer y llamaba a
+     * la version por identificador, que los volvia a buscar uno a uno: 108
+     * consultas para traer lo que ya estaba cargado. Con el tablero
+     * reconstruyendose entero despues de cada movimiento de tarjeta, esas
+     * consultas se pagan varias veces al dia.
+     */
+    public PipelineEmpleabilidad calcular(com.novacrm.estudiante.Estudiante estudiante) {
+        UUID estudianteId = estudiante.getId();
 
         // Postulaciones: manda la tabla de postulaciones. Se toma el maximo
         // con los matches marcados porque quedan registros anteriores a que
