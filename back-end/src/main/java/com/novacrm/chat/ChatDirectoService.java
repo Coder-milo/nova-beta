@@ -40,6 +40,51 @@ public class ChatDirectoService {
      */
     private static final int MAXIMO_CONTACTOS = 20;
 
+    /** Cuanto del ultimo mensaje se manda a la lista. Una linea, no mas. */
+    private static final int RESUMEN_MAXIMO = 120;
+
+    /**
+     * Las conversaciones que ya existen, de la mas reciente a la mas antigua.
+     *
+     * <p>Sin esto solo se llegaba a un chat buscando el nombre de la persona o
+     * pinchando un aviso: no habia forma de ver con quien se ha hablado, ni de
+     * volver a una conversacion de la que se recuerda a medias con quien fue.
+     */
+    @Transactional(readOnly = true)
+    public List<com.novacrm.chat.dto.ChatConversacionResponse> conversaciones(Authentication auth) {
+        Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);
+        var resumenes = repository.conversacionesDe(propio.getId());
+        if (resumenes.isEmpty()) return List.of();
+
+        var sinLeer = new java.util.HashMap<UUID, Long>();
+        for (var fila : repository.sinLeerPorContacto(propio.getId())) {
+            sinLeer.put(fila.getRemitenteId(), fila.getTotal());
+        }
+        // Los nombres en una sola consulta y no uno por fila.
+        var porId = estudianteRepository.findAllById(
+                        resumenes.stream().map(r -> r.getOtroId()).toList()).stream()
+                .collect(java.util.stream.Collectors.toMap(Estudiante::getId, e -> e));
+
+        return resumenes.stream()
+                .map(r -> porId.get(r.getOtroId()))
+                .filter(java.util.Objects::nonNull)
+                .map(otro -> {
+                    var r = resumenes.stream().filter(x -> x.getOtroId().equals(otro.getId())).findFirst().orElseThrow();
+                    return new com.novacrm.chat.dto.ChatConversacionResponse(
+                            otro.getId(), nombreDe(otro), otro.getFotoUrl(),
+                            recortar(r.getUltimoMensaje()), r.getUltimaFecha(),
+                            r.getMioElUltimo(), sinLeer.getOrDefault(otro.getId(), 0L));
+                })
+                .sorted((a, b) -> b.ultimaFecha().compareTo(a.ultimaFecha()))
+                .toList();
+    }
+
+    private static String recortar(String texto) {
+        if (texto == null) return "";
+        String limpio = texto.strip().replaceAll("\s+", " ");
+        return limpio.length() <= RESUMEN_MAXIMO ? limpio : limpio.substring(0, RESUMEN_MAXIMO) + "…";
+    }
+
     @Transactional(readOnly = true)
     public List<ChatContactoResponse> contactos(String consulta, Authentication auth) {
         Estudiante propio = ownershipService.obtenerEstudianteAutenticado(auth);

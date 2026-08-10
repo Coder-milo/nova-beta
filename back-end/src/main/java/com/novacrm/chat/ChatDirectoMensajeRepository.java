@@ -28,4 +28,49 @@ public interface ChatDirectoMensajeRepository extends JpaRepository<ChatDirectoM
             """)
     List<ChatDirectoMensaje> ultimosDeLaConversacion(@Param("uno") UUID uno, @Param("otro") UUID otro,
                                                      Pageable pageable);
+
+    /** Con quien se ha hablado, con lo ultimo que se dijo. Una fila por persona. */
+    interface ResumenConversacion {
+        UUID getOtroId();
+        String getUltimoMensaje();
+        java.time.Instant getUltimaFecha();
+        boolean getMioElUltimo();
+    }
+
+    /**
+     * La lista de conversaciones, una fila por interlocutor.
+     *
+     * <p>Nativa y con {@code DISTINCT ON}: en JPQL habria que traerse los
+     * mensajes y agrupar en memoria, que es justo lo que no se quiere de una
+     * pantalla que se abre a diario. La base ya sabe hacerlo.
+     */
+    @Query(value = """
+            SELECT DISTINCT ON (t.otro_id)
+                   t.otro_id      AS otroId,
+                   t.contenido    AS ultimoMensaje,
+                   t.created_at   AS ultimaFecha,
+                   (t.remitente_id = :yo) AS mioElUltimo
+            FROM (
+                SELECT CASE WHEN m.remitente_id = :yo THEN m.destinatario_id ELSE m.remitente_id END AS otro_id,
+                       m.contenido, m.created_at, m.remitente_id
+                FROM chat_directo_mensaje m
+                WHERE m.remitente_id = :yo OR m.destinatario_id = :yo
+            ) t
+            ORDER BY t.otro_id, t.created_at DESC
+            """, nativeQuery = true)
+    List<ResumenConversacion> conversacionesDe(@Param("yo") UUID yo);
+
+    /** Cuantos sin leer manda cada persona. Solo aparecen quienes tienen alguno. */
+    interface PendientesPorContacto {
+        UUID getRemitenteId();
+        long getTotal();
+    }
+
+    @Query(value = """
+            SELECT m.remitente_id AS remitenteId, COUNT(*) AS total
+            FROM chat_directo_mensaje m
+            WHERE m.destinatario_id = :yo AND m.leido_at IS NULL
+            GROUP BY m.remitente_id
+            """, nativeQuery = true)
+    List<PendientesPorContacto> sinLeerPorContacto(@Param("yo") UUID yo);
 }

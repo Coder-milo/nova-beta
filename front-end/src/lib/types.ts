@@ -644,6 +644,23 @@ export interface ChatContactoResponse {
   fotoUrl: string | null
 }
 
+/**
+ * Una fila de la lista de conversaciones del estudiante.
+ *
+ * Lo justo para pintar la bandeja sin abrir nada: con quién, qué fue lo
+ * último y cuánto queda por leer. El texto llega ya recortado del servidor.
+ */
+export interface ChatConversacionResponse {
+  contactoId: string
+  nombre: string
+  fotoUrl: string | null
+  ultimoMensaje: string
+  ultimaFecha: string
+  /** Si lo último lo escribió quien mira, para anteponer «Tú:». */
+  mioElUltimo: boolean
+  sinLeer: number
+}
+
 export interface ChatDirectoMensajeResponse {
   id: string
   remitenteId: string

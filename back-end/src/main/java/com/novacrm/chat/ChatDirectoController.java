@@ -25,6 +25,12 @@ public class ChatDirectoController {
 
     public ChatDirectoController(ChatDirectoService service) { this.service = service; }
 
+    /** Con quien se ha hablado ya, para no tener que buscarlo por el nombre. */
+    @GetMapping("/conversaciones")
+    public List<com.novacrm.chat.dto.ChatConversacionResponse> conversaciones(Authentication auth) {
+        return service.conversaciones(auth);
+    }
+
     @GetMapping("/contactos")
     public List<ChatContactoResponse> contactos(@RequestParam String q, Authentication auth) {
         return service.contactos(q, auth);

@@ -22,7 +22,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { busquedaApi, chatsApi, dashboardApi, estudiantesApi, mensajesApi, notificacionesApi } from '@/lib/api'
-import type { AlertaResponse, BusquedaResponse, ChatContactoResponse, ChatDirectoMensajeResponse, EstudianteResponse, MensajeResponse, NotificacionResponse, ResultadoBusqueda } from '@/lib/types'
+import type { AlertaResponse, BusquedaResponse, ChatContactoResponse, ChatConversacionResponse, ChatDirectoMensajeResponse, EstudianteResponse, MensajeResponse, NotificacionResponse, ResultadoBusqueda } from '@/lib/types'
 import { getNavItemsForRoles, soloEsEstudiante } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -147,6 +147,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
         marcarTodasLeidas: 'Marcar todas como leídas',
         enviado: 'Enviado',
         visto: 'Visto',
+        tuPrefijo: 'Tú:',
       }
     : {
         consultaAlEquipo: 'Question for the support team',
@@ -160,6 +161,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
         marcarTodasLeidas: 'Mark all as read',
         enviado: 'Sent',
         visto: 'Seen',
+        tuPrefijo: 'You:',
       }
 
   const esEstudiante = soloEsEstudiante(user?.roles)
@@ -195,6 +197,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [sendingStudentMessage, setSendingStudentMessage] = useState(false)
   const [directContact, setDirectContact] = useState<ChatContactoResponse | null>(null)
   const [directMessages, setDirectMessages] = useState<ChatDirectoMensajeResponse[]>([])
+  const [conversaciones, setConversaciones] = useState<ChatConversacionResponse[]>([])
   const [directLoading, setDirectLoading] = useState(false)
   const [contactQuery, setContactQuery] = useState('')
   const [contactResults, setContactResults] = useState<ChatContactoResponse[]>([])
@@ -377,6 +380,24 @@ export function Header({ onOpenMobile }: HeaderProps) {
       setMessageError(error instanceof Error ? error.message : avisos.noSePudieronCargar)
     } finally { setMessagesLoading(false) }
   }, [sesionLista, esEstudiante])
+
+  /**
+   * Con quién ha hablado el estudiante.
+   *
+   * Sin esta lista sólo se llegaba a un chat buscando el nombre de la persona
+   * o pinchando un aviso: no había forma de ver las conversaciones abiertas,
+   * ni de volver a una de la que se recuerda a medias con quién fue. Se
+   * recarga al abrir la bandeja y al enviar, que es cuando cambia.
+   */
+  const cargarConversaciones = useCallback(() => {
+    if (!esEstudiante) return
+    void chatsApi.conversaciones()
+      .then(setConversaciones)
+      .catch(() => setConversaciones([]))
+  }, [esEstudiante])
+
+  useEffect(() => { cargarConversaciones() }, [cargarConversaciones])
+  useEffect(() => { if (messageSheetOpen) cargarConversaciones() }, [messageSheetOpen, cargarConversaciones])
 
   useEffect(() => { void cargarMensajes() }, [cargarMensajes])
   useEffect(() => { if (messageSheetOpen) void cargarMensajes() }, [messageSheetOpen, cargarMensajes])
@@ -649,6 +670,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
         const nuevo = await chatsApi.enviar(directContact.id, studentBody.trim())
         setDirectMessages((actual) => [...actual, nuevo])
         setStudentBody('')
+        // La lista de la izquierda muestra lo último de cada conversación: sin
+        // esto, la que acaba de moverse seguiría enseñando el mensaje anterior.
+        cargarConversaciones()
         return
       }
       const asunto = 'CAC Academic'
@@ -978,6 +1002,48 @@ export function Header({ onOpenMobile }: HeaderProps) {
                           ))}
                     </div>
                   )}
+                </div>
+              )}
+              {esEstudiante && conversaciones.length > 0 && (
+                <div className="mb-2 space-y-0.5">
+                  {conversaciones.map((conversacion) => (
+                    <button
+                      key={conversacion.contactoId}
+                      type="button"
+                      onClick={() => abrirChatDirecto({
+                        id: conversacion.contactoId,
+                        nombre: conversacion.nombre,
+                        fotoUrl: conversacion.fotoUrl,
+                      })}
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-primary/10',
+                        directContact?.id === conversacion.contactoId && 'bg-primary/10',
+                      )}
+                    >
+                      {conversacion.fotoUrl
+                        ? <img src={conversacion.fotoUrl} alt="" className="size-7 shrink-0 rounded-full object-cover" />
+                        : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                            {conversacion.nombre.slice(0, 2).toUpperCase()}
+                          </span>}
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1.5">
+                          <span className="truncate text-xs font-semibold text-foreground">{conversacion.nombre}</span>
+                          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                            {formatMessageTime(conversacion.ultimaFecha, locale)}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                          {conversacion.mioElUltimo && <span className="text-foreground/70">{avisos.tuPrefijo} </span>}
+                          {conversacion.ultimoMensaje}
+                        </span>
+                      </span>
+                      {conversacion.sinLeer > 0 && (
+                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                          {conversacion.sinLeer}
+                        </span>
+                      )}
+                    </button>
+                  ))}
                 </div>
               )}
               {directContact && esEstudiante && (

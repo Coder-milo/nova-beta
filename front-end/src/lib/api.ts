@@ -667,11 +667,14 @@ export const EMOJIS_REACCION = ['👍', '❤️', '🎉', '👏', '😀', '😮'
 
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
-import type { ChatContactoResponse, ChatDirectoMensajeResponse } from './types'
+import type { ChatContactoResponse, ChatConversacionResponse, ChatDirectoMensajeResponse } from './types'
 
 export const chatsApi = {
   contactos: (consulta: string, token?: string) =>
     apiFetch<ChatContactoResponse[]>(`/api/v1/chats/contactos?q=${encodeURIComponent(consulta)}`, { token }),
+  /** Con quién se ha hablado ya, sin tener que recordar el nombre. */
+  conversaciones: (token?: string) =>
+    apiFetch<ChatConversacionResponse[]>('/api/v1/chats/conversaciones', { token }),
   conversacion: (contactoId: string, token?: string) =>
     apiFetch<ChatDirectoMensajeResponse[]>(`/api/v1/chats/directos/${contactoId}`, { token }),
   enviar: (contactoId: string, contenido: string, token?: string) =>
