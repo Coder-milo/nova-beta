@@ -313,8 +313,11 @@ export function AdminAssistantChat() {
     <>
       <div
         className={cn(
-          'pointer-events-none fixed bottom-5 z-40 flex flex-col sm:bottom-6',
-          ladoZorro === 'derecha' ? 'right-20 items-end sm:right-24' : 'left-20 items-start sm:left-24',
+          'pointer-events-none fixed z-40 flex flex-col transition-all duration-300',
+          'bottom-20 inset-x-3 sm:bottom-6 sm:inset-auto',
+          ladoZorro === 'derecha'
+            ? 'sm:right-24 sm:left-auto sm:items-end'
+            : 'sm:left-24 sm:right-auto sm:items-start',
         )}
       >
         {/* Ventana Chat con Animación Gota / macOS Spring Scale */}
@@ -322,8 +325,8 @@ export function AdminAssistantChat() {
           ref={chatRef}
           aria-label={labels.title}
           className={cn(
-            'absolute bottom-0 flex h-[min(72dvh,620px)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform-gpu dark:border-primary/20',
-            ladoZorro === 'derecha' ? 'right-0 origin-bottom-right' : 'left-0 origin-bottom-left',
+            'flex h-[min(74dvh,620px)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform-gpu dark:border-primary/20',
+            ladoZorro === 'derecha' ? 'origin-bottom-right' : 'origin-bottom-left',
             open
               ? 'pointer-events-auto scale-100 opacity-100 translate-y-0 translate-x-0 blur-none'
               : 'pointer-events-none scale-0 opacity-0 translate-y-12 blur-sm',
@@ -340,8 +343,8 @@ export function AdminAssistantChat() {
               <Sparkle className="size-5 animate-pulse" weight="fill" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">{labels.title}</p>
-              <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <p className="text-sm font-semibold text-foreground truncate">{labels.title}</p>
+              <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground truncate">
                 <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
                 <span className="size-1.5 rounded-full bg-emerald-500 -ml-3" />
                 {labels.subtitle}

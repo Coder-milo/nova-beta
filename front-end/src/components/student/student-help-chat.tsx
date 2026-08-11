@@ -162,16 +162,19 @@ export function StudentHelpChat() {
     <>
       <div
         className={cn(
-          'pointer-events-none fixed bottom-5 z-40 flex flex-col sm:bottom-6',
-          ladoZorro === 'derecha' ? 'right-20 items-end sm:right-24' : 'left-20 items-start sm:left-24',
+          'pointer-events-none fixed z-40 flex flex-col transition-all duration-300',
+          'bottom-20 inset-x-3 sm:bottom-6 sm:inset-auto',
+          ladoZorro === 'derecha'
+            ? 'sm:right-24 sm:left-auto sm:items-end'
+            : 'sm:left-24 sm:right-auto sm:items-start',
         )}
       >
         <section
           ref={chatRef}
           aria-label={labels.title}
           className={cn(
-            'absolute bottom-0 flex h-[min(72dvh,620px)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform-gpu dark:bg-[#0c1714]/95 dark:border-primary/20',
-            ladoZorro === 'derecha' ? 'right-0 origin-bottom-right' : 'left-0 origin-bottom-left',
+            'flex h-[min(74dvh,620px)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform-gpu dark:bg-[#0c1714]/95 dark:border-primary/20',
+            ladoZorro === 'derecha' ? 'origin-bottom-right' : 'origin-bottom-left',
             open
               ? 'pointer-events-auto scale-100 opacity-100 translate-y-0 translate-x-0 blur-none'
               : 'pointer-events-none scale-0 opacity-0 translate-y-12 blur-sm',
@@ -184,8 +187,8 @@ export function StudentHelpChat() {
                 <img src="/brand/alex-fox.png" alt="" className="size-full object-contain" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">{labels.title}</p>
-                <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <p className="text-sm font-semibold text-foreground truncate">{labels.title}</p>
+                <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground truncate">
                   <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
                   <span className="size-1.5 rounded-full bg-emerald-500 -ml-3" />
                   {labels.subtitle}
@@ -202,8 +205,8 @@ export function StudentHelpChat() {
           <div className="flex-1 space-y-3 overflow-y-auto bg-[linear-gradient(180deg,color-mix(in_srgb,var(--primary)_3%,transparent),transparent_34%)] p-4 dark:bg-[#0c1714]">
             {messages.map((message, indice) => (
               <div key={message.id} className={cn('flex flex-col', message.author === 'student' ? 'items-end' : 'items-start')}>
-                <div className={cn('max-w-[86%] rounded-2xl px-3.5 py-2.5 text-sm leading-5 shadow-sm', message.author === 'bot' ? 'rounded-tl-md border border-border bg-card text-foreground dark:bg-[#13221d]' : 'rounded-tr-md bg-primary text-primary-foreground')}>
-                  <p className="whitespace-pre-wrap">{message.text}</p>
+                <div className={cn('max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-5 shadow-sm break-words', message.author === 'bot' ? 'rounded-tl-md border border-border bg-card text-foreground dark:bg-[#13221d]' : 'rounded-tr-md bg-primary text-primary-foreground')}>
+                  <p className="whitespace-pre-wrap break-words">{message.text}</p>
                   {message.author === 'bot' && message.accionNavegacion && (
                     <button type="button" onClick={() => { setOpen(false); router.push(message.accionNavegacion!.url) }} className="mt-2 rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/15">
                       {message.accionNavegacion.etiqueta}

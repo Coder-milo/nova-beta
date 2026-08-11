@@ -60,21 +60,28 @@ function parseUser(r: UsuarioSesion): AuthUser {
   return { ...r, iniciales }
 }
 
+function getInitialUser(): AuthUser | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const savedUser = localStorage.getItem(USER_KEY)
+    return savedUser ? JSON.parse(savedUser) : null
+  } catch {
+    return null
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [cargando, setCargando] = useState(true)
+  const [user, setUser] = useState<AuthUser | null>(getInitialUser)
+  const [cargando, setCargando] = useState(false)
 
   useEffect(() => {
     try {
       const savedUser = localStorage.getItem(USER_KEY)
       if (savedUser) setUser(JSON.parse(savedUser))
+      else setUser(null)
     } catch {
       localStorage.removeItem(USER_KEY)
-    } finally {
-      // Pase lo que pase queda resuelto: si esto no se marcara al salir por
-      // el camino de "no hay nada guardado", la interfaz esperaria para
-      // siempre a una sesión que nunca va a llegar.
-      setCargando(false)
+      setUser(null)
     }
   }, [])
 
