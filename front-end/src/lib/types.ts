@@ -937,8 +937,12 @@ export interface GeneracionMasivaResponse {
 export interface ExperienciaDto {
   cargo: string
   empresa: string
+  /** El record de Java los trae siempre; se declaran opcionales porque la
+   *  pantalla de extracción arma este DTO a mano y no siempre los tiene. */
+  ciudad?: string | null
   fechaInicio: string
   fechaFin: string | null
+  relacionada?: boolean
   actual: boolean
   funciones: string
 }

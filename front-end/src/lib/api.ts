@@ -952,6 +952,16 @@ export const hvApi = {
     apiDownload('/api/v1/hojas-de-vida/descargar-zip', 'hojas-de-vida.zip', { method: 'POST', data: estudianteIds }),
   extraer: (archivo: File, token?: string) =>
     apiUpload<ExtraccionResponse>('/api/v1/hojas-de-vida/extraer', { archivo }, token),
+  /**
+   * Escanea la hoja de vida que sube el propio estudiante.
+   *
+   * Misma lectura que {@link extraer}, otra ruta: aquélla es la herramienta del
+   * equipo para cargar hojas de vida ajenas y por eso pide rol de gestión. Ésta
+   * no guarda nada, así que el estudiante puede leer la suya y decidir después
+   * qué se lleva a su ficha.
+   */
+  extraerMia: (archivo: File, token?: string) =>
+    apiUpload<ExtraccionResponse>('/api/v1/hojas-de-vida/mi-extraccion', { archivo }, token),
   analizar: (estudianteId: string, token?: string) =>
     apiFetch<AnalisisCompletitudResponse>(`/api/v1/hojas-de-vida/analizar/${estudianteId}`, { token }),
   convertirPdf: (datos: DatosHvDto, opciones?: { idioma?: 'es' | 'en'; seccionesExcluidas?: string[]; camposExcluidos?: string[] }, nombreArchivo = 'HV-CAC.pdf') =>

@@ -6,6 +6,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from '@/compat/next-navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PageSpinner } from '@/components/ui/page-spinner'
 import { ApiCallError, useAuth } from '@/lib/auth'
 import { RUTA_INICIO_ESTUDIANTE, soloEsEstudiante } from '@/lib/navigation'
 import { usePreferences } from '@/lib/preferences'
@@ -149,6 +150,7 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex h-svh w-full overflow-hidden text-white">
+      {isPending && <PageSpinner label={T.iniciandoSesion} />}
       {/* ═══ Foto del CAC a sangre (fondo completo) ═══ */}
       {!backgroundFailed ? (
         <Image

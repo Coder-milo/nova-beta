@@ -39,6 +39,7 @@ import { usePreferences } from '@/lib/preferences'
 import { Campo, Selector, Aviso } from '@/components/ui/campo'
 import { VistaPreviaPdf } from '@/components/ui/vista-previa-pdf'
 import { useConfirmar } from '@/components/ui/confirmar'
+import { StudentEscaneoHv } from './student-escaneo-hv'
 
 /**
  * Los textos de esta pantalla, en los dos idiomas.
@@ -458,9 +459,12 @@ const EXPERIENCIA_VACIA: ExperienciaRequest = {
 function Experiencias({
   estudianteId,
   onCambio,
+  refresco = 0,
 }: {
   estudianteId: string
   onCambio: () => void
+  /** Cambia cuando algo de fuera —el escaneo del PDF— añade registros. */
+  refresco?: number
 }) {
   const T = textosHv(usePreferences().locale === 'en')
   const { confirmar, dialogo } = useConfirmar()
@@ -481,7 +485,8 @@ function Experiencias({
     } finally {
       setCargando(false)
     }
-  }, [estudianteId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estudianteId, refresco])
 
   useEffect(() => {
     void recargar()
@@ -713,9 +718,12 @@ const FORMACION_VACIA: FormacionRequest = {
 function Formaciones({
   estudianteId,
   onCambio,
+  refresco = 0,
 }: {
   estudianteId: string
   onCambio: () => void
+  /** Igual que en experiencias: el escaneo del PDF añade por su cuenta. */
+  refresco?: number
 }) {
   const T = textosHv(usePreferences().locale === 'en')
   const { confirmar, dialogo } = useConfirmar()
@@ -736,7 +744,8 @@ function Formaciones({
     } finally {
       setCargando(false)
     }
-  }, [estudianteId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estudianteId, refresco])
 
   useEffect(() => {
     void recargar()
@@ -924,6 +933,8 @@ export function StudentHojaDeVida({
 }) {
   const T = textosHv(usePreferences().locale === 'en')
   const [revision, setRevision] = useState(0)
+  /** Sube cuando el escaneo del PDF mete datos, para releer las listas. */
+  const [importado, setImportado] = useState(0)
   const [idioma, setIdioma] = useState<'es' | 'en'>('es')
   const [plantillas, setPlantillas] = useState<PlantillaResponse[]>([])
   const [plantillaId, setPlantillaId] = useState<string | undefined>(perfil.plantillaPreferidaId ?? undefined)
@@ -992,9 +1003,25 @@ export function StudentHojaDeVida({
             {T.completaElCargo}
           </p>
         )}
-        <DatosHv perfil={perfil} onUpdate={onUpdate} onGuardado={() => setRevision((n) => n + 1)} />
-        <Experiencias estudianteId={perfil.id} onCambio={() => setRevision((n) => n + 1)} />
-        <Formaciones estudianteId={perfil.id} onCambio={() => setRevision((n) => n + 1)} />
+        <StudentEscaneoHv
+          perfil={perfil}
+          onUpdate={onUpdate}
+          onAplicado={() => {
+            setImportado((n) => n + 1)
+            setRevision((n) => n + 1)
+          }}
+        />
+        <DatosHv
+          // Rehace el formulario cuando el escaneo cambia la ficha: sus campos
+          // se inicializan una sola vez desde `perfil`, asi que sin esto lo
+          // aplicado se veia en el PDF pero no en las casillas de arriba.
+          key={`datos-${importado}`}
+          perfil={perfil}
+          onUpdate={onUpdate}
+          onGuardado={() => setRevision((n) => n + 1)}
+        />
+        <Experiencias estudianteId={perfil.id} refresco={importado} onCambio={() => setRevision((n) => n + 1)} />
+        <Formaciones estudianteId={perfil.id} refresco={importado} onCambio={() => setRevision((n) => n + 1)} />
       </div>
 
       <Card className="h-fit shadow-none xl:sticky xl:top-24">

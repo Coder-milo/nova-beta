@@ -81,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string): Promise<AuthUser> => {
     const usuario = parseUser(await authApi.login({ email, password }))
     localStorage.setItem(USER_KEY, JSON.stringify(usuario))
+    window.dispatchEvent(new StorageEvent('storage', { key: USER_KEY, newValue: JSON.stringify(usuario) }))
     setUser(usuario)
     setCargando(false)
     return usuario
@@ -88,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     localStorage.removeItem(USER_KEY)
+    window.dispatchEvent(new StorageEvent('storage', { key: USER_KEY, newValue: null }))
     setUser(null)
     setCargando(false)
     // Solo el servidor puede borrar las cookies HttpOnly.

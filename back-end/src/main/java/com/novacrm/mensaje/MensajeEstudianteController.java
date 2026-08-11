@@ -35,7 +35,7 @@ public class MensajeEstudianteController {
     public long pendientes(Authentication auth) { return service.pendientes(auth); }
 
     @GetMapping("/mios")
-    @PreAuthorize("hasRole('ESTUDIANTE')")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'ADMIN', 'COORDINADOR')")
     public List<MensajeResponse> mios(Authentication auth) { return service.mios(auth); }
 
     @PostMapping(value = "/mios", consumes = MediaType.APPLICATION_JSON_VALUE)

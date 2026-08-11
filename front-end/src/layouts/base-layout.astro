@@ -17,8 +17,21 @@ const description =
     <title>{title}</title>
     <script is:inline>
       (() => {
-        const saved = localStorage.getItem('nova_theme') ?? 'system'
-        const locale = localStorage.getItem('nova_locale')
+        let userEmail = ''
+        try {
+          const raw = localStorage.getItem('nova_user')
+          if (raw) {
+            const parsed = JSON.parse(raw)
+            if (parsed && typeof parsed.email === 'string' && parsed.email.trim()) {
+              userEmail = parsed.email.trim().toLowerCase()
+            }
+          }
+        } catch {}
+
+        const themeKey = userEmail ? `nova_theme_${userEmail}` : 'nova_theme'
+        const localeKey = userEmail ? `nova_locale_${userEmail}` : 'nova_locale'
+        const saved = localStorage.getItem(themeKey) ?? 'system'
+        const locale = localStorage.getItem(localeKey) ?? localStorage.getItem('nova_locale')
         const dark =
           saved === 'dark' ||
           (saved === 'system' &&

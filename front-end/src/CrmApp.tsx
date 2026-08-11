@@ -175,7 +175,8 @@ function CurrentRoute() {
   // `soloEsEstudiante` responde false: pintar ya habria montado el dashboard
   // de administracion —con sus llamadas a datos de todos los proyectos— en la
   // pantalla de un estudiante, que es de donde salian los 403 del arranque.
-  if (cargando) return <PageSpinner />
+  const { locale } = usePreferences()
+  if (cargando) return <PageSpinner label={locale === 'en' ? 'Signing in…' : 'Iniciando sesión…'} />
 
   // Mientras el efecto corrige la URL ya se pinta el portal, para que no
   // llegue a montarse el dashboard y disparar las llamadas que dan 403.

@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 interface EmojiPickerProps {
   onSelectEmoji: (emoji: string) => void
   onClose?: () => void
+  compact?: boolean
 }
 
 const CATEGORIAS_EMOJIS = [
@@ -46,7 +47,7 @@ const CATEGORIAS_EMOJIS = [
       '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋',
       '🐌', '🐞', '🐜', '🦟', '🦗', '🕷️', '🦂', '🐢', '🐍', '🦎', '🐙', '🦑',
       '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅',
-      '🐆', 'zebra', '🐘', '🦏', '🦛', '🐪', '🐫', 'llama', '🦘', '🦒', '🐃', '🐂',
+      '🐆', '🦓', '🐘', '🦏', '🦛', '🐪', '🐫', '🦙', '🦘', '🦒', '🐃', '🐂',
     ],
   },
   {
@@ -103,7 +104,7 @@ const CATEGORIAS_EMOJIS = [
   },
 ]
 
-export function EmojiPickerPopover({ onSelectEmoji, onClose }: EmojiPickerProps) {
+export function EmojiPickerPopover({ onSelectEmoji, onClose, compact = false }: EmojiPickerProps) {
   const [query, setQuery] = useState('')
   const [categoriaActiva, setCategoriaActiva] = useState('caras')
 
@@ -112,7 +113,12 @@ export function EmojiPickerPopover({ onSelectEmoji, onClose }: EmojiPickerProps)
     : CATEGORIAS_EMOJIS.find((c) => c.id === categoriaActiva)?.emojis ?? CATEGORIAS_EMOJIS[0].emojis
 
   return (
-    <div className="w-80 space-y-3 rounded-2xl border border-border bg-card p-3 shadow-2xl dark:bg-card">
+    <div
+      className={cn(
+        'rounded-2xl border border-border bg-card/95 p-2.5 shadow-2xl backdrop-blur-md dark:bg-card',
+        compact ? 'w-[265px] space-y-2' : 'w-80 space-y-3',
+      )}
+    >
       {/* Cabecera con Buscador */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -137,17 +143,17 @@ export function EmojiPickerPopover({ onSelectEmoji, onClose }: EmojiPickerProps)
       </div>
 
       {/* Grid de Emojis */}
-      <div className="h-52 overflow-y-auto pr-1">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+      <div className={cn('overflow-y-auto pr-1', compact ? 'h-44' : 'h-52')}>
+        <p className="mb-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
           {query.trim() ? 'Resultados' : CATEGORIAS_EMOJIS.find((c) => c.id === categoriaActiva)?.nombre}
         </p>
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className={cn('grid gap-1', compact ? 'grid-cols-6' : 'grid-cols-7')}>
           {emojisFiltrados.map((emoji, idx) => (
             <button
               key={`${emoji}-${idx}`}
               type="button"
               onClick={() => onSelectEmoji(emoji)}
-              className="flex size-9 items-center justify-center rounded-xl text-lg transition hover:scale-125 hover:bg-primary/15"
+              className="flex size-8 items-center justify-center rounded-xl text-base transition hover:scale-125 hover:bg-primary/15"
             >
               {emoji}
             </button>

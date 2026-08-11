@@ -1,12 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from '@/compat/next-link'
-import { BellIcon as Bell, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CalendarBlankIcon as CalendarBlank, ChatCircleIcon as ChatCircle, CircleNotchIcon as CircleNotch, FileTextIcon as FileText, GlobeIcon as Globe, InfoIcon as Info, MoonIcon as Moon, PaperclipIcon as Paperclip, PaperPlaneTiltIcon as PaperPlaneTilt, SunIcon as Sun, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { BellIcon as Bell, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CalendarBlankIcon as CalendarBlank, CircleNotchIcon as CircleNotch, FileTextIcon as FileText, GlobeIcon as Globe, InfoIcon as Info, MoonIcon as Moon, SunIcon as Sun, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
 import {
   actividadesApi,
   estudiantesApi,
   colocacionesApi,
-  mensajesApi,
   notificacionesApi,
   pipelineApi,
   seguimientosApi,
@@ -16,22 +15,18 @@ import type {
   ActividadResponse,
   EstudianteResponse,
   NotificacionResponse,
-  MensajeResponse,
   PipelineEmpleabilidadResponse,
   ColocacionResponse,
   SeguimientoDelEstudianteResponse,
 } from '@/lib/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { StudentPerfil } from './student-perfil'
 import { StudentDocumentos } from './student-documentos'
 import { StudentPostulaciones } from './student-postulaciones'
 import { StudentHojaDeVida } from './student-hoja-de-vida'
 import { MessengerChatHub } from './messenger-chat-hub'
 import { usePreferences } from '@/lib/preferences'
-import { Conversacion } from '@/components/ui/conversacion'
-import { Textarea } from '@/components/ui/textarea'
 
 export type StudentArea =
   | 'proceso'
@@ -193,47 +188,13 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
   const [colocaciones, setColocaciones] = useState<ColocacionResponse[]>([])
   const [actividades, setActividades] = useState<ActividadResponse[]>([])
   const [notificaciones, setNotificaciones] = useState<NotificacionResponse[]>([])
-  const [mensajes, setMensajes] = useState<MensajeResponse[]>([])
-  const [contenidoMensaje, setContenidoMensaje] = useState('')
   const [marcandoTodas, setMarcandoTodas] = useState(false)
-  const [enviandoMensaje, setEnviandoMensaje] = useState(false)
-  const [mensajeExito, setMensajeExito] = useState('')
-  const [archivosMensaje, setArchivosMensaje] = useState<File[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  /** Qué conversación está desplegada; sólo una a la vez. */
-  const [hiloAbierto, setHiloAbierto] = useState<string | null>(null)
 
   const { locale } = usePreferences()
   const A = textosArea(locale === 'en')
   const english = locale === 'en'
-
-  /**
-   * Textos del hilo.
-   *
-   * El componente no traduce por su cuenta: recibe las cadenas ya resueltas,
-   * de modo que sirve igual en el portal y en la bandeja del equipo sin
-   * arrastrar un diccionario propio.
-   */
-  const textosConversacion = english
-    ? {
-        escribir: 'Write a message…', enviar: 'Send', adjuntar: 'Attach a file',
-        responder: 'Reply to this message', reaccionar: 'React', cancelar: 'Remove',
-        vacio: 'No messages in this conversation yet.', cargando: 'Loading conversation…',
-        respondiendoA: 'Replying to', maxArchivos: 'Up to 5 files',
-        errorCargar: 'The conversation could not be loaded.',
-        errorEnviar: 'The message could not be sent.',
-        errorReaccionar: 'The reaction could not be saved.',
-      }
-    : {
-        escribir: 'Escribe un mensaje…', enviar: 'Enviar', adjuntar: 'Adjuntar un archivo',
-        responder: 'Responder a este mensaje', reaccionar: 'Reaccionar', cancelar: 'Quitar',
-        vacio: 'Todavía no hay mensajes en esta conversación.', cargando: 'Cargando conversación…',
-        respondiendoA: 'Respondiendo a', maxArchivos: 'Hasta 5 archivos',
-        errorCargar: 'No se pudo cargar la conversación.',
-        errorEnviar: 'No se pudo enviar el mensaje.',
-        errorReaccionar: 'No se pudo reaccionar.',
-      }
 
   useEffect(() => {
     /**
@@ -286,11 +247,6 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
           if (!vigente) return
           setNotificaciones(pagina.content)
         }
-        if (area === 'mensajes') {
-          const mensajes = await mensajesApi.mios()
-          if (!vigente) return
-          setMensajes(mensajes)
-        }
       } catch (e) {
         if (vigente) setError(e instanceof Error ? e.message : A.noFuePosibleCargar)
       } finally {
@@ -326,29 +282,6 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
     } catch (e) {
       setError(mensajeDeError(e, A.noSePudoMarcar))
     } finally { setMarcandoTodas(false) }
-  }
-
-  const enviarMensaje = async (event: React.SyntheticEvent) => {
-    event.preventDefault()
-    if (!contenidoMensaje.trim() && !archivosMensaje.length) return
-    setEnviandoMensaje(true)
-    setError('')
-    setMensajeExito('')
-    try {
-      const nuevo = await mensajesApi.enviar({
-        asunto: 'CAC Academic',
-        contenido: contenidoMensaje.trim(),
-        archivos: archivosMensaje.length ? archivosMensaje : undefined,
-      })
-      setMensajes((items) => [nuevo, ...items])
-      setContenidoMensaje('')
-      setArchivosMensaje([])
-      setMensajeExito(A.tuMensajeFueEnviado)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : A.noFuePosibleEnviar)
-    } finally {
-      setEnviandoMensaje(false)
-    }
   }
 
   if (loading) {

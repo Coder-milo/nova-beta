@@ -940,15 +940,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
               }
             />
             <DropdownMenuContent align="end" className="w-[min(92vw,22rem)] rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-2xl">
-              <div className="flex items-center justify-between px-1 pb-2 border-b border-border/40">
+              <div className="px-1 pb-2 border-b border-border/40">
                 <span className="text-sm font-bold text-foreground">Chats</span>
-                <button
-                  type="button"
-                  onClick={() => router.push('/mis-mensajes')}
-                  className="text-xs font-bold text-primary hover:underline"
-                >
-                  Ver todo en Messenger
-                </button>
               </div>
 
               <div className="max-h-80 space-y-1 overflow-y-auto py-1">
@@ -962,7 +955,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                       className="flex cursor-pointer items-center gap-3 rounded-xl p-2 transition hover:bg-muted"
                     >
                       {conv.fotoUrl ? (
-                        <img src={conv.fotoUrl} alt="" className="size-10 rounded-full object-cover" />
+                        <img src={fotoDe(conv.contactoId, conv.fotoUrl)} alt="" className="size-10 rounded-full object-cover" />
                       ) : (
                         <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 font-bold text-primary">
                           {conv.nombre[0]}
@@ -1333,6 +1326,10 @@ export function Header({ onOpenMobile }: HeaderProps) {
           contactoNombre={floatingChat.nombre}
           contactoFoto={floatingChat.foto}
           esGrupo={floatingChat.esGrupo}
+          // Sin esto la ventanita se quedaba en español aunque la aplicación
+          // entera estuviera en inglés: el componente ya traducía, pero nadie
+          // le decía en qué idioma.
+          locale={locale}
           onClose={() => setFloatingChat(null)}
         />
       )}

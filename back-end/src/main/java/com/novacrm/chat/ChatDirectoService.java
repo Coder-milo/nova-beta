@@ -139,7 +139,8 @@ public class ChatDirectoService {
             coincidencia = estudianteRepository.companerosQueCoinciden(programaId, propio.getId(), termino,
                     org.springframework.data.domain.PageRequest.of(0, MAXIMO_CONTACTOS));
         } else {
-            coincidencia = List.of();
+            coincidencia = estudianteRepository.todosLosEstudiantesQueCoinciden(propio.getId(), termino,
+                    org.springframework.data.domain.PageRequest.of(0, MAXIMO_CONTACTOS));
         }
 
         // Aqui habia un plan B: si la busqueda por programa no encontraba nada,
@@ -355,19 +356,7 @@ public class ChatDirectoService {
         Estudiante contacto = estudianteRepository.findById(contactoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Compañero no encontrado."));
         if (!contacto.isActivo()) {
-            throw new ResourceNotFoundException("Compañero no está activo.");
-        }
-        // El chat es entre companeros del mismo proyecto, no con toda la base de
-        // datos. La lista de conversaciones ya filtra por programa, asi que sin
-        // esta comprobacion abrir y escribir admitian a cualquiera —por id— pero
-        // la conversacion no aparecia luego en la lista de ninguno de los dos.
-        //
-        // Mismo mensaje que cuando no existe, y a proposito: distinguir "no
-        // existe" de "existe pero no es de tu proyecto" convierte este endpoint
-        // en una forma de averiguar quien esta en el sistema.
-        var suPrograma = contacto.getPrograma();
-        if (suPrograma == null || !suPrograma.getId().equals(programaDe(propio).getId())) {
-            throw new ResourceNotFoundException("Compañero no encontrado.");
+            throw new ResourceNotFoundException("El compañero ya no está activo.");
         }
         return contacto;
     }

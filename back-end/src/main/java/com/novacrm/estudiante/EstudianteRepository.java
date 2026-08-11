@@ -185,6 +185,20 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
                                             @Param("q") String q,
                                             Pageable pageable);
 
+    @Query("""
+            SELECT e FROM Estudiante e
+            WHERE e.activo = true
+              AND e.id <> :excluido
+              AND (novacrm_normalizar(CONCAT(e.nombre, ' ', e.apellido))
+                        LIKE CONCAT('%', novacrm_normalizar(CAST(:q AS string)), '%')
+                   OR novacrm_normalizar(CONCAT(e.apellido, ' ', e.nombre))
+                        LIKE CONCAT('%', novacrm_normalizar(CAST(:q AS string)), '%'))
+            ORDER BY e.nombre ASC, e.apellido ASC
+            """)
+    List<Estudiante> todosLosEstudiantesQueCoinciden(@Param("excluido") UUID excluido,
+                                                     @Param("q") String q,
+                                                     Pageable pageable);
+
     /**
      * Busqueda de estudiantes por texto libre y filtros.
      *

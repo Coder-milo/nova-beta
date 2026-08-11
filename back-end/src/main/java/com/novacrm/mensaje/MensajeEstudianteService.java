@@ -64,6 +64,9 @@ public class MensajeEstudianteService {
     }
 
     public List<MensajeResponse> mios(Authentication auth) {
+        if (gestiona(auth)) {
+            return listarTodos();
+        }
         return repository.findByEstudianteIdOrderByCreatedAtDesc(
                 ownershipService.obtenerEstudianteAutenticado(auth).getId()).stream().map(this::toResponse).toList();
     }

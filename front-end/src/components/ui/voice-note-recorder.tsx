@@ -97,50 +97,50 @@ export function VoiceNoteRecorder({ onSendAudio, onCancel }: VoiceNoteRecorderPr
   }
 
   return (
-    <div className="flex flex-1 items-center justify-between rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs">
-      <div className="flex items-center gap-3">
-        <span className="flex size-3 animate-ping rounded-full bg-rose-500" />
-        <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+    <div className="flex flex-1 min-w-0 items-center justify-between overflow-hidden rounded-xl border border-rose-500/30 bg-rose-500/10 px-2.5 py-1.5 text-xs">
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink-0">
+        <span className="flex size-2.5 shrink-0 animate-ping rounded-full bg-rose-500" />
+        <span className="font-mono font-bold text-rose-600 dark:text-rose-400 shrink-0">
           {formatTime(seconds)}
         </span>
-        <span className="text-muted-foreground">
-          {recording ? 'Grabando nota de voz...' : 'Audio listo'}
+        <span className="hidden sm:inline truncate text-muted-foreground">
+          {recording ? 'Grabando...' : 'Listo'}
         </span>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 shrink-0">
         {recording ? (
           <button
             type="button"
             onClick={handleStopRecording}
-            className="flex items-center gap-1 rounded-lg bg-rose-500 px-3 py-1.5 font-bold text-white shadow hover:bg-rose-600"
+            className="flex items-center gap-1 rounded-lg bg-rose-500 px-2.5 py-1 font-bold text-white shadow hover:bg-rose-600 text-xs"
           >
-            <Stop className="size-4" />
+            <Stop className="size-3.5" />
             <span>Detener</span>
           </button>
         ) : (
           audioUrl && (
-            <audio src={audioUrl} controls className="h-8 w-40" />
+            <audio src={audioUrl} controls className="h-7 w-28 sm:w-36 max-w-[130px] sm:max-w-[150px]" />
           )
         )}
 
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground shrink-0"
           title="Descartar"
         >
-          <Trash className="size-4" />
+          <Trash className="size-3.5" />
         </button>
 
         {!recording && (
           <button
             type="button"
             onClick={handleSend}
-            className="flex size-8 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow hover:brightness-110"
+            className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow hover:brightness-110"
             title="Enviar audio"
           >
-            <PaperPlaneTilt className="size-4" />
+            <PaperPlaneTilt className="size-3.5" />
           </button>
         )}
       </div>
