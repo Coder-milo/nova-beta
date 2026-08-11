@@ -186,7 +186,7 @@ export function AdminAssistantChat() {
     if (!open) return
     const closeOutside = (event: PointerEvent) => {
       const target = event.target as Node
-      if (chatRef.current?.contains(target) || triggerRef.current?.contains(target)) return
+      if (chatRef.current?.contains(target) || (target as HTMLElement)?.closest?.('button[aria-expanded]')) return
       setOpen(false)
     }
     const closeWithEscape = (event: KeyboardEvent) => {
@@ -310,24 +310,25 @@ export function AdminAssistantChat() {
   }
 
   return (
-    <div
-      className={cn(
-        'pointer-events-none fixed bottom-5 z-40 flex flex-col sm:bottom-6',
-        ladoZorro === 'derecha' ? 'right-20 items-end sm:right-24' : 'left-20 items-start sm:left-24',
-      )}
-    >
-      {/* Ventana Chat con Animación Gota / macOS Spring Scale */}
-      <section
-        ref={chatRef}
-        aria-label={labels.title}
+    <>
+      <div
         className={cn(
-          'absolute bottom-0 flex h-[min(72dvh,620px)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform-gpu dark:border-primary/20',
-          ladoZorro === 'derecha' ? 'right-0 origin-bottom-right' : 'left-0 origin-bottom-left',
-          open
-            ? 'pointer-events-auto scale-100 opacity-100 translate-y-0 translate-x-0 blur-none'
-            : 'pointer-events-none scale-0 opacity-0 translate-y-12 blur-sm',
+          'pointer-events-none fixed bottom-5 z-40 flex flex-col sm:bottom-6',
+          ladoZorro === 'derecha' ? 'right-20 items-end sm:right-24' : 'left-20 items-start sm:left-24',
         )}
       >
+        {/* Ventana Chat con Animación Gota / macOS Spring Scale */}
+        <section
+          ref={chatRef}
+          aria-label={labels.title}
+          className={cn(
+            'absolute bottom-0 flex h-[min(72dvh,620px)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform-gpu dark:border-primary/20',
+            ladoZorro === 'derecha' ? 'right-0 origin-bottom-right' : 'left-0 origin-bottom-left',
+            open
+              ? 'pointer-events-auto scale-100 opacity-100 translate-y-0 translate-x-0 blur-none'
+              : 'pointer-events-none scale-0 opacity-0 translate-y-12 blur-sm',
+          )}
+        >
         {/* Header */}
         <header className="relative overflow-hidden border-b border-primary/15 bg-[linear-gradient(125deg,color-mix(in_srgb,var(--primary)_22%,transparent),transparent_65%)] px-4 py-3.5">
           <div className="absolute -right-5 -top-8 size-28 rounded-full bg-primary/10 blur-2xl dark:hidden" />
@@ -548,15 +549,15 @@ export function AdminAssistantChat() {
           </form>
         </div>
       </section>
-
-      {/* El lanzador es el zorro: vive fuera de este contenedor porque se
-          arrastra por toda la ventana y se pega al lado que el usuario elija. */}
-      <ZorroAsistente
-        abierto={open}
-        onToggle={() => setOpen((val) => !val)}
-        etiqueta={open ? (english ? 'Close assistant' : 'Cerrar asistente') : labels.title}
-        onLadoChange={setLadoZorro}
-      />
     </div>
-  )
+
+    <ZorroAsistente
+      abierto={open}
+      onToggle={() => setOpen((val) => !val)}
+      etiqueta={open ? (english ? 'Close assistant' : 'Cerrar asistente') : labels.title}
+      claveStorage="nova-crm:zorro-posicion-admin"
+      onLadoChange={setLadoZorro}
+    />
+  </>
+)
 }

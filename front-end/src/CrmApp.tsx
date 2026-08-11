@@ -20,40 +20,56 @@ import {
 } from '@/lib/navigation'
 import { usePathname } from '@/compat/next-navigation'
 
-const DashboardPage = lazy(() => import('@/app/page'))
-const AuditoriaPage = lazy(() => import('@/app/auditoria/page'))
-const ComunicacionesPage = lazy(() => import('@/app/comunicaciones/page'))
-const ColocacionesPage = lazy(() => import('@/app/colocaciones/page'))
-const ConfiguracionPage = lazy(() => import('@/app/configuracion/page'))
-const DocumentosPage = lazy(() => import('@/app/documentos/page'))
-const EmpresasPage = lazy(() => import('@/app/empresas/page'))
-const EstudiantesPage = lazy(() => import('@/app/estudiantes/page'))
-const EstudianteDetallePage = lazy(() => import('@/app/estudiantes/[id]/page'))
-const NuevoEstudiantePage = lazy(() => import('@/app/estudiantes/nuevo/page'))
-const HojasDeVidaPage = lazy(() => import('@/app/hojas-de-vida/page'))
-const ImportacionesPage = lazy(() => import('@/app/importaciones/page'))
-const LoginPage = lazy(() => import('@/app/login/page'))
-const PortalEstudiantePage = lazy(() => import('@/app/inicio-estudiante/page'))
-const PowerBiPage = lazy(() => import('@/app/power-bi/page'))
-const ProyectosPage = lazy(() => import('@/app/proyectos/page'))
-const SeguimientoPage = lazy(() => import('@/app/seguimiento/page'))
-const ProyectoDetallePage = lazy(() => import('@/app/proyectos/[id]/page'))
-const RecuperarContrasenaPage = lazy(
+function lazyRetry<T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) {
+  return lazy(async () => {
+    try {
+      return await factory()
+    } catch (error) {
+      const pageKey = 'nova_crm_lazy_retry'
+      const lastRetry = sessionStorage.getItem(pageKey)
+      if (!lastRetry || Date.now() - Number(lastRetry) > 3000) {
+        sessionStorage.setItem(pageKey, String(Date.now()))
+        window.location.reload()
+      }
+      throw error
+    }
+  })
+}
+
+const DashboardPage = lazyRetry(() => import('@/app/page'))
+const AuditoriaPage = lazyRetry(() => import('@/app/auditoria/page'))
+const ComunicacionesPage = lazyRetry(() => import('@/app/comunicaciones/page'))
+const ColocacionesPage = lazyRetry(() => import('@/app/colocaciones/page'))
+const ConfiguracionPage = lazyRetry(() => import('@/app/configuracion/page'))
+const DocumentosPage = lazyRetry(() => import('@/app/documentos/page'))
+const EmpresasPage = lazyRetry(() => import('@/app/empresas/page'))
+const EstudiantesPage = lazyRetry(() => import('@/app/estudiantes/page'))
+const EstudianteDetallePage = lazyRetry(() => import('@/app/estudiantes/[id]/page'))
+const NuevoEstudiantePage = lazyRetry(() => import('@/app/estudiantes/nuevo/page'))
+const HojasDeVidaPage = lazyRetry(() => import('@/app/hojas-de-vida/page'))
+const ImportacionesPage = lazyRetry(() => import('@/app/importaciones/page'))
+const LoginPage = lazyRetry(() => import('@/app/login/page'))
+const PortalEstudiantePage = lazyRetry(() => import('@/app/inicio-estudiante/page'))
+const PowerBiPage = lazyRetry(() => import('@/app/power-bi/page'))
+const ProyectosPage = lazyRetry(() => import('@/app/proyectos/page'))
+const SeguimientoPage = lazyRetry(() => import('@/app/seguimiento/page'))
+const ProyectoDetallePage = lazyRetry(() => import('@/app/proyectos/[id]/page'))
+const RecuperarContrasenaPage = lazyRetry(
   () => import('@/app/recuperar-contrasena/page'),
 )
-const ReportesPage = lazy(() => import('@/app/reportes/page'))
-const ReportesChatPage = lazy(() => import('@/app/reportes-chat/page'))
-const VacantesPage = lazy(() => import('@/app/vacantes/page'))
-const MiProcesoPage = lazy(() => import('@/app/mi-proceso/page'))
-const MisActividadesPage = lazy(() => import('@/app/mis-actividades/page'))
-const MisDocumentosPage = lazy(() => import('@/app/mis-documentos/page'))
-const MiHojaDeVidaPage = lazy(() => import('@/app/mi-hoja-de-vida/page'))
-const MisPostulacionesPage = lazy(() => import('@/app/mis-postulaciones/page'))
-const MiCalendarioPage = lazy(() => import('@/app/mi-calendario/page'))
-const MisMensajesPage = lazy(() => import('@/app/mis-mensajes/page'))
-const MisNotificacionesPage = lazy(() => import('@/app/mis-notificaciones/page'))
-const AyudaEstudiantePage = lazy(() => import('@/app/ayuda-estudiante/page'))
-const ConfiguracionEstudiantePage = lazy(() => import('@/app/configuracion-estudiante/page'))
+const ReportesPage = lazyRetry(() => import('@/app/reportes/page'))
+const ReportesChatPage = lazyRetry(() => import('@/app/reportes-chat/page'))
+const VacantesPage = lazyRetry(() => import('@/app/vacantes/page'))
+const MiProcesoPage = lazyRetry(() => import('@/app/mi-proceso/page'))
+const MisActividadesPage = lazyRetry(() => import('@/app/mis-actividades/page'))
+const MisDocumentosPage = lazyRetry(() => import('@/app/mis-documentos/page'))
+const MiHojaDeVidaPage = lazyRetry(() => import('@/app/mi-hoja-de-vida/page'))
+const MisPostulacionesPage = lazyRetry(() => import('@/app/mis-postulaciones/page'))
+const MiCalendarioPage = lazyRetry(() => import('@/app/mi-calendario/page'))
+const MisMensajesPage = lazyRetry(() => import('@/app/mis-mensajes/page'))
+const MisNotificacionesPage = lazyRetry(() => import('@/app/mis-notificaciones/page'))
+const AyudaEstudiantePage = lazyRetry(() => import('@/app/ayuda-estudiante/page'))
+const ConfiguracionEstudiantePage = lazyRetry(() => import('@/app/configuracion-estudiante/page'))
 
 const exactRoutes: Record<string, ComponentType> = {
   '/': DashboardPage,

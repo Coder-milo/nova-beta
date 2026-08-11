@@ -4,23 +4,23 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * El zorro del asistente: un botón flotante que se puede arrastrar.
+ * El zorro del asistente: personaje 3D de videojuego compacto e interactivo.
  *
- * <p>Se queda pegado al lado izquierdo o derecho de la ventana, el que quede
- * más cerca al soltarlo, y recuerda dónde lo dejaron. Arrastrar y pulsar son la
- * misma interacción con el mismo dedo, así que se distinguen por distancia: por
- * debajo de {@link UMBRAL_ARRASTRE} píxeles se considera una pulsación y se
- * abre el chat; por encima, se estaba moviendo y no se abre nada. Sin ese
- * umbral, cada intento de moverlo abriría el asistente al soltar.
+ * <p>El personaje flota directamente sobre la pantalla como un modelo 3D compacto
+ * con volumen esférico, luces de relieve y pedestal de energía bajo los pies.
+ * Se orienta automáticamente hacia el centro según el lado en el que se ubique (izquierda/derecha),
+ * e interactúa con gestos de arrastre (inclinación en vuelo, ojos O_O), pulsación instantánea
+ * para abrir/cerrar el chat (salto 3D y ojos ^_^) y reposo.
  */
 
 /** Píxeles que hay que mover antes de que deje de ser una pulsación. */
 const UMBRAL_ARRASTRE = 6
 
-/** Lo que ocupa el zorro. Se usa para que no se salga por abajo ni por arriba. */
-const TAMANO = 60
+/** Lo que ocupa el personaje compacto en pantalla. */
+const TAMANO_Y = 72
+const TAMANO_X = 66
 
-const CLAVE_POSICION = 'nova-crm:zorro-posicion'
+const CLAVE_POSICION_DEFECTO = 'nova-crm:zorro-posicion'
 
 interface Posicion {
   lado: 'izquierda' | 'derecha'
@@ -28,74 +28,82 @@ interface Posicion {
   y: number
 }
 
-function leerPosicion(): Posicion {
+function leerPosicion(clave = CLAVE_POSICION_DEFECTO): Posicion {
   if (typeof window === 'undefined') return { lado: 'derecha', y: 0 }
   const porDefecto: Posicion = {
     lado: 'derecha',
-    y: Math.max(16, window.innerHeight - TAMANO - 24),
+    y: Math.max(16, window.innerHeight - TAMANO_Y - 24),
   }
   try {
-    const crudo = window.localStorage.getItem(CLAVE_POSICION)
+    const crudo = window.localStorage.getItem(clave)
     if (!crudo) return porDefecto
     const guardada = JSON.parse(crudo) as Partial<Posicion>
     if (guardada?.lado !== 'izquierda' && guardada?.lado !== 'derecha') return porDefecto
     if (typeof guardada.y !== 'number') return porDefecto
     return { lado: guardada.lado, y: guardada.y }
   } catch {
-    // Un localStorage bloqueado no puede dejar sin asistente a nadie.
     return porDefecto
   }
 }
 
 interface Props {
-  /** Si el panel del asistente está abierto, para cambiar la cara del zorro. */
+  /** Si el panel del asistente está abierto, para cambiar la cara y pose del zorro. */
   abierto: boolean
   onToggle: () => void
   etiqueta: string
+  /** Clave opcional de localStorage para aislar la posición entre admin y estudiante. */
+  claveStorage?: string
   /** Avisa del lado en el que quedó, para que el panel salga por ese lado. */
   onLadoChange?: (lado: 'izquierda' | 'derecha') => void
 }
 
-export function ZorroAsistente({ abierto, onToggle, etiqueta, onLadoChange }: Props) {
+export function ZorroAsistente({
+  abierto,
+  onToggle,
+  etiqueta,
+  claveStorage = CLAVE_POSICION_DEFECTO,
+  onLadoChange,
+}: Props) {
   const [posicion, setPosicion] = useState<Posicion>({ lado: 'derecha', y: 0 })
   const [montado, setMontado] = useState(false)
   const [arrastrando, setArrastrando] = useState(false)
 
   const inicioRef = useRef<{ x: number; y: number; movido: boolean } | null>(null)
   const punteroRef = useRef<{ x: number; y: number } | null>(null)
+  const botonRef = useRef<HTMLButtonElement>(null)
 
-  // En el cliente: en el servidor no hay ventana ni localStorage.
   useEffect(() => {
-    const inicial = leerPosicion()
+    const inicial = leerPosicion(claveStorage)
     setPosicion(inicial)
     setMontado(true)
     onLadoChange?.(inicial.lado)
-    // Solo al montar: después manda lo que el usuario arrastre.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [claveStorage])
 
-  // Si la ventana encoge, el zorro no puede quedarse fuera de la pantalla.
   useEffect(() => {
     if (!montado) return
     const alRedimensionar = () => {
       setPosicion((previa) => ({
         ...previa,
-        y: Math.min(previa.y, Math.max(16, window.innerHeight - TAMANO - 16)),
+        y: Math.min(previa.y, Math.max(16, window.innerHeight - TAMANO_Y - 16)),
       }))
     }
     window.addEventListener('resize', alRedimensionar)
     return () => window.removeEventListener('resize', alRedimensionar)
   }, [montado])
 
-  const guardar = useCallback((siguiente: Posicion) => {
-    setPosicion(siguiente)
-    onLadoChange?.(siguiente.lado)
-    try {
-      window.localStorage.setItem(CLAVE_POSICION, JSON.stringify(siguiente))
-    } catch {
-      // Se pierde dónde lo dejó, no el asistente.
-    }
-  }, [onLadoChange])
+  const guardar = useCallback(
+    (siguiente: Posicion) => {
+      setPosicion(siguiente)
+      onLadoChange?.(siguiente.lado)
+      try {
+        window.localStorage.setItem(claveStorage, JSON.stringify(siguiente))
+      } catch {
+        // noop
+      }
+    },
+    [claveStorage, onLadoChange],
+  )
 
   const alBajarPuntero = (evento: React.PointerEvent<HTMLButtonElement>) => {
     evento.currentTarget.setPointerCapture(evento.pointerId)
@@ -116,47 +124,63 @@ export function ZorroAsistente({ abierto, onToggle, etiqueta, onLadoChange }: Pr
     setPosicion((previa) => ({
       ...previa,
       y: Math.min(
-        Math.max(16, evento.clientY - TAMANO / 2),
-        Math.max(16, window.innerHeight - TAMANO - 16),
+        Math.max(16, evento.clientY - TAMANO_Y / 2),
+        Math.max(16, window.innerHeight - TAMANO_Y - 16),
       ),
     }))
   }
 
   const alSoltarPuntero = (evento: React.PointerEvent<HTMLButtonElement>) => {
-    const inicio = inicioRef.current
-    inicioRef.current = null
-    setArrastrando(false)
-    if (!inicio) return
-
-    if (!inicio.movido) {
-      // Fue una pulsación: abre o cierra el chat.
-      onToggle()
-      return
+    if (evento.currentTarget.hasPointerCapture(evento.pointerId)) {
+      try {
+        evento.currentTarget.releasePointerCapture(evento.pointerId)
+      } catch {
+        // noop
+      }
     }
-    // Se soltó tras arrastrar: se pega al lado más cercano.
-    const lado = evento.clientX < window.innerWidth / 2 ? 'izquierda' : 'derecha'
-    guardar({ lado, y: posicion.y })
+    const inicio = inicioRef.current
+    const puntero = punteroRef.current
+    const eraMovido = inicio?.movido
+    setArrastrando(false)
+
+    if (eraMovido && puntero) {
+      const centroX = window.innerWidth / 2
+      const nuevoLado: 'izquierda' | 'derecha' = puntero.x < centroX ? 'izquierda' : 'derecha'
+      guardar({ lado: nuevoLado, y: posicion.y })
+    }
   }
 
-  // Hasta saber el alto de la ventana no se pinta, o daría un salto al montar.
+  const alPulsarBoton = () => {
+    const movido = inicioRef.current?.movido
+    inicioRef.current = null
+    punteroRef.current = null
+    if (movido) return
+    onToggle()
+  }
+
   if (!montado) return null
+
+  const facingLeft = posicion.lado === 'izquierda'
 
   return (
     <button
+      ref={botonRef}
       type="button"
       onPointerDown={alBajarPuntero}
       onPointerMove={alMoverPuntero}
       onPointerUp={alSoltarPuntero}
-      onPointerCancel={() => { inicioRef.current = null; setArrastrando(false) }}
+      onPointerCancel={() => {
+        inicioRef.current = null
+        setArrastrando(false)
+      }}
+      onClick={alPulsarBoton}
       onKeyDown={(evento) => {
-        // Con teclado se mueve con las flechas; Enter y Espacio ya los maneja
-        // el navegador como pulsación del botón.
         if (evento.key === 'ArrowUp' || evento.key === 'ArrowDown') {
           evento.preventDefault()
           const paso = evento.key === 'ArrowUp' ? -24 : 24
           guardar({
             ...posicion,
-            y: Math.min(Math.max(16, posicion.y + paso), Math.max(16, window.innerHeight - TAMANO - 16)),
+            y: Math.min(Math.max(16, posicion.y + paso), Math.max(16, window.innerHeight - TAMANO_Y - 16)),
           })
         }
         if (evento.key === 'ArrowLeft') guardar({ ...posicion, lado: 'izquierda' })
@@ -167,70 +191,220 @@ export function ZorroAsistente({ abierto, onToggle, etiqueta, onLadoChange }: Pr
       title={etiqueta}
       style={{
         top: posicion.y,
-        ...(posicion.lado === 'derecha' ? { right: 12 } : { left: 12 }),
+        ...(facingLeft ? { left: 16 } : { right: 16 }),
       }}
       className={cn(
-        'fixed z-50 flex size-[60px] touch-none select-none items-center justify-center rounded-full',
-        'border border-primary/25 bg-card/95 shadow-[0_10px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl',
-        'hover:border-primary/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
-        // Al arrastrar no hay transición: si no, el zorro persigue al dedo con
-        // retraso y se siente pegajoso.
-        arrastrando ? 'cursor-grabbing scale-105' : 'cursor-grab transition-all duration-300 hover:scale-105',
-        abierto && 'border-primary ring-2 ring-primary/30',
+        'group fixed z-50 flex h-[76px] w-[68px] flex-col items-center justify-end touch-none select-none pointer-events-auto outline-none',
+        arrastrando ? 'cursor-grabbing' : 'cursor-grab',
       )}
     >
-      <CaraDeZorro abierto={abierto} arrastrando={arrastrando} />
-      {/* El halo sigue al color de marca, así que cambia con el del proyecto. */}
-      <span className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-primary/20 blur-md" />
+      {/* ── PEDESTAL DE ENERGÍA Y SOMBRA DE SUELO 3D ─────────────────────── */}
+      <div className="relative flex w-full items-center justify-center">
+        {/* Sombra proyectada en el suelo 3D */}
+        <div
+          className={cn(
+            'absolute -bottom-1 h-3 w-14 rounded-[100%] bg-primary/30 blur-sm transition-all duration-300 transform-gpu',
+            'group-hover:w-16 group-hover:bg-primary/50 group-hover:blur-md',
+            arrastrando && 'w-10 bg-primary/20 blur-xs scale-90',
+            abierto && 'bg-primary/60 blur-md scale-110',
+          )}
+        />
+        {/* Halo concéntrico brillante bajo el personaje */}
+        <span
+          className={cn(
+            'absolute -bottom-1 h-2.5 w-12 rounded-[100%] border border-primary/60 opacity-70 transition-all duration-300',
+            !arrastrando && 'animate-ping',
+          )}
+        />
+
+        {/* ── AVATAR 3D COMPACTO DEL ZORRO CON VOLUMEN Y ORIENTACIÓN ───────── */}
+        <div
+          className={cn(
+            'relative z-10 transition-all duration-300 transform-gpu',
+            facingLeft && 'scale-x-[-1]', // Se orienta automáticamente mirando hacia el centro de la pantalla
+            arrastrando
+              ? 'rotate-12 scale-105 -translate-y-1.5'
+              : 'group-hover:-translate-y-2 group-hover:scale-105 active:scale-95',
+            abierto && '-translate-y-2 scale-110',
+          )}
+        >
+          <PersonajeZorro3D abierto={abierto} arrastrando={arrastrando} />
+        </div>
+      </div>
     </button>
   )
 }
 
 /**
- * La cara del zorro.
- *
- * <p>Va en SVG y no como imagen: se sirve con el resto del código —nada que
- * descargar, nada que falle— y escala sin verse borrosa. Los naranjas son
- * suyos y no del tema: un zorro azul deja de ser un zorro. Lo que sí sigue a
- * la marca es el aro y el halo del botón.
+ * Renderizado de personaje 3D compacto con orejas firmemente integradas y sombreado esférico.
  */
-function CaraDeZorro({ abierto, arrastrando }: { abierto: boolean; arrastrando: boolean }) {
+function PersonajeZorro3D({ abierto, arrastrando }: { abierto: boolean; arrastrando: boolean }) {
   return (
     <svg
-      viewBox="0 0 64 64"
-      className={cn('size-11 transition-transform duration-300', arrastrando && 'rotate-6')}
+      viewBox="0 0 100 105"
+      className="h-[68px] w-[68px] drop-shadow-[0_8px_18px_rgba(0,0,0,0.3)] transition-transform duration-300 transform-gpu"
       aria-hidden="true"
     >
-      {/* Orejas */}
-      <path d="M12 20 L16 4 L30 14 Z" fill="#E8792B" />
-      <path d="M52 20 L48 4 L34 14 Z" fill="#E8792B" />
-      <path d="M15 17 L17 9 L25 15 Z" fill="#8C3A12" />
-      <path d="M49 17 L47 9 L39 15 Z" fill="#8C3A12" />
+      <defs>
+        {/* ── GRADIENTES Y LUCES 3D ────────────────────────────────────────── */}
 
-      {/* Cabeza */}
-      <path d="M32 12 C46 12 54 22 54 33 C54 46 44 55 32 55 C20 55 10 46 10 33 C10 22 18 12 32 12 Z" fill="#F08A3C" />
+        {/* Luz esférica 3D para la cabeza y cuerpo */}
+        <radialGradient id="zorro3d-cabeza" cx="35%" cy="30%" r="65%">
+          <stop offset="0%" stopColor="#FFB74D" />
+          <stop offset="50%" stopColor="#FF9800" />
+          <stop offset="85%" stopColor="#F57C00" />
+          <stop offset="100%" stopColor="#E65100" />
+        </radialGradient>
 
-      {/* Mejillas claras, que es lo que hace que se lea como zorro y no como gato */}
-      <path d="M32 30 C40 30 47 34 47 40 C47 48 40 55 32 55 C24 55 17 48 17 40 C17 34 24 30 32 30 Z" fill="#FDF3E7" />
+        {/* Volumen 3D para patas y cuerpo inferior */}
+        <linearGradient id="zorro3d-cuerpo-sombra" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#FFA726" />
+          <stop offset="70%" stopColor="#F57C00" />
+          <stop offset="100%" stopColor="#BF360C" />
+        </linearGradient>
 
-      {/* Ojos. Cerrados cuando el chat está abierto: el zorro «te atiende». */}
-      {abierto ? (
-        <>
-          <path d="M20 31 q4 4 8 0" stroke="#2A1508" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-          <path d="M36 31 q4 4 8 0" stroke="#2A1508" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        </>
-      ) : (
-        <>
-          <ellipse cx="24" cy="31" rx="3.2" ry="3.6" fill="#2A1508" />
-          <ellipse cx="40" cy="31" rx="3.2" ry="3.6" fill="#2A1508" />
-          <circle cx="25.1" cy="29.8" r="1.1" fill="#FFFFFF" />
-          <circle cx="41.1" cy="29.8" r="1.1" fill="#FFFFFF" />
-        </>
-      )}
+        {/* Volumen 3D para el pecho esponjoso de nieve */}
+        <radialGradient id="zorro3d-pecho" cx="40%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#FFFFFF" />
+          <stop offset="70%" stopColor="#FFF3E0" />
+          <stop offset="100%" stopColor="#FFE0B2" />
+        </radialGradient>
 
-      {/* Hocico */}
-      <path d="M32 38 L28 42 Q32 46 36 42 Z" fill="#2A1508" />
-      <path d="M32 44 v4" stroke="#2A1508" strokeWidth="1.8" strokeLinecap="round" />
+        {/* Interior 3D profundo de las orejas */}
+        <linearGradient id="zorro3d-oreja-interior" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#A1421E" />
+          <stop offset="100%" stopColor="#3E1508" />
+        </linearGradient>
+
+        {/* Brillo 3D para los ojos estilo cristal de videojuego */}
+        <radialGradient id="zorro3d-ojo-gloss" cx="30%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#422013" />
+          <stop offset="80%" stopColor="#1C0A04" />
+          <stop offset="100%" stopColor="#0D0401" />
+        </radialGradient>
+
+        {/* Sombra de oclusión suave entre extremidades */}
+        <filter id="zorro3d-sombra-oclusion" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="3" stdDeviation="2" floodColor="#000000" floodOpacity="0.3" />
+        </filter>
+      </defs>
+
+      <g filter="url(#zorro3d-sombra-oclusion)">
+        {/* ── COLA ESPONJOSA 3D VOLUMÉTRICA ───────────────────────────────── */}
+        <g className={cn('origin-bottom-right transition-transform duration-500', arrastrando ? '-rotate-12' : 'group-hover:rotate-6')}>
+          <path
+            d="M62 60 C86 58 98 42 92 24 C86 12 70 18 64 30 C58 40 56 50 62 60 Z"
+            fill="url(#zorro3d-cabeza)"
+            stroke="#D84315"
+            strokeWidth="1.5"
+          />
+          <path
+            d="M62 60 C74 58 84 50 86 38 C76 46 66 52 62 60 Z"
+            fill="#BF360C"
+            opacity="0.3"
+          />
+          <path
+            d="M92 24 C90 16 78 18 72 24 C76 30 80 36 86 34 C91 32 93 27 92 24 Z"
+            fill="url(#zorro3d-pecho)"
+          />
+        </g>
+
+        {/* ── PATAS TRASERAS 3D SENTADAS / APOYADAS ─────────────────────── */}
+        <ellipse cx="28" cy="76" rx="12" ry="8" fill="url(#zorro3d-cuerpo-sombra)" />
+        <ellipse cx="72" cy="76" rx="12" ry="8" fill="url(#zorro3d-cuerpo-sombra)" />
+        <ellipse cx="25" cy="80" rx="7.5" ry="4.5" fill="#261208" />
+        <ellipse cx="75" cy="80" rx="7.5" ry="4.5" fill="#261208" />
+        <ellipse cx="24" cy="79" rx="3" ry="1.5" fill="#522C1A" opacity="0.6" />
+        <ellipse cx="74" cy="79" rx="3" ry="1.5" fill="#522C1A" opacity="0.6" />
+
+        {/* ── CUERPO TORSO 3D CON VOLUMEN Y LUZ ESFÉRICA ────────────────── */}
+        <path
+          d="M32 48 C32 38 68 38 68 48 C72 64 66 80 50 80 C34 80 28 64 32 48 Z"
+          fill="url(#zorro3d-cabeza)"
+          stroke="#D84315"
+          strokeWidth="1.5"
+        />
+        <path
+          d="M40 48 C40 44 60 44 60 48 C64 60 58 76 50 76 C42 76 36 60 40 48 Z"
+          fill="url(#zorro3d-pecho)"
+        />
+
+        {/* ── PATITAS DELANTERAS 3D CORTAS ────────────────────────────────── */}
+        <path d="M38 58 C38 58 40 76 42 77 C44 78 46 76 45 70 C44 64 43 58 43 58 Z" fill="#261208" />
+        <path d="M62 58 C62 58 60 76 58 77 C56 78 54 76 55 70 C56 64 57 58 57 58 Z" fill="#261208" />
+
+        {/* ── OREJAS 3D FIRMEMENTE ENSAMBLADAS A LA CABEZA ───────────────── */}
+        {/* Oreja Izquierda 3D (Ensamblada sin desprendimiento) */}
+        <path d="M22 36 L28 4 L48 24 Z" fill="url(#zorro3d-cabeza)" stroke="#D84315" strokeWidth="1.5" />
+        <path d="M26 28 L30 11 L42 23 Z" fill="url(#zorro3d-oreja-interior)" />
+
+        {/* Oreja Derecha 3D (Ensamblada sin desprendimiento) */}
+        <path d="M78 36 L72 4 L52 24 Z" fill="url(#zorro3d-cabeza)" stroke="#D84315" strokeWidth="1.5" />
+        <path d="M74 28 L70 11 L58 23 Z" fill="url(#zorro3d-oreja-interior)" />
+
+        {/* ── CABEZA ESFÉRICA 3D CON LUZ LATERAL Y SOMBRAS ────────────────── */}
+        <path
+          d="M50 18 C72 18 82 31 82 44 C82 60 67 65 50 65 C33 65 18 60 18 44 C18 31 28 18 50 18 Z"
+          fill="url(#zorro3d-cabeza)"
+          stroke="#D84315"
+          strokeWidth="1.5"
+        />
+
+        {/* Brillo volumétrico 3D de luz superior en la frente */}
+        <ellipse cx="44" cy="24" rx="18" ry="5" fill="#FFFFFF" opacity="0.25" />
+
+        {/* Cachetes 3D peludos acolchados de nieve */}
+        <path
+          d="M50 38 C65 38 76 44 76 52 C76 62 65 65 50 65 C35 65 24 62 24 52 C24 44 35 38 50 38 Z"
+          fill="url(#zorro3d-pecho)"
+        />
+
+        {/* Rubor cálido en los pómulos */}
+        <ellipse cx="31" cy="50" rx="4.5" ry="2.8" fill="#FF3D00" opacity="0.45" />
+        <ellipse cx="69" cy="50" rx="4.5" ry="2.8" fill="#FF3D00" opacity="0.45" />
+
+        {/* ── OJOS 3D DE CRISTAL EXPRESIVOS (REPOSO, ABIERTO O ARRASTRANDO) ─ */}
+        {arrastrando ? (
+          <>
+            <circle cx="37" cy="42" r="6.5" fill="url(#zorro3d-ojo-gloss)" />
+            <circle cx="63" cy="42" r="6.5" fill="url(#zorro3d-ojo-gloss)" />
+            <circle cx="39" cy="40" r="2.8" fill="#FFFFFF" />
+            <circle cx="65" cy="40" r="2.8" fill="#FFFFFF" />
+          </>
+        ) : abierto ? (
+          <>
+            <path
+              d="M30 44 Q37 36 44 44"
+              stroke="#261208"
+              strokeWidth="3.8"
+              fill="none"
+              strokeLinecap="round"
+            />
+            <path
+              d="M56 44 Q63 36 70 44"
+              stroke="#261208"
+              strokeWidth="3.8"
+              fill="none"
+              strokeLinecap="round"
+            />
+          </>
+        ) : (
+          <>
+            <ellipse cx="37" cy="43" rx="5" ry="6" fill="url(#zorro3d-ojo-gloss)" />
+            <ellipse cx="63" cy="43" rx="5" ry="6" fill="url(#zorro3d-ojo-gloss)" />
+            <circle cx="39" cy="41" r="2.2" fill="#FFFFFF" />
+            <circle cx="65" cy="41" r="2.2" fill="#FFFFFF" />
+            <circle cx="35" cy="45" r="1.1" fill="#FFFFFF" opacity="0.85" />
+            <circle cx="61" cy="45" r="1.1" fill="#FFFFFF" opacity="0.85" />
+          </>
+        )}
+
+        {/* ── HOCICO 3D Y NARIZ BRILLANTE DE VIDEOJUEGO ───────────────────── */}
+        <path d="M50 49 L43 54 Q50 59 57 54 Z" fill="#261208" />
+        <ellipse cx="48.5" cy="51" rx="1.8" ry="0.9" fill="#FFFFFF" opacity="0.8" />
+        <path d="M50 56 V60" stroke="#261208" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M45 59 Q50 63 55 59" stroke="#261208" strokeWidth="2" fill="none" strokeLinecap="round" />
+      </g>
     </svg>
   )
 }
