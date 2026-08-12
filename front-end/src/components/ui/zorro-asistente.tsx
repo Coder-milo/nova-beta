@@ -28,7 +28,8 @@ import { cn } from '@/lib/utils'
 const UMBRAL_ARRASTRE = 6
 
 /** Lo que ocupa el personaje compacto en pantalla. */
-const TAMANO_Y = 80
+/** Lo que ocupa el zorro de alto. Lo necesita el panel para salir a su altura. */
+export const TAMANO_Y = 80
 
 const CLAVE_POSICION_DEFECTO = 'nova-crm:zorro-posicion'
 
@@ -65,6 +66,15 @@ interface Props {
   claveStorage?: string
   /** Avisa del lado en el que quedó, para que el panel salga por ese lado. */
   onLadoChange?: (lado: 'izquierda' | 'derecha') => void
+  /**
+   * Avisa de la altura a la que quedó, en píxeles desde el borde de arriba.
+   *
+   * El panel de conversación se colgaba siempre del borde inferior mientras el
+   * zorro se podía arrastrar a cualquier altura: con el zorro a media pantalla
+   * o abajo del todo, el panel salía por su cuenta pegado arriba, tapando la
+   * cabecera. Con esto sale a la altura del personaje que lo abre.
+   */
+  onPosicionChange?: (posicion: { lado: 'izquierda' | 'derecha'; y: number }) => void
 }
 
 export function ZorroAsistente({
@@ -73,6 +83,7 @@ export function ZorroAsistente({
   etiqueta,
   claveStorage = CLAVE_POSICION_DEFECTO,
   onLadoChange,
+  onPosicionChange,
 }: Props) {
   const [posicion, setPosicion] = useState<Posicion>({ lado: 'derecha', y: 0 })
   const [montado, setMontado] = useState(false)
@@ -90,6 +101,7 @@ export function ZorroAsistente({
     setPosicion(inicial)
     setMontado(true)
     onLadoChange?.(inicial.lado)
+    onPosicionChange?.(inicial)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claveStorage])
 
@@ -109,13 +121,14 @@ export function ZorroAsistente({
     (siguiente: Posicion) => {
       setPosicion(siguiente)
       onLadoChange?.(siguiente.lado)
+      onPosicionChange?.(siguiente)
       try {
         window.localStorage.setItem(claveStorage, JSON.stringify(siguiente))
       } catch {
         // noop
       }
     },
-    [claveStorage, onLadoChange],
+    [claveStorage, onLadoChange, onPosicionChange],
   )
 
   const alBajarPuntero = (evento: React.PointerEvent<HTMLButtonElement>) => {

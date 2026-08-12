@@ -28,6 +28,8 @@ import java.util.UUID;
 @Service
 public class TableroService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TableroService.class);
+
     private final EstudianteRepository estudianteRepository;
     private final SeguimientoRepository seguimientoRepository;
     private final MatchRepository matchRepository;
@@ -61,13 +63,25 @@ public class TableroService {
      */
     @Transactional(readOnly = true)
     public Tablero construir() {
+        return construir(null);
+    }
+
+    @Transactional(readOnly = true)
+    public Tablero construir(UUID programaId) {
         var hoy = LocalDate.now();
         var porEstado = new EnumMap<EstadoContacto, List<TarjetaTablero>>(EstadoContacto.class);
         for (var estado : EstadoContacto.values()) {
             porEstado.put(estado, new ArrayList<>());
         }
 
-        List<Estudiante> estudiantes = estudianteRepository.findAllByActivoTrue();
+        List<Estudiante> estudiantes = (programaId != null)
+                ? estudianteRepository.findAllByProgramaIdAndActivoTrue(programaId)
+                : estudianteRepository.findAllByActivoTrue();
+
+        // A debug: el tablero se rehace al abrirlo y despues de cada tarjeta que
+        // se mueve, asi que en INFO son varias lineas por minuto de trabajo
+        // normal enterrando lo que si hay que ver en el log.
+        log.debug("Tablero del programa {}: {} estudiantes", programaId, estudiantes.size());
 
         // El historial y las postulaciones de toda la cohorte, en dos consultas
         // y no en 216. Antes se pedian dentro de cada tarjeta: 108 viajes a la

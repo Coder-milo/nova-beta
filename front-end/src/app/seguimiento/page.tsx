@@ -18,12 +18,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { estudiantesApi, mensajeDeError, tableroApi } from '@/lib/api'
+import { estudiantesApi, mensajeDeError, programasApi, tableroApi } from '@/lib/api'
 import { useAvisos } from '@/components/ui/avisos'
 import { useSearchParams } from '@/compat/next-navigation'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
-import type { EstadoContacto, EstudianteResponse, EtapaEmpleabilidad, Tablero, TarjetaTablero } from '@/lib/types'
+import type { EstadoContacto, EstudianteResponse, EtapaEmpleabilidad, ProgramaResponse, Tablero, TarjetaTablero } from '@/lib/types'
 
 /** El orden de las columnas es el del recorrido, no alfabético. */
 const ESTADOS: EstadoContacto[] = ['SIN_CONTACTO', 'EN_PROCESO', 'ENTREVISTA', 'COLOCADO', 'CERRADO']
@@ -188,33 +188,57 @@ export default function SeguimientoPage() {
   const [estadoSeleccionado, setEstadoSeleccionado] = useState<EstadoContacto>('SIN_CONTACTO')
   const [guardandoAsignacion, setGuardandoAsignacion] = useState(false)
 
+  const [programas, setProgramas] = useState<ProgramaResponse[]>([])
+  const [programaId, setProgramaId] = useState<string>('')
+  const programaIdRef = useRef<string>('')
+
   const turnoDeLectura = useRef(0)
 
-  /**
-   * Lee el tablero y lo pinta sólo si sigue siendo la lectura más reciente.
-   *
-   * Mover dos tarjetas seguidas lanza dos lecturas, y la que responde última no
-   * es siempre la que se pidió última. Si gana la vieja, la segunda tarjeta se
-   * vuelve sola a su columna anterior aunque el servidor sí la haya movido: la
-   * pantalla acaba contando algo que no es verdad, y el siguiente que abra el
-   * tablero ve otra cosa.
-   */
-  const leerTablero = useCallback(async () => {
+  const cambiarPrograma = useCallback((pId: string) => {
+    setProgramaId(pId)
+    programaIdRef.current = pId
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem('nova_crm_seguimiento_programa_id', pId) } catch {}
+    }
+  }, [])
+
+  const leerTablero = useCallback(async (pId?: string) => {
     const turno = ++turnoDeLectura.current
-    const datos = await tableroApi.obtener()
+    const targetId = pId !== undefined ? pId : programaIdRef.current
+    const datos = await tableroApi.obtener(targetId || undefined)
     if (turno === turnoDeLectura.current) setTablero(datos)
   }, [])
 
-  const cargar = useCallback(async () => {
+  const cargar = useCallback(async (pId?: string) => {
     setCargando(true); setError(null)
+    const target = pId !== undefined ? pId : programaIdRef.current
     try {
-      await leerTablero()
+      await leerTablero(target)
     } catch (e) {
       setError(mensajeDeError(e, T.noSePudoCargar))
     } finally { setCargando(false) }
   }, [leerTablero, T.noSePudoCargar])
 
-  useEffect(() => { void cargar() }, [cargar])
+  useEffect(() => {
+    void programasApi.listar().then((list) => {
+      setProgramas(list)
+      let initialId = ''
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('nova_crm_seguimiento_programa_id')
+        if (saved && list.some((p) => p.id === saved)) {
+          initialId = saved
+        }
+      }
+      // Sin nada guardado se abre en «Todos los proyectos». Empezar por el
+      // primero de la lista es una eleccion arbitraria —el orden lo decide el
+      // servidor— y quien entrara por primera vez podia caer en una ruta vacia
+      // y creer que el tablero no tiene a nadie.
+      cambiarPrograma(initialId)
+      void cargar(initialId)
+    }).catch(() => {
+      void cargar('')
+    })
+  }, [cambiarPrograma, cargar])
 
   const mover = async (estudianteId: string, estado: EstadoContacto, estadoActual?: EstadoContacto) => {
     // Soltar una tarjeta en la columna donde ya estaba no es un cambio. Quien
@@ -311,7 +335,7 @@ export default function SeguimientoPage() {
     const target = e.target as HTMLElement
     if (
       ['SELECT', 'BUTTON', 'A', 'INPUT', 'OPTION', 'TEXTAREA', 'ARTICLE'].includes(target.tagName) ||
-      target.closest('select, button, a, input, option, article')
+      target.closest('select, button, a, input, option, textarea, article')
     ) {
       return
     }
@@ -382,13 +406,18 @@ export default function SeguimientoPage() {
     let active = true
     setCargandoResultados(true)
     const timer = window.setTimeout(() => {
-      void estudiantesApi.buscarAvanzado({ q: queryModal.trim(), size: 8 })
+      // La búsqueda se limita al proyecto que está puesto arriba. Sin eso, el
+      // modal ofrecía a toda la base: se elegía a alguien de otra ruta, se le
+      // asignaba columna, y la tarjeta no aparecía —el tablero solo muestra a
+      // los del proyecto seleccionado—, así que parecía que no se había
+      // guardado nada. Con «Todos los proyectos» sí se busca en toda la base.
+      void estudiantesApi.buscarAvanzado({ q: queryModal.trim(), programaId: programaId || undefined, size: 8 })
         .then((data) => { if (active) setEstudiantesResultados(data.content) })
         .catch(() => { if (active) setEstudiantesResultados([]) })
         .finally(() => { if (active) setCargandoResultados(false) })
     }, 220)
     return () => { active = false; window.clearTimeout(timer) }
-  }, [modalAgregarOpen, queryModal])
+  }, [modalAgregarOpen, queryModal, programaId])
 
   const agregarEstudianteSeleccionado = async () => {
     if (!estudianteSeleccionado) return
@@ -417,6 +446,23 @@ export default function SeguimientoPage() {
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{T.descripcion}</p>
         </div>
         <div className="flex items-center gap-2">
+          {programas.length > 0 && (
+            <select
+              aria-label="Seleccionar Proyecto"
+              value={programaId}
+              onChange={(e) => {
+                const nuevoPId = e.target.value
+                cambiarPrograma(nuevoPId)
+                void cargar(nuevoPId)
+              }}
+              className="h-9 rounded-xl border border-input bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors hover:border-primary/40 focus:border-primary focus:outline-none"
+            >
+              <option value="">Todos los proyectos</option>
+              {programas.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
+            </select>
+          )}
           <Button variant="default" size="sm" onClick={() => setModalAgregarOpen(true)} className="gap-1.5 shadow-sm">
             <UserPlus className="size-4" /> {T.agregarEstudiante}
           </Button>
@@ -509,7 +555,11 @@ export default function SeguimientoPage() {
                   onDrop={(e) => {
                     e.preventDefault()
                     setDragOverEstado(null)
-                    const id = e.dataTransfer.getData('text/plain') || draggedStudentId
+                    const isUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)
+                    const dataId = e.dataTransfer.getData('text/plain')
+                    const id = (draggedStudentId && isUuid(draggedStudentId))
+                      ? draggedStudentId
+                      : (isUuid(dataId) ? dataId : null)
                     if (id) void mover(id, estado)
                     setDraggedStudentId(null)
                   }}
@@ -547,6 +597,7 @@ export default function SeguimientoPage() {
                         key={tarjeta.estudianteId}
                         draggable={moviendo === null}
                         onDragStart={(e) => {
+                          e.stopPropagation()
                           e.dataTransfer.setData('text/plain', tarjeta.estudianteId)
                           e.dataTransfer.effectAllowed = 'move'
                           setDraggedStudentId(tarjeta.estudianteId)

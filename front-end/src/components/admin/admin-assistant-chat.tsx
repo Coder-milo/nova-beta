@@ -5,6 +5,7 @@ import { ArrowRightIcon as ArrowRight, BuildingsIcon as Buildings, CircleNotchIc
 import { usePathname, useRouter } from '@/compat/next-navigation'
 import { usePreferences } from '@/lib/preferences'
 import { ZorroAsistente } from '@/components/ui/zorro-asistente'
+import { usarAnclaDelZorro } from '@/components/ui/usar-ancla-del-zorro'
 import { cn } from '@/lib/utils'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -156,6 +157,8 @@ export function AdminAssistantChat() {
   // El panel sale del lado en el que esté el zorro; si no, se abriría
   // cruzando la pantalla desde el otro extremo.
   const [ladoZorro, setLadoZorro] = useState<'izquierda' | 'derecha'>('derecha')
+  const [zorroY, setZorroY] = useState(0)
+  const anclaAbajo = usarAnclaDelZorro(zorroY)
   const [draft, setDraft] = useState('')
   const [typing, setTyping] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -312,9 +315,12 @@ export function AdminAssistantChat() {
   return (
     <>
       <div
+        // La altura sale del zorro: el panel termina donde esta el personaje
+        // que lo abre, sin subirse a la cabecera. En movil sigue anclado abajo.
+        style={anclaAbajo}
         className={cn(
           'pointer-events-none fixed z-40 flex flex-col transition-all duration-300',
-          'bottom-20 inset-x-3 sm:bottom-6 sm:inset-auto',
+          'bottom-20 inset-x-3 sm:inset-auto sm:bottom-6',
           ladoZorro === 'derecha'
             ? 'sm:right-24 sm:left-auto sm:items-end'
             : 'sm:left-24 sm:right-auto sm:items-start',
@@ -325,7 +331,7 @@ export function AdminAssistantChat() {
           ref={chatRef}
           aria-label={labels.title}
           className={cn(
-            'flex h-[min(74dvh,620px)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform-gpu dark:border-primary/20',
+            'flex h-[min(70dvh,560px)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform-gpu dark:border-primary/20',
             ladoZorro === 'derecha' ? 'origin-bottom-right' : 'origin-bottom-left',
             open
               ? 'pointer-events-auto scale-100 opacity-100 translate-y-0 translate-x-0 blur-none'
@@ -560,6 +566,7 @@ export function AdminAssistantChat() {
       etiqueta={open ? (english ? 'Close assistant' : 'Cerrar asistente') : labels.title}
       claveStorage="nova-crm:zorro-posicion-admin"
       onLadoChange={setLadoZorro}
+      onPosicionChange={(p) => setZorroY(p.y)}
     />
   </>
 )

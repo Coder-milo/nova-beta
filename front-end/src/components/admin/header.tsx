@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowBendDownLeftIcon as ArrowBendDownLeft, ArrowsClockwiseIcon as ArrowsClockwise, BellIcon as Bell, ChatCircleIcon as ChatCircle, CheckCircleIcon as CheckCircle, ClockIcon as Clock, EnvelopeSimpleIcon as EnvelopeSimple, FileTextIcon as FileText, FolderSimpleIcon as FolderSimple, GraduationCapIcon as GraduationCap, GlobeIcon as Globe, ListIcon as List, MagnifyingGlassIcon as MagnifyingGlass, PaperclipIcon as Paperclip, PaperPlaneTiltIcon as PaperPlaneTilt, UserCircleIcon as UserCircle, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
 import { usePathname, useRouter } from '@/compat/next-navigation'
 import { Button } from '@/components/ui/button'
@@ -113,24 +113,26 @@ function asuntoConversacion(asunto: string, respaldo: string): string {
  * el icono lo cerraban. Pasaba en mensajes, notificaciones e idioma a la vez,
  * porque el fallo estaba aquí y no en cada menú.
  */
-function IconButton({
-  label,
-  children,
-  badge,
-  ...props
-}: React.ComponentPropsWithRef<'button'> & {
-  label: string
-  badge?: number
-}) {
+const IconButton = forwardRef<
+  HTMLButtonElement,
+  React.ComponentPropsWithoutRef<'button'> & {
+    label: string
+    badge?: number
+  }
+>(function IconButton(
+  { label, children, badge, className, ...props },
+  ref,
+) {
   return (
     <button
+      ref={ref}
       type="button"
       aria-label={label}
       title={label}
       {...props}
       className={cn(
         'relative flex size-9 items-center justify-center rounded-xl border border-border/50 bg-card/95 text-foreground shadow-sm backdrop-blur-xl transition-all duration-200 hover:border-primary/30 hover:bg-card hover:text-primary hover:scale-105 active:scale-95',
-        props.className,
+        className,
       )}
     >
       {children}
@@ -141,7 +143,7 @@ function IconButton({
       )}
     </button>
   )
-}
+})
 
 export function Header({ onOpenMobile }: HeaderProps) {
   const pathname = usePathname()
@@ -941,11 +943,43 @@ export function Header({ onOpenMobile }: HeaderProps) {
             />
             <DropdownMenuContent align="end" className="w-[min(92vw,22rem)] rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-2xl">
               <div className="px-1 pb-2 border-b border-border/40">
-                <span className="text-sm font-bold text-foreground">Chats</span>
+                <span className="text-sm font-bold text-foreground">
+                  {esEstudiante ? 'Chats' : messageCopy.title}
+                </span>
               </div>
 
+              {/* Para el equipo, aquí van las solicitudes del portal y no una
+                  lista de chats: el chat directo cuelga de la ficha de
+                  estudiante, así que para un coordinador esta lista estaba
+                  siempre vacía y sólo decía «No tienes conversaciones
+                  recientes» encima de un contador que sí marcaba pendientes. */}
               <div className="max-h-80 space-y-1 overflow-y-auto py-1">
-                {conversaciones.length === 0 ? (
+                {!esEstudiante ? (
+                  messages.length === 0 ? (
+                    <p className="py-6 text-center text-xs text-muted-foreground">{messageCopy.empty}</p>
+                  ) : (
+                    messages.slice(0, 8).map((m) => (
+                      <DropdownMenuItem
+                        key={m.id}
+                        onClick={() => { setSelectedMessage(m); setReply(m.respuesta ?? ''); setMessageSheetOpen(true) }}
+                        className="flex cursor-pointer items-center gap-3 rounded-xl p-2 transition hover:bg-muted"
+                      >
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-bold text-primary">
+                          {m.estudianteNombre.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-bold text-foreground">{m.estudianteNombre}</p>
+                          <p className="truncate text-[11px] text-muted-foreground">{m.asunto}</p>
+                        </div>
+                        {m.estado === 'ABIERTO' && (
+                          <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                            {messageCopy.open}
+                          </span>
+                        )}
+                      </DropdownMenuItem>
+                    ))
+                  )
+                ) : conversaciones.length === 0 ? (
                   <p className="py-6 text-center text-xs text-muted-foreground">No tienes conversaciones recientes.</p>
                 ) : (
                   conversaciones.map((conv) => (
@@ -977,7 +1011,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
                 onClick={() => router.push('/mis-mensajes')}
                 className="justify-center rounded-xl py-2 text-center text-xs font-bold text-primary focus:bg-muted"
               >
-                Ver todo en Messenger
+                {esEstudiante
+                  ? 'Ver todo en Messenger'
+                  : locale === 'es' ? 'Ver todos los mensajes' : 'View all messages'}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

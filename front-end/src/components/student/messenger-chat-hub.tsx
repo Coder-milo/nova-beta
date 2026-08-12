@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ArrowBendUpLeftIcon as ArrowBendUpLeft,
+  CaretLeftIcon as CaretLeft,
   CheckIcon as Check,
   ChecksIcon as Checks,
   ChatCircleDotsIcon as ChatCircleDots,
@@ -59,7 +60,7 @@ function textosChat(english: boolean) {
         sinSoporte: 'You have not written to the support team yet.',
         eligeChat: 'Pick a conversation', eligeChatPie: 'Choose someone on the left, or search for a classmate.',
         miembros: 'members', grupoDeEstudio: 'Study group', companero: 'Classmate on your programme',
-        soporteCac: 'CAC Academic', detalles: 'Chat details',
+        soporteCac: 'CAC Academic', detalles: 'Chat details', volverALista: 'Back to chats',
         cargandoMensajes: 'Loading messages…', sinMensajes: 'No messages yet. Say hello.',
         escribe: 'Write a message', bloqueado: 'You blocked this person.',
         notaDeVoz: 'Voice note', adjuntar: 'Attach a file', emojis: 'Emoji search',
@@ -110,7 +111,7 @@ function textosChat(english: boolean) {
         sinSoporte: 'Aún no has escrito al equipo de acompañamiento.',
         eligeChat: 'Elige una conversación', eligeChatPie: 'Selecciona a alguien de la izquierda, o busca a un compañero.',
         miembros: 'miembros', grupoDeEstudio: 'Grupo de estudio', companero: 'Compañero de tu programa',
-        soporteCac: 'CAC Academic', detalles: 'Detalles del chat',
+        soporteCac: 'CAC Academic', detalles: 'Detalles del chat', volverALista: 'Volver a los chats',
         cargandoMensajes: 'Cargando mensajes…', sinMensajes: 'Todavía no hay mensajes. Saluda tú.',
         escribe: 'Escribe un mensaje', bloqueado: 'Bloqueaste a esta persona.',
         notaDeVoz: 'Nota de voz', adjuntar: 'Adjuntar un archivo', emojis: 'Buscador de emojis',
@@ -583,6 +584,14 @@ export function MessengerChatHub({ locale = 'es' }: Props) {
   const contactoBloqueado = selectedContactoId ? bloqueados.includes(selectedContactoId) : false
   const enGrupos = activeTab === 'grupos'
   const enDirectos = activeTab === 'todos' || activeTab === 'no_leidos'
+  /** Cierra lo que esté abierto, sea del tipo que sea. Para volver a la lista. */
+  const cerrarChatAbierto = () => {
+    setSelectedContactoId(null)
+    setSelectedGrupoId(null)
+    setSelectedSoporteId(null)
+    setMensajesDirectos([])
+    setMensajesGrupo([])
+  }
   /** Si no hay nada abierto, el lienzo no debe fingir una conversación vacía. */
   const hayChatAbierto =
     (enDirectos && Boolean(selectedContactoId)) ||
@@ -599,9 +608,16 @@ export function MessengerChatHub({ locale = 'es' }: Props) {
 
   return (
     <>
-    <div className="flex h-[calc(100vh-9.5rem)] min-h-[32rem] w-full overflow-hidden rounded-2xl border border-border/70 bg-card/95 text-card-foreground shadow-xl backdrop-blur-xl transition-all">
+    <div className="flex h-[calc(100dvh-9.5rem)] min-h-[26rem] w-full overflow-hidden rounded-2xl border border-border/70 bg-card/95 text-card-foreground shadow-xl backdrop-blur-xl transition-all sm:min-h-[32rem]">
       {/* ── COLUMNA 1: BANDEJA IZQUIERDA ──────────────────────────────────────── */}
-      <aside className="flex w-72 shrink-0 flex-col border-r border-border/60 bg-muted/30">
+      {/* Debajo de `md` esto es la pantalla entera y se aparta cuando hay un
+          chat abierto. Las dos columnas eran fijas —288 px de bandeja más el
+          lienzo—, así que en un teléfono de 375 px la conversación quedaba
+          reducida a una tira lateral con los globos partidos en vertical. */}
+      <aside className={cn(
+        'w-full shrink-0 flex-col border-r border-border/60 bg-muted/30 md:flex md:w-72',
+        hayChatAbierto ? 'hidden md:flex' : 'flex',
+      )}>
         <div className="flex items-center justify-between p-4 pb-2">
           <h2 className="text-xl font-extrabold text-foreground">{T.chats}</h2>
           <button
@@ -801,10 +817,23 @@ export function MessengerChatHub({ locale = 'es' }: Props) {
       {/* `relative`: el buscador de emojis se coloca contra este contenedor. Sin
           esto se anclaba al primer antepasado posicionado, que estaba fuera de
           la tarjeta, y el panel salía en mitad de la pantalla. */}
-      <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
+      <main className={cn(
+        'relative min-w-0 flex-1 flex-col overflow-hidden bg-background',
+        hayChatAbierto ? 'flex' : 'hidden md:flex',
+      )}>
         {hayChatAbierto && (
-          <header className="flex items-center justify-between border-b border-border/60 bg-card px-4 py-2.5 shadow-xs">
-            <div className="flex min-w-0 items-center gap-3">
+          <header className="flex items-center justify-between border-b border-border/60 bg-card px-3 py-2.5 shadow-xs sm:px-4">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              {/* La única salida en un teléfono: con la bandeja apartada, sin
+                  esto no había forma de volver a la lista de chats. */}
+              <button
+                type="button"
+                onClick={cerrarChatAbierto}
+                aria-label={T.volverALista}
+                className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted md:hidden"
+              >
+                <CaretLeft className="size-4" />
+              </button>
               {fotoChat ? (
                 <img src={fotoChat} alt="" className="size-10 shrink-0 rounded-full object-cover" />
               ) : (

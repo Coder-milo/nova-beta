@@ -719,7 +719,10 @@ export default function EstudiantesPage() {
       } catch (err) {
         if (err instanceof ApiCallError) {
           if (err.status === 400) setFormError(T.datosInvalidos + ' ' + (err.body.message ?? T.verificaLosCampos))
-          else if (err.status === 409) setFormError(T.yaExisteUn)
+          // El backend dice con quién choca y dónde está —otro proyecto o la
+          // papelera—, que es justo lo que hay que hacer a continuación. El
+          // texto fijo solo cubre backends anteriores, que no lo mandaban.
+          else if (err.status === 409) setFormError(err.body.message ?? T.yaExisteUn)
           else if (err.status === 401 || err.status === 403) setFormError(T.sinPermisosPara)
           else setFormError(T.errorDelServidor(err.status))
         } else {

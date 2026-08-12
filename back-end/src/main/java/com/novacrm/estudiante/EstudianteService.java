@@ -1,6 +1,7 @@
 package com.novacrm.estudiante;
 
 import com.novacrm.catalogo.nivel_ingles.NivelInglesRepository;
+import com.novacrm.exception.ConflictException;
 import com.novacrm.exception.ResourceNotFoundException;
 import com.novacrm.estudiante.dto.EstudianteRequest;
 import com.novacrm.estudiante.dto.EstudianteResponse;
@@ -125,10 +126,22 @@ public class EstudianteService {
         return toResponse(buscar(id));
     }
 
+    /**
+     * Da de alta a un participante.
+     *
+     * <p>El correo y el documento se comprueban antes de guardar. La base ya
+     * tiene el correo como unico, pero dejar que salte alli convertia un dato
+     * repetido en un 500 «Internal server error»: la pantalla no podia decir
+     * que pasaba y quedaba en el log como fallo del servidor. Y hay un caso muy
+     * comun detras —una persona ya matriculada en otro proyecto, o en la
+     * papelera— que merece un mensaje que diga donde esta, no «revisa los
+     * campos».
+     */
     @Transactional
     public EstudianteResponse crear(EstudianteRequest request) {
         var programa = programaRepository.findById(request.programaId())
                 .orElseThrow(() -> new ResourceNotFoundException("Programa no encontrado"));
+        verificarQueNoExista(request);
         var estudiante = new Estudiante();
         aplicarRequest(estudiante, request);
         estudiante.setPrograma(programa);
@@ -236,6 +249,49 @@ public class EstudianteService {
     private Estudiante buscar(UUID id) {
         return estudianteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado: " + id));
+    }
+
+    /**
+     * Corta el alta cuando esa persona ya esta registrada.
+     *
+     * <p>El mensaje nombra el proyecto donde esta y avisa si esta en la
+     * papelera: son los dos casos reales. Alguien abre el proyecto nuevo, ve la
+     * lista vacia y vuelve a dar de alta a gente que ya existe en otro; y
+     * alguien que se elimino sigue ocupando su correo, porque el borrado es
+     * logico y la restriccion de la base no distingue.
+     */
+    private void verificarQueNoExista(EstudianteRequest request) {
+        if (request.email() != null && !request.email().isBlank()) {
+            estudianteRepository.findByEmailIgnoreCase(request.email().trim())
+                    .ifPresent(existente -> {
+                        throw new ConflictException(
+                                "Ya hay un estudiante con el correo " + existente.getEmail()
+                                        + " (" + descripcionDe(existente) + ")");
+                    });
+        }
+        if (request.numeroDocumento() != null && !request.numeroDocumento().isBlank()) {
+            estudianteRepository.findByDocumentoNormalizado(request.numeroDocumento().trim())
+                    .ifPresent(existente -> {
+                        throw new ConflictException(
+                                "Ya hay un estudiante con el documento " + existente.getNumeroDocumento()
+                                        + " (" + descripcionDe(existente) + ")");
+                    });
+        }
+    }
+
+    /** «Nombre Apellido, Ruta Accelerator» o «…, en la papelera». */
+    private static String descripcionDe(Estudiante e) {
+        String nombre = (safe(e.getNombre()) + " " + safe(e.getApellido())).trim();
+        if (nombre.isEmpty()) nombre = "sin nombre";
+        if (!e.isActivo()) {
+            return nombre + ", en la papelera";
+        }
+        var programa = e.getPrograma();
+        return programa == null ? nombre : nombre + ", " + programa.getNombre();
+    }
+
+    private static String safe(String valor) {
+        return valor == null ? "" : valor;
     }
 
     private void aplicarRequest(Estudiante e, EstudianteRequest r) {

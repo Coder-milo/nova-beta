@@ -16,6 +16,7 @@ import { usePreferences } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
 import { Textarea } from '@/components/ui/textarea'
 import { ZorroAsistente } from '@/components/ui/zorro-asistente'
+import { usarAnclaDelZorro } from '@/components/ui/usar-ancla-del-zorro'
 
 type Author = 'bot' | 'student'
 type NavigationAction = { etiqueta: string; url: string }
@@ -87,6 +88,8 @@ export function StudentHelpChat() {
   const endRef = useRef<HTMLDivElement>(null)
   const chatRef = useRef<HTMLElement>(null)
   const [ladoZorro, setLadoZorro] = useState<'izquierda' | 'derecha'>('derecha')
+  const [zorroY, setZorroY] = useState(0)
+  const anclaAbajo = usarAnclaDelZorro(zorroY)
 
   useEffect(() => {
     try {
@@ -161,9 +164,13 @@ export function StudentHelpChat() {
   return (
     <>
       <div
+        // La altura sale del zorro: el panel termina donde está el personaje
+        // que lo abre, sin subirse a la cabecera. En móvil sigue anclado abajo,
+        // que es donde cabe.
+        style={anclaAbajo}
         className={cn(
           'pointer-events-none fixed z-40 flex flex-col transition-all duration-300',
-          'bottom-20 inset-x-3 sm:bottom-6 sm:inset-auto',
+          'bottom-20 inset-x-3 sm:inset-auto sm:bottom-6',
           ladoZorro === 'derecha'
             ? 'sm:right-24 sm:left-auto sm:items-end'
             : 'sm:left-24 sm:right-auto sm:items-start',
@@ -173,7 +180,7 @@ export function StudentHelpChat() {
           ref={chatRef}
           aria-label={labels.title}
           className={cn(
-            'flex h-[min(74dvh,620px)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform-gpu dark:bg-[#0c1714]/95 dark:border-primary/20',
+            'flex h-[min(70dvh,560px)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border/80 bg-popover/95 shadow-[0_28px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] transform-gpu dark:bg-[#0c1714]/95 dark:border-primary/20',
             ladoZorro === 'derecha' ? 'origin-bottom-right' : 'origin-bottom-left',
             open
               ? 'pointer-events-auto scale-100 opacity-100 translate-y-0 translate-x-0 blur-none'
@@ -279,6 +286,7 @@ export function StudentHelpChat() {
         etiqueta={open ? (english ? 'Close assistant' : 'Cerrar asistente') : labels.title}
         claveStorage="nova-crm:zorro-posicion-estudiante"
         onLadoChange={setLadoZorro}
+        onPosicionChange={(p) => setZorroY(p.y)}
       />
     </>
   )

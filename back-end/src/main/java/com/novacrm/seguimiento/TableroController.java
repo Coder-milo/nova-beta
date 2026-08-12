@@ -34,8 +34,8 @@ public class TableroController {
     @GetMapping
     @Operation(summary = "Tablero completo, agrupado por estado de contacto")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
-    public TableroService.Tablero tablero() {
-        return tableroService.construir();
+    public TableroService.Tablero tablero(@RequestParam(name = "programaId", required = false) UUID programaId) {
+        return tableroService.construir(programaId);
     }
 
     /**
