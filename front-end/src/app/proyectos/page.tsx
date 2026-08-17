@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, EyeIcon as Eye, KanbanIcon as Kanban, PaletteIcon as Palette, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, TrashIcon as Trash, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Eye, LoaderCircle as CircleNotch, Palette, Pencil as PencilSimple, Plus, RefreshCw as ArrowsClockwise, SquareKanban as Kanban, Trash2 as Trash, X } from 'lucide-react'
 /**
  * Página de Proyectos / Programas — CRUD completo.
  *

@@ -184,7 +184,42 @@ public class VacanteService {
     public VacanteResponse marcarRevisada(UUID id) {
         var vacante = buscar(id);
         vacante.setRevisada(true);
+        // Aprobar borra el rechazo anterior: si no, una oferta corregida y ya
+        // publicada seguiria enseñando el motivo por el que se rechazo la
+        // primera vez.
+        vacante.olvidarRechazo();
+        if (vacante.getFechaPublicacion() == null) {
+            vacante.setFechaPublicacion(java.time.LocalDateTime.now());
+        }
         return toResponse(vacanteRepository.save(vacante));
+    }
+
+    /**
+     * Rechaza una oferta dejando dicho por que.
+     *
+     * <p>No la cierra ni la borra: quien la publico la sigue viendo, con el
+     * motivo, y puede corregirla y reenviarla. Cerrarla le obligaria a
+     * escribirla otra vez desde cero, que es la forma segura de que no la
+     * corrija nadie.
+     *
+     * <p>El motivo es obligatorio. Un rechazo sin explicacion deja a quien
+     * publico exactamente igual que antes de publicar: no sabe que cambiar, asi
+     * que vuelve a mandar lo mismo.
+     */
+    @Transactional
+    public VacanteResponse rechazar(UUID id, String motivo, String autor) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new com.novacrm.exception.BusinessException(
+                    "Hace falta decir por que se rechaza; quien la publico tiene que poder corregirla");
+        }
+        var vacante = buscar(id);
+        vacante.rechazar(motivo.trim(), autor, java.time.LocalDateTime.now());
+        return toResponse(vacanteRepository.save(vacante));
+    }
+
+    /** La cola de revision: lo que espera a que alguien la mire. */
+    public java.util.List<VacanteResponse> colaDeRevision() {
+        return vacanteRepository.enColaDeRevision().stream().map(this::toResponse).toList();
     }
 
     @Transactional
@@ -293,6 +328,12 @@ public class VacanteService {
                 v.getFechaExpiracion(),
                 paraGestion && v.getMotivoCierre() != null ? v.getMotivoCierre().name() : null,
                 v.getCiudad(), v.getJornada(), v.isRevisada(),
-                paraGestion ? v.getCreadaPor() : null);
+                paraGestion ? v.getCreadaPor() : null,
+                // Datos de contacto de una persona: solo hacia gestion, por lo
+                // mismo que `creadaPor`.
+                paraGestion ? v.getEmpresaDeclarada() : null,
+                paraGestion ? v.getContactoDeclarado() : null,
+                paraGestion ? v.getEmailDeclarado() : null,
+                paraGestion ? v.getTelefonoDeclarado() : null);
     }
 }

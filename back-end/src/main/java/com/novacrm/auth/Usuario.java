@@ -27,6 +27,22 @@ public class Usuario extends BaseEntity {
     @Column(nullable = false)
     private boolean activo = true;
 
+    /**
+     * A que empresa pertenece, si es una cuenta del portal de empresas.
+     *
+     * <p>Nula para todo el personal del programa y para los estudiantes. Es la
+     * unica llave por la que una cuenta con rol {@link Rol#EMPRESA} alcanza
+     * datos: cada consulta del portal filtra por ella. Una cuenta EMPRESA sin
+     * empresa asignada no ve absolutamente nada, y eso es deliberado —el fallo
+     * por defecto tiene que ser no mostrar, no mostrarlo todo—.
+     *
+     * <p>Es {@code LAZY} porque la carga el filtro de seguridad en cada
+     * peticion y la inmensa mayoria de las cuentas no son de empresa.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "empresa_id")
+    private com.novacrm.empresa.Empresa empresa;
+
     @Column(name = "reset_token")
     private String resetToken;
 
@@ -92,4 +108,11 @@ public class Usuario extends BaseEntity {
     public void setRoles(Set<Rol> roles) { this.roles = roles; }
     public boolean isActivo() { return activo; }
     public void setActivo(boolean activo) { this.activo = activo; }
+    public com.novacrm.empresa.Empresa getEmpresa() { return empresa; }
+    public void setEmpresa(com.novacrm.empresa.Empresa empresa) { this.empresa = empresa; }
+
+    /** Cuenta del portal de empresas con una empresa detras. */
+    public boolean esCuentaDeEmpresa() {
+        return roles != null && roles.contains(Rol.EMPRESA) && empresa != null;
+    }
 }

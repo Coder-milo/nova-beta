@@ -18,7 +18,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CopyIcon as Copy, PlugsIcon as Plugs, PlugsConnectedIcon as PlugsConnected, ShieldWarningIcon as ShieldWarning, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Copy, LoaderCircle as CircleNotch, Plug as PlugsConnected, ShieldAlert as ShieldWarning, Unplug as Plugs } from 'lucide-react'
 import { ApiCallError, configuracionApi } from '@/lib/api'
 import type { EstadoIntegracion } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -41,6 +41,7 @@ function textos(english: boolean) {
         lasCredencialesNo: 'Credentials are not edited here',
         seConfiguraEn: 'Set in:',
         sinConfigurar: 'Not configured',
+        soloAdmin: 'Only an ADMIN account can see the state of the integrations. Ask an administrator; a coordinator cannot enable this.',
       }
     : {
         conectada: 'Conectada',
@@ -48,6 +49,7 @@ function textos(english: boolean) {
         lasCredencialesNo: 'Las credenciales no se editan desde aquí',
         seConfiguraEn: 'Se configura en:',
         sinConfigurar: 'Sin configurar',
+        soloAdmin: 'El estado de las integraciones solo lo ve una cuenta ADMIN. Pídeselo a un administrador: no es algo que un coordinador pueda habilitarse.',
       }
 }
 
@@ -71,11 +73,11 @@ export function PanelIntegraciones() {
       // recibia el "acceso denegado" crudo del servidor, que parece un fallo
       // del sistema en vez de un permiso que no tiene. Se dice cual es.
       const esDePermisos = err instanceof ApiCallError && (err.status === 401 || err.status === 403)
-      setError(esDePermisos ? C.errorPermisos : errorDe(err))
+      setError(esDePermisos ? T.soloAdmin : errorDe(err))
     } finally {
       setCargando(false)
     }
-  }, [C.errorPermisos])
+  }, [T.soloAdmin])
 
   useEffect(() => {
     void cargar()

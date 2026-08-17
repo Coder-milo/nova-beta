@@ -21,15 +21,7 @@
  */
 
 import { useRef, useState } from 'react'
-import {
-  CheckIcon as Check,
-  CircleNotchIcon as CircleNotch,
-  FilePdfIcon as FilePdf,
-  MagicWandIcon as MagicWand,
-  UploadSimpleIcon as UploadSimple,
-  WarningCircleIcon as WarningCircle,
-  XIcon as X,
-} from '@phosphor-icons/react'
+import { Check, CircleAlert as WarningCircle, FileText as FilePdf, LoaderCircle as CircleNotch, Upload as UploadSimple, Wand2 as MagicWand, X } from 'lucide-react'
 import { ApiCallError, estudiantesApi, hvApi, perfilApi } from '@/lib/api'
 import type {
   DatosHvDto,
@@ -366,7 +358,7 @@ export function StudentEscaneoHv({ perfil, onUpdate, onAplicado }: Props) {
     <Card className="shadow-none">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <MagicWand className="size-5 text-primary" weight="duotone" />
+          <MagicWand className="size-5 text-primary" />
           {T.titulo}
         </CardTitle>
         <CardDescription>{T.descripcion}</CardDescription>
@@ -408,7 +400,7 @@ export function StudentEscaneoHv({ perfil, onUpdate, onAplicado }: Props) {
               </p>
             ) : (
               <>
-                <UploadSimple className="size-7 text-primary" weight="duotone" />
+                <UploadSimple className="size-7 text-primary" />
                 <p className="text-sm text-muted-foreground">
                   {T.soltarAqui}{' '}
                   <button

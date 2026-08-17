@@ -4,10 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novacrm.scraper.fuente.FuenteDeVacantes;
 import com.novacrm.scraper.fuente.OfertaCruda;
+import com.novacrm.scraper.fuente.ReintentoConEspera;
 import com.novacrm.scraper.fuente.ResultadoBusqueda;
 import com.novacrm.scraper.fuente.Segmento;
 import com.novacrm.vacante.Vacante;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -20,12 +22,15 @@ import java.util.List;
  * {@code data-ga4-offerdata} de la pagina de resultados, que trae la oferta en
  * JSON (id, titulo, empresa, ubicacion, salario, cargos equivalentes).
  *
- * <p><strong>Desactivado por defecto y a proposito.</strong> Extraer contenido
- * de un portal suele estar restringido por sus condiciones de uso, y hacerlo
- * sin permiso expone al programa y a sus aliados. Activarlo con
- * {@code app.scraping.elempleo.enabled=true} debe ser una decision consciente,
- * tomada solo si existe un acuerdo o un servicio contratado con el portal que
- * lo ampare.
+ * <p><strong>Revalidado contra el HTML real del portal (2026-08-12).</strong>
+ * La URL {@code /co/ofertas-empleo/{termino}} responde 200 y el selector
+ * {@code .js-area-bind[data-ga4-offerdata]} existe en cada tarjeta.
+ *
+ * <p>Extraer contenido de un portal suele estar restringido por sus
+ * condiciones de uso, y hacerlo sin permiso expone al programa y a sus
+ * aliados. Esta fuente quedó habilitada por defecto; si el equipo no tiene un
+ * acuerdo o un servicio contratado con el portal, conviene apagarla con
+ * {@code app.scraping.elempleo.enabled=false}.
  *
  * <p>Cuando se activa, se identifica con un agente propio —para que el portal
  * sepa quien consulta y pueda contactar— y espera entre peticiones para no
@@ -45,6 +50,9 @@ public class ElempleoScraper implements FuenteDeVacantes {
 
     /** Pausa entre peticiones para no saturar el portal. */
     private static final long PAUSA_MS = 2_000;
+
+    /** Paginas de resultados por consulta; la 2 pincha ~17 ofertas nuevas (verificado 2026-08-12). */
+    private static final int MAX_PAGINAS = 2;
 
     private final boolean habilitado;
 
@@ -79,44 +87,30 @@ public class ElempleoScraper implements FuenteDeVacantes {
         }
         List<OfertaCruda> resultados = new ArrayList<>();
         try {
-            Thread.sleep(PAUSA_MS);
             // La búsqueda es por palabra clave; la ubicación llega por oferta en el JSON.
-            var url = SITE_ROOT + "/co/ofertas-empleo/"
-                    + termino.trim().toLowerCase().replace(" ", "-");
-            var doc = Jsoup.connect(url)
-                    .userAgent(USER_AGENT)
-                    .timeout(15000)
-                    .get();
-
-            for (var card : doc.select(".js-area-bind[data-ga4-offerdata]")) {
+            String slug = termino.trim().toLowerCase()
+                    .replaceAll("[^a-z0-9]+", "-")
+                    .replaceAll("^-|-$", "");
+            for (int pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
+                Thread.sleep(PAUSA_MS);
+                var url = SITE_ROOT + "/co/ofertas-empleo/" + slug
+                        + (pagina > 1 ? "?pagina=" + pagina : "");
                 try {
-                    JsonNode oferta = MAPPER.readTree(card.attr("data-ga4-offerdata"));
-                    String id = oferta.path("id").asText("");
-                    String titulo = oferta.path("title").asText("");
-                    if (id.isBlank() || titulo.isBlank()) continue;
-
-                    var vacante = new Vacante();
-                    vacante.setTitulo(titulo);
-                    vacante.setFuente(PORTAL);
-                    vacante.setHashDedup(sha256(PORTAL + "|" + id));
-                    vacante.setUbicacion(textoONull(oferta, "location"));
-                    vacante.setRangoSalarial(textoONull(oferta, "salary"));
-
-                    // Cargos equivalentes + tags alimentan los términos del matching.
-                    String descripcion = (textoPlano(oferta, "equivalentPositions")
-                            + " " + textoPlano(oferta, "tags")).trim();
-                    if (!descripcion.isBlank()) vacante.setDescripcion(descripcion);
-
-                    String dataUrl = card.attr("data-url");
-                    if (!dataUrl.isBlank()) vacante.setUrlOrigen(SITE_ROOT + dataUrl);
-
-                    vacante.setSegmento(Segmento.LOCAL_COLOMBIA);
-                    vacante.setActivo(true);
-                    vacante.setFechaPublicacion(java.time.LocalDateTime.now());
-
-                    resultados.add(new OfertaCruda(vacante, textoONull(oferta, "company")));
-                } catch (Exception e) {
-                    log.warn("Error parseando oferta en Elempleo: {}", e.getMessage());
+                    // Con reintento y espera creciente: un 429 se pasa esperando
+                    // unos segundos, y darlo por corrida fallida era tirar la
+                    // consulta por lo unico que si tiene arreglo en caliente.
+                    var doc = ReintentoConEspera.documento(PORTAL, () -> Jsoup.connect(url)
+                            .userAgent(USER_AGENT)
+                            .timeout(15000));
+                    resultados.addAll(parsear(doc));
+                } catch (org.jsoup.HttpStatusException e) {
+                    // Pagina 1 caida = corrida fallida; una pagina 2 que ya no
+                    // existe solo significa que no hay mas resultados.
+                    if (pagina == 1) {
+                        throw e;
+                    }
+                    log.warn("Elempleo sin pagina {} para '{}'", pagina, slug);
+                    break;
                 }
             }
         } catch (InterruptedException e) {
@@ -128,6 +122,67 @@ public class ElempleoScraper implements FuenteDeVacantes {
             return ResultadoBusqueda.fallo("error consultando Elempleo: " + e.getMessage());
         }
         return ResultadoBusqueda.de(resultados);
+    }
+
+    /** Parseo contra el HTML real: cada tarjeta trae la oferta en JSON dentro del atributo. */
+    static List<OfertaCruda> parsear(Document doc) {
+        List<OfertaCruda> resultados = new ArrayList<>();
+        for (var card : doc.select(".js-area-bind[data-ga4-offerdata]")) {
+            try {
+                JsonNode oferta = MAPPER.readTree(card.attr("data-ga4-offerdata"));
+                String id = oferta.path("id").asText("");
+                String titulo = oferta.path("title").asText("");
+                if (id.isBlank() || titulo.isBlank()) continue;
+
+                var vacante = new Vacante();
+                vacante.setTitulo(titulo);
+                vacante.setFuente(PORTAL);
+                vacante.setHashDedup(sha256(PORTAL + "|" + id));
+                String ubicacion = textoONull(oferta, "location");
+                vacante.setUbicacion(ubicacion);
+                vacante.setCiudad(extraerCiudad(ubicacion));
+                vacante.setRangoSalarial(textoONull(oferta, "salary"));
+
+                // Cargos equivalentes + tags alimentan los términos del matching.
+                String descripcion = (textoPlano(oferta, "equivalentPositions")
+                        + " " + textoPlano(oferta, "tags")).trim();
+                if (!descripcion.isBlank()) vacante.setDescripcion(descripcion);
+
+                String dataUrl = card.attr("data-url");
+                if (!dataUrl.isBlank()) {
+                    String fullUrl = dataUrl.startsWith("http") ? dataUrl : SITE_ROOT + dataUrl;
+                    vacante.setUrlOrigen(fullUrl);
+                    vacante.setUrlAplicar(fullUrl);
+                }
+
+                vacante.setSegmento(Segmento.LOCAL_COLOMBIA);
+                vacante.setActivo(true);
+                vacante.setFechaPublicacion(java.time.LocalDateTime.now());
+
+                resultados.add(new OfertaCruda(vacante, textoONull(oferta, "company")));
+            } catch (Exception e) {
+                log.warn("Error parseando oferta en Elempleo: {}", e.getMessage());
+            }
+        }
+        return resultados;
+    }
+
+    private static String extraerCiudad(String ubicacion) {
+        if (ubicacion == null || ubicacion.isBlank()) return null;
+        String lower = ubicacion.toLowerCase();
+        if (lower.contains("barranquilla")) return "Barranquilla";
+        if (lower.contains("soledad")) return "Soledad";
+        if (lower.contains("malambo")) return "Malambo";
+        if (lower.contains("galapa")) return "Galapa";
+        if (lower.contains("puerto colombia")) return "Puerto Colombia";
+        if (lower.contains("sabanalarga")) return "Sabanalarga";
+        if (lower.contains("atlantico") || lower.contains("atlántico")) return "Barranquilla";
+        if (lower.contains("bogota") || lower.contains("bogotá")) return "Bogotá";
+        if (lower.contains("medellin") || lower.contains("medellín")) return "Medellín";
+        if (lower.contains("cali")) return "Cali";
+        if (lower.contains("cartagena")) return "Cartagena";
+        if (lower.contains("santa marta")) return "Santa Marta";
+        return ubicacion;
     }
 
     private static String textoONull(JsonNode nodo, String campo) {

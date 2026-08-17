@@ -14,6 +14,7 @@ import com.novacrm.estudiante.EstudianteRepository;
 import com.novacrm.excel.dto.ResultadoImportacionCrm;
 import com.novacrm.excel.dto.ResultadoImportacionCrm.ColumnaReconocida;
 import com.novacrm.excel.dto.ResultadoImportacionCrm.FilaConError;
+import com.novacrm.excel.libro.AnalisisDeLibro;
 import com.novacrm.excel.libro.DestinoDeHoja;
 import com.novacrm.excel.libro.HojaLeida;
 import com.novacrm.excel.libro.LectorDeLibro;
@@ -50,6 +51,8 @@ public class ImportacionCrmService {
     private final ColocacionRepository colocacionRepository;
     private final ColocacionService colocacionService;
     private final ReconocimientoConIa reconocimientoConIa;
+    private final RegistroDeImportaciones registro;
+    private final PlanesDeImportacion planes;
 
     public ImportacionCrmService(ColumnMapper columnMapper,
                                  EmpresaRepository empresaRepository,
@@ -57,7 +60,9 @@ public class ImportacionCrmService {
                                  EstudianteRepository estudianteRepository,
                                  ColocacionRepository colocacionRepository,
                                  ColocacionService colocacionService,
-                                 ReconocimientoConIa reconocimientoConIa) {
+                                 ReconocimientoConIa reconocimientoConIa,
+                                 RegistroDeImportaciones registro,
+                                 PlanesDeImportacion planes) {
         this.columnMapper = columnMapper;
         this.empresaRepository = empresaRepository;
         this.empresaService = empresaService;
@@ -65,15 +70,29 @@ public class ImportacionCrmService {
         this.colocacionRepository = colocacionRepository;
         this.colocacionService = colocacionService;
         this.reconocimientoConIa = reconocimientoConIa;
+        this.registro = registro;
+        this.planes = planes;
     }
 
     // ── Empresas ────────────────────────────────────────────────────────────
 
     @Transactional
     public ResultadoImportacionCrm importarEmpresas(MultipartFile archivo, boolean simular) {
-        return importarEmpresas(hojaUnica(archivo, DestinoDeHoja.EMPRESAS,
-                "Falta la columna con el nombre de la empresa. Titúlala «Empresa» o «Razón social»."),
-                simular);
+        return importarEmpresas(archivo, simular, null);
+    }
+
+    /**
+     * @param planId análisis ya aprobado que hay que repetir tal cual; nulo
+     *               para analizar el archivo de nuevo
+     */
+    @Transactional
+    public ResultadoImportacionCrm importarEmpresas(MultipartFile archivo, boolean simular, UUID planId) {
+        var analisis = analizar(archivo, planId, DestinoDeHoja.EMPRESAS,
+                "Falta la columna con el nombre de la empresa. Titúlala «Empresa» o «Razón social».");
+        var resultado = importarEmpresas(analisis.hoja(), simular)
+                .conPlan(guardarSiSimula(archivo, simular, planId, analisis));
+        anotar("CRM", archivo, simular, resultado);
+        return resultado;
     }
 
     /** Misma pasada sobre una hoja ya leída, para la importación de libro completo. */
@@ -143,8 +162,21 @@ public class ImportacionCrmService {
 
     @Transactional
     public ResultadoImportacionCrm importarColocaciones(MultipartFile archivo, boolean simular, String autor) {
-        return importarColocaciones(hojaUnica(archivo, DestinoDeHoja.COLOCACIONES,
-                "Falta la columna «Empresa»."), simular, autor);
+        return importarColocaciones(archivo, simular, autor, null);
+    }
+
+    /**
+     * @param planId análisis ya aprobado que hay que repetir tal cual; nulo
+     *               para analizar el archivo de nuevo
+     */
+    @Transactional
+    public ResultadoImportacionCrm importarColocaciones(MultipartFile archivo, boolean simular,
+                                                        String autor, UUID planId) {
+        var analisis = analizar(archivo, planId, DestinoDeHoja.COLOCACIONES, "Falta la columna «Empresa».");
+        var resultado = importarColocaciones(analisis.hoja(), simular, autor)
+                .conPlan(guardarSiSimula(archivo, simular, planId, analisis));
+        anotar("CRM", archivo, simular, resultado);
+        return resultado;
     }
 
     /** Misma pasada sobre una hoja ya leída, para la importación de libro completo. */
@@ -161,6 +193,15 @@ public class ImportacionCrmService {
                 ? new ResolutorDeParticipante(estudianteRepository) : null;
 
         var errores = new ArrayList<FilaConError>();
+        // Estudiantes ya tratados en ESTE archivo.
+        //
+        // Que una fila corrija una colocacion ya guardada es deliberado —una
+        // vigente por estudiante, para no abrir dos empleos simultaneos—, pero
+        // dos filas del mismo archivo son otra cosa: la segunda pisaba a la
+        // primera en silencio y el resumen contaba las dos como importadas. Al
+        // final la persona quedaba con un solo empleo y nadie sabia cual de los
+        // dos se habia perdido.
+        var yaTratados = new HashSet<java.util.UUID>();
         int creados = 0;
         int actualizados = 0;
 
@@ -187,6 +228,15 @@ public class ImportacionCrmService {
             if (estudiante.isEmpty()) {
                 errores.add(new FilaConError(fila.numeroFila(),
                         "No hay ningún estudiante con ese documento o correo"));
+                continue;
+            }
+
+            if (!yaTratados.add(estudiante.get().getId())) {
+                // Se avisa y se salta, en vez de pisar. Cual de las dos filas
+                // es la buena lo sabe quien hizo el archivo, no nosotros.
+                errores.add(new FilaConError(fila.numeroFila(),
+                        "Este participante ya aparece en otra fila de este archivo. "
+                        + "Se importó la primera; revisa cuál de las dos vale y súbela aparte."));
                 continue;
             }
 
@@ -314,13 +364,31 @@ public class ImportacionCrmService {
     }
 
     /**
-     * Busca en el libro la única hoja que corresponde a un destino.
+     * Decide qué hoja del archivo se importa y con qué mapeo.
+     *
+     * <p>Con {@code planId} se repite el análisis que ya se aprobó: se
+     * comprueba que el archivo sea el mismo por su huella y se aplican el
+     * destino y las columnas que se enseñaron en la previsualización, sin
+     * volver a consultar el diccionario ni la IA. Sin plan se analiza, que es
+     * lo que hace la previsualización.
      *
      * <p>Estos endpoints reciben un archivo pensando en una sola tabla, pero el
      * archivo que manda el equipo trae siete hojas. Se busca la que encaja en
      * vez de asumir que es la primera, que era leer el tablero de indicadores.
      */
-    private HojaLeida hojaUnica(MultipartFile archivo, DestinoDeHoja destino, String siNoHay) {
+    private LectorDeLibro.HojaClasificada analizar(MultipartFile archivo, UUID planId,
+                                                   DestinoDeHoja destino, String siNoHay) {
+        if (planId != null) {
+            // El plan de estos dos endpoints guarda solo la hoja elegida, asi
+            // que aqui no hay nada que elegir: es esa o el archivo cambio.
+            var releidas = LectorDeLibro.releer(archivo, planes.recuperar(planId, archivo));
+            return releidas.stream()
+                    .filter(LectorDeLibro.HojaClasificada::importable)
+                    .filter(c -> c.destino() == destino)
+                    .findFirst()
+                    .orElseThrow(() -> new com.novacrm.exception.BusinessException(siNoHay));
+        }
+
         var clasificadas = LectorDeLibro.leer(archivo, reconocimientoConIa);
         var candidatas = clasificadas.stream()
                 .filter(LectorDeLibro.HojaClasificada::importable)
@@ -339,7 +407,42 @@ public class ImportacionCrmService {
         // la que más columnas reconocidas aporta.
         return candidatas.stream()
                 .max(Comparator.comparingInt(c -> c.hoja().columnas().size()))
-                .orElseThrow()
-                .hoja();
+                .orElseThrow();
+    }
+
+    /**
+     * Guarda el análisis si esto fue una previsualización.
+     *
+     * <p>Se guarda solo la hoja elegida, no el libro entero: es la única sobre
+     * la que se enseñó algo, y confirmar tiene que ejecutar exactamente eso.
+     */
+    private UUID guardarSiSimula(MultipartFile archivo, boolean simular, UUID planId,
+                                 LectorDeLibro.HojaClasificada elegida) {
+        if (!simular) {
+            return planId;
+        }
+        return planes.guardar(archivo, new AnalisisDeLibro(List.of(elegida.analisis())));
+    }
+
+    /**
+     * Deja constancia de la carga, si de verdad escribió.
+     *
+     * <p>La simulación no se anota: no cambia nada, y registrarla llenaría el
+     * historial de líneas que no corresponden a ningún dato.
+     */
+    private void anotar(String origen, MultipartFile archivo, boolean simular,
+                        ResultadoImportacionCrm resultado) {
+        if (simular) {
+            return;
+        }
+        registro.anotar(origen,
+                archivo == null ? null : archivo.getOriginalFilename(),
+                null,
+                resultado.creados(),
+                resultado.actualizados(),
+                resultado.omitidos(),
+                resultado.errores().stream()
+                        .map(e -> "Fila " + e.fila() + ": " + e.motivo())
+                        .toList());
     }
 }

@@ -103,7 +103,10 @@ public class ImportacionDePostulaciones {
                         fecha(fila.texto("fechaPostulacion")),
                         estado(fila),
                         cortar(fila.texto("urlOferta"), 1000),
-                        observaciones(fila));
+                        observaciones(fila),
+                        // El libro de seguimiento no trae cita ni contacto: son
+                        // datos que el equipo apunta despues, ya dentro del CRM.
+                        null, null, null, null, null, null, null);
 
                 if (!simular) {
                     postulacionService.crear(estudiante.getId(), datos,

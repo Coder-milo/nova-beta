@@ -22,7 +22,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowsClockwiseIcon as ArrowsClockwise, CircleNotchIcon as CircleNotch, EnvelopeIcon as Envelope, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CircleAlert as WarningCircle, LoaderCircle as CircleNotch, Mail as Envelope, RefreshCw as ArrowsClockwise } from 'lucide-react'
 import { ApiCallError, correosApi, programasApi } from '@/lib/api'
 import type { TipoCorreo } from '@/lib/api'
 import type { ProgramaResponse } from '@/lib/types'
@@ -118,7 +118,7 @@ export function VistaPreviaCorreos() {
     <Card className="rounded-lg border-border shadow-none">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Envelope className="size-4 text-primary" weight="duotone" />
+          <Envelope className="size-4 text-primary" />
           {T.correosQueEnvia}
         </CardTitle>
         <CardDescription>{T.miralosAntesDe}</CardDescription>

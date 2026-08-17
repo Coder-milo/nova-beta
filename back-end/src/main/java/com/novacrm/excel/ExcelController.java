@@ -62,6 +62,13 @@ public class ExcelController {
     // Van por su propia ruta y no por la de estudiantes porque la hoja, la
     // deduplicacion y las validaciones son otras. El parametro `simular` corre
     // la misma pasada sin escribir: es lo que alimenta la vista previa.
+    //
+    // `planId` es lo que devuelve esa vista previa. Mandarlo de vuelta al
+    // importar de verdad significa «ejecuta el analisis que enseñaste»: mismo
+    // destino de hoja y mismo campo por columna, sin volver a preguntarle a la
+    // IA, que no responde igual dos veces. Sin `planId` se analiza otra vez,
+    // que es lo que hacia siempre y por lo que lo revisado podia no ser lo
+    // escrito.
 
     // ── Libro completo ───────────────────────────────────────────────────────
 
@@ -71,17 +78,19 @@ public class ExcelController {
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public ResultadoImportacionLibro importarLibro(@RequestParam MultipartFile archivo,
                                                    @RequestParam(defaultValue = "false") boolean simular,
+                                                   @RequestParam(required = false) UUID planId,
                                                    Authentication auth) {
         return importacionDeLibro.importar(archivo, simular,
-                auth != null ? auth.getName() : "sistema");
+                auth != null ? auth.getName() : "sistema", planId);
     }
 
     @PostMapping(value = "/empresas", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Importar empresas desde Excel (.xlsx o .xls)")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public ResultadoImportacionCrm importarEmpresas(@RequestParam MultipartFile archivo,
-                                                    @RequestParam(defaultValue = "false") boolean simular) {
-        return importacionCrmService.importarEmpresas(archivo, simular);
+                                                    @RequestParam(defaultValue = "false") boolean simular,
+                                                    @RequestParam(required = false) UUID planId) {
+        return importacionCrmService.importarEmpresas(archivo, simular, planId);
     }
 
     @PostMapping(value = "/colocaciones", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -89,8 +98,9 @@ public class ExcelController {
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public ResultadoImportacionCrm importarColocaciones(@RequestParam MultipartFile archivo,
                                                         @RequestParam(defaultValue = "false") boolean simular,
+                                                        @RequestParam(required = false) UUID planId,
                                                         Authentication auth) {
         return importacionCrmService.importarColocaciones(archivo, simular,
-                auth != null ? auth.getName() : "sistema");
+                auth != null ? auth.getName() : "sistema", planId);
     }
 }

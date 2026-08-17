@@ -288,6 +288,29 @@ export const dashboardApi = {
     apiFetch<DashboardChartsResponse>('/api/v1/dashboard/charts', { token }),
   alerts: (token?: string) =>
     apiFetch<AlertaResponse[]>('/api/v1/dashboard/alerts', { token }),
+
+  /**
+   * Participantes por municipio del Atlántico.
+   *
+   * Sin `programaId` devuelve el departamento entero. Es el mismo endpoint
+   * para «todos» y para un proyecto concreto: dos que calculen lo mismo con un
+   * filtro de diferencia acaban divergiendo, y el total de uno deja de cuadrar
+   * con la suma de los otros.
+   */
+  mapaAtlantico: (programaId?: string) =>
+    apiFetch<MapaDelAtlantico>(
+      `/api/v1/dashboard/mapa-atlantico${programaId ? `?programaId=${programaId}` : ''}`),
+}
+
+export interface MapaDelAtlantico {
+  /** Los 23, siempre, incluidos los que están a cero. */
+  municipios: { codigo: string; nombre: string; estudiantes: number }[]
+  /** Ciudades escritas en la ficha que no son del departamento, tal cual. */
+  sinUbicar: { ciudad: string; estudiantes: number }[]
+  /** Fichas sin ciudad. Aparte: le falta el dato, no está mal escrito. */
+  sinDato: number
+  /** Municipios + sin ubicar + sin dato tiene que dar esto. */
+  total: number
 }
 
 // ─── Programas ───────────────────────────────────────────────────────────────
@@ -319,7 +342,7 @@ export const programasApi = {
 
 // ─── Estudiantes ─────────────────────────────────────────────────────────────
 
-import type { EstudianteResponse, EstudianteRequest, Page, PreparacionEstudianteRequest } from './types'
+import type { EstudianteResponse, EstudianteRequest, Page, PreparacionEstudianteRequest, ResponsablePosible } from './types'
 
 export const estudiantesApi = {
   listar: (programaId: string, page = 0, size = 20, token?: string) =>
@@ -378,6 +401,28 @@ export const estudiantesApi = {
       data: { ids, permanente },
       token,
     }),
+  /**
+   * Asigna —o quita— el responsable de varios participantes de una vez.
+   *
+   * `responsableId` en null los deja sin responsable. No es un caso raro: es
+   * como se libera el trabajo de alguien que deja el programa.
+   */
+  asignarResponsableMasivo: (ids: string[], responsableId: string | null, token?: string) =>
+    apiFetch<{ actualizados: number }>('/api/v1/estudiantes/responsable-masivo', {
+      method: 'PATCH',
+      data: { ids, responsableId },
+      token,
+    }),
+  /** Las cuentas del equipo que pueden llevar casos, con cuántos lleva cada una. */
+  responsables: (token?: string) =>
+    apiFetch<ResponsablePosible[]>('/api/v1/estudiantes/responsables', { token }),
+  /** «Mis estudiantes». Sin `responsableId` devuelve los que no lleva nadie. */
+  porResponsable: (responsableId?: string, page = 0, size = 20, token?: string) =>
+    apiFetch<Page<EstudianteResponse>>(
+      `/api/v1/estudiantes/por-responsable?page=${page}&size=${size}`
+        + (responsableId ? `&responsableId=${responsableId}` : ''),
+      { token },
+    ),
   buscarAvanzado: (params: { q?: string; programaId?: string; ciudad?: string; estadoAcademico?: string; estadoEmpleabilidad?: string; page?: number; size?: number }, token?: string) =>
     apiFetch<Page<EstudianteResponse>>(`/api/v1/estudiantes/buscar?${aQueryParams({ ...params, page: params.page ?? 0, size: params.size ?? 20 })}`, { token }),
   subirFoto: (id: string, archivo: File, token?: string) =>
@@ -421,19 +466,30 @@ import type {
   ResultadoImportacionLibro,
 } from './types'
 
+/**
+ * `planId` es lo que devuelve la simulación.
+ *
+ * Mandarlo de vuelta al importar de verdad significa «ejecuta el análisis que
+ * enseñaste»: mismo destino de hoja y mismo campo por columna. Sin él el
+ * backend vuelve a analizar el archivo, y como el reconocimiento se apoya en la
+ * IA el segundo análisis puede no coincidir con el que se revisó.
+ */
+const conPlan = (base: string, simular: boolean, planId?: string | null) =>
+  `${base}?simular=${simular}${planId ? `&planId=${planId}` : ''}`
+
 export const importarCrmApi = {
-  empresas: (archivo: File, simular = false, token?: string) =>
-    apiUpload<ResultadoImportacionCrm>(`/api/v1/importar/empresas?simular=${simular}`, { archivo }, token),
-  colocaciones: (archivo: File, simular = false, token?: string) =>
-    apiUpload<ResultadoImportacionCrm>(`/api/v1/importar/colocaciones?simular=${simular}`, { archivo }, token),
+  empresas: (archivo: File, simular = false, planId?: string | null, token?: string) =>
+    apiUpload<ResultadoImportacionCrm>(conPlan('/api/v1/importar/empresas', simular, planId), { archivo }, token),
+  colocaciones: (archivo: File, simular = false, planId?: string | null, token?: string) =>
+    apiUpload<ResultadoImportacionCrm>(conPlan('/api/v1/importar/colocaciones', simular, planId), { archivo }, token),
   /**
    * Libro completo: una sola subida para un archivo con varias pestañas.
    *
    * Cada hoja se manda a su destino —participantes, empresas, postulaciones,
    * colocaciones— y las que no son datos importables se informan con su motivo.
    */
-  libro: (archivo: File, simular = false, token?: string) =>
-    apiUpload<ResultadoImportacionLibro>(`/api/v1/importar/libro?simular=${simular}`, { archivo }, token),
+  libro: (archivo: File, simular = false, planId?: string | null, token?: string) =>
+    apiUpload<ResultadoImportacionLibro>(conPlan('/api/v1/importar/libro', simular, planId), { archivo }, token),
 }
 
 /** Un correo automático del sistema, tal como lo describe el backend. */
@@ -454,14 +510,181 @@ export const correosApi = {
     apiText(`/api/v1/correos/vista-previa/${tipo}${programaId ? `?programaId=${programaId}` : ''}`),
 }
 
+/**
+ * Los informes que sabe generar el backend.
+ *
+ * `perfiles-laborales` es el que se le manda a una empresa: lleva el perfil
+ * —experiencia, inglés, habilidades— y **no** documento, correo ni celular.
+ * `panorama` es el interno: en PDF sale con gráficos; en xlsx y csv, las mismas
+ * cifras en tabla.
+ */
+export type TipoDeReporte =
+  | 'estudiantes'
+  | 'empleabilidad'
+  | 'academico'
+  | 'proyectos'
+  | 'perfiles-laborales'
+  | 'panorama'
+
 export const reportesApi = {
-  exportar: (tipo: string, formato: 'xlsx' | 'pdf' | 'csv', programaId?: string) =>
+  /** @param vacanteId acota el banco de perfiles a quienes se postularon a esa oferta. */
+  exportar: (
+    tipo: TipoDeReporte,
+    formato: 'xlsx' | 'pdf' | 'csv',
+    programaId?: string,
+    vacanteId?: string,
+  ) =>
     apiDownload(
-      `/api/v1/reportes/${tipo}/export?formato=${formato}${programaId ? `&programaId=${programaId}` : ''}`,
+      `/api/v1/reportes/${tipo}/export?formato=${formato}`
+        + (programaId ? `&programaId=${programaId}` : '')
+        + (vacanteId ? `&vacanteId=${vacanteId}` : ''),
       // La fecha en el nombre evita el «reporte-estudiantes (3).xlsx» de la
       // carpeta de descargas cuando se saca el mismo informe varias veces.
       `reporte-${tipo}-${new Date().toISOString().slice(0, 10)}.${formato}`,
     ),
+
+  /**
+   * El catálogo de columnas elegibles.
+   *
+   * Lo decide el backend y no esta pantalla: si la lista viviera aquí, pedir
+   * una columna que el servidor no conoce sería un error en la descarga en vez
+   * de una casilla que no aparece.
+   */
+  columnas: () => apiFetch<ColumnaDeInforme[]>('/api/v1/reportes/columnas'),
+
+  /** Las ciudades escritas en las fichas; el filtro compara por igualdad. */
+  ciudades: () => apiFetch<string[]>('/api/v1/reportes/ciudades'),
+
+  /** Va por POST: la lista de columnas no cabe cómoda en una URL. */
+  exportarPersonalizado: (
+    cuerpo: InformeAMedida,
+    formato: 'xlsx' | 'pdf' | 'csv',
+  ) =>
+    apiDownload(
+      `/api/v1/reportes/personalizado/export?formato=${formato}`,
+      `informe-a-medida-${new Date().toISOString().slice(0, 10)}.${formato}`,
+      { method: 'POST', data: cuerpo },
+    ),
+}
+
+/** Una columna del catálogo cerrado de informes. */
+export interface ColumnaDeInforme {
+  id: string
+  etiqueta: string
+  /** Identifica o permite contactar a la persona. No se bloquea; se avisa. */
+  personal: boolean
+}
+
+export interface InformeAMedida {
+  columnas: string[]
+  programaId?: string
+  ciudad?: string
+  estadoAcademico?: string
+}
+
+// ─── Fichas duplicadas de empresa ────────────────────────────────────────────
+
+/** Cuántas filas cuelgan de una ficha; es lo que se movería al fusionar. */
+export interface RegistrosDeEmpresa {
+  vacantes: number
+  acercamientos: number
+  postulaciones: number
+  colocaciones: number
+  cuentas: number
+  total: number
+}
+
+export interface PosibleDuplicado {
+  fichas: { id: string; nombre: string; registros: number }[]
+}
+
+export const duplicadosEmpresaApi = {
+  /** Sugerencias, no decisiones: dos nombres casi iguales pueden ser dos empresas. */
+  posibles: () =>
+    apiFetch<PosibleDuplicado[]>('/api/v1/empresas/posibles-duplicados'),
+
+  registros: (empresaId: string) =>
+    apiFetch<RegistrosDeEmpresa>(`/api/v1/empresas/${empresaId}/registros`),
+
+  /**
+   * `destinoId` se queda, `origenId` se absorbe y se desactiva.
+   * No se borra nada y no se pisa ningún dato. No se puede deshacer.
+   */
+  fusionar: (destinoId: string, origenId: string) =>
+    apiFetch<RegistrosDeEmpresa>(`/api/v1/empresas/${destinoId}/fusionar/${origenId}`,
+      { method: 'POST' }),
+}
+
+// ─── Cuentas del portal de empresas ──────────────────────────────────────────
+
+/**
+ * Una cuenta con la que una empresa aliada entra al portal.
+ *
+ * No se crea con contraseña: se invita, y la persona la define con el enlace
+ * que le llega. El equipo nunca escribe —ni ve— la clave de nadie de fuera.
+ */
+export interface CuentaDelPortal {
+  id: string
+  email: string
+  nombre: string
+  activa: boolean
+  /** Invitada y todavía sin entrar: el enlace sigue vivo. */
+  invitacionPendiente: boolean
+}
+
+export const cuentasEmpresaApi = {
+  listar: (empresaId: string) =>
+    apiFetch<CuentaDelPortal[]>(`/api/v1/empresas/${empresaId}/cuentas`),
+
+  /** Manda el correo con el enlace. Reinvitar al mismo correo lo reenvía. */
+  invitar: (empresaId: string, email: string, nombre?: string) =>
+    apiFetch<{ usuarioId: string; email: string; empresaNombre: string; correoEnviado: boolean; detalle: string }>(
+      `/api/v1/empresas/${empresaId}/cuentas`,
+      { method: 'POST', data: { email, nombre } }),
+
+  /** Desactiva y corta las sesiones abiertas. No borra: la auditoría se conserva. */
+  revocar: (empresaId: string, usuarioId: string) =>
+    apiFetch<{ mensaje: string }>(`/api/v1/empresas/${empresaId}/cuentas/${usuarioId}`,
+      { method: 'DELETE' }),
+}
+
+// ─── Captación pública ───────────────────────────────────────────────────────
+
+/**
+ * Lo que manda una empresa sin cuenta.
+ *
+ * No hay campo de enlace a propósito: el alta interna acepta una URL y la lee
+ * para completar datos, y hacerlo sin autenticar convertiría al servidor en un
+ * cliente HTTP a las órdenes de cualquiera.
+ */
+export interface SolicitudPublicaDeVacante {
+  empresa: string
+  contacto: string
+  email: string
+  telefono: string
+  titulo: string
+  descripcion: string
+  requisitos: string
+  ciudad: string
+  modalidad: string
+  tipoContrato: string
+  rangoSalarial: string
+  /** Campo trampa: escondido en la pantalla, tiene que llegar vacío. */
+  apodo: string
+}
+
+export const captacionPublicaApi = {
+  /**
+   * La única escritura que se hace sin sesión.
+   *
+   * Devuelve siempre la misma frase, sin identificador: la respuesta a una
+   * petición anónima no debe servir para averiguar nada del sistema.
+   */
+  proponerVacante: (cuerpo: SolicitudPublicaDeVacante) =>
+    apiFetch<{ mensaje: string }>('/api/v1/publico/vacantes', {
+      method: 'POST',
+      data: cuerpo,
+    }),
 }
 
 export const importarApi = {
@@ -483,7 +706,7 @@ export const importarExtApi = {
 
 // ─── Vacantes ────────────────────────────────────────────────────────────────
 
-import type { VacanteRequest, VacanteResponse } from './types'
+import type { VacanteRequest, VacanteResponse, EjecucionDeScraping } from './types'
 
 export const vacantesApi = {
   listar: (page = 0, size = 20, token?: string) =>
@@ -532,6 +755,15 @@ export const vacantesApi = {
   /** Escanea los portales de empleo bajo demanda (COORDINADOR/ADMIN). */
   escanear: (token?: string) =>
     apiFetch<{ vacantesNuevas: number }>('/api/v1/vacantes/scraping', { method: 'POST', token }),
+  /**
+   * Las últimas corridas de actualización, con sus errores.
+   *
+   * Responde «¿desde cuándo no entra nada de este portal?». Un portal cuyos
+   * selectores se caen no falla: responde 200 y devuelve cero, así que sin ver
+   * la serie el síntoma es igual que una semana floja de ofertas.
+   */
+  ejecuciones: (token?: string) =>
+    apiFetch<EjecucionDeScraping[]>('/api/v1/vacantes/scraping/ejecuciones', { token }),
 }
 
 // ─── Matches ─────────────────────────────────────────────────────────────────
@@ -1041,7 +1273,7 @@ export const plataformasApi = {
     }),
 }
 
-import type { EmpresaRequest, EmpresaResponse, EstadoRelacionEmpresa } from './types'
+import type { ContactoEmpresaResponse, EmpresaRequest, EmpresaResponse, EstadoRelacionEmpresa } from './types'
 
 /**
  * Plantillas de correo: editor con variables, previsualización y envío masivo.
@@ -1092,7 +1324,8 @@ export type HitoPreparacion =
 export type EstadoHito = 'NO' | 'EN_PROCESO' | 'SI'
 
 export const tableroApi = {
-  obtener: (token?: string) => apiFetch<Tablero>('/api/v1/seguimiento/tablero', { token }),
+  obtener: (programaId?: string, token?: string) =>
+    apiFetch<Tablero>(`/api/v1/seguimiento/tablero${programaId ? `?programaId=${programaId}` : ''}`, { token }),
   /**
    * Cambia el estado de contacto de un estudiante.
    *
@@ -1118,6 +1351,14 @@ export const empresasApi = {
   eliminar: (id: string, token?: string) => apiFetch<void>(`/api/v1/empresas/${id}`, { method: 'DELETE', token }),
   registrarContacto: (id: string, data: { estado?: EstadoRelacionEmpresa; proximoPaso?: string; nota?: string }) =>
     apiFetch<EmpresaResponse>(`/api/v1/empresas/${id}/contacto`, { method: 'POST', data }),
+  /**
+   * El historial de acercamientos, lo más reciente primero.
+   *
+   * La tabla existía desde la migración V9 y nadie la leía ni la escribía: cada
+   * nota se pegaba al campo de texto de la ficha.
+   */
+  contactos: (id: string, token?: string) =>
+    apiFetch<ContactoEmpresaResponse[]>(`/api/v1/empresas/${id}/contactos`, { token }),
 }
 
 // ─── Actividades ─────────────────────────────────────────────────────────────
@@ -1284,9 +1525,19 @@ import type {
   ColocacionResponse,
   CanalDeSoporteResponse,
   MensajeWhatsappResponse,
+  CitaRequest,
+  HitoDeLaLinea,
+  ModalidadEntrevista,
+  ModuloDeVista,
+  VistaGuardada,
+  MovimientoDeEmpresa,
+  PerfilLaboral,
   PipelineEmpleabilidadResponse,
   PostulacionResponse,
+  MiPostulacion,
   ResumenColocaciones,
+  VacanteDelPortal,
+  VacanteEntrante,
   ResumenPostulaciones,
   ResultadoEnvio,
   WhatsappRequest,
@@ -1327,8 +1578,13 @@ export const pipelineApi = {
 }
 
 export const postulacionesApi = {
+  /**
+   * Lo del propio estudiante, recortado: sin los campos de gestión del equipo.
+   * Ver `MiPostulacion`.
+   */
   mias: (token?: string) =>
-    apiFetch<PostulacionResponse[]>('/api/v1/postulaciones/mias', { token }),
+    apiFetch<MiPostulacion[]>('/api/v1/postulaciones/mias', { token }),
+  /** Vista de gestión. Solo COORDINADOR/ADMIN; un estudiante usa `mias`. */
   deEstudiante: (estudianteId: string, token?: string) =>
     apiFetch<PostulacionResponse[]>(`/api/v1/postulaciones?estudianteId=${estudianteId}`, { token }),
   // Los nombres siguen a los del controller (`miResumen`, `registrarPropia`).
@@ -1349,17 +1605,117 @@ export const postulacionesApi = {
       observaciones?: string | null
     },
     token?: string,
-  ) => apiFetch<PostulacionResponse>('/api/v1/postulaciones/mias', { method: 'POST', data: body, token }),
+  ) => apiFetch<MiPostulacion>('/api/v1/postulaciones/mias', { method: 'POST', data: body, token }),
   actualizar: (
     id: string,
-    body: { estado?: string; fechaRespuesta?: string | null; resultado?: string | null; observaciones?: string | null },
+    body: {
+      estado?: string
+      fechaRespuesta?: string | null
+      resultado?: string | null
+      observaciones?: string | null
+      canal?: string | null
+    } & CitaRequest,
     token?: string,
   ) => apiFetch<PostulacionResponse>(`/api/v1/postulaciones/${id}`, { method: 'PATCH', data: body, token }),
+  /**
+   * El mismo cambio de estado, hecho por el estudiante sobre lo suyo.
+   *
+   * Existe aparte porque `actualizar` devuelve el registro de gestión: si el
+   * portal lo usara, la respuesta del PATCH le devolvería los campos que
+   * `mias` ya no manda.
+   */
+  actualizarPropia: (id: string, body: { estado?: string; observaciones?: string | null }, token?: string) =>
+    apiFetch<MiPostulacion>(`/api/v1/postulaciones/mias/${id}`, { method: 'PATCH', data: body, token }),
+  /**
+   * Las citas de un tramo de fechas. Solo del equipo: es la agenda de todos.
+   *
+   * Las fechas van como `YYYY-MM-DD`; el backend abre el tramo a instantes por
+   * su cuenta para no dejar fuera las citas de la tarde del último día.
+   */
+  agenda: (desde: string, hasta: string, token?: string) =>
+    apiFetch<PostulacionResponse[]>(
+      `/api/v1/postulaciones/agenda?desde=${desde}&hasta=${hasta}`,
+      { token },
+    ),
+  /** Postulaciones vivas para el tablero. Las cerradas no salen. */
+  tablero: (programaId?: string, token?: string) =>
+    apiFetch<PostulacionResponse[]>(
+      `/api/v1/postulaciones/tablero${programaId ? `?programaId=${programaId}` : ''}`,
+      { token },
+    ),
+  /** Citas cuya hora pasó y siguen figurando como agendadas. */
+  agendaSinCerrar: (token?: string) =>
+    apiFetch<PostulacionResponse[]>('/api/v1/postulaciones/agenda/sin-cerrar', { token }),
   /** El controller responde con un mensaje, no con 204. */
   eliminar: (id: string, token?: string) =>
     apiFetch<{ mensaje?: string }>(`/api/v1/postulaciones/${id}`, { method: 'DELETE', token }),
   estados: (token?: string) =>
     apiFetch<Array<{ valor: string; etiqueta: string; esFinal: boolean }>>('/api/v1/postulaciones/estados', { token }),
+}
+
+/**
+ * Portal de empresas.
+ *
+ * Ninguna llamada manda el identificador de la empresa: el backend lo saca de
+ * la sesión. Enviarlo desde aquí sería ofrecer la oportunidad de cambiarlo.
+ */
+export const portalApi = {
+  vacantes: (token?: string) =>
+    apiFetch<VacanteDelPortal[]>('/api/v1/portal/vacantes', { token }),
+
+  crearVacante: (body: VacanteEntrante, borrador = false, token?: string) =>
+    apiFetch<VacanteDelPortal>(`/api/v1/portal/vacantes?borrador=${borrador}`, {
+      method: 'POST', data: body, token,
+    }),
+
+  editarVacante: (id: string, body: VacanteEntrante, enviar = true, token?: string) =>
+    apiFetch<VacanteDelPortal>(`/api/v1/portal/vacantes/${id}?enviar=${enviar}`, {
+      method: 'PUT', data: body, token,
+    }),
+
+  enviarVacante: (id: string, token?: string) =>
+    apiFetch<VacanteDelPortal>(`/api/v1/portal/vacantes/${id}/enviar`, { method: 'POST', token }),
+
+  cerrarVacante: (id: string, motivo?: string, token?: string) =>
+    apiFetch<VacanteDelPortal>(
+      `/api/v1/portal/vacantes/${id}/cerrar${motivo ? `?motivo=${motivo}` : ''}`,
+      { method: 'POST', token },
+    ),
+
+  postulantes: (token?: string) =>
+    apiFetch<PerfilLaboral[]>('/api/v1/portal/postulantes', { token }),
+
+  postulantesDeVacante: (vacanteId: string, token?: string) =>
+    apiFetch<PerfilLaboral[]>(`/api/v1/portal/postulantes/vacante/${vacanteId}`, { token }),
+
+  moverPostulacion: (
+    postulacionId: string,
+    body: { estado: MovimientoDeEmpresa; comentario?: string | null },
+    token?: string,
+  ) => apiFetch<PerfilLaboral>(`/api/v1/portal/postulantes/${postulacionId}`, {
+    method: 'PATCH', data: body, token,
+  }),
+
+  /**
+   * Agendar, mover o cancelar la entrevista.
+   *
+   * No lleva estado: poner fecha ya significa citar, y el backend lo deduce.
+   * Tampoco el correo del contacto, que el sistema ya tiene por la cuenta.
+   */
+  agendarCita: (
+    postulacionId: string,
+    body: {
+      fechaHoraEntrevista?: string | null
+      modalidad?: ModalidadEntrevista | null
+      lugar?: string | null
+      contactoNombre?: string | null
+      contactoTelefono?: string | null
+      cancelar?: boolean
+    },
+    token?: string,
+  ) => apiFetch<PerfilLaboral>(`/api/v1/portal/postulantes/${postulacionId}/cita`, {
+    method: 'POST', data: body, token,
+  }),
 }
 
 /** Resultados laborales verificados; sustituyen la hoja de vinculados. */
@@ -1422,4 +1778,30 @@ export const configuracionApi = {
       `/api/v1/configuracion/integraciones/${id}/probar`,
       { method: 'POST' },
     ),
+}
+
+/**
+ * Vistas guardadas de las listas.
+ *
+ * Los filtros viajan como JSON en una cadena: el servidor no los entiende ni
+ * falta que le haga, cada pantalla sabe qué significan los suyos.
+ */
+export const vistasApi = {
+  listar: (modulo: ModuloDeVista, token?: string) =>
+    apiFetch<VistaGuardada[]>(`/api/v1/vistas?modulo=${modulo}`, { token }),
+
+  /** Repetir el nombre sobrescribe la propia; no crea una segunda igual. */
+  guardar: (
+    body: { modulo: ModuloDeVista; nombre: string; filtros: string; compartida: boolean },
+    token?: string,
+  ) => apiFetch<VistaGuardada>('/api/v1/vistas', { method: 'POST', data: body, token }),
+
+  eliminar: (id: string, token?: string) =>
+    apiFetch<{ mensaje?: string }>(`/api/v1/vistas/${id}`, { method: 'DELETE', token }),
+}
+
+/** La historia unificada de un estudiante. Se compone en el servidor. */
+export const lineaDeTiempoApi = {
+  de: (estudianteId: string, token?: string) =>
+    apiFetch<HitoDeLaLinea[]>(`/api/v1/estudiantes/${estudianteId}/linea-de-tiempo`, { token }),
 }

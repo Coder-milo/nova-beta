@@ -95,5 +95,17 @@ public record EstudianteResponse(
         // ── Enlaces de trabajo ──────────────────────────────────────────────
         String carpetaUrl,
         String linkedinUrl,
-        UUID plantillaPreferidaId
+        UUID plantillaPreferidaId,
+
+        // ── Quien lleva el caso ─────────────────────────────────────────────
+        /**
+         * Cuenta de quien acompaña a este participante. Nulo = sin asignar, que
+         * es un estado normal y hay que poder verlo para repartir el trabajo.
+         *
+         * <p>No confundir con los campos de traza —quién escribió aquella nota,
+         * quién movió aquella postulación—: aquellos registran el pasado y se
+         * quedan quietos; esto es de quién es el caso hoy.
+         */
+        UUID responsableId,
+        String responsableNombre
 ) {}

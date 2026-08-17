@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from '@/compat/next-link'
-import { BellIcon as Bell, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CalendarBlankIcon as CalendarBlank, CircleNotchIcon as CircleNotch, FileTextIcon as FileText, GlobeIcon as Globe, InfoIcon as Info, MoonIcon as Moon, SunIcon as Sun, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { ProximasCitas } from '@/components/student/proximas-citas'
+import { Bell, Calendar as CalendarBlank, ChevronLeft as CaretLeft, ChevronRight as CaretRight, CircleAlert as WarningCircle, FileText, Globe, Info, LoaderCircle as CircleNotch, Moon, Sun } from 'lucide-react'
 import {
   actividadesApi,
   estudiantesApi,
@@ -430,7 +431,15 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
       )}
 
       {/* ── Actividades / Calendario ───────────────────────────── */}
-      {(area === 'actividades' || area === 'calendario') && <CalendarioEstudiante actividades={actividades} />}
+      {/* Las entrevistas van antes del calendario de actividades del proyecto.
+          Quien entra a «mi calendario» viene casi siempre a comprobar la hora
+          de su cita, y estaba en la única pantalla donde no aparecía. */}
+      {(area === 'actividades' || area === 'calendario') && (
+        <>
+          <ProximasCitas />
+          <CalendarioEstudiante actividades={actividades} />
+        </>
+      )}
 
       {/* ── Documentos ─────────────────────────────────────────── */}
       {area === 'documentos' && (

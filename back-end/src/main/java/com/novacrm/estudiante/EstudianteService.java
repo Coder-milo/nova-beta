@@ -29,6 +29,8 @@ public class EstudianteService {
     private final com.novacrm.colocacion.ColocacionRepository colocacionRepository;
     private final com.novacrm.documento.StorageService storageService;
     private final com.novacrm.hv.PlantillaHvRepository plantillaHvRepository;
+    private final com.novacrm.auth.UsuarioRepository usuarioRepository;
+    private final AsignacionAutomatica asignacionAutomatica;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -39,7 +41,9 @@ public class EstudianteService {
                              com.novacrm.auditoria.AuditoriaService auditoriaService,
                              com.novacrm.colocacion.ColocacionRepository colocacionRepository,
                              com.novacrm.documento.StorageService storageService,
-                             com.novacrm.hv.PlantillaHvRepository plantillaHvRepository) {
+                             com.novacrm.hv.PlantillaHvRepository plantillaHvRepository,
+                             com.novacrm.auth.UsuarioRepository usuarioRepository,
+                             AsignacionAutomatica asignacionAutomatica) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
         this.nivelInglesRepository = nivelInglesRepository;
@@ -47,7 +51,79 @@ public class EstudianteService {
         this.colocacionRepository = colocacionRepository;
         this.storageService = storageService;
         this.plantillaHvRepository = plantillaHvRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.asignacionAutomatica = asignacionAutomatica;
     }
+
+    // ── Quien lleva cada caso ───────────────────────────────────────────────
+
+    /**
+     * Asigna —o quita— el responsable de varios participantes de una vez.
+     *
+     * <p>Es la acción que faltaba en el punto 5: repartir una cohorte de ciento
+     * y pico de uno en uno es lo que hace que el equipo vuelva a la hoja de
+     * cálculo.
+     *
+     * @param responsableId a quién se le asignan; {@code null} los deja sin
+     *                      responsable, que es como se libera el trabajo de
+     *                      alguien que se va
+     * @return cuántos se cambiaron de verdad
+     */
+    @Transactional
+    public int asignarResponsableMasivo(List<UUID> ids, UUID responsableId) {
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+        com.novacrm.auth.Usuario responsable = null;
+        if (responsableId != null) {
+            responsable = usuarioRepository.findById(responsableId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+            // Un estudiante no puede llevar casos, y una cuenta de empresa
+            // menos: el desplegable ya solo ofrece al equipo, pero el endpoint
+            // lo recibe por parametro y aqui es donde se comprueba.
+            if (!puedeLlevarCasos(responsable)) {
+                throw new com.novacrm.exception.BusinessException(
+                        "Solo una cuenta del equipo puede ser responsable de un participante");
+            }
+        }
+
+        int cambiados = 0;
+        for (Estudiante estudiante : estudianteRepository.findAllById(ids)) {
+            UUID actual = estudiante.getResponsable() == null ? null : estudiante.getResponsable().getId();
+            if (java.util.Objects.equals(actual, responsableId)) {
+                // Reasignar a quien ya lo tenia no es un cambio: contarlo
+                // inflaria el "42 actualizados" que se le enseña a quien pulsa.
+                continue;
+            }
+            estudiante.setResponsable(responsable);
+            cambiados++;
+        }
+        estudianteRepository.flush();
+        return cambiados;
+    }
+
+    /** COORDINADOR y ADMIN llevan casos; ESTUDIANTE y EMPRESA, no. */
+    private static boolean puedeLlevarCasos(com.novacrm.auth.Usuario usuario) {
+        return usuario.getRoles() != null && usuario.getRoles().stream()
+                .anyMatch(r -> r == com.novacrm.auth.Rol.COORDINADOR || r == com.novacrm.auth.Rol.ADMIN);
+    }
+
+    /** Las cuentas que pueden aparecer en el desplegable de responsable. */
+    public List<ResponsablePosible> responsablesPosibles() {
+        return usuarioRepository.findAll().stream()
+                .filter(u -> u.isActivo() && puedeLlevarCasos(u))
+                .map(u -> new ResponsablePosible(u.getId(), nombreDe(u), u.getEmail(),
+                        estudianteRepository.countByResponsableIdAndActivoTrue(u.getId())))
+                .sorted(java.util.Comparator.comparing(ResponsablePosible::nombre,
+                        String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    /**
+     * @param aCargo cuántos lleva ya. Se muestra en el desplegable: repartir a
+     *               ciegas es como una persona acaba con ochenta y otra con seis
+     */
+    public record ResponsablePosible(UUID id, String nombre, String email, long aCargo) {}
 
     public Page<EstudianteResponse> listarPorPrograma(UUID programaId, Pageable pageable) {
         return estudianteRepository.findByProgramaIdAndActivoTrue(programaId, pageable)
@@ -57,6 +133,20 @@ public class EstudianteService {
     public Page<EstudianteResponse> listarConDatosFaltantes(Pageable pageable) {
         return estudianteRepository.buscarActivosConDatosFaltantes(pageable)
                 .map(this::toResponse);
+    }
+
+    /**
+     * Los que lleva alguien, o los que no lleva nadie.
+     *
+     * @param responsableId {@code null} devuelve los <strong>sin asignar</strong>,
+     *                      que no es lo mismo que «todos»: es la lista que hay
+     *                      que mirar para repartir
+     */
+    public Page<EstudianteResponse> listarPorResponsable(UUID responsableId, Pageable pageable) {
+        var pagina = responsableId == null
+                ? estudianteRepository.findByResponsableIsNullAndActivoTrue(pageable)
+                : estudianteRepository.findByResponsableIdAndActivoTrue(responsableId, pageable);
+        return pagina.map(this::toResponse);
     }
 
     /** Búsqueda avanzada sin exigir programa: nombre/documento/email, ciudad y estados. */
@@ -145,6 +235,9 @@ public class EstudianteService {
         var estudiante = new Estudiante();
         aplicarRequest(estudiante, request);
         estudiante.setPrograma(programa);
+        // Reparto automatico, si esta encendido. Apagado por defecto, y nunca
+        // pisa un responsable puesto a mano. Ver AsignacionAutomatica.
+        asignacionAutomatica.asignarSiCorresponde(estudiante);
         var creado = estudianteRepository.save(estudiante);
         auditoriaService.registrar("Estudiantes", "Creación", "Estudiante",
                 creado.getId().toString(), creado.getNombre() + " " + creado.getApellido(), null, null);
@@ -514,8 +607,16 @@ public class EstudianteService {
                 e.edad(LocalDate.now()),
                 e.getCarpetaUrl(),
                 e.getLinkedinUrl(),
-                e.getPlantillaPreferida() != null ? e.getPlantillaPreferida().getId() : null
+                e.getPlantillaPreferida() != null ? e.getPlantillaPreferida().getId() : null,
+                e.getResponsable() != null ? e.getResponsable().getId() : null,
+                e.getResponsable() != null ? nombreDe(e.getResponsable()) : null
         );
+    }
+
+    /** El nombre de la cuenta, o el correo si no tiene: algo con que reconocerla. */
+    private static String nombreDe(com.novacrm.auth.Usuario usuario) {
+        String nombre = usuario.getNombre();
+        return nombre == null || nombre.isBlank() ? usuario.getEmail() : nombre;
     }
 
     @Transactional

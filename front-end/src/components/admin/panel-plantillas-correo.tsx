@@ -1,6 +1,6 @@
 'use client'
 
-import { CircleNotchIcon as CircleNotch, EnvelopeSimpleIcon as EnvelopeSimple, EyeIcon as Eye, PaperPlaneTiltIcon as PaperPlaneTilt, PlusIcon as Plus, TrashIcon as Trash, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CircleAlert as WarningCircle, Eye, LoaderCircle as CircleNotch, Mail as EnvelopeSimple, Plus, Send as PaperPlaneTilt, Trash2 as Trash } from 'lucide-react'
 /**
  * Plantillas de correo.
  *

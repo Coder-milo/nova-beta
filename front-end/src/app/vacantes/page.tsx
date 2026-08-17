@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowCounterClockwiseIcon as ArrowCounterClockwise, ArrowSquareOutIcon as ArrowSquareOut, ArrowsClockwiseIcon as ArrowsClockwise, BriefcaseIcon as Briefcase, BuildingsIcon as Buildings, CalendarBlankIcon as CalendarBlank, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CurrencyDollarIcon as CurrencyDollar, GlobeIcon as Globe, LinkSimpleIcon as LinkSimple, MagnifyingGlassIcon as MagnifyingGlass, PencilSimpleIcon as PencilSimple, TrashIcon as Trash, XCircleIcon as XCircle, MapPinIcon as MapPin, PlusIcon as Plus, TranslateIcon as Translate, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { Briefcase, Building2 as Buildings, Calendar as CalendarBlank, CheckCircle2 as CheckCircle, ChevronLeft as CaretLeft, ChevronRight as CaretRight, CircleAlert as WarningCircle, CircleX as XCircle, DollarSign as CurrencyDollar, ExternalLink as ArrowSquareOut, Globe, Languages as Translate, Link as LinkSimple, LoaderCircle as CircleNotch, MapPin, Pencil as PencilSimple, Plus, RefreshCw as ArrowsClockwise, RotateCcw as ArrowCounterClockwise, Search as MagnifyingGlass, Trash2 as Trash } from 'lucide-react'
 /**
  * Página de Vacantes y Matching.
  *
@@ -8,6 +8,7 @@ import { ArrowCounterClockwiseIcon as ArrowCounterClockwise, ArrowSquareOutIcon 
  *   GET  /api/v1/vacantes?page=&size=  → lista paginada de vacantes activas
  *   GET  /api/v1/vacantes/{id}         → detalle de vacante
  *   POST /api/v1/vacantes/scraping     → escaneo de portales bajo demanda
+ *   GET  /api/v1/vacantes/scraping/ejecuciones → registro de corridas
  *   POST /api/v1/matches/ejecutar      → matching estudiantes ↔ vacantes
  */
 
@@ -16,6 +17,8 @@ import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { VistasGuardadas } from '@/components/admin/vistas-guardadas'
+import { RegistroDeScraping } from '@/components/admin/registro-de-scraping'
 import { Badge } from '@/components/ui/badge'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
@@ -99,7 +102,13 @@ function textos(english: boolean) {
         escanearYHacer: 'Scan and run matching',
         completaLosDatos: 'Fill in the essentials. The opportunity will be ready for matching and applications.',
         enlaceParaPostularse: 'Link to apply',
-        laRegistroUn: 'A participant added this one. It is not recommended to anyone until someone on the team confirms it is real. Check the company and the link before approving it.',
+        laRegistroUn: 'It is not recommended to anyone until someone on the team confirms it is real. Check the company and the link before approving it.',
+        origenParticipante: 'Added by a participant.',
+        origenEmpresa: 'Published by the company from its portal.',
+        origenPublico: 'Sent from the public form by someone with no account.',
+        quienLaMando: 'Who sent it (unverified)',
+        elContacto: 'Contact', elCorreo: 'Email',
+        empresaSinVerificar: 'Company name as declared — it is not linked to any company in the CRM until someone links it.',
         darPorBuena: 'Approve it',
         verFuente: 'View source',
         noSePudoCrear: (s: number) => `The vacancy could not be created (HTTP ${s}).`,
@@ -140,6 +149,7 @@ function textos(english: boolean) {
         yaCubierta: 'Already filled',
         expirada: 'Expired',
         retirada: 'Withdrawn',
+        fueraDePerfil: 'Does not require English',
         ofertaCerrada: 'Closed',
         gestionDeLa: 'Vacancy management',
         cerrarLaConserva: 'Closing keeps it and its history; deleting removes it for good. Close what was filled or expired; delete only what should never have been recorded.',
@@ -190,7 +200,13 @@ function textos(english: boolean) {
         escanearYHacer: 'Escanear y hacer matching',
         completaLosDatos: 'Completa los datos esenciales. La oportunidad quedará lista para el matching y las postulaciones.',
         enlaceParaPostularse: 'Enlace para postularse',
-        laRegistroUn: 'La registró un participante. No se le recomienda a nadie hasta que alguien del equipo compruebe que es real. Revisa la empresa y el enlace antes de validarla.',
+        laRegistroUn: 'No se le recomienda a nadie hasta que alguien del equipo compruebe que es real. Revisa la empresa y el enlace antes de validarla.',
+        origenParticipante: 'La registró un participante.',
+        origenEmpresa: 'La publicó la empresa desde su portal.',
+        origenPublico: 'Llegó por el formulario público, de alguien sin cuenta.',
+        quienLaMando: 'Quién la mandó (sin verificar)',
+        elContacto: 'Contacto', elCorreo: 'Correo',
+        empresaSinVerificar: 'El nombre es el que escribió quien la mandó. No está enlazada con ninguna empresa del CRM hasta que alguien la enlace.',
         darPorBuena: 'Dar por buena',
         verFuente: 'Ver fuente',
         noSePudoCrear: (s: number) => `No se pudo crear la vacante (HTTP ${s}).`,
@@ -231,6 +247,7 @@ function textos(english: boolean) {
         yaCubierta: 'Ya cubierta',
         expirada: 'Expirada',
         retirada: 'Retirada',
+        fueraDePerfil: 'No exige inglés',
         ofertaCerrada: 'Cerrada',
         gestionDeLa: 'Gestión de la oferta',
         cerrarLaConserva: 'Cerrarla la conserva con su historial; eliminarla la borra del todo. Cierra lo que se cubrió o venció; elimina solo lo que nunca debió registrarse.',
@@ -244,7 +261,12 @@ function textos(english: boolean) {
 
 /** El motivo llega como codigo del backend; la etiqueta es interfaz. */
 function etiquetaMotivo(T: ReturnType<typeof textos>, motivo: MotivoCierre): string {
-  return { CUBIERTA: T.yaCubierta, EXPIRADA: T.expirada, RETIRADA: T.retirada }[motivo] ?? motivo
+  return {
+    CUBIERTA: T.yaCubierta,
+    EXPIRADA: T.expirada,
+    RETIRADA: T.retirada,
+    FUERA_DE_PERFIL: T.fueraDePerfil,
+  }[motivo] ?? motivo
 }
 
 export default function VacantesPage() {
@@ -533,6 +555,16 @@ export default function VacantesPage() {
         </div>
       )}
 
+      <VistasGuardadas
+        modulo="VACANTES"
+        hayFiltros={fuenteFiltro !== 'TODAS' || searchQuery.trim() !== ''}
+        filtrosActuales={{ fuente: fuenteFiltro, q: searchQuery.trim() }}
+        onAplicar={(f) => {
+          setFuenteFiltro(typeof f.fuente === 'string' ? f.fuente : 'TODAS')
+          setSearchQuery(typeof f.q === 'string' ? f.q : '')
+        }}
+      />
+
       {/* Búsqueda y filtro por fuente */}
       <div className="grid gap-3 sm:grid-cols-[minmax(0,28rem)_auto]">
         <div className="relative">
@@ -686,6 +718,12 @@ export default function VacantesPage() {
         </>
       )}
 
+      {/* Registro de corridas.
+          Va al final y no arriba porque es diagnóstico: se consulta cuando algo
+          parece raro, no cada vez que se abre la pantalla. Arriba empujaría la
+          lista de ofertas, que es a lo que se entra aquí. */}
+      <RegistroDeScraping />
+
       {/* Creación manual */}
       <Sheet open={creando} onOpenChange={(open) => { if (!open && !guardando) setCreando(false) }}>
         <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-2xl">
@@ -769,9 +807,56 @@ export default function VacantesPage() {
                       <WarningCircle className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                       <div className="text-xs leading-5">
                         <p className="font-semibold text-foreground">{T.estaOfertaEsta}</p>
-                        <p className="text-muted-foreground">{T.laRegistroUn}</p>
+                        <p className="text-muted-foreground">
+                          {selected.fuente === 'PORTAL_EMPRESA'
+                            ? T.origenEmpresa
+                            : selected.fuente === 'FORMULARIO_PUBLICO'
+                              ? T.origenPublico
+                              : T.origenParticipante}{' '}
+                          {T.laRegistroUn}
+                        </p>
                       </div>
                     </div>
+
+                    {/* Lo que declaró quien la mandó. Va aquí dentro y no en la
+                        ficha de la oferta porque no es del anuncio: es lo único
+                        con lo que se puede comprobar si esto es real y a quién
+                        se le contesta. Sin esto, la única acción posible sobre
+                        una oferta pública es aprobarla a ciegas o descartarla. */}
+                    {selected.empresaDeclarada && (
+                      <div className="rounded-lg border border-border bg-background/60 p-3 text-xs">
+                        <p className="mb-1.5 font-semibold text-foreground">{T.quienLaMando}</p>
+                        <dl className="grid gap-1 sm:grid-cols-2">
+                          <div>
+                            <dt className="text-muted-foreground">{C.empresa}</dt>
+                            <dd className="font-medium">{selected.empresaDeclarada}</dd>
+                          </div>
+                          {selected.contactoDeclarado && (
+                            <div>
+                              <dt className="text-muted-foreground">{T.elContacto}</dt>
+                              <dd className="font-medium">{selected.contactoDeclarado}</dd>
+                            </div>
+                          )}
+                          {selected.emailDeclarado && (
+                            <div>
+                              <dt className="text-muted-foreground">{T.elCorreo}</dt>
+                              <dd className="font-medium break-all">
+                                <a href={`mailto:${selected.emailDeclarado}`} className="hover:underline">
+                                  {selected.emailDeclarado}
+                                </a>
+                              </dd>
+                            </div>
+                          )}
+                          {selected.telefonoDeclarado && (
+                            <div>
+                              <dt className="text-muted-foreground">{C.telefono}</dt>
+                              <dd className="font-medium">{selected.telefonoDeclarado}</dd>
+                            </div>
+                          )}
+                        </dl>
+                        <p className="mt-2 text-muted-foreground">{T.empresaSinVerificar}</p>
+                      </div>
+                    )}
                     {revisarError && (
                       <p className="text-xs text-destructive">{revisarError}</p>
                     )}

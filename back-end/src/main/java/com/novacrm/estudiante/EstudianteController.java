@@ -303,6 +303,52 @@ public class EstudianteController {
             String hito,
             EstadoHito valor) {}
 
+    // ── Quien lleva cada caso ───────────────────────────────────────────────
+
+    /**
+     * Asigna responsable a varios participantes de una vez.
+     *
+     * <p>Es lo que faltaba en las acciones en lote: repartir una cohorte de
+     * ciento y pico de uno en uno es lo que hace que el equipo vuelva a la hoja
+     * de calculo.
+     *
+     * <p>Con {@code responsableId} nulo se quita el responsable. No es un caso
+     * raro: es como se libera el trabajo de alguien que deja el programa.
+     */
+    @PatchMapping("/responsable-masivo")
+    @Operation(summary = "Asignar o quitar el responsable de varios participantes")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public java.util.Map<String, Object> asignarResponsableMasivo(
+            @RequestBody ResponsableMasivoRequest request) {
+        int total = estudianteService.asignarResponsableMasivo(request.ids(), request.responsableId());
+        return java.util.Map.of("actualizados", total);
+    }
+
+    public record ResponsableMasivoRequest(java.util.List<UUID> ids, UUID responsableId) {}
+
+    @GetMapping("/responsables")
+    @Operation(summary = "Cuentas del equipo que pueden llevar casos, con cuantos lleva cada una")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public java.util.List<EstudianteService.ResponsablePosible> responsables() {
+        return estudianteService.responsablesPosibles();
+    }
+
+    /**
+     * «Mis estudiantes», o los que no lleva nadie.
+     *
+     * <p>Sin {@code responsableId} devuelve los <strong>sin asignar</strong>, no
+     * todos: es la lista que hay que mirar para repartir, y confundirla con
+     * «todos» dejaria el reparto sin pantalla.
+     */
+    @GetMapping("/por-responsable")
+    @Operation(summary = "Participantes de un responsable, o los que estan sin asignar")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public Page<EstudianteResponse> porResponsable(
+            @RequestParam(required = false) UUID responsableId,
+            @PageableDefault(size = 20, sort = "apellido") Pageable pageable) {
+        return estudianteService.listarPorResponsable(responsableId, pageable);
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Eliminar (soft delete) estudiante → va a la papelera")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")

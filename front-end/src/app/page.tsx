@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { WifiSlashIcon as WifiSlash } from '@phosphor-icons/react'
+import { Gauge, RefreshCw as ArrowsClockwise, WifiOff as WifiSlash } from 'lucide-react'
 /**
  * Dashboard principal — Server Component.
  *
@@ -18,10 +18,14 @@ import { StatCard } from '@/components/dashboard/stat-card'
 import { StudentsStatusChart } from '@/components/dashboard/students-status-chart'
 import { StudentsProjectChart } from '@/components/dashboard/students-project-chart'
 import { EnrollmentChart } from '@/components/dashboard/enrollment-chart'
+import { MapaDelAtlantico } from '@/components/admin/mapa-del-atlantico'
+import { EmployabilityChart } from '@/components/dashboard/employability-chart'
 import { AlertsCard } from '@/components/dashboard/alerts-card'
 import { ActivitiesCard } from '@/components/dashboard/activities-card'
 import { QuickAccess } from '@/components/dashboard/quick-access'
 import { PageSpinner } from '@/components/ui/page-spinner'
+import { PageHeader } from '@/components/admin/page-header'
+import { Button } from '@/components/ui/button'
 import { dashboardApi, ApiCallError } from '@/lib/api'
 import { usePreferences } from '@/lib/preferences'
 import type {
@@ -59,9 +63,13 @@ function textos(english: boolean) {
         pendientes: 'Pending',
         almacenados: 'Stored',
         cargandoDashboard: 'Loading dashboard…',
+        panelAdministrativo: 'Administrative panel',
+        dashboard: 'Dashboard',
+        actualizar: 'Refresh',
         sinAutenticacion: 'Not signed in. Sign in to see real data.',
         backendNoDisponible: 'Backend unavailable. Showing sample data.',
         errorDelBackend: (s: number) => `Backend error (HTTP ${s}). Showing sample data.`,
+        esteMes: 'This month',
         nuevosEsteMes: (n: number, pct: string) => `+${n} this month (${pct})`,
         pctDelTotal: (pct: string) => `${pct}% of the total`,
       }
@@ -82,9 +90,13 @@ function textos(english: boolean) {
         pendientes: 'Pendientes',
         almacenados: 'Almacenados',
         cargandoDashboard: 'Cargando dashboard…',
+        panelAdministrativo: 'Panel administrativo',
+        dashboard: 'Dashboard',
+        actualizar: 'Actualizar',
         sinAutenticacion: 'Sin autenticación. Inicia sesión para ver datos reales.',
         backendNoDisponible: 'Backend no disponible. Mostrando datos de ejemplo.',
         errorDelBackend: (s: number) => `Error del backend (HTTP ${s}). Mostrando datos de ejemplo.`,
+        esteMes: 'Este mes',
         nuevosEsteMes: (n: number, pct: string) => `+${n} este mes (${pct})`,
         pctDelTotal: (pct: string) => `${pct}% del total`,
       }
@@ -99,10 +111,16 @@ function buildPrimaryStats(s: DashboardSummaryResponse, T: Textos, locale: strin
       id: 'total',
       label: T.totalEstudiantes,
       value: s.totalEstudiantes.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
-      helper:
+      // La variación sale del texto de apoyo y pasa a su propia píldora, que es
+      // la que lleva el color. El texto se queda solo con el periodo.
+      helper: s.nuevosEsteMes > 0 ? T.esteMes : T.sinIngresosEste,
+      delta:
         s.nuevosEsteMes > 0
-          ? T.nuevosEsteMes(s.nuevosEsteMes, `${s.variacionMesPct > 0 ? '+' : ''}${s.variacionMesPct}%`)
-          : T.sinIngresosEste,
+          ? {
+              texto: `+${s.nuevosEsteMes} (${s.variacionMesPct > 0 ? '+' : ''}${s.variacionMesPct}%)`,
+              signo: s.variacionMesPct < 0 ? 'baja' : s.variacionMesPct > 0 ? 'sube' : 'neutro',
+            }
+          : undefined,
       icon: 'users',
       tone: 'blue',
     },
@@ -172,14 +190,12 @@ function buildSecondaryStats(s: DashboardSummaryResponse, T: Textos, locale: str
       icon: 'resumes',
       tone: 'teal',
     },
-    {
-      id: 'documentos',
-      label: T.docsPendientes,
-      value: s.documentosPendientes.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
-      helper: T.almacenados,
-      icon: 'documents',
-      tone: 'purple',
-    },
+    // Aquí había una segunda tarjeta de «Docs. pendientes» con el mismo campo
+    // (`documentosPendientes`) y el mismo rótulo que la de arriba: solo cambiaba
+    // el texto de apoyo, «Almacenados» en vez de «Requieren atención». Eran dos
+    // tarjetas enseñando el mismo 108 y dando a entender que se contaban dos
+    // cosas distintas. Con ocho indicadores la rejilla además cierra en dos
+    // filas de cuatro, sin el hueco que quedaba al final.
   ]
 }
 
@@ -193,6 +209,18 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<AlertaResponse[] | null>(null)
   const [backendError, setBackendError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  /**
+   * Contador de recargas.
+   *
+   * El botón de la cabecera lo incrementa y el efecto vuelve a pedir los tres
+   * endpoints. Se hace con un contador y no sacando la función del efecto
+   * porque `T` se reconstruye en cada render: un `useCallback` que dependa de
+   * él se invalidaría siempre, y sin la dependencia el mensaje de error se
+   * quedaría en el idioma que estuviera puesto al montar.
+   */
+  const [recarga, setRecarga] = useState(0)
+  /** La primera carga ocupa la pantalla; las siguientes no la vacían. */
+  const [primeraCarga, setPrimeraCarga] = useState(true)
 
   useEffect(() => {
     let active = true
@@ -231,7 +259,10 @@ export default function DashboardPage() {
           )
         }
       } finally {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+          setPrimeraCarga(false)
+        }
       }
     }
 
@@ -239,9 +270,9 @@ export default function DashboardPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [recarga]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading) {
+  if (loading && primeraCarga) {
     return <PageSpinner label={T.cargandoDashboard} />
   }
 
@@ -251,31 +282,48 @@ export default function DashboardPage() {
   const sStats  = useLive ? buildSecondaryStats(summary!, T, locale) : secondaryStats
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
+      <PageHeader
+        antetitulo={T.panelAdministrativo}
+        titulo={T.dashboard}
+        icono={Gauge}
+        acciones={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setRecarga((n) => n + 1)}
+            disabled={loading}
+          >
+            <ArrowsClockwise className={loading ? 'animate-spin' : undefined} />
+            {T.actualizar}
+          </Button>
+        }
+      />
+
       {/* Aviso de backend no disponible */}
       {backendError && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+        <div className="flex items-center gap-2 rounded-(--radius) border border-amber-300/70 bg-amber-50 px-3 py-2 text-[13px] text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
           <WifiSlash className="size-4 shrink-0" />
           <span>{backendError}</span>
         </div>
       )}
 
-      {/* Estadísticas principales */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {/* Los ocho indicadores van en una sola rejilla y no en dos: partirlos
+          en principales y secundarios obligaba a saltar un hueco entre filas
+          que no significaba nada, porque todos se leen igual. Cuatro columnas
+          y no cinco: con ocho tarjetas, cinco columnas dejan la última fila con
+          un hueco al final que parece una tarjeta que no cargó. */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {pStats.map((stat) => (
           <StatCard key={stat.id} stat={stat} />
         ))}
-      </div>
-
-      {/* Estadísticas secundarias */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {sStats.map((stat) => (
           <StatCard key={stat.id} stat={stat} />
         ))}
       </div>
 
       {/* Gráficos */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
         <StudentsStatusChart
           data={useLive ? charts!.distribucionEstado : null}
         />
@@ -286,15 +334,30 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
         <StudentsProjectChart
           data={useLive ? charts!.estudiantesPorProyecto : null}
         />
+        {/* `charts.empleabilidad` lo calculaba el backend desde hacía tiempo y
+            no lo pintaba nadie. Va junto a «por proyecto» porque las dos
+            responden a «cómo va la cohorte», mientras que la de estado dice
+            quién sigue dentro. */}
+        <EmployabilityChart data={useLive ? charts!.empleabilidad : null} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-2">
         <AlertsCard alerts={useLive ? alerts! : null} />
       </div>
 
+      {/* El mapa va después de las barras por proyecto y no antes: aquellas
+          dicen cuánta gente hay, y este, dónde está. La pregunta de dónde solo
+          aparece cuando ya se sabe cuántos. Trae su propio selector de proyecto
+          porque se mira al revés que el resto del panel —se entra por el sitio,
+          no por el programa—. */}
+      <MapaDelAtlantico />
+
       {/* Actividades y accesos rápidos */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
         <ActivitiesCard />
         <QuickAccess />
       </div>

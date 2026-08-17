@@ -1,14 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import {
-  MicrophoneIcon as Microphone,
-  StopIcon as Stop,
-  TrashIcon as Trash,
-  PaperPlaneTiltIcon as PaperPlaneTilt,
-  CircleNotchIcon as CircleNotch,
-} from '@phosphor-icons/react'
-
+import { LoaderCircle as CircleNotch, Mic as Microphone, Send as PaperPlaneTilt, Square as Stop, Trash2 as Trash } from 'lucide-react'
 interface VoiceNoteRecorderProps {
   onSendAudio: (audioBlob: Blob, durationSec: number) => void
   onCancel: () => void

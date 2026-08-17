@@ -282,7 +282,8 @@ public class ExcelService {
                         h.getCreados(),
                         h.getActualizados(),
                         h.getErrores(),
-                        h.getCreatedAt()))
+                        h.getCreatedAt(),
+                        h.getOrigen()))
                 .collect(Collectors.toList());
     }
 

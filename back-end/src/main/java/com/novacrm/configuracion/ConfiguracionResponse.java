@@ -29,6 +29,7 @@ public record ConfiguracionResponse(
 
         String cohorteActiva,
         Integer umbralMatchMinimo,
+        String reglaAsignacion,
         Integer diasRetencionPapelera,
 
         boolean guardado,
@@ -43,6 +44,7 @@ public record ConfiguracionResponse(
                 c.getEmailSoporte(), c.getSitioWeb(), c.getLinkedinUrl(), c.getInstagramUrl(),
                 c.getCohorteActiva(),
                 c.getUmbralMatchMinimo() != null ? c.getUmbralMatchMinimo() : umbralPorDefecto,
+                c.getReglaAsignacion() == null ? "NINGUNA" : c.getReglaAsignacion(),
                 c.getDiasRetencionPapelera() != null ? c.getDiasRetencionPapelera() : diasPorDefecto,
                 true, c.getUpdatedAt(), umbralPorDefecto, diasPorDefecto);
     }
@@ -56,7 +58,7 @@ public record ConfiguracionResponse(
     static ConfiguracionResponse porDefecto(int umbralPorDefecto, int diasPorDefecto) {
         return new ConfiguracionResponse(
                 null, null, null, null, null, null, null, null, null, null, null,
-                null, umbralPorDefecto, diasPorDefecto,
+                null, umbralPorDefecto, "NINGUNA", diasPorDefecto,
                 false, null, umbralPorDefecto, diasPorDefecto);
     }
 }

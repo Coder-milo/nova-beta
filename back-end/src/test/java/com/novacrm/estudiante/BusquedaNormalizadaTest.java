@@ -107,6 +107,15 @@ class BusquedaNormalizadaTest {
     @Test
     @DisplayName("la busqueda recorre toda la cohorte y no solo una pagina")
     void buscaSobreTodaLaTabla() {
+        var programa = programaRepository.findById(programaId).orElseThrow();
+        var estudiante2 = new Estudiante();
+        estudiante2.setNombre("Maria");
+        estudiante2.setApellido("Gomez");
+        estudiante2.setEmail("maria." + sufijo + "@correo.com");
+        estudiante2.setPrograma(programa);
+        estudiante2.setActivo(true);
+        estudianteRepository.saveAndFlush(estudiante2);
+
         // La pagina 0 con tamano 1 tiene un solo elemento, pero el total dice
         // cuantos hay de verdad: es lo que permite a la interfaz buscar entre
         // los 108 y no entre los 20 que tenia cargados.
@@ -114,7 +123,7 @@ class BusquedaNormalizadaTest {
                 null, programaId, null, null, null, PageRequest.of(0, 1));
 
         assertThat(primeraPagina.getContent()).hasSize(1);
-        assertThat(primeraPagina.getTotalElements()).isGreaterThan(1);
+        assertThat(primeraPagina.getTotalElements()).isGreaterThan(1L);
     }
 
     @Test

@@ -10,5 +10,7 @@ public record ImportacionHistorialResponse(
     int creados,
     int actualizados,
     int errores,
-    Instant createdAt
+    Instant createdAt,
+    /** Qué importador la hizo: ESTUDIANTES, CRM o LIBRO. */
+    String origen
 ) {}

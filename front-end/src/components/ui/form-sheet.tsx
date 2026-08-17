@@ -22,7 +22,7 @@
  */
 
 import { useState } from 'react'
-import { CircleNotchIcon as CircleNotch } from '@phosphor-icons/react'
+import { LoaderCircle as CircleNotch } from 'lucide-react'
 import {
   Sheet,
   SheetContent,

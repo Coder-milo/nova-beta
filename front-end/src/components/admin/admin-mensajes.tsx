@@ -27,14 +27,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  ArrowsClockwiseIcon as ArrowsClockwise,
-  CaretLeftIcon as CaretLeft,
-  ChatsCircleIcon as ChatsCircle,
-  CircleNotchIcon as CircleNotch,
-  MagnifyingGlassIcon as MagnifyingGlass,
-  WarningCircleIcon as WarningCircle,
-} from '@phosphor-icons/react'
+import { ChevronLeft as CaretLeft, CircleAlert as WarningCircle, LoaderCircle as CircleNotch, MessagesSquare as ChatsCircle, RefreshCw as ArrowsClockwise, Search as MagnifyingGlass } from 'lucide-react'
 import { mensajesApi, mensajeDeError } from '@/lib/api'
 import type { MensajeResponse } from '@/lib/types'
 import { cn } from '@/lib/utils'

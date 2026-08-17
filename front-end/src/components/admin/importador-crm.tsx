@@ -15,7 +15,7 @@
  */
 
 import { useRef, useState } from 'react'
-import { CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, FileXlsIcon as FileXls, UploadSimpleIcon as UploadSimple, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, FileSpreadsheet as FileXls, LoaderCircle as CircleNotch, Upload as UploadSimple, X } from 'lucide-react'
 import { importarCrmApi } from '@/lib/api'
 import type { ResultadoImportacionCrm } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -100,10 +100,10 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
   const [trabajando, setTrabajando] = useState<'simular' | 'importar' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const llamar = (file: File, simular: boolean) =>
+  const llamar = (file: File, simular: boolean, planId?: string | null) =>
     entidad === 'empresas'
-      ? importarCrmApi.empresas(file, simular)
-      : importarCrmApi.colocaciones(file, simular)
+      ? importarCrmApi.empresas(file, simular, planId)
+      : importarCrmApi.colocaciones(file, simular, planId)
 
   const limpiar = () => {
     setArchivo(null)
@@ -136,7 +136,11 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
     setTrabajando('importar')
     setError(null)
     try {
-      setResultado(await llamar(archivo, false))
+      // Se manda el plan de la simulación: es lo que hace que se escriba el
+      // mapeo que está en pantalla y no uno recalculado. `simulacion` se
+      // rehace al elegir archivo, así que aquí el plan es siempre el del
+      // archivo que hay puesto.
+      setResultado(await llamar(archivo, false, simulacion?.planId))
     } catch (e) {
       setError(errorDe(e))
     } finally {

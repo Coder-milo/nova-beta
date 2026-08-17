@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, EnvelopeIcon as Envelope, KeyIcon as Key, MagnifyingGlassIcon as MagnifyingGlass, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Key, LoaderCircle as CircleNotch, Mail as Envelope, RefreshCw as ArrowsClockwise, Search as MagnifyingGlass } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -327,7 +327,7 @@ export function PanelCuentasEstudiante() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Key className="size-5 text-primary" weight="duotone" />
+              <Key className="size-5 text-primary" />
               {T.cuentasDeAcceso}
             </CardTitle>
             <CardDescription>

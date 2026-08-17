@@ -12,24 +12,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import {
-  BankIcon as Bank,
-  CheckCircleIcon as CheckCircle,
-  CircleNotchIcon as CircleNotch,
-  GearIcon as Gear,
-  GlobeIcon as Globe,
-  MonitorIcon as Monitor,
-  MoonIcon as Moon,
-  PaletteIcon as Palette,
-  ShareNetworkIcon as ShareNetwork,
-  ShieldIcon as Shield,
-  ShieldWarningIcon as ShieldWarning,
-  SlidersIcon as Sliders,
-  SquaresFourIcon as SquaresFour,
-  SunIcon as Sun,
-  WarningCircleIcon as WarningCircle,
-  XIcon as X,
-} from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Globe, Landmark as Bank, LayoutGrid as SquaresFour, LoaderCircle as CircleNotch, Monitor, Moon, Palette, Settings as Gear, Search as MagnifyingGlass, Share2 as ShareNetwork, Shield, ShieldAlert as ShieldWarning, SlidersHorizontal as Sliders, Sun, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { Confirmar } from '@/components/ui/confirmar'
@@ -49,7 +32,34 @@ import { usePreferences } from '@/lib/preferences'
 import { adminApi, configuracionApi, programasApi } from '@/lib/api'
 import { textosAdmin } from '@/lib/textos-admin'
 
-type TabKey = 'institucion' | 'academico' | 'integraciones' | 'plataformas' | 'usuarios' | 'mantenimiento'
+/**
+ * Las secciones, reagrupadas por **qué cambias y a quién afecta**.
+ *
+ * Antes eran seis y tres llevaban «&» en el nombre, que es la señal de que cada
+ * una era dos cosas. La peor era «Apariencia & Mantenimiento»: ahí convivían la
+ * identidad que ve el cliente, el canal de WhatsApp, tu preferencia personal de
+ * tema claro/oscuro y los botones de «Desactivar todo» y «Vaciar sistema».
+ * Alguien entraba a poner el modo oscuro y pasaba por encima de la zona de
+ * peligro para llegar.
+ *
+ * Ahora cada sección responde a una sola pregunta:
+ *
+ *   institucion   — los datos de la sede
+ *   operacion     — cómo se comporta el programa
+ *   personas      — quién entra y con qué cuenta
+ *   marca         — lo que ve el cliente de cada proyecto
+ *   conexiones    — los servicios de fuera: correo, IA, WhatsApp, portales
+ *   preferencias  — lo que solo te afecta a ti
+ *   peligro       — lo que no tiene vuelta atrás
+ */
+type TabKey =
+  | 'institucion'
+  | 'operacion'
+  | 'personas'
+  | 'marca'
+  | 'conexiones'
+  | 'preferencias'
+  | 'peligro'
 
 /**
  * Textos propios de esta pantalla.
@@ -73,7 +83,21 @@ function textos(english: boolean) {
         errorAlResetear: 'The programme could not be reset.',
         errorAlPurgar: 'The bin could not be purged.',
         parametrosDeOperacion: 'Operating parameters',
-        institucionSede: 'Institution and site',
+        institucionSede: 'Institution',
+        personasYAccesos: 'People and access',
+        marcaDelProyecto: 'Project branding',
+        conexiones: 'Connections',
+        misPreferencias: 'My preferences',
+        zonaDePeligro: 'Danger zone',
+        buscaUnAjuste: 'Search a setting (logo, WhatsApp, threshold…)',
+        nadaCoincide: 'No section matches that. Try the name of the service or the data you are looking for.',
+        resumenInstitucion: 'Legal details, address and contact for the site.',
+        resumenOperacion: 'How the programme behaves: match threshold, vacancy validity, retention.',
+        resumenPersonas: 'Who gets in and with what account. Team, students and their invitation emails.',
+        resumenMarca: 'Logo, colours and banner of each project. This is what the client sees.',
+        resumenConexiones: 'Outside services: email, WhatsApp, AI, job boards and learning platforms.',
+        resumenPreferencias: 'Theme and language. Affects only you, on this device.',
+        resumenPeligro: 'Bulk deletion and cleanup. No undo.',
         seleccionarPrograma: 'Choose a programme:',
       }
     : {
@@ -90,7 +114,21 @@ function textos(english: boolean) {
         errorAlResetear: 'Error al resetear el programa.',
         errorAlPurgar: 'Error al purgar la papelera.',
         parametrosDeOperacion: 'Parámetros de Operación',
-        institucionSede: 'Institución & Sede',
+        institucionSede: 'Institución',
+        personasYAccesos: 'Personas y accesos',
+        marcaDelProyecto: 'Marca del proyecto',
+        conexiones: 'Conexiones',
+        misPreferencias: 'Mis preferencias',
+        zonaDePeligro: 'Zona de peligro',
+        buscaUnAjuste: 'Busca un ajuste (logo, WhatsApp, umbral…)',
+        nadaCoincide: 'Ningún apartado coincide. Prueba con el nombre del servicio o del dato que buscas.',
+        resumenInstitucion: 'Datos legales, dirección y contacto de la sede.',
+        resumenOperacion: 'Cómo se comporta el programa: umbral de match, vigencia de vacantes, retención.',
+        resumenPersonas: 'Quién entra y con qué cuenta. Equipo, estudiantes y sus correos de invitación.',
+        resumenMarca: 'Logo, colores y banner de cada proyecto. Es lo que ve el cliente.',
+        resumenConexiones: 'Servicios de fuera: correo, WhatsApp, IA, portales de empleo y plataformas.',
+        resumenPreferencias: 'Tema e idioma. Solo te afecta a ti, en este dispositivo.',
+        resumenPeligro: 'Borrado masivo y limpieza. No tiene vuelta atrás.',
         seleccionarPrograma: 'Seleccionar programa:',
       }
 }
@@ -101,6 +139,7 @@ export default function ConfiguracionPage() {
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
   const [activeTab, setActiveTab] = useState<TabKey>('institucion')
+  const [buscarAjuste, setBuscarAjuste] = useState('')
 
   const [programas, setProgramas] = useState<{ id: string; nombre: string }[]>([])
   const [selectedPgm, setSelectedPgm] = useState('')
@@ -286,57 +325,122 @@ export default function ConfiguracionPage() {
     { id: 'system' as const, label: t('system'), icon: Monitor },
   ]
 
-  const tabsNav: { id: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: 'institucion', label: T.institucionSede, icon: Bank },
-    { id: 'academico', label: T.parametrosDeOperacion, icon: Sliders },
-    { id: 'integraciones', label: 'Integraciones & APIs', icon: ShareNetwork },
-    { id: 'plataformas', label: 'Plataformas', icon: SquaresFour },
-    { id: 'usuarios', label: 'Usuarios & Seguridad', icon: Shield },
-    { id: 'mantenimiento', label: 'Apariencia & Mantenimiento', icon: Gear },
+  /**
+   * Cada sección con lo que hay dentro, en una frase.
+   *
+   * El subtítulo no es adorno: con siete secciones y una treintena de ajustes,
+   * el nombre solo no basta para saber cuál abrir, y la alternativa es entrar
+   * en las siete. `busca` son las palabras por las que alguien buscaría eso,
+   * incluidas las que **no** están en el título —«logo» para marca, «Groq»
+   * para conexiones—: se busca por la palabra que uno tiene en la cabeza.
+   */
+  const secciones: {
+    id: TabKey
+    label: string
+    resumen: string
+    busca: string
+    icon: React.ComponentType<{ className?: string }>
+    soloAdmin?: boolean
+    peligrosa?: boolean
+  }[] = [
+    { id: 'institucion', label: T.institucionSede, icon: Bank,
+      resumen: T.resumenInstitucion, busca: 'nit direccion sede telefono redes sociales contacto' },
+    { id: 'operacion', label: T.parametrosDeOperacion, icon: Sliders,
+      resumen: T.resumenOperacion, busca: 'matching umbral vigencia vacantes salario papelera retencion' },
+    { id: 'personas', label: T.personasYAccesos, icon: Shield,
+      resumen: T.resumenPersonas, busca: 'usuarios roles contrasena cuentas estudiantes correos invitacion' },
+    { id: 'marca', label: T.marcaDelProyecto, icon: Palette,
+      resumen: T.resumenMarca, busca: 'logo colores banner identidad cliente proyecto portada' },
+    { id: 'conexiones', label: T.conexiones, icon: ShareNetwork,
+      resumen: T.resumenConexiones, busca: 'whatsapp correo smtp groq ia jsearch scraping minio plataformas apis' },
+    { id: 'preferencias', label: T.misPreferencias, icon: SquaresFour,
+      resumen: T.resumenPreferencias, busca: 'tema oscuro claro idioma español ingles apariencia' },
+    { id: 'peligro', label: T.zonaDePeligro, icon: ShieldWarning, soloAdmin: true, peligrosa: true,
+      resumen: T.resumenPeligro, busca: 'borrar vaciar purgar papelera desactivar masivo restaurar' },
   ]
+
+  // La zona de peligro no se le enseña a quien no puede usarla: un botón
+  // deshabilitado que no explica por qué es peor que no estar.
+  const esAdmin = !!user?.roles?.includes('ADMIN')
+  const visibles = secciones.filter((s) => !s.soloAdmin || esAdmin)
+  const filtro = buscarAjuste.trim().toLowerCase()
+  const encontradas = filtro
+    ? visibles.filter((s) =>
+        `${s.label} ${s.resumen} ${s.busca}`.toLowerCase().includes(filtro))
+    : visibles
 
   return (
     <div className="flex flex-col gap-6 pb-12">
-      {/* Navegación por pestañas adaptable a móvil, tablet y laptop */}
-      <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto border-b border-border pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [::-webkit-scrollbar]:hidden">
-        {tabsNav.map((tab) => {
-          const Icon = tab.icon
-          const isActive = activeTab === tab.id
+      {/* Buscador de ajustes. Con siete secciones y una treintena de ajustes,
+          encontrar uno significaba abrirlas todas: la memoria de dónde estaba
+          cada cosa la tiene quien configuró el sistema, no quien lo usa. */}
+      <div className="relative max-w-md">
+        <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="search"
+          value={buscarAjuste}
+          onChange={(e) => setBuscarAjuste(e.target.value)}
+          placeholder={T.buscaUnAjuste}
+          aria-label={T.buscaUnAjuste}
+          className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+
+      {/* Las secciones como tarjetas y no como pestañas: una pestaña solo cabe
+          si su nombre es corto, y por eso los nombres eran «Apariencia &
+          Mantenimiento». Con la tarjeta cabe la frase que dice qué hay dentro. */}
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {encontradas.map((s) => {
+          const Icon = s.icon
+          const activa = activeTab === s.id
           return (
             <button
-              key={tab.id}
+              key={s.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-200 sm:px-4 ${
-                isActive
-                  ? 'scale-[1.02] bg-primary text-primary-foreground shadow-md'
-                  : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
-              }`}
+              onClick={() => setActiveTab(s.id)}
+              aria-current={activa ? 'page' : undefined}
+              className={cn(
+                'flex items-start gap-3 rounded-lg border p-3 text-left transition-colors',
+                activa
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-primary/40 hover:bg-secondary/40',
+                // La zona de peligro se distingue siempre, esté activa o no.
+                s.peligrosa && !activa && 'border-destructive/30 hover:border-destructive/50',
+                s.peligrosa && activa && 'border-destructive bg-destructive/5',
+              )}
             >
-              <Icon className="size-4 shrink-0" />
-              <span className="whitespace-nowrap">{tab.label}</span>
+              <Icon className={cn('mt-0.5 size-4 shrink-0',
+                s.peligrosa ? 'text-destructive' : activa ? 'text-primary' : 'text-muted-foreground')} />
+              <span className="min-w-0">
+                <span className={cn('block text-sm font-semibold',
+                  s.peligrosa ? 'text-destructive' : 'text-foreground')}>
+                  {s.label}
+                </span>
+                <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
+                  {s.resumen}
+                </span>
+              </span>
             </button>
           )
         })}
       </div>
 
+      {filtro && encontradas.length === 0 && (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          {T.nadaCoincide}
+        </p>
+      )}
+
       {activeTab === 'institucion' && <PanelInstitucion />}
 
-      {activeTab === 'academico' && <PanelAcademico />}
+      {activeTab === 'operacion' && <PanelAcademico />}
 
-      {/* Era un formulario que guardaba las claves de Groq, WhatsApp y JSearch
-          en localStorage: texto plano legible por cualquier script inyectado
-          —el mismo fallo que se corrigió para el JWT— y encima inútil, porque
-          el backend las lee de variables de entorno al arrancar y nada de lo
-          que se escribiera aquí llegaba al servidor. Ahora es un tablero de
-          solo lectura contra el estado real del backend. */}
-      {activeTab === 'integraciones' && <PanelIntegraciones />}
-
-      {activeTab === 'plataformas' && <PanelPlataformas />}
-
-      {activeTab === 'usuarios' && (
+      {activeTab === 'personas' && (
         <div className="flex flex-col gap-6">
-          <PanelUsuarios />
+          {/* Solo la tabla del equipo. «Mi perfil» y «mi sesión» se fueron a
+              «Mis preferencias»: son lo que solo te afecta a ti, y estaban aquí
+              mezcladas con gestionar las cuentas de otros. */}
+          <PanelUsuarios mostrar="equipo" />
 
           {/* Cuentas de los estudiantes. Aparte de la tabla de arriba porque
               son otro tipo de cuenta —rol ESTUDIANTE, alta masiva, sin
@@ -350,15 +454,39 @@ export default function ConfiguracionPage() {
         </div>
       )}
 
-      {activeTab === 'mantenimiento' && (
-        <div className="flex flex-col gap-6">
-          {/* Identidad de cada proyecto. Va antes que el tema claro/oscuro
-              porque es lo que ve el cliente; el tema es preferencia personal. */}
-          <PanelBranding />
+      {/* La identidad que ve el cliente, en su propia sección. Estaba bajo
+          «Apariencia & Mantenimiento», junto al tema claro/oscuro, como si
+          fueran la misma clase de ajuste: uno lo ve el cliente en cada correo
+          y cada informe, el otro solo lo ve quien lo pulsa. */}
+      {activeTab === 'marca' && <PanelBranding />}
 
-          {/* Canal de WhatsApp: comparte el mismo selector de proyecto que la
-              identidad; los avisos automáticos dependen de él. */}
+      {activeTab === 'conexiones' && (
+        <div className="flex flex-col gap-6">
+          {/* Era un formulario que guardaba las claves de Groq, WhatsApp y
+              JSearch en localStorage: texto plano legible por cualquier script
+              inyectado —el mismo fallo que se corrigió para el JWT— y encima
+              inútil, porque el backend las lee de variables de entorno al
+              arrancar y nada de lo que se escribiera aquí llegaba al servidor.
+              Ahora es un tablero de solo lectura contra el estado real. */}
+          <PanelIntegraciones />
+
+          {/* WhatsApp vive aquí y no en «Apariencia», que es donde estaba: es
+              un canal de salida como el correo. Y la placa de integraciones de
+              arriba —que lista correo, IA, almacenamiento y scraping— no lo
+              incluye, así que quien lo buscaba por ahí no lo encontraba. */}
           <PanelWhatsapp />
+
+          {/* Plataformas de formación externas: también son servicios de
+              fuera a los que se manda gente. */}
+          <PanelPlataformas />
+        </div>
+      )}
+
+      {activeTab === 'preferencias' && (
+        <div className="flex flex-col gap-6">
+          {/* Tu perfil y el estado de tu sesión. Vivían bajo «Usuarios &
+              Seguridad», junto al alta de cuentas del equipo. */}
+          <PanelUsuarios mostrar="mi-cuenta" />
 
           <Card className="rounded-2xl shadow-sm">
             <CardHeader className="border-b border-border/50">
@@ -415,9 +543,15 @@ export default function ConfiguracionPage() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
 
-          {/* Acciones masivas y limpieza (ADMIN) */}
-          {user?.roles?.includes('ADMIN') && (
+      {activeTab === 'peligro' && (
+        <div className="flex flex-col gap-6">
+          {/* Sección propia y solo para ADMIN. Estaba al final de la pestaña que
+              alguien abre para poner el modo oscuro: se llegaba aquí por el
+              camino, no por decisión. Ahora hay que elegir entrar. */}
+          {esAdmin && (
             <Card className="rounded-2xl border-destructive/30 shadow-sm">
               <CardHeader className="border-b border-border/50">
                 <CardTitle className="flex items-center gap-2 text-base text-destructive">

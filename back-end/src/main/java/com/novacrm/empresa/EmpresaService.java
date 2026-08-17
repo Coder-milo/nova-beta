@@ -33,17 +33,20 @@ public class EmpresaService {
     private final ColocacionRepository colocacionRepository;
     private final VacanteRepository vacanteRepository;
     private final com.novacrm.auditoria.AuditoriaService auditoriaService;
+    private final ContactoEmpresaRepository contactoEmpresaRepository;
 
     public EmpresaService(EmpresaRepository empresaRepository,
                           PostulacionRepository postulacionRepository,
                           ColocacionRepository colocacionRepository,
                           VacanteRepository vacanteRepository,
-                          com.novacrm.auditoria.AuditoriaService auditoriaService) {
+                          com.novacrm.auditoria.AuditoriaService auditoriaService,
+                          ContactoEmpresaRepository contactoEmpresaRepository) {
         this.empresaRepository = empresaRepository;
         this.postulacionRepository = postulacionRepository;
         this.colocacionRepository = colocacionRepository;
         this.vacanteRepository = vacanteRepository;
         this.auditoriaService = auditoriaService;
+        this.contactoEmpresaRepository = contactoEmpresaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -114,14 +117,30 @@ public class EmpresaService {
     }
 
     /**
-     * Registra un acercamiento.
+     * Registra un acercamiento y mueve el estado de la relación.
      *
      * <p>Endpoint aparte del de edicion porque es lo que se hace a diario y
      * porque la fecha del primer contacto no debe pisarse al volver a escribir:
      * es la que dice cuanto lleva abierta la relacion.
+     *
+     * <p>La nota se guarda como <strong>una fila</strong> en
+     * {@code contacto_empresa}, no concatenada al campo {@code notas} de la
+     * empresa. Antes se hacía así —{@code "2026-08-16: llamé y no contestan"}
+     * pegado al texto anterior— y eso parece un hilo sin serlo: no se sabe
+     * quién escribió cada línea, corregir una obliga a editar el bloque entero,
+     * y dos personas guardando a la vez se pisan, porque las dos leyeron el
+     * mismo texto antes de añadir la suya.
+     *
+     * <p>{@code empresa.notas} se queda como está y no se toca: son las notas
+     * generales de la ficha, que además llegan desde la importación de Excel.
+     * Lo que deja de hacer es acumular el historial de contactos.
+     *
+     * @param autor quién lo registra, del token. Es la mitad que faltaba: una
+     *              nota sin autor no se puede repreguntar
      */
     @Transactional
-    public EmpresaResponse registrarContacto(UUID id, EstadoRelacion nuevoEstado, String proximoPaso, String nota) {
+    public EmpresaResponse registrarContacto(UUID id, EstadoRelacion nuevoEstado,
+                                             String proximoPaso, String nota, String autor) {
         var empresa = empresaRepository.findActivaById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada"));
         empresa.registrarContacto(
@@ -129,12 +148,33 @@ public class EmpresaService {
         if (proximoPaso != null) {
             empresa.setProximoPaso(proximoPaso);
         }
+
         if (nota != null && !nota.isBlank()) {
-            String previo = empresa.getNotas() == null || empresa.getNotas().isBlank()
-                    ? "" : empresa.getNotas() + "\n";
-            empresa.setNotas(previo + LocalDate.now() + ": " + nota.trim());
+            var apunte = new ContactoEmpresa();
+            apunte.setEmpresa(empresa);
+            apunte.setFecha(java.time.LocalDateTime.now());
+            apunte.setTipo(nuevoEstado == null ? "CONTACTO" : nuevoEstado.name());
+            // El asunto es obligatorio en la tabla y este endpoint no lo pide:
+            // se compone con el estado al que se movió, que es de lo que trata
+            // el apunte. Inventarse un "Sin asunto" seria peor.
+            apunte.setAsunto(empresa.getEstadoRelacion() == null
+                    ? "Acercamiento" : empresa.getEstadoRelacion().getEtiqueta());
+            apunte.setContacto(empresa.getContactoNombre());
+            apunte.setResponsable(autor);
+            apunte.setNotas(nota.trim());
+            contactoEmpresaRepository.save(apunte);
         }
         return aResponse(empresaRepository.save(empresa));
+    }
+
+    /** El historial de acercamientos, lo más reciente primero. */
+    @Transactional(readOnly = true)
+    public List<com.novacrm.empresa.dto.ContactoEmpresaResponse> contactosDe(UUID empresaId) {
+        return contactoEmpresaRepository.findByEmpresaIdOrderByFechaDesc(empresaId).stream()
+                .map(c -> new com.novacrm.empresa.dto.ContactoEmpresaResponse(
+                        c.getId(), c.getFecha(), c.getTipo(), c.getAsunto(),
+                        c.getContacto(), c.getResponsable(), c.getNotas()))
+                .toList();
     }
 
     @Transactional(readOnly = true)

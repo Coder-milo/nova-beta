@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeftIcon as ArrowLeft, ArrowsClockwiseIcon as ArrowsClockwise, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, ClipboardTextIcon as ClipboardText, ClockCounterClockwiseIcon as ClockCounterClockwise, DownloadSimpleIcon as DownloadSimple, FileTextIcon as FileText, FlagIcon as Flag, KanbanIcon as Kanban, PaletteIcon as Palette, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, ReadCvLogoIcon as ReadCvLogo, RowsIcon as Rows, SquaresFourIcon as SquaresFour, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, UsersIcon as Users, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { ArrowLeft, CheckCircle2 as CheckCircle, ChevronLeft as CaretLeft, ChevronRight as CaretRight, CircleAlert as WarningCircle, ClipboardList as ClipboardText, Download as DownloadSimple, FileText, FileUser as ReadCvLogo, Flag, History as ClockCounterClockwise, LayoutGrid as SquaresFour, LoaderCircle as CircleNotch, Palette, Pencil as PencilSimple, Plus, RefreshCw as ArrowsClockwise, Rows3 as Rows, SquareKanban as Kanban, Trash2 as Trash, Upload as UploadSimple, Users, X } from 'lucide-react'
 import { PanelBranding } from '@/components/admin/panel-branding'
 import { PanelWhatsapp } from '@/components/admin/panel-whatsapp'
 /**

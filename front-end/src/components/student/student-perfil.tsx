@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { BriefcaseIcon as Briefcase, CheckIcon as Check, CircleNotchIcon as CircleNotch, GraduationCapIcon as GraduationCap, PencilSimpleIcon as PencilSimple, UserIcon as User, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { Briefcase, Check, CircleAlert as WarningCircle, GraduationCap, LoaderCircle as CircleNotch, Pencil as PencilSimple, User, X } from 'lucide-react'
 import { ApiCallError, estudiantesApi, mensajeDeError, perfilApi } from '@/lib/api'
 import { useAvisos } from '@/components/ui/avisos'
 import type { EstudianteRequest, EstudianteResponse, FormacionResponse, ExperienciaResponse } from '@/lib/types'

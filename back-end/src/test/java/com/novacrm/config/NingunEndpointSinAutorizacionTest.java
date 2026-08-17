@@ -61,7 +61,17 @@ class NingunEndpointSinAutorizacionTest {
             // Cualquiera con sesion ve las ofertas vigentes, incluidos los
             // estudiantes: es el tablon de empleo. La respuesta se recorta
             // segun el rol —creadaPor y motivoCierre solo viajan a gestion—.
-            "VacanteController@GetMapping"
+            "VacanteController@GetMapping",
+            // El formulario de captacion: una empresa que llega por su cuenta no
+            // tiene cuenta con que entrar, porque las del portal son por
+            // invitacion. Es la unica escritura sin identificar del sistema.
+            //
+            // Lo que hace las veces de autorizacion, por este orden: el limite
+            // de tres por hora y por IP de RateLimitFilter, que no lee ninguna
+            // URL ni manda ningun correo, que no enlaza con ninguna empresa del
+            // CRM, y que lo que entra nace sin revisar y no aparece en ningun
+            // listado hasta que una persona lo aprueba.
+            "CaptacionPublicaController@PostMapping(\"/vacantes\")"
     );
 
     @Test

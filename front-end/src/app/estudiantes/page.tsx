@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowCounterClockwiseIcon as ArrowCounterClockwise, ArrowSquareOutIcon as ArrowSquareOut, ArrowsClockwiseIcon as ArrowsClockwise, BriefcaseIcon as Briefcase, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CurrencyDollarIcon as CurrencyDollar, FunnelIcon as Funnel, GraduationCapIcon as GraduationCap, MagnifyingGlassIcon as MagnifyingGlass, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, TrashIcon as Trash, TrophyIcon as Trophy, UserIcon as User, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { Briefcase, CheckCircle2 as CheckCircle, ChevronLeft as CaretLeft, ChevronRight as CaretRight, CircleAlert as WarningCircle, DollarSign as CurrencyDollar, ExternalLink as ArrowSquareOut, Filter as Funnel, GraduationCap, LoaderCircle as CircleNotch, Pencil as PencilSimple, Plus, RefreshCw as ArrowsClockwise, RotateCcw as ArrowCounterClockwise, Search as MagnifyingGlass, Trash2 as Trash, Trophy, User, UserCheck, X } from 'lucide-react'
 /**
  * Página de Estudiantes (CRUD Completo).
  *
@@ -21,8 +21,11 @@ import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { VistasGuardadas } from '@/components/admin/vistas-guardadas'
+import { descargarCsv } from '@/lib/csv'
 import { Badge } from '@/components/ui/badge'
 import { usePreferences } from '@/lib/preferences'
+import { useAuth } from '@/lib/auth'
 import { textosAdmin, type TextosAdmin } from '@/lib/textos-admin'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
@@ -39,7 +42,11 @@ import type {
   Page,
   EstadoAcademico,
   EstadoEmpleabilidad,
+  ResponsablePosible,
 } from '@/lib/types'
+
+/** El último programa que abrió esta persona, para no aterrizar en uno vacío. */
+const PROGRAMA_RECORDADO = 'nova_programa_estudiantes'
 import { Textarea } from '@/components/ui/textarea'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -148,6 +155,13 @@ function textos(english: boolean) {
         marcarHito: 'Mark a milestone',
         marcar: 'Mark',
         hitoMarcado: (n: number) => `Milestone marked on ${n} participant(s).`,
+        asignarResponsable: 'Assign owner',
+        asignar: 'Assign',
+        quitar: 'Unassign',
+        sinResponsable: '— Unassign —',
+        responsableAsignado: (n: number) => `Owner updated on ${n} participant(s).`,
+        seAsignaraA: (n: number, quien: string) => `${n} participant(s) will be assigned to ${quien}.`,
+        seQuitaraResponsable: (n: number) => `${n} participant(s) will be left with no owner. Use this to free up someone's caseload.`,
         seMarcaraHito: (n: number, hito: string, valor: string) => `“${hito}” will be set to “${valor}” on ${n} selected participant(s).`,
         hitos: {
           CV_LISTO: 'Résumé ready',
@@ -159,6 +173,7 @@ function textos(english: boolean) {
         valoresHito: { NO: 'No', EN_PROCESO: 'In progress', SI: 'Yes' } as Record<EstadoHito, string>,
         restaurarSeleccionados: 'Restore selected',
         buscarEnEstaPagina: 'Filter what is on this page…',
+        exportarSeleccion: 'Export selection',
         seleccionados: (n: number) => `${n} student(s) selected`,
         restauradosParcialmente: (ok: number, mal: number) => `${ok} restored, ${mal} failed. The list shows how it actually ended up.`,
         soloEstaPagina: (p: number, total: number) => `This view has no search of its own: only page ${p} of ${total} is being filtered. Move through the pages to see the rest.`,
@@ -208,6 +223,10 @@ function textos(english: boolean) {
         estudiantesActivosA: 'Active students missing a mobile, email or ID',
         mostrandoEstudiantesCon: 'Showing students with incomplete data, across all projects',
         datosIncompletos: 'Incomplete data',
+        losMios: 'Mine',
+        sinAsignar: 'Unassigned',
+        losQueLlevoYo: 'The participants assigned to me',
+        losQueNoLleva: 'Nobody is following these up yet — this is the list to share out',
         filtrarPorEmpleabilidad: 'Filter by employability',
         filtrarPorEstado: 'Filter by academic status',
         todasEmpleabilidad: 'All (employability)',
@@ -327,6 +346,13 @@ function textos(english: boolean) {
         marcarHito: 'Marcar un hito',
         marcar: 'Marcar',
         hitoMarcado: (n: number) => `Hito marcado en ${n} participante(s).`,
+        asignarResponsable: 'Asignar responsable',
+        asignar: 'Asignar',
+        quitar: 'Quitar',
+        sinResponsable: '— Quitar responsable —',
+        responsableAsignado: (n: number) => `Responsable actualizado en ${n} participante(s).`,
+        seAsignaraA: (n: number, quien: string) => `Se asignarán ${n} participante(s) a ${quien}.`,
+        seQuitaraResponsable: (n: number) => `${n} participante(s) quedarán sin responsable. Es lo que se hace para liberar los casos de alguien que deja el programa.`,
         seMarcaraHito: (n: number, hito: string, valor: string) => `Se pondrá «${hito}» en «${valor}» a ${n} participante(s) seleccionado(s).`,
         hitos: {
           CV_LISTO: 'Hoja de vida lista',
@@ -338,6 +364,7 @@ function textos(english: boolean) {
         valoresHito: { NO: 'No', EN_PROCESO: 'En proceso', SI: 'Sí' } as Record<EstadoHito, string>,
         restaurarSeleccionados: 'Restaurar seleccionados',
         buscarEnEstaPagina: 'Filtrar lo que hay en esta página…',
+        exportarSeleccion: 'Exportar selección',
         seleccionados: (n: number) => `${n} estudiante(s) seleccionado(s)`,
         restauradosParcialmente: (ok: number, mal: number) => `Se restauraron ${ok} y fallaron ${mal}. La lista muestra cómo quedó de verdad.`,
         soloEstaPagina: (p: number, total: number) => `Esta vista no tiene búsqueda propia: se está filtrando sólo la página ${p} de ${total}. Recorre las páginas para ver el resto.`,
@@ -387,6 +414,10 @@ function textos(english: boolean) {
         estudiantesActivosA: 'Estudiantes activos a los que les falta celular, correo o documento',
         mostrandoEstudiantesCon: 'Mostrando estudiantes con datos incompletos, de todos los proyectos',
         datosIncompletos: 'Datos incompletos',
+        losMios: 'Los míos',
+        sinAsignar: 'Sin asignar',
+        losQueLlevoYo: 'Los participantes que tengo asignados',
+        losQueNoLleva: 'No los lleva nadie todavía — es la lista para repartir',
         filtrarPorEmpleabilidad: 'Filtrar por empleabilidad',
         filtrarPorEstado: 'Filtrar por estado académico',
         todasEmpleabilidad: 'Todas (empleabilidad)',
@@ -505,6 +536,7 @@ function textos(english: boolean) {
 
 export default function EstudiantesPage() {
   const { locale } = usePreferences()
+  const { user } = useAuth()
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
   const { confirmar, dialogo } = useConfirmar()
@@ -516,6 +548,15 @@ export default function EstudiantesPage() {
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState<string | null>(null)
   const [verPapelera, setVerPapelera] = useState(false)
+  /**
+   * Qué subconjunto se está mirando.
+   *
+   * `mios` son los que lleva quien tiene la sesión abierta; `sinAsignar`, los
+   * que no lleva nadie. Los dos salen del mismo endpoint —el `responsableId`
+   * ausente significa «sin asignar»—, y por eso son un solo estado y no dos
+   * casillas que podrían quedar marcadas a la vez pidiendo cosas contrarias.
+   */
+  const [vista, setVista] = useState<'todos' | 'mios' | 'sinAsignar'>('todos')
   const [incompleteOnly, setIncompleteOnly] = useState(() =>
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('incompletos') === '1'
   )
@@ -537,6 +578,7 @@ export default function EstudiantesPage() {
     }
   }, [pidenIncompletos])
 
+
   // Filtros
   const [searchQuery, setSearchQuery]             = useState('')
   /**
@@ -554,6 +596,24 @@ export default function EstudiantesPage() {
     const id = window.setTimeout(() => setBusquedaAplicada(searchQuery.trim()), 300)
     return () => window.clearTimeout(id)
   }, [searchQuery])
+
+  /**
+   * Llegar desde el mapa del panel a la gente de un municipio.
+   *
+   * Se siembra la búsqueda en vez de un filtro propio de ciudad: el término
+   * queda escrito en la caja, así que quien llega ve **por qué** está viendo
+   * esas 26 personas y lo puede borrar. Un filtro invisible aplicado por la URL
+   * deja la lista recortada sin decir quién la recortó.
+   */
+  const ciudadPedida = parametros.get('ciudad')
+  useEffect(() => {
+    if (ciudadPedida) {
+      setSearchQuery(ciudadPedida)
+      setVerPapelera(false)
+      setIncompleteOnly(false)
+      setCurrentPage(0)
+    }
+  }, [ciudadPedida])
 
   /**
    * La papelera y el listado de incompletos son vistas aparte y no tienen
@@ -589,19 +649,51 @@ export default function EstudiantesPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkBusy, setBulkBusy]       = useState(false)
   const [hitoMasivo, setHitoMasivo]   = useState<HitoPreparacion>('CV_LISTO')
+  const [responsables, setResponsables] = useState<ResponsablePosible[]>([])
+  const [responsableMasivo, setResponsableMasivo] = useState<string>('')
 
   // ── Cargar programas ──────────────────────────────────────────────────────
+  /**
+   * Qué programa se abre por defecto.
+   *
+   * Era `list[0]`, el primero que devolviera el servidor. Con dos programas
+   * —uno con los 108 participantes y otro vacío— eso significaba que lo primero
+   * que veía un coordinador al entrar era **«no hay estudiantes»**, en la
+   * pantalla donde está todo su trabajo.
+   *
+   * Manda lo último que eligió esa persona; si no hay memoria, el que tiene
+   * gente. Un programa vacío es un destino válido —se acaba de crear— pero
+   * nunca es un buen sitio donde aterrizar.
+   */
   useEffect(() => {
     programasApi.listar().then((list) => {
       setProgramas(list)
-      if (list.length > 0) setSelectedPgm(list[0].id)
+      if (list.length === 0) return
+      const recordado = localStorage.getItem(PROGRAMA_RECORDADO)
+      const sigueExistiendo = recordado && list.some((p) => p.id === recordado)
+      const conGente = list.find((p) => p.totalEstudiantes > 0)
+      setSelectedPgm(sigueExistiendo ? recordado : (conGente ?? list[0]).id)
     }).catch(() => setError(C.errorProgramas))
+  }, [])
+
+  // Se recuerda al cambiar, no al cargar: guardar el valor que acabamos de
+  // elegir automáticamente lo convertiría en «elegido por la persona».
+  const elegirPrograma = (id: string) => {
+    setSelectedPgm(id)
+    localStorage.setItem(PROGRAMA_RECORDADO, id)
+  }
+
+  // Las cuentas que pueden llevar casos. En silencio si falla: es un
+  // desplegable de una acción en lote, no el contenido de la pantalla, y un
+  // error rojo al entrar por esto asusta más de lo que informa.
+  useEffect(() => {
+    estudiantesApi.responsables().then(setResponsables).catch(() => undefined)
   }, [])
 
   // ── Limpiar selección al cambiar de vista o filtros ───────────────────────
   useEffect(() => {
     setSelectedIds([])
-  }, [selectedPgm, verPapelera, incompleteOnly, searchQuery, academicFilter, employabilityFilter, currentPage])
+  }, [selectedPgm, verPapelera, incompleteOnly, vista, searchQuery, academicFilter, employabilityFilter, currentPage])
 
   // ── Cargar estudiantes ────────────────────────────────────────────────────
   /**
@@ -621,6 +713,11 @@ export default function EstudiantesPage() {
         setPage(await estudiantesApi.listarPapelera(pgmId, pg))
       } else if (incompleteOnly) {
         setPage(await estudiantesApi.listarIncompletos(pg))
+      } else if (vista !== 'todos') {
+        // «Sin asignar» es el endpoint sin `responsableId`, no una llamada
+        // distinta: en el servidor la ausencia de responsable *es* el filtro.
+        setPage(await estudiantesApi.porResponsable(
+          vista === 'mios' ? user?.usuarioId : undefined, pg))
       } else if (hayFiltrosDeServidor) {
         setPage(await estudiantesApi.buscarAvanzado({
           q: busquedaAplicada || undefined,
@@ -643,7 +740,7 @@ export default function EstudiantesPage() {
     } finally {
       setLoading(false)
     }
-  }, [incompleteOnly, hayFiltrosDeServidor, busquedaAplicada, academicFilter, employabilityFilter])
+  }, [incompleteOnly, vista, user?.usuarioId, hayFiltrosDeServidor, busquedaAplicada, academicFilter, employabilityFilter])
 
   // Cambiar de programa, de vista o de filtro devuelve a la primera página: la
   // 4 de un listado sin filtrar no existe en el listado filtrado.
@@ -803,6 +900,41 @@ export default function EstudiantesPage() {
   }
 
   /**
+   * Asigna —o quita— responsable a los seleccionados.
+   *
+   * Es la acción que faltaba desde que se hicieron las acciones en lote: el
+   * concepto no existía en el modelo y hubo que decidir antes qué significaba.
+   * La opción vacía **quita** el responsable, que es como se libera el trabajo
+   * de alguien que deja el programa; por eso el texto lo dice y no se deja como
+   * un «— sin elegir —» ambiguo.
+   */
+  const handleBulkResponsable = async () => {
+    if (selectedIds.length === 0) return
+    const elegido = responsables.find((r) => r.id === responsableMasivo)
+    if (!(await confirmar({
+      titulo: T.asignarResponsable,
+      descripcion: elegido
+        ? T.seAsignaraA(selectedIds.length, elegido.nombre)
+        : T.seQuitaraResponsable(selectedIds.length),
+      textoConfirmar: elegido ? T.asignar : T.quitar,
+      destructivo: false,
+    }))) return
+    setBulkBusy(true)
+    try {
+      const { actualizados } = await estudiantesApi.asignarResponsableMasivo(
+        selectedIds, responsableMasivo || null)
+      mostrarExito(T.responsableAsignado(actualizados))
+      setSelectedIds([])
+      // El desplegable enseña cuántos lleva cada quien: si no se recarga,
+      // reparte la siguiente tanda mirando cifras viejas.
+      estudiantesApi.responsables().then(setResponsables).catch(() => undefined)
+      loadEstudiantes(selectedPgm, currentPage, verPapelera)
+    } catch (err) {
+      mostrarError(mensajeDeError(err, C.errorConexion))
+    } finally { setBulkBusy(false) }
+  }
+
+  /**
    * Marca un hito en todos los seleccionados.
    *
    * Es lo que evita volver a la hoja de cálculo: poner al día a treinta
@@ -828,6 +960,31 @@ export default function EstudiantesPage() {
     } catch (err) {
       mostrarError(mensajeDeError(err, C.errorConexion))
     } finally { setBulkBusy(false) }
+  }
+
+  /**
+   * Exporta lo seleccionado a CSV.
+   *
+   * Se exporta lo que hay en pantalla y no se vuelve a pedir al servidor: la
+   * selección es sobre las filas que la persona está viendo, y traer otra vez
+   * esos registros abriría la puerta a que el archivo no coincida con lo que
+   * acaba de marcar.
+   *
+   * Sin datos de contacto ni documento: un CSV se reenvía por correo sin
+   * pensarlo, y ese es justo el camino por el que los datos personales de una
+   * cohorte acaban fuera. Para eso está el informe formal, que deja rastro.
+   */
+  const handleBulkExport = () => {
+    const marcados = filtered.filter((e) => selectedIds.includes(e.id))
+    if (marcados.length === 0) return
+    descargarCsv(
+      `estudiantes-seleccion-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['Nombre', 'Apellido', 'Programa', 'Ciudad', 'Estado academico', 'Empleabilidad', 'Completitud %'],
+      marcados.map((e) => [
+        e.nombre, e.apellido, e.programaNombre ?? '', e.ciudad ?? '',
+        e.estadoAcademico, e.estadoEmpleabilidad, e.porcentajeCompletitud,
+      ]),
+    )
   }
 
   const handleBulkRestore = async () => {
@@ -1175,7 +1332,7 @@ export default function EstudiantesPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted-foreground">{C.programa}:</span>
             {programas.map((p) => (
-              <button key={p.id} type="button" onClick={() => setSelectedPgm(p.id)}
+              <button key={p.id} type="button" onClick={() => elegirPrograma(p.id)}
                 className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${selectedPgm === p.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-foreground hover:bg-secondary'}`}>
                 {p.nombre}
               </button>
@@ -1200,6 +1357,35 @@ export default function EstudiantesPage() {
               <WarningCircle className="size-3.5 mr-1" />
               {incompleteOnly ? T.verTodos : T.datosIncompletos}
             </Button>
+          )}
+
+          {/* «Los míos» y «Sin asignar». El backend los servía desde que existe
+              el responsable y ninguna pantalla los llamaba: el filtro estaba
+              hecho y no se podía usar.
+
+              Van juntos y no en un desplegable porque son las dos preguntas
+              que se hacen de verdad —«qué llevo yo» y «qué no lleva nadie»— y
+              la segunda es la que hace falta para repartir. */}
+          {!verPapelera && (
+            <>
+              <Button
+                variant={vista === 'mios' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setVista(vista === 'mios' ? 'todos' : 'mios'); setCurrentPage(0) }}
+                title={T.losQueLlevoYo}
+              >
+                <UserCheck className="size-3.5 mr-1" />
+                {T.losMios}
+              </Button>
+              <Button
+                variant={vista === 'sinAsignar' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setVista(vista === 'sinAsignar' ? 'todos' : 'sinAsignar'); setCurrentPage(0) }}
+                title={T.losQueNoLleva}
+              >
+                {T.sinAsignar}
+              </Button>
+            </>
           )}
           <Button
             variant={verPapelera ? 'destructive' : 'outline'}
@@ -1250,6 +1436,30 @@ export default function EstudiantesPage() {
           </Button>
         </div>
       )}
+
+      {/* Vistas guardadas.
+          Va encima de los filtros y no debajo porque se elige antes: abrir una
+          vista *pone* los filtros, así que leerla después de haberlos tocado a
+          mano invita a pelearse con la pantalla. */}
+      <VistasGuardadas
+        modulo="ESTUDIANTES"
+        hayFiltros={academicFilter !== 'ALL' || employabilityFilter !== 'ALL' || busquedaAplicada !== ''}
+        filtrosActuales={{
+          estadoAcademico: academicFilter,
+          estadoEmpleabilidad: employabilityFilter,
+          q: busquedaAplicada,
+        }}
+        onAplicar={(f) => {
+          // Se ignoran las claves desconocidas: una vista guardada hace meses
+          // puede traer un filtro que ya no existe, y reventar al abrirla sería
+          // peor que filtrar de menos.
+          setAcademicFilter(typeof f.estadoAcademico === 'string' ? f.estadoAcademico : 'ALL')
+          setEmployabilityFilter(typeof f.estadoEmpleabilidad === 'string' ? f.estadoEmpleabilidad : 'ALL')
+          const q = typeof f.q === 'string' ? f.q : ''
+          setSearchQuery(q)
+          setBusquedaAplicada(q)
+        }}
+      />
 
       {/* Búsqueda y filtros */}
       <div className="grid gap-3 sm:grid-cols-3">
@@ -1312,6 +1522,17 @@ export default function EstudiantesPage() {
             {T.seleccionados(selectedIds.length)}
           </span>
           <div className="flex gap-2">
+            {/* Exportar no destruye nada, así que va antes que lo que sí:
+                separar las acciones reversibles de las que no lo son evita el
+                clic equivocado con cuarenta filas marcadas. */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs bg-background hover:bg-secondary"
+              onClick={handleBulkExport}
+            >
+              {T.exportarSeleccion}
+            </Button>
             {verPapelera ? (
               <>
                 <Button
@@ -1361,6 +1582,31 @@ export default function EstudiantesPage() {
                     {T.valoresHito[v]}
                   </Button>
                 ))}
+
+                {/* Repartir la cohorte. El desplegable lleva cuántos tiene ya
+                    cada quien: repartir a ciegas es como una persona acaba con
+                    ochenta y otra con seis. */}
+                <select
+                  aria-label={T.asignarResponsable}
+                  value={responsableMasivo}
+                  disabled={bulkBusy}
+                  onChange={(e) => setResponsableMasivo(e.target.value)}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                >
+                  <option value="">{T.sinResponsable}</option>
+                  {responsables.map((r) => (
+                    <option key={r.id} value={r.id}>{r.nombre} ({r.aCargo})</option>
+                  ))}
+                </select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs bg-background hover:bg-secondary"
+                  disabled={bulkBusy}
+                  onClick={() => void handleBulkResponsable()}
+                >
+                  <UserCheck className="size-3.5 mr-1" /> {T.asignar}
+                </Button>
                 <Button
                   variant="destructive"
                   size="sm"

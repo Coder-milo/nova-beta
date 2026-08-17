@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowsClockwiseIcon as ArrowsClockwise, CircleNotchIcon as CircleNotch, DownloadSimpleIcon as DownloadSimple, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CircleAlert as WarningCircle, Download as DownloadSimple, LoaderCircle as CircleNotch, RefreshCw as ArrowsClockwise } from 'lucide-react'
 import { ApiCallError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'

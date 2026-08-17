@@ -19,6 +19,7 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     @EntityGraph(attributePaths = "programa")
     Page<Estudiante> findByProgramaIdAndActivoTrue(UUID programaId, Pageable pageable);
 
+    @EntityGraph(attributePaths = "programa")
     List<Estudiante> findAllByProgramaIdAndActivoTrue(UUID programaId);
 
     // Aqui vivia findByEmail, con igualdad exacta, y se colo en tres sitios: el
@@ -50,6 +51,15 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
             """, nativeQuery = true)
     Optional<Estudiante> findByCelularLimpio(@Param("digitos") String digitos);
     long countByProgramaIdAndActivoTrue(UUID programaId);
+
+    /** Cuántos lleva alguien. Alimenta el desplegable, para no repartir a ciegas. */
+    long countByResponsableIdAndActivoTrue(UUID responsableId);
+
+    /** «Mis estudiantes»: la consulta que justifica que el responsable exista. */
+    Page<Estudiante> findByResponsableIdAndActivoTrue(UUID responsableId, Pageable pageable);
+
+    /** Los que no lleva nadie. Es lo que hay que ver para repartir. */
+    Page<Estudiante> findByResponsableIsNullAndActivoTrue(Pageable pageable);
 
     // --- Dashboard: KPIs y variaciones temporales ---
     long countByCreatedAtGreaterThanEqual(Instant desde);
@@ -132,12 +142,12 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     long countByActivoFalse();
 
     @Modifying
-    @Query("UPDATE Estudiante e SET e.activo = false, e.deletedAt = CURRENT_TIMESTAMP WHERE e.programa.id = :programaId AND e.activo = true")
+    @Query("UPDATE Estudiante e SET e.activo = false, e.deletedAt = CURRENT_INSTANT WHERE e.programa.id = :programaId AND e.activo = true")
     int softDeleteByProgramaId(@Param("programaId") UUID programaId);
 
     /** Igual que {@link #softDeleteByProgramaId}, pero por lista de ids (BE-13: evita load+save por fila). */
     @Modifying
-    @Query("UPDATE Estudiante e SET e.activo = false, e.deletedAt = CURRENT_TIMESTAMP WHERE e.id IN :ids AND e.activo = true")
+    @Query("UPDATE Estudiante e SET e.activo = false, e.deletedAt = CURRENT_INSTANT WHERE e.id IN :ids AND e.activo = true")
     int softDeleteByIdIn(@Param("ids") List<UUID> ids);
 
     /** Al borrar una plantilla: nadie queda apuntando a ella como preferida. */
@@ -308,4 +318,35 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
 
     /** Destinatarios de un anuncio general. */
     List<Estudiante> findAllByActivoTrue();
+
+    /**
+     * Cuantos activos hay en cada ciudad, tal y como esta escrita en la ficha.
+     *
+     * <p>Devuelve el texto crudo a proposito. La ciudad entro del Excel de
+     * matricula y es texto libre: normalizarla en SQL obligaria a repetir en la
+     * consulta la tabla de alias que ya vive en {@code MunicipiosDelAtlantico},
+     * y a mantener las dos a la vez. Aqui se agrupa —seis u ocho filas— y el
+     * emparejado con el municipio se hace una sola vez en Java.
+     *
+     * <p>Incluye las fichas sin ciudad: una persona sin ubicar sigue siendo una
+     * persona del programa, y no contarla haria que los totales del mapa no
+     * cuadraran con los del resto del panel.
+     *
+     * @param programaId nulo para todos los programas
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT COALESCE(e.ciudad, '') AS ciudad, COUNT(e) AS total
+            FROM Estudiante e
+            WHERE e.activo = true
+              AND (:programaId IS NULL OR e.programa.id = :programaId)
+            GROUP BY COALESCE(e.ciudad, '')
+            """)
+    List<CiudadConTotal> contarActivosPorCiudad(
+            @org.springframework.data.repository.query.Param("programaId") UUID programaId);
+
+    /** Proyeccion de {@link #contarActivosPorCiudad}. */
+    interface CiudadConTotal {
+        String getCiudad();
+        long getTotal();
+    }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowSquareOutIcon as ArrowSquareOut, ChartBarIcon as ChartBar, ChartPieIcon as ChartPie, DatabaseIcon as Database, FileXlsIcon as FileXls, InfoIcon as Info, KeyIcon as Key } from '@phosphor-icons/react'
+import { BarChart3 as ChartBar, Database, ExternalLink as ArrowSquareOut, FileSpreadsheet as FileXls, Info, Key, PieChart as ChartPie } from 'lucide-react'
 /**
  * Página de Power BI.
  *
@@ -9,10 +9,15 @@ import { ArrowSquareOutIcon as ArrowSquareOut, ChartBarIcon as ChartBar, ChartPi
  * genérico de Power BI, no un tablero especifico de NOVA CRM.
  */
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+  CabeceraTabler,
+  CabeceraTarjeta,
+  CuerpoTarjeta,
+  PaginaTabler,
+  TarjetaTabler,
+} from '@/components/reportes/tabler'
 import { usePreferences } from '@/lib/preferences'
-import { textosAdmin } from '@/lib/textos-admin'
 
 /**
  * Textos propios de esta pantalla.
@@ -34,6 +39,8 @@ function textos(english: boolean) {
         incrementoRelativoEn: 'Relative increase in declared monthly income after graduation.',
         efectividadDelMatching: 'Matching effectiveness',
         tasaDeConversion: 'Conversion rate from recommended vacancies to actual applications.',
+        indicadoresPropuestos: 'Proposed indicators; not yet synced with any data warehouse.',
+        analitica: 'Analytics',
       }
     : {
         cuandoElInforme: 'Cuando el informe esté listo, se podrá interactuar con filtros avanzados por cohorte, geografía, género e ingresos mensuales antes y después del programa. Por ahora el enlace abre el portal general de Power BI, no un tablero específico de NOVA CRM.',
@@ -47,78 +54,110 @@ function textos(english: boolean) {
         incrementoRelativoEn: 'Incremento relativo en los ingresos mensuales declarados tras la graduación.',
         efectividadDelMatching: 'Efectividad del Matching',
         tasaDeConversion: 'Tasa de conversión de vacantes recomendadas a postulaciones efectivas.',
+        indicadoresPropuestos: 'Indicadores propuestos; aún no sincronizados con ningún almacén de datos.',
+        analitica: 'Analítica',
       }
 }
 
 export default function PowerBiPage() {
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
-  const C = textosAdmin(locale === 'en')
+
+  // Los indicadores planeados. En una lista se ven como lo que son —una
+  // propuesta pendiente de conectar— y añadir el siguiente no obliga a tocar
+  // la maqueta.
+  const indicadores = [
+    { icono: ChartBar, titulo: T.tasaDeInsercion, detalle: T.porcentajeDeEgresados },
+    { icono: FileXls, titulo: T.multiplicadorDeIngreso, detalle: T.incrementoRelativoEn },
+    { icono: Key, titulo: T.efectividadDelMatching, detalle: T.tasaDeConversion },
+  ]
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
-        <Info className="size-4 shrink-0" />
+    <PaginaTabler>
+      <CabeceraTabler
+        pretitulo={T.analitica}
+        titulo={T.tableroDeControl}
+        descripcion={T.planeadoInsercionLaboral}
+        acciones={
+          <Button
+            size="sm"
+            className="gap-2"
+            render={<a href="https://app.powerbi.com" target="_blank" rel="noopener noreferrer" />}
+          >
+            Ir a Power BI <ArrowSquareOut className="size-4" />
+          </Button>
+        }
+      />
+
+      <div
+        className="flex items-start gap-2 rounded border px-4 py-3 text-sm"
+        style={{
+          borderColor: 'color-mix(in srgb, var(--tbl-naranja) 35%, transparent)',
+          backgroundColor: 'color-mix(in srgb, var(--tbl-naranja) 10%, transparent)',
+          color: 'var(--tbl-naranja)',
+        }}
+      >
+        <Info className="mt-0.5 size-4 shrink-0" />
         <span>{T.proximamenteEstaSeccion}</span>
       </div>
-      <div className="grid gap-6 lg:grid-cols-2">
+
+      <div className="grid gap-3 lg:grid-cols-2">
         {/* Acceso al Tablero */}
-        <Card className="rounded-xl shadow-sm border-primary/30 flex flex-col justify-between">
-          <CardHeader>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <ChartPie className="size-5" />
+        <TarjetaTabler className="flex flex-col">
+          <CabeceraTarjeta
+            titulo={T.tableroDeControl}
+            subtitulo={T.planeadoInsercionLaboral}
+            acciones={
+              <span
+                className="flex size-8 items-center justify-center rounded"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--tbl-azul) 12%, transparent)',
+                  color: 'var(--tbl-azul)',
+                }}
+              >
+                <ChartPie className="size-4" />
               </span>
-              <div>
-                <CardTitle className="text-base">{T.tableroDeControl}</CardTitle>
-                <CardDescription>{T.planeadoInsercionLaboral}</CardDescription>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed pt-2">{T.cuandoElInforme}</p>
-          </CardHeader>
-          <CardContent className="pt-0 flex justify-start">
-            <Button
-              className="gap-2"
-              render={<a href="https://app.powerbi.com" target="_blank" rel="noopener noreferrer" />}
-            >
-              Ir a Power BI <ArrowSquareOut className="size-4" />
-            </Button>
-          </CardContent>
-        </Card>
+            }
+          />
+          <CuerpoTarjeta className="flex-1">
+            <p className="text-sm leading-relaxed text-muted-foreground">{T.cuandoElInforme}</p>
+          </CuerpoTarjeta>
+        </TarjetaTabler>
 
         {/* Modelo de Datos */}
-        <Card className="rounded-xl shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Database className="size-4" />
-              {T.metricasEIndicadores}
-            </CardTitle>
-            <CardDescription>Indicadores propuestos; aun no sincronizados con ningun almacen de datos.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3 text-xs">
-            <div className="flex items-start gap-2.5">
-              <ChartBar className="size-4 text-primary shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-semibold text-foreground">{T.tasaDeInsercion}</h4>
-                <p className="text-muted-foreground">{T.porcentajeDeEgresados}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2.5">
-              <FileXls className="size-4 text-primary shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-semibold text-foreground">{T.multiplicadorDeIngreso}</h4>
-                <p className="text-muted-foreground">{T.incrementoRelativoEn}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2.5">
-              <Key className="size-4 text-primary shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-semibold text-foreground">{T.efectividadDelMatching}</h4>
-                <p className="text-muted-foreground">{T.tasaDeConversion}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <TarjetaTabler>
+          <CabeceraTarjeta
+            titulo={T.metricasEIndicadores}
+            subtitulo={T.indicadoresPropuestos}
+            acciones={
+              <span
+                className="flex size-8 items-center justify-center rounded"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--tbl-morado) 12%, transparent)',
+                  color: 'var(--tbl-morado)',
+                }}
+              >
+                <Database className="size-4" />
+              </span>
+            }
+          />
+          <table className="tbl-table">
+            <tbody>
+              {indicadores.map(({ icono: Icono, titulo, detalle }) => (
+                <tr key={titulo}>
+                  <td className="w-10 align-top">
+                    <Icono className="size-4" style={{ color: 'var(--tbl-azul)' }} />
+                  </td>
+                  <td>
+                    <div className="font-semibold">{titulo}</div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{detalle}</p>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TarjetaTabler>
       </div>
-    </div>
+    </PaginaTabler>
   )
 }

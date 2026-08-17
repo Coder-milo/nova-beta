@@ -107,15 +107,15 @@ public class RemotiveConnector implements FuenteDeVacantes {
             synchronized (this) {
                 actual = httpClient;
                 if (actual == null) {
-                    actual = HttpClient.newBuilder()
-                            .connectTimeout(Duration.ofSeconds(15))
+                    httpClient = HttpClient.newBuilder()
+                            .connectTimeout(Duration.ofSeconds(5))
                             .followRedirects(HttpClient.Redirect.NORMAL)
                             .build();
-                    httpClient = actual;
+                    this.httpClient = httpClient;
                 }
             }
         }
-        return actual;
+        return httpClient;
     }
 
     @Override
@@ -133,7 +133,7 @@ public class RemotiveConnector implements FuenteDeVacantes {
                     HttpRequest.newBuilder(URI.create(url))
                             .header("Accept", "application/json")
                             .header("User-Agent", "NOVA-CRM/1.0 (empleabilidad CAC)")
-                            .timeout(Duration.ofSeconds(20))
+                            .timeout(Duration.ofSeconds(5))
                             .GET()
                             .build(),
                     HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));

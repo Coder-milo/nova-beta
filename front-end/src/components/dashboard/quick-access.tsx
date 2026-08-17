@@ -1,5 +1,5 @@
-import { FilePlusIcon as FilePlus, FolderPlusIcon as FolderPlus, PresentationIcon as Presentation, ReadCvLogoIcon as ReadCvLogo, UploadSimpleIcon as UploadSimple, UserPlusIcon as UserPlus } from '@phosphor-icons/react/ssr'
-import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
+import { FilePlus, FolderPlus, Presentation, FileUser as ReadCvLogo, Upload as UploadSimple, UserPlus } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import Link from '@/compat/next-link'
 import {
   Card,
@@ -12,7 +12,7 @@ import { quickActions, type QuickAction } from '@/lib/mock-data'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
 
-const iconMap: Record<QuickAction['icon'], PhosphorIcon> = {
+const iconMap: Record<QuickAction['icon'], LucideIcon> = {
   'add-student': UserPlus,
   'new-project': FolderPlus,
   import: UploadSimple,
@@ -44,26 +44,30 @@ export function QuickAccess() {
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
   return (
-    <Card className="rounded-xl shadow-sm">
-      <CardHeader>
-        <CardTitle>{T.accesosRapidos}</CardTitle>
-        <CardDescription>{T.tareasFrecuentesDel}</CardDescription>
+    <Card className="gap-0 shadow-none">
+      <CardHeader className="border-b border-[var(--panel-borde)] px-4 pb-2.5">
+        <CardTitle className="text-sm">{T.accesosRapidos}</CardTitle>
+        <CardDescription className="text-xs">{T.tareasFrecuentesDel}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <CardContent className="p-0">
+        {/* Rejilla a hueso: las celdas se separan por el filete que comparten,
+            no por espacio más borde propio. */}
+        <div className="grid grid-cols-2 gap-px bg-[var(--panel-borde)] sm:grid-cols-3">
           {quickActions.map((action) => {
             const Icon = iconMap[action.icon]
             return (
               <Link
                 key={action.id}
                 href={action.href}
-                className="flex flex-col items-start gap-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-4 transition-all hover:border-black/[0.15] hover:bg-black/[0.04]"
+                className="group flex min-w-0 flex-col gap-1 bg-[var(--panel-superficie)] p-3 transition-colors hover:bg-[var(--panel-superficie-tenue)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
               >
-                <span className="flex size-9 items-center justify-center rounded-xl bg-[#0071E3] text-white shadow-xs">
-                  <Icon className="size-[18px]" />
+                {/* El icono seguía un azul escrito a fuego, así que era de lo
+                    poco del panel que no se enteraba del color del proyecto. */}
+                <span className="mb-0.5 flex size-7 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] text-primary">
+                  <Icon className="size-4" aria-hidden="true" />
                 </span>
-                <span className="text-sm font-semibold text-foreground">{action.label}</span>
-                <span className="text-xs text-muted-foreground">{action.descripcion}</span>
+                <span className="truncate text-[13px] font-semibold text-foreground">{action.label}</span>
+                <span className="text-xs leading-snug text-muted-foreground">{action.descripcion}</span>
               </Link>
             )
           })}

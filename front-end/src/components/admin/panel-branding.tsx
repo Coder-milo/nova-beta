@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, FloppyDiskIcon as FloppyDisk, ImageIcon as ImageIcon, PaletteIcon as Palette, UploadIcon as Upload, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Image as ImageIcon, LoaderCircle as CircleNotch, Palette, RefreshCw as ArrowsClockwise, Save as FloppyDisk, Upload } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -179,7 +179,7 @@ function CampoImagen({
     <div className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-secondary/10 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-foreground">
-          <ImageIcon className="size-4 text-primary" weight="duotone" />
+          <ImageIcon className="size-4 text-primary" />
           {etiqueta}
         </h4>
         <span className="rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-semibold text-primary">
@@ -241,7 +241,7 @@ function CampoImagen({
       {!estado.midiendo && !estado.problema && estado.ancho && (
         <div className="flex items-center justify-between gap-3 pt-1">
           <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
-            <CheckCircle className="size-3.5 shrink-0" weight="fill" />
+            <CheckCircle className="size-3.5 shrink-0" />
             {estado.ancho} × {estado.alto} px (Válida)
           </p>
           <div className="flex items-center gap-2">
@@ -608,7 +608,7 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Palette className="size-5 text-primary" weight="duotone" />
+              <Palette className="size-5 text-primary" />
               {T.identidadVisualDel}
             </CardTitle>
             <CardDescription>
@@ -881,7 +881,7 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
 
             {guardado && (
               <p className="flex items-center gap-2 rounded-xl border border-green-500/25 bg-green-500/10 px-3 py-2.5 text-sm font-medium text-green-700 dark:text-green-300">
-                <CheckCircle className="size-4 shrink-0" weight="fill" />
+                <CheckCircle className="size-4 shrink-0" />
                 {T.identidadGuardadaLos}
               </p>
             )}

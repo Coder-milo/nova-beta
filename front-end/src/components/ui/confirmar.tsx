@@ -17,7 +17,7 @@
 
 import { useCallback, useState } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
-import { CircleNotchIcon as CircleNotch, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CircleAlert as WarningCircle, LoaderCircle as CircleNotch } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -79,7 +79,6 @@ export function Confirmar({
           <div className="flex items-start gap-3">
             <WarningCircle
               className={cn('mt-0.5 size-6 shrink-0', destructivo ? 'text-destructive' : 'text-amber-500')}
-              weight="duotone"
             />
             <div className="min-w-0">
               <Dialog.Title className="text-sm font-semibold text-foreground">{titulo}</Dialog.Title>

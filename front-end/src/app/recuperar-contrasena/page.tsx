@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeftIcon as ArrowLeft, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, EyeIcon as Eye, EyeSlashIcon as EyeSlash, GraduationCapIcon as GraduationCap, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { ArrowLeft, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Eye, EyeOff as EyeSlash, GraduationCap, LoaderCircle as CircleNotch } from 'lucide-react'
 /**
  * Página de recuperación de contraseña.
  *

@@ -16,7 +16,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowSquareOutIcon as ArrowSquareOut, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, TrashIcon as Trash, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, ExternalLink as ArrowSquareOut, LoaderCircle as CircleNotch, Pencil as PencilSimple, Plus, Trash2 as Trash } from 'lucide-react'
 import { plataformasApi } from '@/lib/api'
 import type { PlataformaRequest, PlataformaResponse } from '@/lib/types'
 import { Button } from '@/components/ui/button'

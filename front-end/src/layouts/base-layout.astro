@@ -15,6 +15,44 @@ const description =
     <meta name="description" content={description} />
     <link rel="icon" type="image/png" href="/brand/cac-logo.png" />
     <title>{title}</title>
+
+    {/*
+      Speculation Rules — estándar web, solo HTML, sin librerías.
+
+      `eagerness: moderate` dispara al pasar el ratón por un enlace, unos 200 ms
+      antes del clic, así el documento ya está en caché cuando la navegación
+      ocurre de verdad.
+
+      Se usa `prefetch` y no `prerender` a propósito. Prerenderizar ejecuta la
+      página destino: aquí eso significa arrancar una segunda copia del panel,
+      que volvería a pedir la sesión y los datos del tablero con las cookies del
+      usuario. Se pagaría dos veces cada carga a cambio de nada.
+
+      Y hay un límite que conviene tener claro: el panel es una SPA. `next-link`
+      intercepta el clic y navega con `pushState`, así que la mayoría de las
+      veces no hay navegación de documento y estas reglas no llegan a aplicarse.
+      Cubren los pocos saltos reales —entrar por una URL pegada, el rebote a
+      /login al cerrar sesión, un refresco—. Lo que hace instantánea la
+      navegación interna es la precarga del chunk de `lib/rutas`, no esto.
+    */}
+    {/* El cuerpo va como JSON literal: dentro de un `is:inline` Astro no
+        interpola expresiones, las copia tal cual y el navegador rechaza el
+        script entero por sintaxis. */}
+    <script type="speculationrules" is:inline>
+      {
+        "prefetch": [
+          {
+            "where": {
+              "and": [
+                { "href_matches": "/*" },
+                { "not": { "href_matches": "/api/*" } }
+              ]
+            },
+            "eagerness": "moderate"
+          }
+        ]
+      }
+    </script>
     <script is:inline>
       (() => {
         let userEmail = ''

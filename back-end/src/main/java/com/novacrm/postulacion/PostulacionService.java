@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -81,6 +82,23 @@ public class PostulacionService {
     @Transactional(noRollbackFor = BusinessException.class)
     public PostulacionResponse crear(UUID estudianteId, CrearPostulacion datos,
                                      String autor, boolean laRegistraElEstudiante) {
+        return aResponse(crearEntidad(estudianteId, datos, autor, laRegistraElEstudiante));
+    }
+
+    /**
+     * Igual que {@link #crear}, devolviendo la vista del estudiante.
+     *
+     * <p>La misma escritura con otra salida: quien registra su propia
+     * postulacion no tiene por que recibir de vuelta los campos de gestion.
+     */
+    @Transactional
+    public com.novacrm.postulacion.dto.MiPostulacion crearPropia(UUID estudianteId,
+                                                                 CrearPostulacion datos, String autor) {
+        return aMiPostulacion(crearEntidad(estudianteId, datos, autor, true));
+    }
+
+    private Postulacion crearEntidad(UUID estudianteId, CrearPostulacion datos,
+                                     String autor, boolean laRegistraElEstudiante) {
         Estudiante estudiante = estudianteRepository.findById(estudianteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado"));
 
@@ -99,6 +117,14 @@ public class PostulacionService {
         postulacion.setUrlOferta(sanitizarUrl(datos.urlOferta()));
         postulacion.setGestionadaPor(autor);
         postulacion.setRegistradaPorEstudiante(laRegistraElEstudiante);
+        postulacion.setFechaHoraEntrevista(datos.fechaHoraEntrevista());
+        postulacion.setModalidadEntrevista(datos.modalidadEntrevista());
+        postulacion.setLugarEntrevista(recortar(datos.lugarEntrevista()));
+        postulacion.setContactoNombre(recortar(datos.contactoNombre()));
+        postulacion.setContactoEmail(recortar(datos.contactoEmail()));
+        postulacion.setContactoTelefono(recortar(datos.contactoTelefono()));
+        postulacion.setProximoSeguimiento(datos.proximoSeguimiento());
+        alinearEstadoConLaCita(postulacion);
 
         if (datos.vacanteId() != null) {
             var vacante = vacanteRepository.findById(datos.vacanteId())
@@ -136,7 +162,7 @@ public class PostulacionService {
                         + " para " + guardada.getCargo() + ".");
         propagarAlTablero(guardada, autor);
 
-        return aResponse(guardada);
+        return guardada;
     }
 
     // ── Actualizacion del seguimiento ───────────────────────────────────────
@@ -150,6 +176,22 @@ public class PostulacionService {
      */
     @Transactional
     public PostulacionResponse actualizar(UUID postulacionId, ActualizarPostulacion cambios, String autor) {
+        return aResponse(actualizarEntidad(postulacionId, cambios, autor));
+    }
+
+    /**
+     * Igual que {@link #actualizar}, devolviendo la vista del estudiante.
+     *
+     * <p>Misma escritura, otra salida: cambiar de estado desde el portal no
+     * tiene por que devolver los campos de gestion.
+     */
+    @Transactional
+    public com.novacrm.postulacion.dto.MiPostulacion actualizarPropia(
+            UUID postulacionId, ActualizarPostulacion cambios, String autor) {
+        return aMiPostulacion(actualizarEntidad(postulacionId, cambios, autor));
+    }
+
+    private Postulacion actualizarEntidad(UUID postulacionId, ActualizarPostulacion cambios, String autor) {
         var postulacion = obtener(postulacionId);
         var anterior = postulacion.getEstado();
 
@@ -166,9 +208,17 @@ public class PostulacionService {
             postulacion.setFechaRespuesta(cambios.fechaRespuesta());
         }
 
+        aplicarCita(postulacion, cambios);
+
         boolean cambioDeEstado = cambios.estado() != null && cambios.estado() != anterior;
         if (cambioDeEstado) {
             postulacion.moverA(cambios.estado(), LocalDate.now());
+        } else {
+            // Agendar la cita sin tocar el estado tambien lo mueve. Se hace solo
+            // cuando el estado no venia en la peticion: si vino, manda lo que
+            // pidio quien edita.
+            alinearEstadoConLaCita(postulacion);
+            cambioDeEstado = postulacion.getEstado() != anterior;
         }
 
         var guardada = postulacionRepository.save(postulacion);
@@ -181,7 +231,50 @@ public class PostulacionService {
                         guardada.getId(), autor);
             }
         }
-        return aResponse(guardada);
+        return guardada;
+    }
+
+    // ── Tablero ─────────────────────────────────────────────────────────────
+
+    /**
+     * Las postulaciones vivas, para el tablero por estado.
+     *
+     * <p>Se devuelve una lista plana y no un mapa por columna. Agrupar aquí
+     * obligaria a que el orden de las columnas lo fijara el backend, y el
+     * tablero es una pantalla: quien decide que columnas se ven y en que orden
+     * es ella, no el servidor.
+     */
+    public List<PostulacionResponse> paraTablero(UUID programaId) {
+        return postulacionRepository.paraTablero(programaId).stream()
+                .map(this::aResponse)
+                .toList();
+    }
+
+    // ── Agenda ──────────────────────────────────────────────────────────────
+
+    /**
+     * Las citas de un tramo, de la primera a la ultima.
+     *
+     * <p>El tramo se recibe en dias y se abre a instantes de forma
+     * semiabierta: desde las 00:00 del primer dia hasta las 00:00 del siguiente
+     * al ultimo. Con {@code BETWEEN} sobre fechas, una entrevista a las 16:00
+     * del ultimo dia del rango se quedaba fuera, que es el fallo clasico de
+     * comparar marcas de tiempo contra fechas.
+     */
+    public List<PostulacionResponse> agenda(LocalDate desde, LocalDate hasta) {
+        return postulacionRepository
+                .agendaEntre(desde.atStartOfDay(), hasta.plusDays(1).atStartOfDay())
+                .stream()
+                .map(this::aResponse)
+                .toList();
+    }
+
+    /** Citas pasadas que siguen abiertas: hay que anotar que ocurrio. */
+    public List<PostulacionResponse> entrevistasSinCerrar() {
+        return postulacionRepository.entrevistasSinCerrar(LocalDateTime.now())
+                .stream()
+                .map(this::aResponse)
+                .toList();
     }
 
     @Transactional
@@ -196,6 +289,55 @@ public class PostulacionService {
     public List<PostulacionResponse> deEstudiante(UUID estudianteId) {
         return postulacionRepository.findByEstudianteIdOrderByFechaPostulacionDesc(estudianteId)
                 .stream().map(this::aResponse).toList();
+    }
+
+    /**
+     * Las postulaciones de un estudiante, como las ve él.
+     *
+     * <p>Recorta lo que es trabajo interno del equipo. Ver
+     * {@link com.novacrm.postulacion.dto.MiPostulacion}.
+     */
+    @Transactional(readOnly = true)
+    public List<com.novacrm.postulacion.dto.MiPostulacion> mias(UUID estudianteId) {
+        return postulacionRepository.findByEstudianteIdOrderByFechaPostulacionDesc(estudianteId)
+                .stream().map(this::aMiPostulacion).toList();
+    }
+
+    private com.novacrm.postulacion.dto.MiPostulacion aMiPostulacion(Postulacion p) {
+        LocalDate hoy = LocalDate.now();
+        Integer diasEsperando = p.getFechaRespuesta() != null || p.getEstado().esFinal() ? null
+                : (int) ChronoUnit.DAYS.between(p.getFechaPostulacion(), hoy);
+
+        boolean esperandoConfirmacion = p.getEstado().requiereConfirmacionDelEquipo()
+                && !colocacionRepository.existsByEstudianteIdAndActivaTrue(p.getEstudiante().getId());
+
+        return new com.novacrm.postulacion.dto.MiPostulacion(
+                p.getId(),
+                p.getVacante() == null ? null : p.getVacante().getId(),
+                p.nombreEmpresa(),
+                p.getCargo(),
+                p.getCanal(),
+                p.getFechaPostulacion(),
+                p.getEstado().name(),
+                p.getEstado().getEtiqueta(),
+                p.getEstado().esFinal(),
+                p.getFechaRespuesta(),
+                diasEsperando,
+                p.getResultado(),
+                p.getObservaciones(),
+                p.isRegistradaPorEstudiante(),
+                p.getUrlOferta(),
+                esperandoConfirmacion,
+                p.getFechaHoraEntrevista(),
+                p.getModalidadEntrevista() == null ? null : p.getModalidadEntrevista().name(),
+                p.getModalidadEntrevista() == null ? null : p.getModalidadEntrevista().getEtiqueta(),
+                p.getLugarEntrevista(),
+                p.getContactoNombre(),
+                p.getContactoTelefono(),
+                p.tieneEntrevistaPendiente(),
+                p.entrevistaVencidaSinCerrar(),
+                p.getFechaHoraEntrevista() == null ? null
+                        : ChronoUnit.HOURS.between(LocalDateTime.now(), p.getFechaHoraEntrevista()));
     }
 
     @Transactional(readOnly = true)
@@ -259,6 +401,43 @@ public class PostulacionService {
         });
     }
 
+    /**
+     * Deja el estado y la cita contando lo mismo.
+     *
+     * <p>Poner una entrevista deberia bastar para que el proceso figure como
+     * agendado: hacerlo en dos pasos —fecha por un lado, estado por otro—
+     * garantiza tableros donde una persona tiene la cita el jueves y aparece
+     * como «Enviada». Solo sube desde los estados anteriores a la entrevista;
+     * una postulacion ya rechazada o contratada no vuelve atras porque alguien
+     * anote cuando fue la entrevista que ya ocurrio.
+     */
+    private static void alinearEstadoConLaCita(Postulacion p) {
+        if (p.getFechaHoraEntrevista() == null) {
+            return;
+        }
+        if (p.getEstado() == EstadoPostulacion.ENVIADA
+                || p.getEstado() == EstadoPostulacion.EN_PROCESO) {
+            p.setEstado(EstadoPostulacion.ENTREVISTA_AGENDADA);
+        }
+    }
+
+    /** Aplica los datos de la cita que vengan; los nulos no tocan lo guardado. */
+    private static void aplicarCita(Postulacion p, ActualizarPostulacion c) {
+        if (Boolean.TRUE.equals(c.cancelarEntrevista())) {
+            p.setFechaHoraEntrevista(null);
+            p.setModalidadEntrevista(null);
+            p.setLugarEntrevista(null);
+            return;
+        }
+        if (c.fechaHoraEntrevista() != null) p.setFechaHoraEntrevista(c.fechaHoraEntrevista());
+        if (c.modalidadEntrevista() != null) p.setModalidadEntrevista(c.modalidadEntrevista());
+        if (c.lugarEntrevista() != null) p.setLugarEntrevista(recortar(c.lugarEntrevista()));
+        if (c.contactoNombre() != null) p.setContactoNombre(recortar(c.contactoNombre()));
+        if (c.contactoEmail() != null) p.setContactoEmail(recortar(c.contactoEmail()));
+        if (c.contactoTelefono() != null) p.setContactoTelefono(recortar(c.contactoTelefono()));
+        if (c.proximoSeguimiento() != null) p.setProximoSeguimiento(c.proximoSeguimiento());
+    }
+
     private static String textoDelCambio(Postulacion p, EstadoPostulacion anterior,
                                          ActualizarPostulacion cambios) {
         var texto = new StringBuilder()
@@ -305,7 +484,26 @@ public class PostulacionService {
                 p.getGestionadaPor(),
                 p.isRegistradaPorEstudiante(),
                 p.getUrlOferta(),
-                esperandoConfirmacion);
+                esperandoConfirmacion,
+                p.getFechaHoraEntrevista(),
+                p.getModalidadEntrevista() == null ? null : p.getModalidadEntrevista().name(),
+                p.getModalidadEntrevista() == null ? null : p.getModalidadEntrevista().getEtiqueta(),
+                p.getLugarEntrevista(),
+                p.getContactoNombre(),
+                p.getContactoEmail(),
+                p.getContactoTelefono(),
+                p.getProximoSeguimiento(),
+                p.tieneEntrevistaPendiente(),
+                p.entrevistaVencidaSinCerrar(),
+                p.getFechaHoraEntrevista() == null ? null
+                        : ChronoUnit.HOURS.between(LocalDateTime.now(), p.getFechaHoraEntrevista()));
+    }
+
+    /** Recorta y convierte el texto vacio en nulo, que es como se guarda «sin dato». */
+    private static String recortar(String s) {
+        if (s == null) return null;
+        String limpio = s.trim();
+        return limpio.isEmpty() ? null : limpio;
     }
 
     private static String nombreDe(Estudiante e) {

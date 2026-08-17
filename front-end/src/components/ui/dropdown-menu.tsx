@@ -1,7 +1,6 @@
 "use client"
 
-import { CaretRightIcon as CaretRight, CheckIcon as Check } from '@phosphor-icons/react'
-
+import { Check, ChevronRight as CaretRight } from 'lucide-react'
 import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 

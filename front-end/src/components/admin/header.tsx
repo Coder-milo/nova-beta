@@ -1,8 +1,9 @@
 'use client'
 
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowBendDownLeftIcon as ArrowBendDownLeft, ArrowsClockwiseIcon as ArrowsClockwise, BellIcon as Bell, ChatCircleIcon as ChatCircle, CheckCircleIcon as CheckCircle, ClockIcon as Clock, EnvelopeSimpleIcon as EnvelopeSimple, FileTextIcon as FileText, FolderSimpleIcon as FolderSimple, GraduationCapIcon as GraduationCap, GlobeIcon as Globe, ListIcon as List, MagnifyingGlassIcon as MagnifyingGlass, PaperclipIcon as Paperclip, PaperPlaneTiltIcon as PaperPlaneTilt, UserCircleIcon as UserCircle, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { Bell, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, CircleUser as UserCircle, Clock, CornerDownLeft as ArrowBendDownLeft, FileText, Folder as FolderSimple, Globe, GraduationCap, List, Mail as EnvelopeSimple, MessageCircle as ChatCircle, Paperclip, Plus, RefreshCw as ArrowsClockwise, Search as MagnifyingGlass, Send as PaperPlaneTilt, X } from 'lucide-react'
 import { usePathname, useRouter } from '@/compat/next-navigation'
+import Link from '@/compat/next-link'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -250,6 +251,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const replyFileInputRef = useRef<HTMLInputElement>(null)
 
   const [searchOpen, setSearchOpen] = useState(false)
+  /** En móvil no cabe la caja: el icono la despliega en una fila propia. */
+  const [busquedaMovilAbierta, setBusquedaMovilAbierta] = useState(false)
+  const cajaBusqueda = useRef<HTMLDivElement>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<BusquedaResponse>(BUSQUEDA_VACIA)
@@ -472,8 +476,14 @@ export function Header({ onOpenMobile }: HeaderProps) {
     return () => window.removeEventListener('nova:open-messages', abrirBandeja)
   }, [])
 
+  /**
+   * Busca mientras se escribe, con un retardo de 250 ms.
+   *
+   * Ya no espera a que se abra ningún panel: el panel es consecuencia de que
+   * haya algo escrito, no al revés.
+   */
   useEffect(() => {
-    if (!searchOpen || esEstudiante || searchQuery.trim().length < 2) {
+    if (esEstudiante || searchQuery.trim().length < 2) {
       setSearching(false)
       if (searchQuery.trim().length < 2) setSearchResults(BUSQUEDA_VACIA)
       return
@@ -487,7 +497,26 @@ export function Header({ onOpenMobile }: HeaderProps) {
         .finally(() => { if (active) setSearching(false) })
     }, 250)
     return () => { active = false; window.clearTimeout(timer) }
-  }, [esEstudiante, searchOpen, searchQuery])
+  }, [esEstudiante, searchQuery])
+
+  /**
+   * Cierra los resultados al pulsar fuera.
+   *
+   * Sin esto el desplegable se queda encima del contenido y hay que volver al
+   * campo para quitarlo, que es justo la molestia por la que se quitó la hoja
+   * lateral.
+   */
+  useEffect(() => {
+    if (!searchOpen) return
+    const fuera = (evento: MouseEvent) => {
+      if (!cajaBusqueda.current?.contains(evento.target as Node)) setSearchOpen(false)
+    }
+    document.addEventListener('mousedown', fuera)
+    return () => document.removeEventListener('mousedown', fuera)
+  }, [searchOpen])
+
+  const panelBusquedaVisible = searchOpen && (searchQuery.trim().length > 0 || searching)
+
 
   const availableNavItems = getNavItemsForRoles(user?.roles, locale)
   const current = availableNavItems.find((item) => {
@@ -496,6 +525,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
   }) ?? availableNavItems[0]
   // El banner del proyecto vive exclusivamente en la bienvenida del portal
   // estudiantil. La cabecera no usa imágenes de marca.
+  // La identidad de la organización vive en el panel lateral; aquí va el
+  // nombre de la pantalla, que es lo que hace Zoho en esta posición.
   const tituloHeader = (esEstudiante ? branding?.tituloHeader : null) || current?.title || 'NOVA CRM'
   const subtituloHeader = (esEstudiante ? branding?.subtituloHeader : null) || avisos.subtituloPorDefecto
 
@@ -781,6 +812,49 @@ export function Header({ onOpenMobile }: HeaderProps) {
     { titulo: t('projects'), icon: FolderSimple, items: searchResults.programas },
     { titulo: t('documents'), icon: FileText, items: searchResults.documentos },
   ].filter((group) => group.items.length > 0)
+
+  /**
+   * La lista de resultados. Se arma una sola vez y la usan el desplegable de
+   * escritorio y la fila de búsqueda de móvil: dos copias del mismo marcado
+   * acaban divergiendo en cuanto alguien toca una.
+   */
+  const resultadosBusqueda = (
+    searching ? (
+      <p className="py-6 text-center text-xs text-muted-foreground">{t('searching')}</p>
+    ) : searchQuery.trim().length < 2 ? (
+      <p className="py-6 text-center text-xs text-muted-foreground">{t('searchStart')}</p>
+    ) : gruposBusqueda.length === 0 ? (
+      <p className="py-6 text-center text-xs text-muted-foreground">{t('searchEmpty', { query: searchQuery.trim() })}</p>
+    ) : gruposBusqueda.map((group) => {
+      const GroupIcon = group.icon
+      return (
+        <section key={group.titulo} className="mb-2 last:mb-0">
+          <p className="mb-1 flex items-center gap-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <GroupIcon className="size-3.5" />{group.titulo}
+          </p>
+          {group.items.map((result) => (
+            <button
+              key={result.id}
+              type="button"
+              onClick={() => {
+                abrirResultado(result)
+                setSearchOpen(false)
+                setBusquedaMovilAbierta(false)
+                setSearchQuery('')
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-muted"
+            >
+              <GroupIcon className="size-4 shrink-0 text-primary" />
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-medium text-foreground">{result.titulo}</span>
+                {result.subtitulo && <span className="block truncate text-[11px] text-muted-foreground">{result.subtitulo}</span>}
+              </span>
+            </button>
+          ))}
+        </section>
+      )
+    })
+  )
   // La cabecera describe el hilo abierto. Para el equipo, de quien es; para el
   // estudiante, siempre el equipo. El asunto va debajo, que es lo que ahora
   // distingue una conversacion de otra del mismo estudiante.
@@ -793,7 +867,11 @@ export function Header({ onOpenMobile }: HeaderProps) {
 
   return (
     <>
-      <header className="glass-chrome sticky top-0 z-30 flex h-18 shrink-0 items-center gap-3 overflow-hidden border-b border-border border-t-2 border-t-primary px-4 shadow-[0_8px_28px_-24px_rgba(15,23,42,0.45)] transition-all md:px-7">
+      {/* La barra superior baja de 72 a 52 px. Es cromo: cada píxel que ocupa
+          se lo quita a la tabla que hay debajo, y a lo largo de una jornada
+          eso son filas que no se ven. El filete de marca se queda porque es lo
+          que identifica el proyecto de un vistazo. */}
+      <header className="glass-chrome sticky top-0 z-30 flex h-13 shrink-0 items-center gap-2 overflow-hidden border-b border-border border-t-2 border-t-primary px-3 transition-all md:px-4">
         <button
           type="button"
           onClick={onOpenMobile}
@@ -802,10 +880,56 @@ export function Header({ onOpenMobile }: HeaderProps) {
         >
           <List className="size-5" />
         </button>
-        <div className="relative z-10 min-w-0">
-          <h1 className="truncate text-base font-semibold tracking-tight text-foreground md:text-lg">{tituloHeader}</h1>
-          <p className="truncate text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground md:text-[11px]">{subtituloHeader}</p>
+        <div className="relative z-10 min-w-0 shrink-0">
+          <h1 className="truncate text-[15px] font-semibold tracking-tight text-foreground">{tituloHeader}</h1>
+          <p className="truncate text-[11px] font-medium text-muted-foreground">{subtituloHeader}</p>
         </div>
+
+        {/*
+          Buscador global, en el centro y siempre visible.
+          Antes era un icono de lupa: una función que se usa constantemente
+          —encontrar a un estudiante por nombre desde cualquier pantalla—
+          escondida detrás de un clic y sin nada que dijera qué se puede buscar.
+          El campo lo anuncia y ofrece la caja directamente. Abre la misma hoja
+          lateral de siempre, así que la búsqueda en sí no cambia.
+        */}
+        {!esEstudiante && (
+          <div ref={cajaBusqueda} className="relative z-30 mx-auto hidden w-full max-w-sm md:block">
+            <MagnifyingGlass className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(event) => { setSearchQuery(event.target.value); setSearchOpen(true) }}
+              onFocus={() => setSearchOpen(true)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') { setSearchOpen(false); event.currentTarget.blur() }
+              }}
+              placeholder={t('generalSearch')}
+              aria-label={t('generalSearch')}
+              className="h-8 w-full rounded-(--radius) border border-input bg-card pl-8 pr-8 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => { setSearchQuery(''); setSearchOpen(false) }}
+                aria-label={locale === 'es' ? 'Limpiar búsqueda' : 'Clear search'}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+
+            {/* Los resultados caen debajo de la caja, no en un panel lateral.
+                Buscar es una acción de un segundo: abrir una hoja que tapa media
+                pantalla obligaba a cerrarla para volver a lo que se estaba
+                haciendo, aunque no se hubiera encontrado nada. */}
+            {panelBusquedaVisible && (
+              <div className="absolute left-0 right-0 top-[calc(100%+6px)] max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-popover p-2 shadow-[0_20px_50px_rgba(0,0,0,0.25)]">
+                {resultadosBusqueda}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="relative z-10 ml-auto flex items-center gap-2">
           {/* La búsqueda general es de gestión: el endpoint sólo responde a
@@ -813,10 +937,56 @@ export function Header({ onOpenMobile }: HeaderProps) {
               abría el panel, escribía y no ocurría nada nunca —el efecto que
               consulta sale antes por su rol—. Un botón que no hace nada es peor
               que uno que no está. */}
+          {/* Por debajo de `md` no cabe el campo de búsqueda y vuelve el icono. */}
           {!esEstudiante && (
-            <IconButton label={t('generalSearch')} onClick={() => setSearchOpen(true)}>
-              <MagnifyingGlass className="size-5" />
-            </IconButton>
+            <span className="md:hidden">
+              <IconButton
+                label={t('generalSearch')}
+                onClick={() => setBusquedaMovilAbierta((v) => !v)}
+              >
+                <MagnifyingGlass className="size-5" />
+              </IconButton>
+            </span>
+          )}
+
+          {/*
+            Creación rápida.
+            Dar de alta algo obligaba a navegar primero al módulo y buscar allí
+            su botón; desde aquí se hace desde cualquier pantalla.
+
+            Solo «Estudiante» tiene ruta propia de alta. Empresa y Vacante crean
+            desde un panel dentro de su propia pantalla, así que estas entradas
+            llevan hasta ella: es un atajo de navegación, no un formulario que
+            se abra aquí, y por eso no prometen más de lo que hacen.
+          */}
+          {!esEstudiante && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button size="icon-sm" aria-label={locale === 'en' ? 'Create' : 'Crear'}>
+                    <Plus className="size-4" />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                  {locale === 'en' ? 'Create' : 'Crear'}
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  render={<Link href="/estudiantes/nuevo">{locale === 'en' ? 'Student' : 'Estudiante'}</Link>}
+                />
+                <DropdownMenuItem
+                  render={<Link href="/empresas">{locale === 'en' ? 'Company' : 'Empresa'}</Link>}
+                />
+                <DropdownMenuItem
+                  render={<Link href="/vacantes">{locale === 'en' ? 'Job opening' : 'Vacante'}</Link>}
+                />
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  render={<Link href="/importaciones">{locale === 'en' ? 'Import data' : 'Importar datos'}</Link>}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
 
           <DropdownMenu>
@@ -1040,49 +1210,47 @@ export function Header({ onOpenMobile }: HeaderProps) {
         </div>
       </header>
 
-      <Sheet open={searchOpen} onOpenChange={setSearchOpen}>
-        <SheetContent side="right" className="w-full border-l border-border bg-popover p-0 sm:max-w-md">
-          <SheetHeader className="border-b border-border/60 pr-12">
-            <SheetTitle>{t('searchTitle')}</SheetTitle>
-            <SheetDescription>{t('searchDescription')}</SheetDescription>
-          </SheetHeader>
-          <div className="p-4">
-            <div className="relative">
-              <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input autoFocus value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t('searchPlaceholder')} className="pl-9" />
+      {/* En móvil no cabe el campo en la barra, así que el icono lo despliega
+          en su propia fila. Antes esto abría una hoja lateral: en una pantalla
+          de teléfono eso es la pantalla entera, y para volver a lo que se
+          estaba haciendo había que cerrarla. */}
+      {!esEstudiante && busquedaMovilAbierta && (
+        <div className="relative z-30 border-b border-border bg-card p-2 md:hidden">
+          <div className="relative">
+            <MagnifyingGlass className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              autoFocus
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Escape') setBusquedaMovilAbierta(false) }}
+              placeholder={t('generalSearch')}
+              aria-label={t('generalSearch')}
+              className="h-9 w-full rounded-(--radius) border border-input bg-background pl-8 pr-8 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50"
+            />
+            <button
+              type="button"
+              onClick={() => { setBusquedaMovilAbierta(false); setSearchQuery('') }}
+              aria-label={locale === 'es' ? 'Cerrar búsqueda' : 'Close search'}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          {searchQuery.trim().length > 0 && (
+            <div className="mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-border bg-popover p-2">
+              {resultadosBusqueda}
             </div>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5">
-            {esEstudiante ? (
-              <p className="rounded-xl border border-border/70 bg-muted/30 p-4 text-sm leading-6 text-muted-foreground">{t('searchAdminOnly')}</p>
-            ) : searching ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">{t('searching')}</p>
-            ) : searchQuery.trim().length < 2 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">{t('searchStart')}</p>
-            ) : gruposBusqueda.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">{t('searchEmpty', { query: searchQuery.trim() })}</p>
-            ) : gruposBusqueda.map((group) => {
-              const GroupIcon = group.icon
-              return (
-                <section key={group.titulo} className="mb-5">
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><GroupIcon className="size-4" />{group.titulo}</p>
-                  <div className="overflow-hidden rounded-xl border border-border/70">
-                    {group.items.map((result) => (
-                      <button key={result.id} type="button" onClick={() => abrirResultado(result)} className="flex w-full items-center gap-3 border-b border-border/60 px-3 py-3 text-left last:border-b-0 hover:bg-muted/50">
-                        <GroupIcon className="size-4 shrink-0 text-primary" />
-                        <span className="min-w-0"><span className="block truncate text-sm font-medium text-foreground">{result.titulo}</span>{result.subtitulo && <span className="block truncate text-xs text-muted-foreground">{result.subtitulo}</span>}</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              )
-            })}
-          </div>
-        </SheetContent>
-      </Sheet>
+          )}
+        </div>
+      )}
+
 
       <Sheet open={messageSheetOpen} onOpenChange={setMessageSheetOpen}>
-        <SheetContent side="right" className="h-dvh w-full max-w-none gap-0 border-l border-border bg-popover p-0 sm:w-[min(94vw,960px)] sm:!max-w-none">
+        {/* Centrado y no pegado al borde: la bandeja no es un panel auxiliar
+            para asomarse, es la tarea en sí. De lado dejaba media pantalla de
+            fondo inservible y la conversación en una columna estrecha. */}
+        <SheetContent side="center" className="h-dvh w-full max-w-none gap-0 border-border bg-popover p-0 sm:h-[min(92dvh,900px)] sm:w-[min(96vw,1100px)] sm:!max-w-none">
           {esEstudiante ? (
             <div className="h-full p-2">
               <MessengerChatHub locale={locale} />
@@ -1281,7 +1449,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                       <div className="flex items-end gap-2">
                         <button type="button" onClick={() => replyFileInputRef.current?.click()} disabled={sendingReply} aria-label={locale === 'es' ? 'Adjuntar archivo' : 'Attach file'} title={locale === 'es' ? 'Adjuntar archivo o imagen' : 'Attach a file or image'} className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-input bg-background text-muted-foreground transition hover:border-primary/35 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"><Paperclip className="size-5" /></button>
                         <Textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} onPaste={(event) => { const imagenes = Array.from(event.clipboardData.files).filter((archivo) => archivo.type.startsWith('image/')); if (imagenes.length > 0) { event.preventDefault(); agregarAdjuntosRespuesta(imagenes) } }} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void responderMensaje() } }} minRows={1} maxRows={4} maxLength={5000} className="max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" placeholder={messageCopy.replyPlaceholder} />
-                        <Button type="button" className="h-11 shrink-0 rounded-xl" onClick={() => void responderMensaje()} disabled={sendingReply || (!reply.trim() && replyAttachments.length === 0)}>{sendingReply ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}<span className="hidden sm:inline">{sendingReply ? messageCopy.sending : messageCopy.send}</span></Button>
+                        <Button type="button" className="h-11 shrink-0 rounded-xl" onClick={() => void responderMensaje()} disabled={sendingReply || (!reply.trim() && replyAttachments.length === 0)}>{sendingReply ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" />}<span className="hidden sm:inline">{sendingReply ? messageCopy.sending : messageCopy.send}</span></Button>
                       </div>
                       {messageError && <p className="text-xs text-destructive">{messageError}</p>}
                     </div>
@@ -1342,7 +1510,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                         className="max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
                       />
                       <Button className="h-11 shrink-0 rounded-xl" onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || (directContact ? !studentBody.trim() : (!studentBody.trim() && studentAttachments.length === 0))}>
-                        {sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}
+                        {sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" />}
                         <span className="hidden sm:inline">{locale === 'es' ? 'Enviar' : 'Send'}</span>
                       </Button>
                     </div>

@@ -1,11 +1,26 @@
 // Datos ficticios en español para el panel administrativo de la Academia CAC.
 // Separados de los componentes visuales. No hay backend ni base de datos todavía.
 
+/**
+ * Variación de un indicador respecto al periodo anterior.
+ *
+ * Va aparte de `helper` porque son dos cosas distintas: `helper` es una frase
+ * de contexto —«Requieren atención», «65.1% del total»— y esto es una cifra con
+ * dirección. Mezcladas en el mismo texto gris, el dato que más se consulta de
+ * un indicador era el que menos se veía; separado, se puede pintar en verde o
+ * en rojo según hacia dónde vaya.
+ */
+export type DeltaStat = {
+  texto: string
+  signo: 'sube' | 'baja' | 'neutro'
+}
+
 export type StatCard = {
   id: string
   label: string
   value: string
   helper?: string
+  delta?: DeltaStat
   icon:
     | 'users'
     | 'active'
@@ -23,7 +38,8 @@ export const primaryStats: StatCard[] = [
     id: 'total',
     label: 'Total estudiantes',
     value: '479',
-    helper: '+14 este mes',
+    helper: 'Este mes',
+    delta: { texto: '+14', signo: 'sube' },
     icon: 'users',
     tone: 'blue',
   },
@@ -39,7 +55,8 @@ export const primaryStats: StatCard[] = [
     id: 'graduados',
     label: 'Graduados',
     value: '98',
-    helper: '+8 vs. trimestre anterior',
+    helper: 'Vs. trimestre anterior',
+    delta: { texto: '+8', signo: 'sube' },
     icon: 'graduated',
     tone: 'purple',
   },

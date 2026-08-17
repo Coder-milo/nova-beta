@@ -1,11 +1,14 @@
 package com.novacrm.postulacion.dto;
 
 import com.novacrm.postulacion.EstadoPostulacion;
+import com.novacrm.postulacion.ModalidadEntrevista;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /** Todo lo que viaja del y hacia el modulo de postulaciones. */
@@ -42,7 +45,24 @@ public final class PostulacionDtos {
                      message = "El enlace debe empezar por http:// o https://")
             @Size(max = 1000) String urlOferta,
 
-            @Size(max = 2000) String observaciones) {}
+            @Size(max = 2000) String observaciones,
+
+            /**
+             * La cita, si ya se conoce al registrar.
+             *
+             * <p>Va aqui y no solo en la actualizacion porque muchas
+             * postulaciones se anotan cuando la empresa ya contesto: obligar a
+             * crearla primero y editarla despues son dos pasos para un dato que
+             * se tenia desde el principio.
+             */
+            LocalDateTime fechaHoraEntrevista,
+            ModalidadEntrevista modalidadEntrevista,
+            @Size(max = 1000) String lugarEntrevista,
+            @Size(max = 160) String contactoNombre,
+            @Email(message = "El correo de contacto no es valido")
+            @Size(max = 160) String contactoEmail,
+            @Size(max = 40) String contactoTelefono,
+            LocalDate proximoSeguimiento) {}
 
     /**
      * Actualizacion del seguimiento de una postulacion.
@@ -64,7 +84,25 @@ public final class PostulacionDtos {
             LocalDate fechaRespuesta,
             @Size(max = 1000) String resultado,
             @Size(max = 2000) String observaciones,
-            @Size(max = 60) String canal) {}
+            @Size(max = 60) String canal,
+
+            LocalDateTime fechaHoraEntrevista,
+            ModalidadEntrevista modalidadEntrevista,
+            @Size(max = 1000) String lugarEntrevista,
+            @Size(max = 160) String contactoNombre,
+            @Email(message = "El correo de contacto no es valido")
+            @Size(max = 160) String contactoEmail,
+            @Size(max = 40) String contactoTelefono,
+            LocalDate proximoSeguimiento,
+
+            /**
+             * Quitar la cita.
+             *
+             * <p>Hace falta una bandera porque la regla de este DTO es que un
+             * campo nulo no se toca; sin ella, una entrevista cancelada no se
+             * podria borrar nunca, solo mover de fecha.
+             */
+            Boolean cancelarEntrevista) {}
 
     public record PostulacionResponse(
             UUID id,
@@ -89,7 +127,22 @@ public final class PostulacionDtos {
             boolean registradaPorEstudiante,
             String urlOferta,
             /** Marcada como contratada por el estudiante y sin colocacion registrada. */
-            boolean esperandoConfirmacion) {}
+            boolean esperandoConfirmacion,
+
+            LocalDateTime fechaHoraEntrevista,
+            String modalidadEntrevista,
+            String modalidadEtiqueta,
+            String lugarEntrevista,
+            String contactoNombre,
+            String contactoEmail,
+            String contactoTelefono,
+            LocalDate proximoSeguimiento,
+            /** Hay cita y aun no ha llegado. */
+            boolean entrevistaPendiente,
+            /** Paso la hora de la cita y el proceso sigue en «entrevista agendada». */
+            boolean entrevistaVencida,
+            /** Horas que faltan para la cita; negativo si ya paso, nulo si no hay. */
+            Long horasParaEntrevista) {}
 
     /** Cifras de cabecera del panel de postulaciones. */
     public record ResumenPostulaciones(

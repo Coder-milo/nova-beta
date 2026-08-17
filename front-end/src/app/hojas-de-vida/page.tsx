@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowSquareOutIcon as ArrowSquareOut, ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileMagnifyingGlassIcon as FileMagnifyingGlass, FileTextIcon as FileText, GlobeIcon as Globe, ListChecksIcon as ListChecks, MinusIcon as Minus, PencilSimpleLineIcon as PencilSimpleLine, PlusIcon as Plus, ReadCvLogoIcon as ReadCvLogo, StackIcon as Stack, StarIcon as Star, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, WarningCircleIcon as WarningCircle, XIcon as X, XCircleIcon as XCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, CircleX as XCircle, Download as DownloadSimple, ExternalLink as ArrowSquareOut, Eye, FileSearch as FileMagnifyingGlass, FileText, FileUser as ReadCvLogo, Globe, Layers as Stack, ListChecks, LoaderCircle as CircleNotch, Minus, PenLine as PencilSimpleLine, Plus, RefreshCw as ArrowsClockwise, Star, Trash2 as Trash, Upload as UploadSimple, X } from 'lucide-react'
 import Link from '@/compat/next-link'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'

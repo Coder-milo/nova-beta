@@ -27,7 +27,7 @@ class RateLimitFilterTest {
 
     /** Limite de 2 peticiones por minuto para que las pruebas sean rapidas. */
     private RateLimitFilter filtro(String proxiesDeConfianza) {
-        return new RateLimitFilter(2, 1, 2, 1, proxiesDeConfianza);
+        return new RateLimitFilter(2, 1, 2, 1, 2, 1, proxiesDeConfianza);
     }
 
     private int pedirLogin(RateLimitFilter filtro, String remoteAddr, String forwardedFor)
@@ -146,6 +146,59 @@ class RateLimitFilterTest {
         assertEquals(HttpServletResponse.SC_OK, pedir(filtro, "/api/v1/auth/refresh", "203.0.113.1"));
         assertEquals(HttpServletResponse.SC_OK, pedirLogin(filtro, "203.0.113.1", null),
                 "dos refrescos no pueden dejar al usuario sin poder iniciar sesion");
+    }
+
+    /**
+     * El formulario publico tiene su propio cupo.
+     *
+     * <p>Es la unica escritura que puede hacer cualquiera sin identificarse. Con
+     * el contador general —cien al minuto— una sola maquina llena la cola de
+     * revision en una tarde; y compartiendo el del login, cada oferta enviada
+     * gastaria intentos de inicio de sesion de quien salga por esa misma IP.
+     */
+    @Test
+    void elFormularioPublicoTieneSuPropioCupo() throws Exception {
+        var filtro = filtro(PROXY);
+
+        assertEquals(HttpServletResponse.SC_OK, pedir(filtro, "/api/v1/publico/vacantes", "203.0.113.9"));
+        assertEquals(HttpServletResponse.SC_OK, pedir(filtro, "/api/v1/publico/vacantes", "203.0.113.9"));
+        assertEquals(429, pedir(filtro, "/api/v1/publico/vacantes", "203.0.113.9"),
+                "pasado el cupo, el formulario publico se corta");
+
+        assertEquals(HttpServletResponse.SC_OK, pedirLogin(filtro, "203.0.113.9", null),
+                "agotarlo no puede dejar sin iniciar sesion a quien salga por esa IP");
+
+        var request = new MockHttpServletRequest("GET", "/api/v1/estudiantes");
+        request.setRequestURI("/api/v1/estudiantes");
+        request.setRemoteAddr("203.0.113.9");
+        var response = new MockHttpServletResponse();
+        filtro.doFilter(request, response, new MockFilterChain());
+        assertEquals(HttpServletResponse.SC_OK, response.getStatus(),
+                "ni sin usar el resto de la API");
+    }
+
+    /**
+     * El cupo publico cuenta por IP y no por lo que declare quien envia.
+     *
+     * <p>No hay token que mirar, y el correo del formulario no esta verificado:
+     * si el contador dependiera de el, cambiar una letra estrenaria cupo.
+     */
+    @Test
+    void elCupoPublicoNoSeEstrenaCambiandoDeCabecera() throws Exception {
+        var filtro = filtro(PROXY);
+
+        pedir(filtro, "/api/v1/publico/vacantes", "203.0.113.9");
+        pedir(filtro, "/api/v1/publico/vacantes", "203.0.113.9");
+
+        var request = new MockHttpServletRequest("POST", "/api/v1/publico/vacantes");
+        request.setRequestURI("/api/v1/publico/vacantes");
+        request.setRemoteAddr("203.0.113.9");
+        request.addHeader("Authorization", "Bearer loQueSea");
+        var response = new MockHttpServletResponse();
+        filtro.doFilter(request, response, new MockFilterChain());
+
+        assertEquals(429, response.getStatus(),
+                "una cabecera inventada no puede estrenar contador");
     }
 
     @Test

@@ -12,15 +12,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  ArrowBendUpLeftIcon as ArrowBendUpLeft,
-  CircleNotchIcon as CircleNotch,
-  DownloadSimpleIcon as DownloadSimple,
-  PaperclipIcon as Paperclip,
-  PaperPlaneTiltIcon as PaperPlaneTilt,
-  SmileyIcon as Smiley,
-  XIcon as X,
-} from '@phosphor-icons/react'
+import { CornerUpLeft as ArrowBendUpLeft, Download as DownloadSimple, LoaderCircle as CircleNotch, Paperclip, Send as PaperPlaneTilt, Smile as Smiley, X } from 'lucide-react'
 import { EMOJIS_REACCION, mensajesApi, mensajeDeError } from '@/lib/api'
 import type { MensajeTurnoResponse, ReaccionResumen } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -452,7 +444,7 @@ export function Conversacion({ mensajeId, soyEstudiante, locale, textos, onTurno
             aria-label={textos.enviar}
             className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition hover:brightness-105 disabled:opacity-45"
           >
-            {enviando ? <CircleNotch className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}
+            {enviando ? <CircleNotch className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" />}
           </button>
         </form>
       </div>

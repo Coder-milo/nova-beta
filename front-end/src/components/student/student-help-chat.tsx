@@ -1,16 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  BookOpenTextIcon as BookOpenText,
-  CircleNotchIcon as CircleNotch,
-  FileTextIcon as FileText,
-  PaperPlaneTiltIcon as PaperPlaneTilt,
-  SparkleIcon as Sparkle,
-  TranslateIcon as Translate,
-  TrashIcon as Trash,
-  XIcon as X,
-} from '@phosphor-icons/react'
+import { BookOpenText, FileText, Languages as Translate, LoaderCircle as CircleNotch, Send as PaperPlaneTilt, Sparkles as Sparkle, Trash2 as Trash, X } from 'lucide-react'
 import { usePathname, useRouter } from '@/compat/next-navigation'
 import { usePreferences } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
@@ -272,7 +263,7 @@ export function StudentHelpChat() {
             <form className="flex items-end gap-2" onSubmit={(event) => { event.preventDefault(); enviar() }}>
               <Textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); enviar() } }} placeholder={labels.placeholder} maxLength={4000} minRows={1} maxRows={4} className="max-h-32 min-h-10 min-w-0 flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15 dark:bg-[#0c1714]" />
               <button type="submit" disabled={!draft.trim() || typing} aria-label={labels.send} className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition hover:brightness-105 disabled:opacity-45">
-                <PaperPlaneTilt className="size-4" weight="fill" />
+                <PaperPlaneTilt className="size-4" />
               </button>
             </form>
             <p className="mt-1.5 text-[10px] text-muted-foreground">{labels.hint}</p>

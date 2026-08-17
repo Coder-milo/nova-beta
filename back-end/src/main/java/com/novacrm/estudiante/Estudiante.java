@@ -91,6 +91,22 @@ public class Estudiante extends BaseEntity {
     @JoinColumn(name = "nivel_ingles_id")
     private NivelIngles nivelIngles;
 
+    /**
+     * Quién lleva el caso de este participante.
+     *
+     * <p>Es un enlace a la cuenta, no un nombre escrito. Los otros cinco campos
+     * que suenan parecido —{@code seguimiento.responsable},
+     * {@code postulacion.gestionadaPor} y compañía— son texto libre a propósito:
+     * ahí se registra <em>quién hizo aquello aquel día</em> y debe quedarse
+     * congelado aunque la persona se vaya. Esto es lo otro: de quién es el caso
+     * ahora, y por eso se puede reasignar sin tocar el historial.
+     *
+     * <p>Nulo es un estado normal —sin asignar—, no un error.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "responsable_id")
+    private com.novacrm.auth.Usuario responsable;
+
     @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name = "linkedin_user_id")
     private String linkedinUserId;
@@ -289,6 +305,9 @@ public class Estudiante extends BaseEntity {
     public void setEstadoAcademico(EstadoAcademico estadoAcademico) { this.estadoAcademico = estadoAcademico; }
     public EstadoEmpleabilidad getEstadoEmpleabilidad() { return estadoEmpleabilidad; }
     public void setEstadoEmpleabilidad(EstadoEmpleabilidad estadoEmpleabilidad) { this.estadoEmpleabilidad = estadoEmpleabilidad; }
+    public com.novacrm.auth.Usuario getResponsable() { return responsable; }
+    public void setResponsable(com.novacrm.auth.Usuario responsable) { this.responsable = responsable; }
+
     public Programa getPrograma() { return programa; }
     public void setPrograma(Programa programa) { this.programa = programa; }
     public NivelIngles getNivelIngles() { return nivelIngles; }

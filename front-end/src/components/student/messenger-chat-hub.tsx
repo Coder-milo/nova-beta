@@ -1,30 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  ArrowBendUpLeftIcon as ArrowBendUpLeft,
-  CaretLeftIcon as CaretLeft,
-  CheckIcon as Check,
-  ChecksIcon as Checks,
-  ChatCircleDotsIcon as ChatCircleDots,
-  CircleNotchIcon as CircleNotch,
-  FileTextIcon as FileText,
-  DownloadSimpleIcon as DownloadSimple,
-  HeartIcon as Heart,
-  ImageIcon as Image,
-  InfoIcon as Info,
-  MagnifyingGlassIcon as MagnifyingGlass,
-  MicrophoneIcon as Microphone,
-  PaperPlaneTiltIcon as PaperPlaneTilt,
-  PencilSimpleIcon as PencilSimple,
-  ShareFatIcon as ShareFat,
-  SignOutIcon as SignOut,
-  SmileyIcon as Smiley,
-  TrashIcon as Trash,
-  UserPlusIcon as UserPlus,
-  UsersThreeIcon as UsersThree,
-  XIcon as X,
-} from '@phosphor-icons/react'
+import { Check, CheckCheck as Checks, ChevronLeft as CaretLeft, CornerUpLeft as ArrowBendUpLeft, Download as DownloadSimple, FileText, Heart, Image, Info, LoaderCircle as CircleNotch, LogOut as SignOut, MessageCircleMore as ChatCircleDots, Mic as Microphone, Pencil as PencilSimple, Search as MagnifyingGlass, Send as PaperPlaneTilt, Share2 as ShareFat, Smile as Smiley, Trash2 as Trash, UserPlus, Users as UsersThree, X } from 'lucide-react'
 import { chatsApi, gruposApi, mensajesApi, mensajeDeError } from '@/lib/api'
 import type {
   ChatContactoResponse,
@@ -1254,7 +1231,7 @@ export function MessengerChatHub({ locale = 'es' }: Props) {
                       title={T.enviarEmoji}
                     >
                       {quickEmoji === '❤️' ? (
-                        <Heart className="size-6 text-rose-500" weight="fill" />
+                        <Heart className="size-6 text-rose-500" fill="currentColor" />
                       ) : (
                         <span>{quickEmoji}</span>
                       )}

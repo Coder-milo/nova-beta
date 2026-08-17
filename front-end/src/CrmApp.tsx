@@ -17,8 +17,16 @@ import {
   estudiantePuedeVer,
   soloEsEstudiante,
   RUTA_INICIO_ESTUDIANTE,
+  empresaPuedeVer,
+  soloEsEmpresa,
+  RUTA_INICIO_EMPRESA,
 } from '@/lib/navigation'
 import { usePathname } from '@/compat/next-navigation'
+import {
+  cargadoresDeRuta,
+  cargadoresPorPatron,
+  normalizarRuta,
+} from '@/lib/rutas'
 
 function lazyRetry<T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) {
   return lazy(async () => {
@@ -36,75 +44,22 @@ function lazyRetry<T extends ComponentType<any>>(factory: () => Promise<{ defaul
   })
 }
 
-const DashboardPage = lazyRetry(() => import('@/app/page'))
-const AuditoriaPage = lazyRetry(() => import('@/app/auditoria/page'))
-const ComunicacionesPage = lazyRetry(() => import('@/app/comunicaciones/page'))
-const ColocacionesPage = lazyRetry(() => import('@/app/colocaciones/page'))
-const ConfiguracionPage = lazyRetry(() => import('@/app/configuracion/page'))
-const DocumentosPage = lazyRetry(() => import('@/app/documentos/page'))
-const EmpresasPage = lazyRetry(() => import('@/app/empresas/page'))
-const EstudiantesPage = lazyRetry(() => import('@/app/estudiantes/page'))
-const EstudianteDetallePage = lazyRetry(() => import('@/app/estudiantes/[id]/page'))
-const NuevoEstudiantePage = lazyRetry(() => import('@/app/estudiantes/nuevo/page'))
-const HojasDeVidaPage = lazyRetry(() => import('@/app/hojas-de-vida/page'))
-const ImportacionesPage = lazyRetry(() => import('@/app/importaciones/page'))
-const LoginPage = lazyRetry(() => import('@/app/login/page'))
-const PortalEstudiantePage = lazyRetry(() => import('@/app/inicio-estudiante/page'))
-const PowerBiPage = lazyRetry(() => import('@/app/power-bi/page'))
-const ProyectosPage = lazyRetry(() => import('@/app/proyectos/page'))
-const SeguimientoPage = lazyRetry(() => import('@/app/seguimiento/page'))
-const ProyectoDetallePage = lazyRetry(() => import('@/app/proyectos/[id]/page'))
-const RecuperarContrasenaPage = lazyRetry(
-  () => import('@/app/recuperar-contrasena/page'),
+/**
+ * Las pantallas salen del registro de `lib/rutas`, que es el mismo del que
+ * tira la precarga al apuntar un enlace. Compartir la lista evita que una
+ * ruta quede navegable pero sin precargar —o al revés— cuando se añada la
+ * siguiente.
+ */
+const exactRoutes: Record<string, ComponentType> = Object.fromEntries(
+  Object.entries(cargadoresDeRuta).map(([ruta, cargar]) => [ruta, lazyRetry(cargar)]),
 )
-const ReportesPage = lazyRetry(() => import('@/app/reportes/page'))
-const ReportesChatPage = lazyRetry(() => import('@/app/reportes-chat/page'))
-const VacantesPage = lazyRetry(() => import('@/app/vacantes/page'))
-const MiProcesoPage = lazyRetry(() => import('@/app/mi-proceso/page'))
-const MisActividadesPage = lazyRetry(() => import('@/app/mis-actividades/page'))
-const MisDocumentosPage = lazyRetry(() => import('@/app/mis-documentos/page'))
-const MiHojaDeVidaPage = lazyRetry(() => import('@/app/mi-hoja-de-vida/page'))
-const MisPostulacionesPage = lazyRetry(() => import('@/app/mis-postulaciones/page'))
-const MiCalendarioPage = lazyRetry(() => import('@/app/mi-calendario/page'))
-const MisMensajesPage = lazyRetry(() => import('@/app/mis-mensajes/page'))
-const MisNotificacionesPage = lazyRetry(() => import('@/app/mis-notificaciones/page'))
-const AyudaEstudiantePage = lazyRetry(() => import('@/app/ayuda-estudiante/page'))
-const ConfiguracionEstudiantePage = lazyRetry(() => import('@/app/configuracion-estudiante/page'))
 
-const exactRoutes: Record<string, ComponentType> = {
-  '/': DashboardPage,
-  '/auditoria': AuditoriaPage,
-  '/comunicaciones': ComunicacionesPage,
-  '/colocaciones': ColocacionesPage,
-  '/configuracion': ConfiguracionPage,
-  '/documentos': DocumentosPage,
-  '/empresas': EmpresasPage,
-  '/estudiantes': EstudiantesPage,
-  '/estudiantes/nuevo': NuevoEstudiantePage,
-  '/hojas-de-vida': HojasDeVidaPage,
-  '/importaciones': ImportacionesPage,
-  '/login': LoginPage,
-  '/portal-estudiante': PortalEstudiantePage,
-  '/power-bi': PowerBiPage,
-  '/proyectos': ProyectosPage,
-  '/recuperar-contrasena': RecuperarContrasenaPage,
-  '/reportes': ReportesPage,
-  '/reportes-chat': ReportesChatPage,
-  '/seguimiento': SeguimientoPage,
-  '/vacantes': VacantesPage,
-  // Compatibilidad para enlaces guardados: el perfil ahora vive en Configuración.
-  '/mi-perfil': ConfiguracionEstudiantePage,
-  '/mi-proceso': MiProcesoPage,
-  '/mis-actividades': MisActividadesPage,
-  '/mis-documentos': MisDocumentosPage,
-  '/mi-hoja-de-vida': MiHojaDeVidaPage,
-  '/mis-postulaciones': MisPostulacionesPage,
-  '/mi-calendario': MiCalendarioPage,
-  '/mis-mensajes': MisMensajesPage,
-  '/mis-notificaciones': MisNotificacionesPage,
-  '/ayuda-estudiante': AyudaEstudiantePage,
-  '/configuracion-estudiante': ConfiguracionEstudiantePage,
-}
+const rutasPorPatron: ReadonlyArray<[RegExp, ComponentType]> = cargadoresPorPatron.map(
+  ([patron, cargar]) => [patron, lazyRetry(cargar)],
+)
+
+const PortalEstudiantePage = exactRoutes['/portal-estudiante']
+const PortalEmpresaPage = exactRoutes['/portal/vacantes']
 
 function NotFoundPage() {
   const { locale } = usePreferences()
@@ -125,20 +80,16 @@ function NotFoundPage() {
 }
 
 function resolvePage(pathname: string): ComponentType {
-  const normalized =
-    pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+  const normalized = normalizarRuta(pathname)
 
   const ExactPage = exactRoutes[normalized]
   if (ExactPage) {
     return ExactPage
   }
 
-  if (/^\/estudiantes\/[^/]+$/.test(normalized)) {
-    return EstudianteDetallePage
-  }
-
-  if (/^\/proyectos\/[^/]+$/.test(normalized)) {
-    return ProyectoDetallePage
+  const PatronPage = rutasPorPatron.find(([patron]) => patron.test(normalized))?.[1]
+  if (PatronPage) {
+    return PatronPage
   }
 
   return NotFoundPage
@@ -157,18 +108,21 @@ function CurrentRoute() {
   const pathname = usePathname()
   const { user, cargando } = useAuth()
   const esEstudiante = soloEsEstudiante(user?.roles)
+  const esEmpresa = soloEsEmpresa(user?.roles)
+
+  // Fuera de sitio: el rol no alcanza esta ruta. Se corrige la URL en vez de
+  // navegar, para no dejar la pantalla prohibida en el historial —donde el
+  // botón Atrás la volvería a abrir—.
+  const fueraDeSitio =
+    (esEstudiante && !estudiantePuedeVer(pathname)) ||
+    (esEmpresa && !empresaPuedeVer(pathname))
 
   useEffect(() => {
-    if (
-      !cargando &&
-      esEstudiante &&
-      !estudiantePuedeVer(pathname) &&
-      typeof window !== 'undefined'
-    ) {
-      window.history.replaceState(null, '', RUTA_INICIO_ESTUDIANTE)
+    if (!cargando && fueraDeSitio && typeof window !== 'undefined') {
+      window.history.replaceState(null, '', esEmpresa ? RUTA_INICIO_EMPRESA : RUTA_INICIO_ESTUDIANTE)
       window.dispatchEvent(new PopStateEvent('popstate'))
     }
-  }, [cargando, esEstudiante, pathname])
+  }, [cargando, fueraDeSitio, esEmpresa, pathname])
 
   // Hasta que se sepa quien entro no se monta ninguna pantalla. La sesion se
   // lee en un efecto, asi que en el primer render `user` es null y
@@ -178,12 +132,11 @@ function CurrentRoute() {
   const { locale } = usePreferences()
   if (cargando) return <PageSpinner label={locale === 'en' ? 'Signing in…' : 'Iniciando sesión…'} />
 
-  // Mientras el efecto corrige la URL ya se pinta el portal, para que no
-  // llegue a montarse el dashboard y disparar las llamadas que dan 403.
-  const Page =
-    esEstudiante && !estudiantePuedeVer(pathname)
-      ? PortalEstudiantePage
-      : resolvePage(pathname)
+  // Mientras el efecto corrige la URL ya se pinta la pantalla de destino, para
+  // que no llegue a montarse el dashboard y disparar las llamadas que dan 403.
+  const Page = fueraDeSitio
+    ? (esEmpresa ? PortalEmpresaPage : PortalEstudiantePage)
+    : resolvePage(pathname)
 
   return <Page />
 }

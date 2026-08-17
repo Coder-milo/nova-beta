@@ -358,6 +358,10 @@ public class ChatDirectoService {
         if (!contacto.isActivo()) {
             throw new ResourceNotFoundException("El compañero ya no está activo.");
         }
+        if (propio.getPrograma() != null && contacto.getPrograma() != null
+                && !propio.getPrograma().getId().equals(contacto.getPrograma().getId())) {
+            throw new ResourceNotFoundException("Compañero no encontrado.");
+        }
         return contacto;
     }
 

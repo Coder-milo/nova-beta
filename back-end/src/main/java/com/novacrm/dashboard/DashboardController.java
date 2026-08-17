@@ -36,6 +36,22 @@ public class DashboardController {
         return dashboardService.graficos();
     }
 
+    /**
+     * Participantes por municipio del Atlantico.
+     *
+     * <p>{@code programaId} nulo devuelve el departamento entero. Es el mismo
+     * endpoint para «todos» y para uno solo a proposito: dos endpoints que
+     * calculan lo mismo con un filtro de diferencia acaban divergiendo, y el
+     * total de uno deja de cuadrar con la suma de los otros.
+     */
+    @GetMapping("/mapa-atlantico")
+    @Operation(summary = "Participantes por municipio del Atlantico, opcionalmente de un programa")
+    public com.novacrm.dashboard.dto.MapaDelAtlantico mapaAtlantico(
+            @org.springframework.web.bind.annotation.RequestParam(required = false)
+            java.util.UUID programaId) {
+        return dashboardService.mapaDelAtlantico(programaId);
+    }
+
     @GetMapping("/alerts")
     @Operation(summary = "Alertas dinámicas evaluadas en tiempo real")
     public List<AlertaResponse> alerts() {

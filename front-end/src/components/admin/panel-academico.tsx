@@ -18,15 +18,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ArrowsClockwiseIcon as ArrowsClockwise,
-  CheckCircleIcon as CheckCircle,
-  CircleNotchIcon as CircleNotch,
-  FloppyDiskIcon as FloppyDisk,
-  InfoIcon as Info,
-  SlidersIcon as Sliders,
-  WarningCircleIcon as WarningCircle,
-} from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Info, LoaderCircle as CircleNotch, RefreshCw as ArrowsClockwise, Save as FloppyDisk, SlidersHorizontal as Sliders } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

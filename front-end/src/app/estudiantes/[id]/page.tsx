@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeftIcon as ArrowLeft, ArrowsClockwiseIcon as ArrowsClockwise, BriefcaseIcon as Briefcase, CameraIcon as Camera, CheckIcon as Check, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, ClipboardTextIcon as ClipboardText, ClockCounterClockwiseIcon as ClockCounterClockwise, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileTextIcon as FileText, FolderOpenIcon as FolderOpen, GraduationCapIcon as GraduationCap, LinkSimpleIcon as LinkSimple, PencilSimpleIcon as PencilSimple, PlusIcon as Plus, ReadCvLogoIcon as ReadCvLogo, SquaresFourIcon as SquaresFour, StarIcon as Star, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, UserIcon as User, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { ArrowLeft, Briefcase, Camera, Check, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, ClipboardList as ClipboardText, Download as DownloadSimple, Eye, FileText, FileUser as ReadCvLogo, FolderOpen, GraduationCap, History as ClockCounterClockwise, LayoutGrid as SquaresFour, Link as LinkSimple, LoaderCircle as CircleNotch, Pencil as PencilSimple, Plus, RefreshCw as ArrowsClockwise, Star, Trash2 as Trash, Upload as UploadSimple, User } from 'lucide-react'
 /**
  * Perfil completo del estudiante (expediente institucional).
  *
@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { LineaDeTiempo } from '@/components/admin/linea-de-tiempo'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { FilePreview, FilePreviewSheet } from '@/components/ui/file-preview'
 import { useConfirmar } from '@/components/ui/confirmar'
@@ -146,6 +147,8 @@ function textos(english: boolean) {
         elEstudianteNo: 'The student does not exist, or was deleted.',
         competenciasTecnicasY: 'Technical skills and strengths',
         historialLaboralDel: 'Work history of the student.',
+        lineaDeTiempo: 'History',
+        todoLoQuePaso: 'Applications, interviews, documents and follow-up notes, in order.',
         sinExperienciaLaboral: 'No work experience recorded.',
         versionesGeneradasDe: 'Generated versions of the résumé.',
         datosDeContacto: 'Contact details and location of the student.',
@@ -302,6 +305,8 @@ function textos(english: boolean) {
         elEstudianteNo: 'El estudiante no existe o fue eliminado.',
         competenciasTecnicasY: 'Competencias técnicas y fortalezas',
         historialLaboralDel: 'Historial laboral del estudiante.',
+        lineaDeTiempo: 'Historia',
+        todoLoQuePaso: 'Postulaciones, entrevistas, documentos y notas de seguimiento, en orden.',
         sinExperienciaLaboral: 'Sin experiencia laboral registrada.',
         versionesGeneradasDe: 'Versiones generadas de la hoja de vida.',
         datosDeContacto: 'Datos de contacto y ubicación del estudiante.',
@@ -1119,6 +1124,19 @@ function FichaEstudiante({ id }: { id: string }) {
               </CardContent>
             </Card>
           </div>
+
+          {/* Historia unificada. Va antes de la ficha porque «qué ha pasado
+              con esta persona» es la pregunta que se hace antes de cualquier
+              otra, y hasta ahora obligaba a abrir cuatro pestañas. */}
+          <Card className="rounded-2xl border-border shadow-sm">
+            <CardHeader className="border-b border-border/70 pb-4">
+              <CardTitle className="text-base">{T.lineaDeTiempo}</CardTitle>
+              <CardDescription>{T.todoLoQuePaso}</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <LineaDeTiempo estudianteId={id} />
+            </CardContent>
+          </Card>
 
           <Card className="rounded-2xl border-border shadow-sm">
             <CardHeader className="border-b border-border/70 pb-4">

@@ -60,6 +60,16 @@ public class Vacante extends BaseEntity {
     private String hashDedup;
 
     /**
+     * Identidad de la oferta mas alla de la fuente: normaliza titulo + empresa,
+     * para que la misma plaza publicada en dos portales no entre dos veces.
+     *
+     * <p>Distinto de {@link #hashDedup}, que lleva la fuente dentro a proposito
+     * —la fuente es parte del dato—. Nulo en las filas historicas (V52).
+     */
+    @Column(name = "hash_contenido")
+    private String hashContenido;
+
+    /**
      * Tiempo completo, medio tiempo, por horas.
      *
      * <p>Distinto de {@link #tipoContrato} —indefinido, termino fijo, obra o
@@ -93,6 +103,88 @@ public class Vacante extends BaseEntity {
     private boolean revisada = true;
 
     /**
+     * La empresa la esta redactando y todavia no la ha enviado.
+     *
+     * <p>Un borrador no lo ve nadie mas que quien lo escribe: ni el equipo en
+     * la cola de revision ni los estudiantes. Sin este estado, una descripcion
+     * a medio escribir entraba a revision en cuanto se guardaba, y el equipo
+     * revisaba textos incompletos.
+     *
+     * <p>Solo lo pone el portal. Las vacantes del equipo y las que llegan de
+     * los portales nacen ya enviadas.
+     */
+    @Column(nullable = false)
+    private boolean borrador = false;
+
+    /**
+     * Por que la rechazo el equipo, si la rechazo.
+     *
+     * <p>Lo lee quien la publico, en su propia pantalla y junto al texto que
+     * escribio. Sin esto la unica respuesta posible a una oferta dudosa era
+     * cerrarla, y la empresa veia «Cerrada» sin saber que corregir: vuelve a
+     * publicar lo mismo y el equipo vuelve a rechazarla.
+     */
+    @Column(name = "motivo_rechazo", columnDefinition = "TEXT")
+    private String motivoRechazo;
+
+    @Column(name = "rechazada_por")
+    private String rechazadaPor;
+
+    @Column(name = "fecha_rechazo")
+    private LocalDateTime fechaRechazo;
+
+    /**
+     * En que punto esta, para enseñarlo sin que quien lea tenga que combinar
+     * cuatro banderas en la cabeza.
+     */
+    public String estadoDePublicacion() {
+        if (borrador) return "BORRADOR";
+        if (motivoRechazo != null && !revisada) return "RECHAZADA";
+        if (!activo) return "CERRADA";
+        return revisada ? "PUBLICADA" : "EN_REVISION";
+    }
+
+    /**
+     * El equipo la rechaza y deja dicho por que.
+     *
+     * <p>No se cierra ni se borra: queda visible para quien la publico, con el
+     * motivo, para que pueda corregirla y reenviarla. Cerrarla obligaria a
+     * escribirla otra vez desde cero.
+     */
+    public void rechazar(String motivo, String quien, LocalDateTime cuando) {
+        this.motivoRechazo = motivo;
+        this.rechazadaPor = quien;
+        this.fechaRechazo = cuando;
+        this.revisada = false;
+        this.fechaPublicacion = null;
+    }
+
+    /**
+     * Limpia el rechazo anterior.
+     *
+     * <p>Se llama al reenviar a revision y al aprobar. Si no se limpiara, una
+     * vacante corregida y ya publicada seguiria enseñando el motivo por el que
+     * la rechazaron la primera vez.
+     */
+    public void olvidarRechazo() {
+        this.motivoRechazo = null;
+        this.rechazadaPor = null;
+        this.fechaRechazo = null;
+    }
+
+    /**
+     * La empresa todavia puede editarla por su cuenta.
+     *
+     * <p>Una vez publicada no: editar sin volver a pasar por revision seria la
+     * forma evidente de saltarse la moderacion —se aprueba un texto limpio y
+     * despues se cambia por otro—. El portal permite editarla igualmente, pero
+     * eso la devuelve a la cola.
+     */
+    public boolean editableSinVolverARevision() {
+        return borrador || !revisada;
+    }
+
+    /**
      * A quien le sirve esta oferta.
      *
      * <p>Nulo en las que registra el equipo a mano y en las anteriores a que
@@ -114,6 +206,30 @@ public class Vacante extends BaseEntity {
     /** Correo de quien la registro a mano; nulo si vino de un portal. */
     @Column(name = "creada_por")
     private String creadaPor;
+
+    /**
+     * Lo que declara quien envia el formulario publico, sin verificar.
+     *
+     * <p>El nombre de la empresa se guarda como texto y <strong>no</strong> se
+     * enlaza con {@code empresa}. Buscarla por nombre —que es lo que hace el
+     * alta interna— dejaria que un desconocido publique en nombre de una
+     * empresa real y, si esa empresa tiene cuenta del portal, que la vea
+     * aparecer entre las suyas. El enlace lo hace una persona al aprobarla.
+     *
+     * <p>Los tres datos de contacto solo viajan hacia gestion. Son de quien
+     * envio el formulario, no del anuncio.
+     */
+    @Column(name = "empresa_declarada", length = 200)
+    private String empresaDeclarada;
+
+    @Column(name = "contacto_declarado", length = 200)
+    private String contactoDeclarado;
+
+    @Column(name = "email_declarado", length = 255)
+    private String emailDeclarado;
+
+    @Column(name = "telefono_declarado", length = 40)
+    private String telefonoDeclarado;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "empresa_id")
@@ -169,6 +285,8 @@ public class Vacante extends BaseEntity {
     public void setFechaExpiracion(LocalDateTime fechaExpiracion) { this.fechaExpiracion = fechaExpiracion; }
     public String getHashDedup() { return hashDedup; }
     public void setHashDedup(String hashDedup) { this.hashDedup = hashDedup; }
+    public String getHashContenido() { return hashContenido; }
+    public void setHashContenido(String hashContenido) { this.hashContenido = hashContenido; }
     public Empresa getEmpresa() { return empresa; }
     public void setEmpresa(Empresa empresa) { this.empresa = empresa; }
     public MotivoCierre getMotivoCierre() { return motivoCierre; }
@@ -183,6 +301,19 @@ public class Vacante extends BaseEntity {
     public void setCiudad(String ciudad) { this.ciudad = ciudad; }
     public boolean isRevisada() { return revisada; }
     public void setRevisada(boolean revisada) { this.revisada = revisada; }
+    public boolean isBorrador() { return borrador; }
+    public void setBorrador(boolean borrador) { this.borrador = borrador; }
+    public String getEmpresaDeclarada() { return empresaDeclarada; }
+    public void setEmpresaDeclarada(String empresaDeclarada) { this.empresaDeclarada = empresaDeclarada; }
+    public String getContactoDeclarado() { return contactoDeclarado; }
+    public void setContactoDeclarado(String contactoDeclarado) { this.contactoDeclarado = contactoDeclarado; }
+    public String getEmailDeclarado() { return emailDeclarado; }
+    public void setEmailDeclarado(String emailDeclarado) { this.emailDeclarado = emailDeclarado; }
+    public String getTelefonoDeclarado() { return telefonoDeclarado; }
+    public void setTelefonoDeclarado(String telefonoDeclarado) { this.telefonoDeclarado = telefonoDeclarado; }
+    public String getMotivoRechazo() { return motivoRechazo; }
+    public String getRechazadaPor() { return rechazadaPor; }
+    public LocalDateTime getFechaRechazo() { return fechaRechazo; }
     public com.novacrm.scraper.fuente.Segmento getSegmento() { return segmento; }
     public void setSegmento(com.novacrm.scraper.fuente.Segmento segmento) { this.segmento = segmento; }
 }

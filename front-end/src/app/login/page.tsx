@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowRightIcon as ArrowRight, CircleNotchIcon as CircleNotch, EnvelopeIcon as Envelope, EyeIcon as Eye, EyeSlashIcon as EyeSlash, InfoIcon as Info, LockKeyIcon as LockKey, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { ArrowRight, CircleAlert as WarningCircle, Eye, EyeOff as EyeSlash, Info, LoaderCircle as CircleNotch, Lock as LockKey, Mail as Envelope } from 'lucide-react'
 import Image from '@/compat/next-image'
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from '@/compat/next-navigation'

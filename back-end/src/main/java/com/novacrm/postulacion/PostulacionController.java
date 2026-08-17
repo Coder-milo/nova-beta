@@ -39,12 +39,21 @@ public class PostulacionController {
 
     // ── Lo que usa el estudiante ────────────────────────────────────────────
 
+    /**
+     * Devuelve la vista recortada, no la de gestion.
+     *
+     * <p>Antes devolvia el mismo {@code PostulacionResponse} del panel, asi que
+     * el estudiante recibia —en la respuesta, la pintara o no la pantalla— quien
+     * de la institucion lleva su caso, la fecha del proximo seguimiento interno
+     * y el correo de contacto del reclutador. Es el mismo corte que ya se hizo
+     * en el listado de vacantes por el mismo motivo.
+     */
     @GetMapping("/mias")
     @Operation(summary = "Mis postulaciones")
     @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
-    public List<PostulacionResponse> mias(Authentication auth) {
+    public List<com.novacrm.postulacion.dto.MiPostulacion> mias(Authentication auth) {
         var estudiante = ownershipService.obtenerEstudianteAutenticado(auth);
-        return postulacionService.deEstudiante(estudiante.getId());
+        return postulacionService.mias(estudiante.getId());
     }
 
     @GetMapping("/mias/resumen")
@@ -65,17 +74,26 @@ public class PostulacionController {
     @PostMapping("/mias")
     @Operation(summary = "Registrar una postulacion propia")
     @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
-    public PostulacionResponse registrarPropia(@Valid @RequestBody CrearPostulacion datos,
-                                               Authentication auth) {
+    public com.novacrm.postulacion.dto.MiPostulacion registrarPropia(
+            @Valid @RequestBody CrearPostulacion datos, Authentication auth) {
         var estudiante = ownershipService.obtenerEstudianteAutenticado(auth);
-        return postulacionService.crear(estudiante.getId(), datos, auth.getName(), true);
+        return postulacionService.crearPropia(estudiante.getId(), datos, auth.getName());
     }
 
     // ── Compartido ──────────────────────────────────────────────────────────
 
+    /**
+     * La vista de gestion, por eso ya no la alcanza un estudiante.
+     *
+     * <p>Admitia rol ESTUDIANTE con comprobacion de pertenencia, de modo que
+     * cualquiera podia leer sus propias postulaciones <em>con los campos del
+     * equipo dentro</em>: era la misma fuga que {@code /mias}, por otra puerta.
+     * Un estudiante tiene {@code /mias}, que devuelve lo suyo recortado; esto es
+     * la ficha que abre el equipo, y solo la usa el panel.
+     */
     @GetMapping
-    @Operation(summary = "Postulaciones de un estudiante")
-    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    @Operation(summary = "Postulaciones de un estudiante (vista de gestion)")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public List<PostulacionResponse> deEstudiante(@RequestParam UUID estudianteId, Authentication auth) {
         ownershipService.verificarAccesoEstudiante(auth, estudianteId);
         return postulacionService.deEstudiante(estudianteId);
@@ -89,21 +107,39 @@ public class PostulacionController {
     }
 
     /**
-     * Actualiza el seguimiento de una postulacion.
+     * Actualiza el seguimiento de una postulacion, desde el panel.
      *
-     * <p>Lo puede hacer el propio estudiante. El cambio de estado escribe en su
-     * historial de seguimiento y, si el proceso avanza de verdad, mueve su
-     * tarjeta en el tablero del equipo.
+     * <p>El estudiante tiene {@code PATCH /mias/{id}}, que hace lo mismo y le
+     * devuelve su vista. Aqui devolvia el registro completo, asi que cambiar de
+     * estado desde el portal le entregaba los campos de gestion aunque
+     * {@code /mias} ya no lo hiciera: la fuga volvia por la respuesta del PATCH.
      */
     @PatchMapping("/{id}")
-    @Operation(summary = "Actualizar el seguimiento de una postulacion")
-    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    @Operation(summary = "Actualizar el seguimiento de una postulacion (vista de gestion)")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public PostulacionResponse actualizar(@PathVariable UUID id,
                                           @Valid @RequestBody ActualizarPostulacion cambios,
                                           Authentication auth) {
+        return postulacionService.actualizar(id, cambios, auth.getName());
+    }
+
+    /**
+     * El mismo cambio de estado, hecho por el propio estudiante.
+     *
+     * <p>Escribe en su historial de seguimiento y, si el proceso avanza de
+     * verdad, mueve su tarjeta en el tablero del equipo. Lo que cambia respecto
+     * al de arriba es solo lo que se devuelve.
+     */
+    @PatchMapping("/mias/{id}")
+    @Operation(summary = "Actualizar el seguimiento de una postulacion propia")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public com.novacrm.postulacion.dto.MiPostulacion actualizarPropia(
+            @PathVariable UUID id,
+            @Valid @RequestBody ActualizarPostulacion cambios,
+            Authentication auth) {
         var postulacion = postulacionService.obtener(id);
         ownershipService.verificarAccesoEstudiante(auth, postulacion.getEstudiante().getId());
-        return postulacionService.actualizar(id, cambios, auth.getName());
+        return postulacionService.actualizarPropia(id, cambios, auth.getName());
     }
 
     @DeleteMapping("/{id}")
@@ -114,6 +150,47 @@ public class PostulacionController {
         ownershipService.verificarAccesoEstudiante(auth, postulacion.getEstudiante().getId());
         postulacionService.eliminar(id);
         return Map.of("mensaje", "Postulacion eliminada");
+    }
+
+    /**
+     * Las citas de un tramo de fechas.
+     *
+     * <p>Solo para el equipo: es la agenda de todos los participantes a la vez.
+     * Un estudiante ve las suyas en {@code /mias}, que ya devuelve la cita
+     * dentro de cada postulacion.
+     */
+    @GetMapping("/tablero")
+    @Operation(summary = "Postulaciones vivas para el tablero por estado")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public List<PostulacionResponse> tablero(
+            @RequestParam(required = false) UUID programaId) {
+        return postulacionService.paraTablero(programaId);
+    }
+
+    @GetMapping("/agenda")
+    @Operation(summary = "Entrevistas agendadas en un rango de fechas")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public List<PostulacionResponse> agenda(
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso =
+                    org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso =
+                    org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) {
+        if (hasta.isBefore(desde)) {
+            throw new com.novacrm.exception.BusinessException("El rango de fechas esta invertido");
+        }
+        // Un rango abierto traeria la agenda entera a memoria; 92 dias cubren un
+        // trimestre, que es el tramo mas largo que se consulta de una vez.
+        if (desde.plusDays(92).isBefore(hasta)) {
+            throw new com.novacrm.exception.BusinessException("El rango no puede pasar de 92 dias");
+        }
+        return postulacionService.agenda(desde, hasta);
+    }
+
+    @GetMapping("/agenda/sin-cerrar")
+    @Operation(summary = "Entrevistas cuya hora paso y siguen agendadas")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public List<PostulacionResponse> entrevistasSinCerrar() {
+        return postulacionService.entrevistasSinCerrar();
     }
 
     @GetMapping("/estados")

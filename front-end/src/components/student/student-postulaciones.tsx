@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowRightIcon as ArrowRight, ArrowSquareOutIcon as ArrowSquareOut, BriefcaseIcon as Briefcase, BuildingIcon as Building, CalendarBlankIcon as Calendar, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, ClockIcon as Clock, CurrencyDollarIcon as CurrencyDollar, GraduationCapIcon as GraduationCap, LaptopIcon as Laptop, MapPinIcon as MapPin, SparkleIcon as Sparkle, TranslateIcon as Translate, TrashIcon as Trash, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { ArrowRight, Briefcase, Building, Calendar, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Clock, DollarSign as CurrencyDollar, ExternalLink as ArrowSquareOut, GraduationCap, Languages as Translate, Laptop, LoaderCircle as CircleNotch, MapPin, Sparkles as Sparkle, Trash2 as Trash } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { ApiCallError, matchesApi, mensajeDeError, postulacionesApi } from '@/lib/api'
 import { hoyLocal } from '@/lib/utils'
 import { usePreferences } from '@/lib/preferences'
-import type { MatchResponse, PostulacionResponse, RazonDeMatch } from '@/lib/types'
+import type { MatchResponse, MiPostulacion, RazonDeMatch } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Confirmar } from '@/components/ui/confirmar'
@@ -303,13 +303,13 @@ export function StudentPostulaciones() {
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
   const [matches, setMatches] = useState<MatchResponse[]>([])
-  const [historial, setHistorial] = useState<PostulacionResponse[]>([])
+  const [historial, setHistorial] = useState<MiPostulacion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [postulando, setPostulando] = useState<string | null>(null)
   const [registrando, setRegistrando] = useState(false)
   const [notificacion, setNotificacion] = useState<{ tipo: 'exito' | 'error'; mensaje: string } | null>(null)
-  const [porEliminar, setPorEliminar] = useState<PostulacionResponse | null>(null)
+  const [porEliminar, setPorEliminar] = useState<MiPostulacion | null>(null)
   const [empresaManual, setEmpresaManual] = useState('')
   const [cargoManual, setCargoManual] = useState('')
   const [canalManual, setCanalManual] = useState('')
@@ -433,7 +433,7 @@ export function StudentPostulaciones() {
 
   const actualizarEstado = async (id: string, estado: string) => {
     try {
-      const actualizada = await postulacionesApi.actualizar(id, { estado })
+      const actualizada = await postulacionesApi.actualizarPropia(id, { estado })
       setHistorial((items) => items.map((item) => item.id === id ? actualizada : item))
       mostrarNotificacion('exito', T.okEstado)
     } catch (e) {
@@ -519,6 +519,19 @@ export function StudentPostulaciones() {
                   )}
                   {postulacion.observaciones && (
                     <p className="mt-1 text-xs text-muted-foreground italic">{postulacion.observaciones}</p>
+                  )}
+                  {/* La cita, en la propia postulación. El bloque de arriba las
+                      reúne todas, pero quien está mirando esta fila concreta
+                      espera encontrarla aquí y no volver al inicio. */}
+                  {postulacion.fechaHoraEntrevista && (
+                    <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-primary">
+                      <Calendar className="size-3.5 shrink-0" />
+                      {new Date(postulacion.fechaHoraEntrevista).toLocaleString(
+                        locale === 'en' ? 'en-GB' : 'es-CO',
+                        { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' },
+                      )}
+                      {postulacion.modalidadEtiqueta ? ` · ${postulacion.modalidadEtiqueta}` : ''}
+                    </p>
                   )}
                   {postulacion.diasEsperando != null && <p className="mt-1 text-xs text-muted-foreground">{postulacion.diasEsperando} días esperando respuesta</p>}
                 </div>

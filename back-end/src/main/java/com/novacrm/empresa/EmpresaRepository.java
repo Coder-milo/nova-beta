@@ -60,4 +60,8 @@ public interface EmpresaRepository extends JpaRepository<Empresa, UUID> {
 
     @Query("SELECT e.estadoRelacion, COUNT(e) FROM Empresa e WHERE e.activo = true GROUP BY e.estadoRelacion")
     List<Object[]> recuentoPorEstadoRelacion();
+
+    /** Todas las vivas, por nombre. Para el buscador de fichas duplicadas. */
+    List<Empresa> findByActivoTrueOrderByNombreAsc();
+
 }

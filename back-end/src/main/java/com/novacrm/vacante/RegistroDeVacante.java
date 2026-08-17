@@ -48,11 +48,45 @@ public class RegistroDeVacante {
         if (vacanteRepository.findByHashDedup(vacante.getHashDedup()).isPresent()) {
             return Optional.empty();
         }
+        // Dedup cruzado: la misma plaza en dos portales no entra dos veces. El
+        // par (titulo, empresa) normalizado es la identidad mas alla de la fuente.
+        if (vacante.getHashContenido() == null) {
+            vacante.setHashContenido(hashContenido(vacante.getTitulo(), nombreEmpresa));
+            if (vacanteRepository.findByHashContenido(vacante.getHashContenido()).isPresent()) {
+                return Optional.empty();
+            }
+        }
         if (vacante.getEmpresa() == null && nombreEmpresa != null && !nombreEmpresa.isBlank()) {
             vacante.setEmpresa(empresaOCrear(nombreEmpresa.trim()));
         }
         enriquecedor.enriquecer(vacante);
         return Optional.of(vacanteRepository.save(vacante));
+    }
+
+    /** Titulo + empresa, sin tildes ni mayusculas ni puntuacion; el indice V52 es la ultima palabra. */
+    static String hashContenido(String titulo, String nombreEmpresa) {
+        return sha256(normalizar(titulo) + "|" + normalizar(nombreEmpresa));
+    }
+
+    private static String normalizar(String texto) {
+        if (texto == null) {
+            return "";
+        }
+        return java.text.Normalizer.normalize(texto.toLowerCase(java.util.Locale.ROOT),
+                        java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replaceAll("[^a-z0-9]+", " ")
+                .trim();
+    }
+
+    private static String sha256(String input) {
+        try {
+            var digest = java.security.MessageDigest.getInstance("SHA-256");
+            return java.util.HexFormat.of().formatHex(
+                    digest.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /**

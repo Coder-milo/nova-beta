@@ -3,6 +3,8 @@ package com.novacrm.dashboard;
 import com.novacrm.dashboard.dto.AlertaResponse;
 import com.novacrm.dashboard.dto.DashboardChartsResponse;
 import com.novacrm.dashboard.dto.DashboardSummaryResponse;
+import com.novacrm.dashboard.dto.MapaDelAtlantico;
+import com.novacrm.geo.MunicipiosDelAtlantico;
 import com.novacrm.dashboard.dto.PuntoDato;
 import com.novacrm.estudiante.EstadoAcademico;
 import com.novacrm.estudiante.EstadoEmpleabilidad;
@@ -43,6 +45,7 @@ public class DashboardService {
     private final com.novacrm.scraper.ScrapingEjecucionRepository scrapingEjecucionRepository;
     private final com.novacrm.chat.ReporteDeChatRepository reporteDeChatRepository;
     private final com.novacrm.mensaje.MensajeEstudianteRepository mensajeRepository;
+    private final com.novacrm.postulacion.PostulacionRepository postulacionRepository;
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
@@ -53,7 +56,8 @@ public class DashboardService {
                             com.novacrm.vacante.VacanteRepository vacanteRepository,
                             com.novacrm.scraper.ScrapingEjecucionRepository scrapingEjecucionRepository,
                             com.novacrm.chat.ReporteDeChatRepository reporteDeChatRepository,
-                            com.novacrm.mensaje.MensajeEstudianteRepository mensajeRepository) {
+                            com.novacrm.mensaje.MensajeEstudianteRepository mensajeRepository,
+                            com.novacrm.postulacion.PostulacionRepository postulacionRepository) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
         this.seguimientoRepository = seguimientoRepository;
@@ -61,6 +65,7 @@ public class DashboardService {
         this.scrapingEjecucionRepository = scrapingEjecucionRepository;
         this.reporteDeChatRepository = reporteDeChatRepository;
         this.mensajeRepository = mensajeRepository;
+        this.postulacionRepository = postulacionRepository;
     }
 
     public DashboardSummaryResponse resumen() {
@@ -208,6 +213,43 @@ public class DashboardService {
                         "Fuentes con problemas: " + e.getError(),
                         null, "/vacantes")));
 
+        // ── Las entrevistas ─────────────────────────────────────────────────
+        //
+        // El modelo guarda la cita desde hace tiempo y las dos consultas de
+        // abajo existen desde que se hizo la agenda, pero el tablero —la
+        // primera pantalla que abre un coordinador— no las miraba. Estaban en
+        // /agenda, que hay que acordarse de abrir.
+        //
+        // Las de hoy van primero: es lo unico de esta lista con hora.
+        java.time.LocalDateTime arranqueDeHoy =
+                LocalDate.now(ZoneId.systemDefault()).atStartOfDay();
+        var citasDeHoy = postulacionRepository.agendaEntre(arranqueDeHoy, arranqueDeHoy.plusDays(1));
+        if (!citasDeHoy.isEmpty()) {
+            var primera = citasDeHoy.get(0);
+            alertas.add(new AlertaResponse(
+                    "ENTREVISTA_HOY", "ALTA",
+                    citasDeHoy.size() == 1 ? "Hay una entrevista hoy" : "Hay entrevistas hoy",
+                    citasDeHoy.size() + " cita(s) hoy. La primera, a las "
+                            + primera.getFechaHoraEntrevista().toLocalTime().withSecond(0).withNano(0)
+                            + " con " + primera.getEstudiante().getNombre() + " "
+                            + primera.getEstudiante().getApellido() + ".",
+                    null, "/agenda"));
+        }
+
+        // Paso la hora y la postulacion sigue en «entrevista agendada»: o se
+        // hizo y nadie anoto el resultado, o la persona no se presento. En los
+        // dos casos hay algo que hacer, y cada dia que pasa cuesta mas
+        // reconstruir cual de los dos fue.
+        var sinCerrar = postulacionRepository.entrevistasSinCerrar(java.time.LocalDateTime.now());
+        if (!sinCerrar.isEmpty()) {
+            alertas.add(new AlertaResponse(
+                    "ENTREVISTA_SIN_CERRAR", "ALTA",
+                    "Entrevistas pasadas sin resultado",
+                    sinCerrar.size() + " entrevista(s) ya pasaron y siguen como agendadas. "
+                            + "O se hicieron y falta anotar el resultado, o la persona no se presentó.",
+                    null, "/agenda"));
+        }
+
         LocalDate hoy = LocalDate.now(ZoneId.systemDefault());
         List<Programa> porFinalizar = programaRepository.findByEstadoAndFechaFinBetween(
                 ProgramaEstado.ACTIVO, hoy, hoy.plusDays(DIAS_ALERTA_FIN_PROGRAMA));
@@ -264,4 +306,66 @@ public class DashboardService {
                         """, Long.class)
                 .getSingleResult();
     }
+
+    /**
+     * Cuantos participantes viven en cada municipio del Atlantico.
+     *
+     * <p>El programa es del departamento: de los 108 activos, 104 estan en el
+     * area metropolitana de Barranquilla. Repartido en una tabla eso no dice
+     * nada; sobre el mapa se ve de un golpe donde esta la gente, que es lo que
+     * decide donde se hace una jornada presencial o con que empresa conviene
+     * hablar primero.
+     *
+     * <p>El emparejado del texto libre con el municipio se hace en Java y no en
+     * SQL: la ciudad entro del Excel de matricula y hay que pasar por la tabla
+     * de alias de {@link MunicipiosDelAtlantico}. La consulta agrupa —seis u
+     * ocho filas— y aqui se recorre una vez.
+     *
+     * <p>Lo que no se reconoce <strong>no se reparte</strong>: se devuelve
+     * aparte, con el texto tal cual. Colar esas fichas en el municipio mas
+     * parecido daria un mapa mas bonito y mentiroso, y ademas taparia justo lo
+     * que hay que corregir en las fichas.
+     *
+     * @param programaId nulo para ver el departamento entero
+     */
+    @Transactional(readOnly = true)
+    public MapaDelAtlantico mapaDelAtlantico(java.util.UUID programaId) {
+        var porCodigo = new java.util.LinkedHashMap<String, Long>();
+        MunicipiosDelAtlantico.todos().forEach(m -> porCodigo.put(m.codigo(), 0L));
+
+        var sinUbicar = new java.util.LinkedHashMap<String, Long>();
+        long sinDato = 0;
+        long total = 0;
+
+        for (var fila : estudianteRepository.contarActivosPorCiudad(programaId)) {
+            String ciudad = fila.getCiudad() == null ? "" : fila.getCiudad().trim();
+            long cuantos = fila.getTotal();
+            total += cuantos;
+
+            if (ciudad.isEmpty()) {
+                sinDato += cuantos;
+                continue;
+            }
+            var municipio = MunicipiosDelAtlantico.desdeTextoLibre(ciudad);
+            if (municipio.isPresent()) {
+                porCodigo.merge(municipio.get().codigo(), cuantos, Long::sum);
+            } else {
+                sinUbicar.merge(ciudad, cuantos, Long::sum);
+            }
+        }
+
+        var municipios = MunicipiosDelAtlantico.todos().stream()
+                .map(m -> new MapaDelAtlantico.MunicipioConEstudiantes(
+                        m.codigo(), m.nombre(), porCodigo.getOrDefault(m.codigo(), 0L)))
+                .toList();
+
+        var noUbicados = sinUbicar.entrySet().stream()
+                .sorted(java.util.Map.Entry.<String, Long>comparingByValue(
+                        java.util.Comparator.reverseOrder()))
+                .map(e -> new MapaDelAtlantico.ValorSinUbicar(e.getKey(), e.getValue()))
+                .toList();
+
+        return new MapaDelAtlantico(municipios, noUbicados, sinDato, total);
+    }
+
 }

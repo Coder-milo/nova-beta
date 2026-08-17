@@ -27,11 +27,13 @@ class TopesDeLaPostulacionTest {
 
     private static CrearPostulacion alta(String observaciones) {
         return new CrearPostulacion(null, null, "Solvo S.A.S.", "Asesora bilingue",
-                "Feria", null, null, "", observaciones);
+                "Feria", null, null, "", observaciones,
+                null, null, null, null, null, null, null);
     }
 
     private static ActualizarPostulacion cambio(String resultado, String observaciones) {
-        return new ActualizarPostulacion(null, null, resultado, observaciones, null);
+        return new ActualizarPostulacion(null, null, resultado, observaciones, null,
+                null, null, null, null, null, null, null, null);
     }
 
     @Test

@@ -49,6 +49,7 @@ class SubirPorLaConversacionTest {
 
     @BeforeEach
     void prepararConversacionLarga() {
+        repository.deleteAll();
         Programa programa = programaRepository.findAll().stream().findFirst().orElseThrow();
         ana = guardarEstudiante(programa, "Ana");
         luis = guardarEstudiante(programa, "Luis");

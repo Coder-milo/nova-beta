@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { BriefcaseIcon as Briefcase, CheckIcon as Check, CircleNotchIcon as CircleNotch, GraduationCapIcon as GraduationCap, PlusIcon as Plus, TrashIcon as Trash, UserIcon as User, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { Briefcase, Check, CircleAlert as WarningCircle, GraduationCap, LoaderCircle as CircleNotch, Plus, Trash2 as Trash, User, X } from 'lucide-react'
 import { ApiCallError, estudiantesApi, hvApi, perfilApi } from '@/lib/api'
 import type {
   EstudianteRequest,
@@ -296,7 +296,7 @@ function DatosHv({
     <Card className="shadow-none">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <User className="size-5 text-primary" weight="duotone" />
+          <User className="size-5 text-primary" />
           {T.datosDeTu}
         </CardTitle>
         <CardDescription>
@@ -575,7 +575,7 @@ function Experiencias({
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <Briefcase className="size-5 text-primary" weight="duotone" />
+            <Briefcase className="size-5 text-primary" />
             Experiencia laboral
           </CardTitle>
           <CardDescription>
@@ -823,7 +823,7 @@ function Formaciones({
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <GraduationCap className="size-5 text-primary" weight="duotone" />
+            <GraduationCap className="size-5 text-primary" />
             {T.educacionYCertificaciones}
           </CardTitle>
           <CardDescription>

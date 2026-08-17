@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useState } from 'react'
-import { CheckCircleIcon as CheckCircle, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle } from 'lucide-react'
 import { usePreferences } from '@/lib/preferences'
 
 export type TipoAviso = 'exito' | 'error'

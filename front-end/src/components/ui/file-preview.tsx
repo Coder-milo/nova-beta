@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { CircleNotchIcon as CircleNotch, DownloadSimpleIcon as DownloadSimple, FileIcon as File, FilePdfIcon as FilePdf, FileTextIcon as FileText, ImageSquareIcon as ImageSquare, PlayCircleIcon as PlayCircle, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CircleAlert as WarningCircle, CirclePlay as PlayCircle, Download as DownloadSimple, File, FileText, FileText as FilePdf, Image as ImageSquare, LoaderCircle as CircleNotch } from 'lucide-react'
 import { ApiCallError, apiBlob } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'

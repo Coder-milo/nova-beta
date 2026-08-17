@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { CheckCircleIcon as CheckCircle, CalendarBlankIcon as CalendarBlank, CircleNotchIcon as CircleNotch, ImageSquareIcon as ImageSquare, LinkSimpleIcon as LinkSimple, MegaphoneIcon as Megaphone, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { Calendar as CalendarBlank, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Image as ImageSquare, Link as LinkSimple, LoaderCircle as CircleNotch, Megaphone } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -153,7 +153,7 @@ function PanelAnuncio({ programas }: { programas: ProgramaResponse[] }) {
     <Card className="rounded-2xl border-border shadow-sm">
       <CardHeader className="border-b border-border/70">
         <CardTitle className="flex items-center gap-2">
-          <Megaphone className="size-5 text-primary" weight="duotone" />
+          <Megaphone className="size-5 text-primary" />
           {T.publicarUnAnuncio}
         </CardTitle>
         <CardDescription>{T.lesLlegaA}</CardDescription>
@@ -298,7 +298,7 @@ function PanelEvento({ programas }: { programas: ProgramaResponse[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><CalendarBlank className="size-5 text-primary" weight="duotone" />{T.programarUnEvento}</CardTitle>
+        <CardTitle className="flex items-center gap-2"><CalendarBlank className="size-5 text-primary" />{T.programarUnEvento}</CardTitle>
         <CardDescription>{T.losEventosDel}</CardDescription>
       </CardHeader>
       <CardContent>

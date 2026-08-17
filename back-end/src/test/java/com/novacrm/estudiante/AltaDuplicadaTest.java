@@ -44,7 +44,9 @@ class AltaDuplicadaTest {
             mock(AuditoriaService.class),
             mock(ColocacionRepository.class),
             mock(StorageService.class),
-            mock(PlantillaHvRepository.class));
+            mock(PlantillaHvRepository.class),
+            mock(com.novacrm.auth.UsuarioRepository.class),
+            mock(AsignacionAutomatica.class));
 
     private final UUID programaId = UUID.randomUUID();
 

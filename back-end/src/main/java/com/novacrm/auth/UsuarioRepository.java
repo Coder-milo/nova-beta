@@ -22,4 +22,14 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
 
     Optional<Usuario> findByResetToken(String resetToken);
     boolean existsByEmailIgnoreCase(String email);
+
+    /**
+     * Las cuentas del portal atadas a una empresa, activas y revocadas.
+     *
+     * <p>Las revocadas tambien: una cuenta desactivada no desaparece —queda por
+     * auditoria— y no verla desde la ficha lleva a invitar otra vez al mismo
+     * correo sin entender por que el sistema dice que ya existe.
+     */
+    java.util.List<Usuario> findByEmpresaIdOrderByEmailAsc(UUID empresaId);
+
 }

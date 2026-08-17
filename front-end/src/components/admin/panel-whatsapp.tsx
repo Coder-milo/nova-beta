@@ -14,7 +14,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, FloppyDiskIcon as FloppyDisk, PaperPlaneTiltIcon as PaperPlaneTilt, WhatsappLogoIcon as WhatsappLogo, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, LoaderCircle as CircleNotch, RefreshCw as ArrowsClockwise, Save as FloppyDisk, Send as PaperPlaneTilt } from 'lucide-react'
+import { WhatsappLogo } from '@/components/ui/iconos-de-marca'
 import {
   Card,
   CardContent,
@@ -180,7 +181,7 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <WhatsappLogo className="size-5 text-primary" weight="duotone" />
+              <WhatsappLogo className="size-5 text-primary" />
               {T.canalDeWhatsapp}
             </CardTitle>
             <CardDescription>
@@ -330,7 +331,7 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
             {resultadoPrueba && (
               resultadoPrueba.enviado ? (
                 <p className="flex items-center gap-2 rounded-xl border border-green-500/25 bg-green-500/10 px-3 py-2.5 text-sm font-medium text-green-700 dark:text-green-300">
-                  <CheckCircle className="size-4 shrink-0" weight="fill" />
+                  <CheckCircle className="size-4 shrink-0" />
                   {T.mensajeDePrueba}
                 </p>
               ) : (
@@ -353,7 +354,7 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
 
             {guardado && (
               <p className="flex items-center gap-2 rounded-xl border border-green-500/25 bg-green-500/10 px-3 py-2.5 text-sm font-medium text-green-700 dark:text-green-300">
-                <CheckCircle className="size-4 shrink-0" weight="fill" />
+                <CheckCircle className="size-4 shrink-0" />
                 Canal guardado.
               </p>
             )}

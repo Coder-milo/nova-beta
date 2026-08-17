@@ -6,7 +6,16 @@ import {
   resolverIpCliente,
 } from '@/lib/server/session'
 
-const publicRoutes = new Set(['/login', '/recuperar-contrasena'])
+/**
+ * Las rutas que se sirven sin cookie de sesion.
+ *
+ * `/publicar-vacante` es el formulario de captacion: una empresa que llega por
+ * su cuenta no tiene cuenta con que entrar —las del portal son por invitacion—
+ * y sin esta puerta se pierde. Solo pinta un formulario; lo que hace el envio
+ * lo decide el backend, que es quien limita, valida y deja la oferta sin
+ * revisar.
+ */
+const publicRoutes = new Set(['/login', '/recuperar-contrasena', '/publicar-vacante'])
 
 /**
  * Cabeceras que describen el cuerpo tal y como lo envio el backend. Se

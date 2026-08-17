@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { CodeIcon as Code, FilePlusIcon as FilePlus, CircleNotchIcon as CircleNotch, TextBIcon as TextB, TextItalicIcon as TextItalic, LinkSimpleIcon as LinkSimple, ListBulletsIcon as ListBullets } from '@phosphor-icons/react'
+import { Bold as TextB, Code, FilePlus, Italic as TextItalic, Link as LinkSimple, List as ListBullets, LoaderCircle as CircleNotch } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePreferences } from '@/lib/preferences'
 

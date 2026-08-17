@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MagnifyingGlassIcon as MagnifyingGlass } from '@phosphor-icons/react'
+import { Search as MagnifyingGlass } from 'lucide-react'
 import { CATEGORIAS_EMOJI, buscarEmojis } from '@/lib/emojis'
 import { cn } from '@/lib/utils'
 

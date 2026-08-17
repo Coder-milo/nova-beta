@@ -96,20 +96,42 @@ public final class LectorDeLibro {
         }
     }
 
-    /** @param motivo por que no se importa; nulo si si se importa */
-    public record HojaClasificada(String nombre, DestinoDeHoja destino, HojaLeida hoja, String motivo,
-                                  Set<String> columnasPorIa, boolean destinoPorIa) {
+    /**
+     * Una hoja ya decidida: el plan que se tomó sobre ella y sus filas leídas.
+     *
+     * <p>El plan va aparte y no disuelto en campos sueltos porque es justo lo
+     * que hay que guardar para poder repetir la misma lectura al confirmar. Los
+     * accesores delegan para que quien solo quiere el destino o el motivo no
+     * tenga que saber que existe.
+     */
+    public record HojaClasificada(AnalisisDeLibro.Hoja analisis, HojaLeida hoja) {
 
-        public HojaClasificada(String nombre, DestinoDeHoja destino, HojaLeida hoja, String motivo) {
-            this(nombre, destino, hoja, motivo, Set.of(), false);
+        public String nombre() {
+            return analisis.nombre();
+        }
+
+        public DestinoDeHoja destino() {
+            return analisis.destino();
+        }
+
+        public String motivo() {
+            return analisis.motivo();
+        }
+
+        public List<String> columnasPorIa() {
+            return analisis.columnasPorIa();
+        }
+
+        public boolean destinoPorIa() {
+            return analisis.destinoPorIa();
         }
 
         public boolean importable() {
-            return destino != null && hoja != null;
+            return destino() != null && hoja != null;
         }
 
         static HojaClasificada omitida(String nombre, String motivo) {
-            return new HojaClasificada(nombre, null, null, motivo);
+            return new HojaClasificada(AnalisisDeLibro.Hoja.omitida(nombre, motivo), null);
         }
     }
 
@@ -229,13 +251,55 @@ public final class LectorDeLibro {
             }
         }
 
-        var columnas = new LinkedHashMap<String, String>();
-        cabecera.get().titulos().forEach((indice, titulo) ->
-                columnas.put(titulo, porIndice.get(indice)));
+        var plan = new AnalisisDeLibro.Hoja(nombre, destino, null,
+                cabecera.get().fila(),
+                new LinkedHashMap<>(cabecera.get().titulos()),
+                new LinkedHashMap<>(porIndice),
+                List.copyOf(columnasPorIa),
+                destinoPorIa);
+        return new HojaClasificada(plan, leerConEsePlan(hoja, plan));
+    }
 
-        var filas = HojaLeida.filasDebajoDe(hoja, cabecera.get().fila(), porIndice, MAX_FILAS_POR_HOJA);
-        var leida = new HojaLeida(nombre, cabecera.get().filaEnExcel(), columnas, filas);
-        return new HojaClasificada(nombre, destino, leida, null, columnasPorIa, destinoPorIa);
+    /**
+     * Vuelve a leer el libro aplicando un análisis ya tomado.
+     *
+     * <p>No se consulta el diccionario ni la IA: cada hoja recibe el destino y
+     * el mapa de columnas que se decidieron al previsualizar. Es lo que hace
+     * que lo aprobado y lo escrito sean lo mismo.
+     *
+     * <p>Quien llame tiene que haber comprobado antes que el archivo es el
+     * mismo que se analizó. Sin esa comprobación esto aplicaría el plan de un
+     * archivo a las celdas de otro, que es peor que volver a analizarlo.
+     */
+    public static List<HojaClasificada> releer(MultipartFile archivo, AnalisisDeLibro analisis) {
+        validarArchivo(archivo);
+        try (var entrada = archivo.getInputStream();
+             Workbook libro = WorkbookFactory.create(entrada)) {
+
+            var resultado = new ArrayList<HojaClasificada>();
+            for (var plan : analisis.hojas()) {
+                Sheet hoja = plan.destino() == null ? null : libro.getSheet(plan.nombre());
+                if (hoja == null) {
+                    // Las omitidas se repiten omitidas y con su mismo motivo: si
+                    // la previsualización dijo que una pestaña no se reconocía,
+                    // el informe final tiene que seguir diciéndolo.
+                    resultado.add(HojaClasificada.omitida(plan.nombre(), plan.motivo()));
+                    continue;
+                }
+                resultado.add(new HojaClasificada(plan, leerConEsePlan(hoja, plan)));
+            }
+            return resultado;
+
+        } catch (BusinessException e) {
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            throw new BusinessException("No se pudo leer el archivo: " + e.getMessage());
+        }
+    }
+
+    private static HojaLeida leerConEsePlan(Sheet hoja, AnalisisDeLibro.Hoja plan) {
+        var filas = HojaLeida.filasDebajoDe(hoja, plan.filaCabecera(), plan.campos(), MAX_FILAS_POR_HOJA);
+        return new HojaLeida(plan.nombre(), plan.filaCabecera() + 1, plan.columnas(), filas);
     }
 
     /** Cabecera sin exigir titulos reconocidos: rescate para hojas renombradas. */

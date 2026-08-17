@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowRightIcon as ArrowRight, ArrowSquareOutIcon as ArrowSquareOut, BellIcon as Bell, BriefcaseIcon as Briefcase, CalendarBlankIcon as CalendarBlank, CircleNotchIcon as CircleNotch, FileTextIcon as FileText, LinkSimpleIcon as LinkSimple, SparkleIcon as Sparkle, UserCheckIcon as UserCheck, WarningCircleIcon as WarningCircle, WhatsappLogoIcon as WhatsappLogo } from '@phosphor-icons/react'
+import { ArrowRight, Bell, Briefcase, Calendar as CalendarBlank, CircleAlert as WarningCircle, ExternalLink as ArrowSquareOut, FileText, Link as LinkSimple, LoaderCircle as CircleNotch, Sparkles as Sparkle, UserCheck } from 'lucide-react'
+import { WhatsappLogo } from '@/components/ui/iconos-de-marca'
 import Link from '@/compat/next-link'
 import {
   documentosApi,
@@ -15,6 +16,8 @@ import {
 import type { EstudianteResponse, PlataformaResponse, SeguimientoDelEstudianteResponse } from '@/lib/types'
 import { useBranding } from '@/lib/branding'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ProximasCitas } from '@/components/student/proximas-citas'
+import { MiRuta } from '@/components/student/mi-ruta'
 import { Badge } from '@/components/ui/badge'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
@@ -53,6 +56,10 @@ function textos(english: boolean) {
         postulaciones: 'Applications',
         documentos: 'Documents',
         proximoPaso: 'Next step:',
+        terminaTuHoja: 'Finish your résumé',
+        esLoPrimero: 'It is what a company reads first, and it is worth 15% of your score.',
+        hojaEnIngles: 'Résumé in English',
+        esElDiferenciador: 'It sets this programme apart and is worth as much as the Spanish one.',
       }
     : {
         revisaTuTitular: 'Revisa tu titular, extracto, experiencia y palabras clave antes de solicitar validación.',
@@ -80,6 +87,10 @@ function textos(english: boolean) {
         postulaciones: 'Postulaciones',
         documentos: 'Documentos',
         proximoPaso: 'Próximo paso:',
+        terminaTuHoja: 'Termina tu hoja de vida',
+        esLoPrimero: 'Es lo primero que lee una empresa, y vale el 15% de tu puntaje.',
+        hojaEnIngles: 'Hoja de vida en inglés',
+        esElDiferenciador: 'Es el diferenciador del programa y vale lo mismo que la de español.',
       }
 }
 
@@ -168,6 +179,15 @@ export default function InicioEstudiantePage() {
     if (perfil.hitoPerfilOcupacional !== 'SI') {
       pendientes.push({ id: 'perfil-ocupacional', titulo: 'Define tu perfil ocupacional', detalle: T.completaTuCargo, href: '/configuracion-estudiante' })
     }
+    // Los dos hitos de la hoja de vida faltaban en esta lista, y son el 30% del
+    // puntaje: el artefacto central de un programa de empleabilidad no aparecía
+    // en «qué me toca ahora». Van después del perfil ocupacional porque la hoja
+    // se escribe en función del cargo al que se apunta.
+    if (perfil.hitoCvListo !== 'SI') {
+      pendientes.push({ id: 'cv', titulo: T.terminaTuHoja, detalle: T.esLoPrimero, href: '/mi-hoja-de-vida' })
+    } else if (perfil.hitoCvIngles !== 'SI') {
+      pendientes.push({ id: 'cv-ingles', titulo: T.hojaEnIngles, detalle: T.esElDiferenciador, href: '/mi-hoja-de-vida' })
+    }
     if (documentos === 0) {
       pendientes.push({ id: 'documentos', titulo: T.subeUnDocumento, detalle: T.mantenTuHoja, href: '/mis-documentos' })
     }
@@ -190,10 +210,10 @@ export default function InicioEstudiantePage() {
           className="fixed bottom-6 right-6 z-40 flex size-14 items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-110"
           style={{ backgroundColor: '#25D366' }}
         >
-          <WhatsappLogo className="size-7" weight="fill" />
+          <WhatsappLogo className="size-7" />
         </a>
       )}
-      <section className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+      <section className="relative overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         {bannerUrl && (
           <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
         )}
@@ -210,14 +230,23 @@ export default function InicioEstudiantePage() {
         </div>
       </section>
 
-      {alertas.length > 0 && <section className="rounded-3xl border border-primary/25 bg-card p-5 shadow-none sm:p-6">
-        <div className="flex items-start gap-3"><span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><WarningCircle className="size-5" weight="duotone" /></span><div><h2 className="font-semibold text-foreground">{T.alertasParaAvanzar}</h2><p className="mt-1 text-sm text-muted-foreground">{T.accionesConcretasPara}</p></div></div>
-        <div className="mt-5 grid gap-3 lg:grid-cols-3">{alertas.map((alerta) => alerta.externa ? <a key={alerta.id} href={alerta.href} target="_blank" rel="noreferrer" className="group rounded-2xl border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"><p className="text-sm font-semibold text-foreground">{alerta.titulo}</p><p className="mt-1.5 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">Ir a LinkedIn <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></a> : <Link key={alerta.id} href={alerta.href} className="group rounded-2xl border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"><p className="text-sm font-semibold text-foreground">{alerta.titulo}</p><p className="mt-1.5 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">Resolver ahora <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></Link>)}</div>
+      {/* Por encima de las alertas: una entrevista tiene hora de caducidad y
+          «completa tu perfil de LinkedIn» no. Si no hay citas no pinta nada. */}
+      <ProximasCitas />
+
+      {/* Dónde estoy y qué sigue. Va antes que las alertas porque las
+          alertas son un extracto de esto: tres pendientes sueltos sin el
+          recorrido que les da sentido. */}
+      {perfil && <MiRuta perfil={perfil} />}
+
+      {alertas.length > 0 && <section className="rounded-xl border border-primary/25 bg-card p-5 shadow-none sm:p-6">
+        <div className="flex items-start gap-3"><span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary"><WarningCircle className="size-5" /></span><div><h2 className="font-semibold text-foreground">{T.alertasParaAvanzar}</h2><p className="mt-1 text-sm text-muted-foreground">{T.accionesConcretasPara}</p></div></div>
+        <div className="mt-5 grid gap-3 lg:grid-cols-3">{alertas.map((alerta) => alerta.externa ? <a key={alerta.id} href={alerta.href} target="_blank" rel="noreferrer" className="group rounded-lg border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"><p className="text-sm font-semibold text-foreground">{alerta.titulo}</p><p className="mt-1.5 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">Ir a LinkedIn <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></a> : <Link key={alerta.id} href={alerta.href} className="group rounded-lg border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"><p className="text-sm font-semibold text-foreground">{alerta.titulo}</p><p className="mt-1.5 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">Resolver ahora <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></Link>)}</div>
       </section>}
 
-      {plataformas.length > 0 && <section className="rounded-3xl border border-border bg-card p-5 shadow-none sm:p-6">
-        <div className="mb-5 flex items-start gap-3"><span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary"><LinkSimple className="size-5" weight="duotone" /></span><div><h2 className="font-semibold text-foreground">{T.tusPlataformas}</h2><p className="mt-1 text-sm text-muted-foreground">{T.accedeALas}</p></div></div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{plataformas.map((p) => <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="group flex items-center gap-3 rounded-2xl border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"><span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted">{p.iconoUrl ? <img src={p.iconoUrl} alt="" className="size-full p-1.5 object-contain" /> : <LinkSimple className="size-5 text-primary" />}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-foreground">{p.nombre}</span><span className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">{p.url.replace(/^https?:\/\//, '').split('/')[0]} <ArrowSquareOut className="size-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></span></span></a>)}</div>
+      {plataformas.length > 0 && <section className="rounded-xl border border-border bg-card p-5 shadow-none sm:p-6">
+        <div className="mb-5 flex items-start gap-3"><span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary"><LinkSimple className="size-5" /></span><div><h2 className="font-semibold text-foreground">{T.tusPlataformas}</h2><p className="mt-1 text-sm text-muted-foreground">{T.accedeALas}</p></div></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{plataformas.map((p) => <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="group flex items-center gap-3 rounded-lg border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"><span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted">{p.iconoUrl ? <img src={p.iconoUrl} alt="" className="size-full p-1.5 object-contain" /> : <LinkSimple className="size-5 text-primary" />}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-foreground">{p.nombre}</span><span className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">{p.url.replace(/^https?:\/\//, '').split('/')[0]} <ArrowSquareOut className="size-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></span></span></a>)}</div>
       </section>}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

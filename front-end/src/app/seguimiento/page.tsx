@@ -1,17 +1,8 @@
 'use client'
 
-import {
-  ArrowsClockwiseIcon as ArrowsClockwise,
-  ChatCircleIcon as ChatCircle,
-  ClockIcon as Clock,
-  MagnifyingGlassIcon as MagnifyingGlass,
-  PlusIcon as Plus,
-  UserIcon as User,
-  UserPlusIcon as UserPlus,
-  WarningCircleIcon as WarningCircle,
-  XIcon as X,
-} from '@phosphor-icons/react'
+import { CircleAlert as WarningCircle, Clock, MessageCircle as ChatCircle, Plus, RefreshCw as ArrowsClockwise, Search as MagnifyingGlass, User, UserPlus, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { TableroDePostulaciones } from '@/components/admin/tablero-de-postulaciones'
 import Link from '@/compat/next-link'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent } from '@/components/ui/card'
@@ -41,6 +32,12 @@ function textos(english: boolean) {
   return english
     ? {
         titulo: 'Follow-up board',
+        porPersona: 'By person',
+        porPostulacion: 'By application',
+        porPersonaPie: 'How each student is doing.',
+        porPostulacionPie: 'How each application is doing.',
+        abiertas: 'open',
+        esperandoMas: 'waiting over 14 days',
         descripcion: 'Where each student stands in the conversation, with the stage the system infers next to it. Drag columns horizontally, drop cards between stages, or search students to add them.',
         cargando: 'Loading the board…',
         noSePudoCargar: 'The board could not be loaded.',
@@ -78,6 +75,12 @@ function textos(english: boolean) {
       }
     : {
         titulo: 'Tablero de seguimiento',
+        porPersona: 'Por persona',
+        porPostulacion: 'Por postulación',
+        porPersonaPie: 'Cómo va cada estudiante.',
+        porPostulacionPie: 'Cómo va cada postulación.',
+        abiertas: 'abiertas',
+        esperandoMas: 'esperando más de 14 días',
         descripcion: 'En qué punto de la conversación está cada estudiante. Arrastra el tablero con clic para desplazarte, mueve tarjetas entre columnas o busca un estudiante para agregarlo.',
         cargando: 'Cargando el tablero…',
         noSePudoCargar: 'No se pudo cargar el tablero.',
@@ -132,6 +135,28 @@ function etiquetaEtapa(T: ReturnType<typeof textos>, etapa: EtapaEmpleabilidad):
 const DIAS_PARA_ALERTAR = 14
 
 export default function SeguimientoPage() {
+  /**
+   * Las dos vistas del mismo seguimiento.
+   *
+   * «Por persona» responde «cómo va este estudiante»; «por postulación», «cómo
+   * va este proceso». La misma persona puede tener una entrevista agendada en
+   * una empresa, un rechazo en otra y tres postulaciones calladas: con un solo
+   * estado por estudiante habría que elegir uno y perder los demás.
+   *
+   * Estaban en dos entradas del menú y ese era el error. Quien entraba a
+   * Seguimiento no tenía forma de saber que la otra mitad vivía en otro sitio.
+   * Un eje distinto de los mismos datos es una vista, no un módulo.
+   */
+  const parametrosSeguimiento = useSearchParams()
+  const [vista, setVista] = useState<'personas' | 'postulaciones'>(
+    parametrosSeguimiento.get('vista') === 'postulaciones' ? 'postulaciones' : 'personas',
+  )
+  const [resumenPostulaciones, setResumenPostulaciones] = useState({ abiertas: 0, esperando: 0 })
+  const alResumirPostulaciones = useCallback(
+    (abiertas: number, esperando: number) => setResumenPostulaciones({ abiertas, esperando }),
+    [],
+  )
+
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
@@ -443,10 +468,12 @@ export default function SeguimientoPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-foreground">{T.titulo}</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{T.descripcion}</p>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            {vista === 'personas' ? T.descripcion : T.porPostulacionPie}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          {programas.length > 0 && (
+          {vista === 'personas' && programas.length > 0 && (
             <select
               aria-label="Seleccionar Proyecto"
               value={programaId}
@@ -463,16 +490,68 @@ export default function SeguimientoPage() {
               ))}
             </select>
           )}
-          <Button variant="default" size="sm" onClick={() => setModalAgregarOpen(true)} className="gap-1.5 shadow-sm">
-            <UserPlus className="size-4" /> {T.agregarEstudiante}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => void cargar()} disabled={cargando}>
-            <ArrowsClockwise className="size-3.5" /> {C.refrescar}
-          </Button>
+          {vista === 'personas' && (
+            <>
+              <Button variant="default" size="sm" onClick={() => setModalAgregarOpen(true)} className="gap-1.5 shadow-sm">
+                <UserPlus className="size-4" /> {T.agregarEstudiante}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => void cargar()} disabled={cargando}>
+                <ArrowsClockwise className="size-3.5" /> {C.refrescar}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {!cargando && !error && tablero && tablero.totalEstudiantes > 0 && (
+      {/* Las dos vistas del mismo seguimiento. Se cambia aquí y no en el menú:
+          son dos formas de mirar lo mismo, y tenerlas en dos entradas distintas
+          hacía que quien entraba en una no supiera que existía la otra. */}
+      <div
+        role="tablist"
+        aria-label={T.titulo}
+        className="flex w-fit gap-1 rounded-xl border border-border bg-secondary/40 p-1"
+      >
+        {([
+          { id: 'personas' as const, rotulo: T.porPersona },
+          { id: 'postulaciones' as const, rotulo: T.porPostulacion },
+        ]).map((op) => (
+          <button
+            key={op.id}
+            role="tab"
+            type="button"
+            aria-selected={vista === op.id}
+            onClick={() => setVista(op.id)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              vista === op.id
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {op.rotulo}
+            {op.id === 'postulaciones' && resumenPostulaciones.abiertas > 0 && (
+              <span className="ml-1.5 tabular-nums text-muted-foreground">
+                {resumenPostulaciones.abiertas}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {vista === 'postulaciones' && (
+        <div className="flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {resumenPostulaciones.abiertas} {T.abiertas}
+            {resumenPostulaciones.esperando > 0 && (
+              <span className="text-[var(--panel-negativo)]">
+                {' · '}{resumenPostulaciones.esperando} {T.esperandoMas}
+              </span>
+            )}
+          </p>
+          <TableroDePostulaciones onResumen={alResumirPostulaciones} />
+        </div>
+      )}
+
+      {vista === 'personas' && !cargando && !error && tablero && tablero.totalEstudiantes > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground tabular-nums">{T.totalEstudiantes(tablero.totalEstudiantes)}</p>
           <div className="relative w-full max-w-xs">

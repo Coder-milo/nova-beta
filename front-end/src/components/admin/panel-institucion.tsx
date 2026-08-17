@@ -19,23 +19,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ArrowsClockwiseIcon as ArrowsClockwise,
-  BankIcon as Bank,
-  CertificateIcon as Certificate,
-  CheckCircleIcon as CheckCircle,
-  CircleNotchIcon as CircleNotch,
-  FloppyDiskIcon as FloppyDisk,
-  GlobeIcon as Globe,
-  IdentificationCardIcon as IdentificationCard,
-  InfoIcon as Info,
-  InstagramLogoIcon as InstagramLogo,
-  LinkedinLogoIcon as LinkedinLogo,
-  MapPinIcon as MapPin,
-  PhoneIcon as Phone,
-  WarningCircleIcon as WarningCircle,
-  WhatsappLogoIcon as WhatsappLogo,
-} from '@phosphor-icons/react'
+import { Award as Certificate, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Globe, IdCard as IdentificationCard, Info, Landmark as Bank, LoaderCircle as CircleNotch, MapPin, Phone, RefreshCw as ArrowsClockwise, Save as FloppyDisk } from 'lucide-react'
+import { InstagramLogo, LinkedinLogo, WhatsappLogo } from '@/components/ui/iconos-de-marca'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -228,7 +213,7 @@ export function PanelInstitucion() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-3">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-400 text-primary-foreground shadow-[0_10px_24px_-12px_rgba(18,104,232,0.8)]">
-                <Bank className="size-5" weight="duotone" />
+                <Bank className="size-5" />
               </span>
               <div>
                 <CardTitle className="text-lg">Perfil institucional</CardTitle>
@@ -264,7 +249,7 @@ export function PanelInstitucion() {
           {guardado && (
             <div role="status" className="flex items-center gap-3 rounded-2xl border border-green-500/25 bg-green-500/10 px-4 py-3 text-sm font-medium text-green-700 dark:text-green-300">
               <span className="flex size-8 items-center justify-center rounded-full bg-green-500/15">
-                <CheckCircle className="size-4 shrink-0" weight="fill" />
+                <CheckCircle className="size-4 shrink-0" />
               </span>
               <span>{T.datosInstitucionalesGuardados}</span>
             </div>
@@ -328,7 +313,7 @@ export function PanelInstitucion() {
               <div className="flex flex-col gap-2 md:col-span-2">
                 <FieldLabel>{T.direccionDeLa}</FieldLabel>
                 <div className="relative">
-                  <MapPin className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-primary" weight="duotone" />
+                  <MapPin className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-primary" />
                   <Input
                     className="h-11 pl-10"
                     value={form.sedePrincipal}
@@ -362,7 +347,7 @@ export function PanelInstitucion() {
                 <div className="flex flex-col gap-2">
                   <FieldLabel>WhatsApp institucional</FieldLabel>
                   <div className="relative">
-                    <WhatsappLogo className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-green-500" weight="fill" />
+                    <WhatsappLogo className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-green-500" />
                     <Input
                       className="h-11 pl-10"
                       value={form.whatsappSoporte}
@@ -412,7 +397,7 @@ export function PanelInstitucion() {
                 <div className="flex flex-col gap-2">
                   <FieldLabel>Sitio web oficial</FieldLabel>
                   <div className="relative">
-                    <Globe className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-primary" weight="duotone" />
+                    <Globe className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-primary" />
                     <Input
                       className="h-11 pl-10"
                       value={form.sitioWeb}
@@ -426,7 +411,7 @@ export function PanelInstitucion() {
                 <div className="flex flex-col gap-2">
                   <FieldLabel>LinkedIn institucional</FieldLabel>
                   <div className="relative">
-                    <LinkedinLogo className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-[#0A66C2]" weight="fill" />
+                    <LinkedinLogo className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-[#0A66C2]" />
                     <Input
                       className="h-11 pl-10"
                       value={form.linkedinUrl}
@@ -440,7 +425,7 @@ export function PanelInstitucion() {
                 <div className="flex flex-col gap-2">
                   <FieldLabel>Instagram institucional</FieldLabel>
                   <div className="relative">
-                    <InstagramLogo className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-fuchsia-500" weight="duotone" />
+                    <InstagramLogo className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-fuchsia-500" />
                     <Input
                       className="h-11 pl-10"
                       value={form.instagramUrl}

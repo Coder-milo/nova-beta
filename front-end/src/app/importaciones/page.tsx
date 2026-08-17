@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwiseIcon as ArrowsClockwise, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, ClockCounterClockwiseIcon as ClockCounterClockwise, FileXlsIcon as FileXls, ShieldCheckIcon as ShieldCheck, UploadSimpleIcon as UploadSimple, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, ChevronLeft as CaretLeft, ChevronRight as CaretRight, CircleAlert as WarningCircle, FileSpreadsheet as FileXls, History as ClockCounterClockwise, LoaderCircle as CircleNotch, RefreshCw as ArrowsClockwise, ShieldCheck, Upload as UploadSimple, X } from 'lucide-react'
 /**
  * Página de Importaciones — asistente en 4 pasos.
  *
@@ -75,6 +75,8 @@ function textos(english: boolean) {
         conErrores: 'With errors',
         actualizados: 'Updated',
         importados: 'Imported',
+        origen: 'Source',
+        origenes: { ESTUDIANTES: 'Participants', CRM: 'Companies', LIBRO: 'Full workbook' } as Record<string, string>,
         creados: 'Created',
         validos: 'Valid',
         errores: 'Errors',
@@ -128,6 +130,8 @@ function textos(english: boolean) {
         conErrores: 'Con errores',
         actualizados: 'Actualizados',
         importados: 'Importados',
+        origen: 'Origen',
+        origenes: { ESTUDIANTES: 'Participantes', CRM: 'Empresas', LIBRO: 'Libro completo' } as Record<string, string>,
         creados: 'Creados',
         validos: 'Válidos',
         errores: 'Errores',
@@ -658,6 +662,7 @@ export default function ImportacionesPage() {
                 <thead>
                   <tr className="border-b border-border bg-secondary/50">
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{C.archivo}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.origen}</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.usuario}</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.creados}</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.actualizados}</th>
@@ -669,6 +674,11 @@ export default function ImportacionesPage() {
                   {historial.map((h) => (
                     <tr key={h.id} className="hover:bg-secondary/30 transition-colors">
                       <td className="px-4 py-3 font-medium text-foreground">{h.archivo}</td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-(--radius) bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                          {T.origenes[h.origen] ?? h.origen}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-muted-foreground">{h.usuario}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-foreground">{h.creados}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-foreground">{h.actualizados}</td>

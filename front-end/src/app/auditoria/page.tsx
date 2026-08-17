@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwiseIcon as ArrowsClockwise, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, ShieldCheckIcon as ShieldCheck, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { ChevronLeft as CaretLeft, ChevronRight as CaretRight, CircleAlert as WarningCircle, RefreshCw as ArrowsClockwise, ShieldCheck, X } from 'lucide-react'
 /**
  * Página de Auditoría — registro histórico de acciones del sistema.
  *

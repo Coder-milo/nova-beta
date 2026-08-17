@@ -85,7 +85,7 @@ public class ArbeitnowConnector implements FuenteDeVacantes {
                 actual = httpClient;
                 if (actual == null) {
                     actual = HttpClient.newBuilder()
-                            .connectTimeout(Duration.ofSeconds(15))
+                            .connectTimeout(Duration.ofSeconds(5))
                             .followRedirects(HttpClient.Redirect.NORMAL)
                             .build();
                     httpClient = actual;
@@ -105,7 +105,7 @@ public class ArbeitnowConnector implements FuenteDeVacantes {
                     HttpRequest.newBuilder(URI.create(ENDPOINT))
                             .header("Accept", "application/json")
                             .header("User-Agent", "NOVA-CRM/1.0 (empleabilidad CAC)")
-                            .timeout(Duration.ofSeconds(20))
+                            .timeout(Duration.ofSeconds(5))
                             .GET()
                             .build(),
                     HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));

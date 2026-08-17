@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeftIcon as ArrowLeft, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, InfoIcon as Info, UserPlusIcon as UserPlus, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { ArrowLeft, CheckCircle2 as CheckCircle, ChevronLeft as CaretLeft, ChevronRight as CaretRight, CircleAlert as WarningCircle, Info, LoaderCircle as CircleNotch, UserPlus } from 'lucide-react'
 /**
  * Registro de estudiante — asistente en 6 pasos.
  *

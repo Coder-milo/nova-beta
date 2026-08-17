@@ -51,8 +51,16 @@ import java.util.concurrent.atomic.AtomicLong;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    /** Tiempo sin trafico tras el cual se olvida un contador. */
-    private static final Duration TTL_INACTIVIDAD = Duration.ofMinutes(30);
+    /**
+     * Tiempo sin trafico tras el cual se olvida un contador.
+     *
+     * <p>Es un minimo, no el valor definitivo: {@link #ttlInactividad} lo eleva
+     * hasta cubrir la ventana mas larga que haya configurada. Un contador que se
+     * descarta antes de que su ventana termine devuelve el cupo gastado, y con
+     * la ventana de una hora del formulario publico eso significaba tres ofertas
+     * mas cada media hora de espera.
+     */
+    private static final Duration TTL_MINIMO = Duration.ofMinutes(30);
 
     /**
      * Tope de contadores distintos <em>por registro</em> antes de forzar una
@@ -105,15 +113,35 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return uri.startsWith("/api/v1/whatsapp/webhook");
     }
 
+    /**
+     * El formulario de captacion publica.
+     *
+     * <p>Tiene su propio contador y no comparte con nada, por lo mismo que el
+     * login tiene el suyo: es la unica escritura que puede hacer cualquiera sin
+     * identificarse, y su limite se mide en ofertas por hora, no en peticiones
+     * por minuto. Con el contador general —cien al minuto— una sola maquina
+     * podia meter miles de ofertas en la cola de revision en una tarde.
+     *
+     * <p>Cuenta por IP porque no hay otra cosa que contar: quien envia no tiene
+     * cuenta, y el correo que declara no esta verificado —dejar que el contador
+     * dependa de el seria dejar que lo reinicie cambiando una letra—.
+     */
+    private static boolean esCaptacionPublica(String uri) {
+        return uri.startsWith("/api/v1/publico/");
+    }
+
     private final int loginMax;
     private final int loginWindowMinutes;
     private final int apiMax;
     private final int apiWindowMinutes;
+    private final int publicoMax;
+    private final int publicoWindowMinutes;
 
     private final ClientIpResolver clientIpResolver;
 
     private final Map<String, Contador> loginBuckets = new ConcurrentHashMap<>();
     private final Map<String, Contador> apiBuckets = new ConcurrentHashMap<>();
+    private final Map<String, Contador> publicoBuckets = new ConcurrentHashMap<>();
     private final AtomicLong peticionesDesdeUltimaRevision = new AtomicLong();
 
     public RateLimitFilter(
@@ -121,13 +149,27 @@ public class RateLimitFilter extends OncePerRequestFilter {
             @Value("${app.rate-limit.login-window-minutes:1}") int loginWindowMinutes,
             @Value("${app.rate-limit.api-max:100}") int apiMax,
             @Value("${app.rate-limit.api-window-minutes:1}") int apiWindowMinutes,
+            // Tres a la hora: una empresa manda una oferta, se equivoca y la
+            // manda otra vez, y todavia le queda una. Cuatro ya no es una
+            // empresa escribiendo.
+            @Value("${app.rate-limit.publico-max:3}") int publicoMax,
+            @Value("${app.rate-limit.publico-window-minutes:60}") int publicoWindowMinutes,
             @Value("${app.rate-limit.trusted-proxies:}") String trustedProxies) {
         this.loginMax = loginMax;
         this.loginWindowMinutes = loginWindowMinutes;
         this.apiMax = apiMax;
         this.apiWindowMinutes = apiWindowMinutes;
+        this.publicoMax = publicoMax;
+        this.publicoWindowMinutes = publicoWindowMinutes;
         this.clientIpResolver = new ClientIpResolver(trustedProxies);
+        long ventanaMasLarga = Math.max(loginWindowMinutes,
+                Math.max(apiWindowMinutes, publicoWindowMinutes));
+        this.ttlInactividad = Duration.ofMinutes(
+                Math.max(TTL_MINIMO.toMinutes(), ventanaMasLarga));
     }
+
+    /** El TTL real: nunca por debajo de la ventana mas larga configurada. */
+    private final Duration ttlInactividad;
 
     /** Bucket con marca de ultimo uso, para poder descartarlo cuando caduque. */
     private static final class Contador {
@@ -162,6 +204,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
             registro = loginBuckets;
             max = loginMax;
             ventanaMinutos = loginWindowMinutes;
+        } else if (esCaptacionPublica(uri)) {
+            registro = publicoBuckets;
+            max = publicoMax;
+            ventanaMinutos = publicoWindowMinutes;
         } else if (uri.startsWith("/api/") && !esWebhookWhatsapp(uri)) {
             registro = apiBuckets;
             max = apiMax;
@@ -173,11 +219,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         limpiarSiCorresponde();
 
-        // El login cuenta por IP a proposito: todavia no hay token, y es
-        // justamente la IP lo que hay que frenar contra la fuerza bruta.
-        String clave = registro == loginBuckets
-                ? clientIpResolver.resolver(request)
-                : identidadApi(request);
+        // El login y el formulario publico cuentan por IP a proposito: en los
+        // dos casos no hay token todavia —ni lo va a haber en el segundo— y es
+        // justamente la direccion lo que hay que frenar.
+        String clave = registro == apiBuckets
+                ? identidadApi(request)
+                : clientIpResolver.resolver(request);
         final int maxFinal = max;
         final int ventanaFinal = ventanaMinutos;
         Contador contador = registro.computeIfAbsent(clave,
@@ -239,7 +286,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
      */
     private void limpiarSiCorresponde() {
         boolean alguienLleno = loginBuckets.size() > MAX_ENTRADAS_POR_REGISTRO
-                || apiBuckets.size() > MAX_ENTRADAS_POR_REGISTRO;
+                || apiBuckets.size() > MAX_ENTRADAS_POR_REGISTRO
+                || publicoBuckets.size() > MAX_ENTRADAS_POR_REGISTRO;
         boolean tocaPorPeriodo =
                 peticionesDesdeUltimaRevision.incrementAndGet() >= PERIODO_REVISION;
 
@@ -249,9 +297,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
         peticionesDesdeUltimaRevision.set(0);
 
         long ahora = System.nanoTime();
-        long ttl = TTL_INACTIVIDAD.toNanos();
+        long ttl = ttlInactividad.toNanos();
         purgar(loginBuckets, ahora, ttl);
         purgar(apiBuckets, ahora, ttl);
+        purgar(publicoBuckets, ahora, ttl);
     }
 
     /**
@@ -276,6 +325,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     /** Numero de contadores vivos. Solo para las pruebas. */
     int contadoresVivos() {
-        return loginBuckets.size() + apiBuckets.size();
+        return loginBuckets.size() + apiBuckets.size() + publicoBuckets.size();
     }
 }

@@ -3,6 +3,7 @@ package com.novacrm.scraper;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -80,7 +81,68 @@ class TerminosDeBusquedaTest {
                 List.of("Customer Service", "customer service"),
                 List.of("CUSTOMER SERVICE"));
 
-        assertEquals(1, terminos.size(), () -> "fue " + terminos);
+        assertEquals(terminos.size(), Set.copyOf(terminos).size(),
+                () -> "cada termino repetido es una peticion tirada, fue " + terminos);
+        assertEquals(1, terminos.stream().filter(t -> t.equals("customer service")).count(),
+                () -> "la misma frase con otra caja es el mismo termino, fue " + terminos);
+    }
+
+    /**
+     * El programa es de empleabilidad bilingue: lo que no lo es no se busca.
+     *
+     * <p>Sin esto la corrida gastaba sus ocho consultas en lo que hubiera
+     * escrito cualquiera —hay fichas que apuntan a diseno o a docencia— y volvia
+     * con ofertas que la cohorte no puede tomar.
+     */
+    @Test
+    void loQueNoEsBilingueNoSeBusca() {
+        var terminos = TerminosDeBusqueda.desdeEstudiantes(
+                List.of("Auxiliar de bodega", "Bilingual Customer Service Agent"),
+                List.of());
+
+        assertTrue(terminos.stream().anyMatch(t -> t.contains("bilingual customer service")),
+                () -> "fue " + terminos);
+        assertTrue(terminos.stream().noneMatch(t -> t.contains("bodega")),
+                () -> "una plaza de bodega no le sirve a un programa bilingue, fue " + terminos);
+    }
+
+    /** El nucleo se busca siempre, aunque las fichas digan otra cosa. */
+    @Test
+    void siempreBuscaElNucleoBilingue() {
+        var terminos = TerminosDeBusqueda.desdeEstudiantes(
+                List.of("Bilingual Graphic Designer"), List.of());
+
+        assertTrue(terminos.containsAll(TerminosDeBusqueda.NUCLEO_BILINGUE),
+                () -> "fue " + terminos);
+    }
+
+    /**
+     * Antes se tomaban los ocho primeros de un DISTINCT y cada participante
+     * escribe el suyo: eran 108 cadenas unicas y el orden lo ponia la base. La
+     * corrida podia buscar el caso de uno y no el de media cohorte.
+     */
+    @Test
+    void loQueMasSeRepiteVaPrimero() {
+        var cargos = List.of(
+                "Bilingual Special Education Teacher",
+                "Bilingual Customer Service Agent",
+                "Bilingual Customer Service Agent",
+                "Bilingual Customer Service Agent");
+
+        var derivados = TerminosDeBusqueda.porFrecuencia(cargos, List.of());
+
+        assertEquals("bilingual customer service agent", derivados.get(0),
+                () -> "fue " + derivados);
+    }
+
+    /** Dos corridas seguidas sobre la misma cohorte tienen que buscar lo mismo. */
+    @Test
+    void elOrdenEsEstable() {
+        var cargos = List.of("Bilingual Data Entry Clerk", "Bilingual Chat Support Agent");
+
+        assertEquals(TerminosDeBusqueda.desdeEstudiantes(cargos, List.of()),
+                TerminosDeBusqueda.desdeEstudiantes(cargos, List.of()),
+                "si cambia solo el orden, no hay forma de saber si un portal dejo de responder");
     }
 
     /** Con la base recien montada todavia no hay de donde deducirlos. */

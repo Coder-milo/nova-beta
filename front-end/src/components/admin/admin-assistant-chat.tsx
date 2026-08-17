@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRightIcon as ArrowRight, BuildingsIcon as Buildings, CircleNotchIcon as CircleNotch, CompassIcon as Compass, FileCsvIcon as FileCsv, GearIcon as Gear, PaperPlaneTiltIcon as PaperPlaneTilt, SparkleIcon as Sparkle, TrashIcon as Trash, UsersIcon as Users, XIcon as X } from '@phosphor-icons/react'
+import { ArrowRight, Building2 as Buildings, Compass, FileSpreadsheet as FileCsv, LoaderCircle as CircleNotch, Send as PaperPlaneTilt, Settings as Gear, Sparkles as Sparkle, Trash2 as Trash, Users, X } from 'lucide-react'
 import { usePathname, useRouter } from '@/compat/next-navigation'
 import { usePreferences } from '@/lib/preferences'
 import { ZorroAsistente } from '@/components/ui/zorro-asistente'
@@ -320,7 +320,9 @@ export function AdminAssistantChat() {
         style={anclaAbajo}
         className={cn(
           'pointer-events-none fixed z-40 flex flex-col transition-all duration-300',
-          'bottom-20 inset-x-3 sm:inset-auto sm:bottom-6',
+          // Los 32 px extra dejan libre la franja de utilidades del pie, que
+          // antes quedaba justo debajo del panel y no se podía pulsar.
+          'bottom-28 inset-x-3 sm:inset-auto sm:bottom-14',
           ladoZorro === 'derecha'
             ? 'sm:right-24 sm:left-auto sm:items-end'
             : 'sm:left-24 sm:right-auto sm:items-start',
@@ -346,7 +348,7 @@ export function AdminAssistantChat() {
               aria-hidden="true"
               className="flex size-10 items-center justify-center overflow-hidden rounded-2xl bg-primary/15 text-primary shadow-lg ring-1 ring-primary/20"
             >
-              <Sparkle className="size-5 animate-pulse" weight="fill" />
+              <Sparkle className="size-5 animate-pulse" />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground truncate">{labels.title}</p>
@@ -553,7 +555,7 @@ export function AdminAssistantChat() {
               aria-label={labels.send}
               className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition hover:brightness-105 disabled:opacity-45"
             >
-              <PaperPlaneTilt className="size-4" weight="fill" />
+              <PaperPlaneTilt className="size-4" />
             </button>
           </form>
         </div>

@@ -1,7 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import { CircleNotchIcon as CircleNotch, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
-
+import { CircleAlert as WarningCircle, LoaderCircle as CircleNotch } from 'lucide-react'
 import { reportesChatApi, mensajeDeError } from '@/lib/api'
 import type { ReporteChatResponse } from '@/lib/types'
 import { usePreferences } from '@/lib/preferences'

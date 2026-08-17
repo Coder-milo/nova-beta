@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowCounterClockwiseIcon as ArrowCounterClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CloudArrowUpIcon as CloudArrowUp, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileIcon as File, FilePdfIcon as FilePdf, FileTextIcon as FileText, TrashIcon as Trash, WarningCircleIcon as WarningCircle, XCircleIcon as XCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, CircleX as XCircle, CloudUpload as CloudArrowUp, Download as DownloadSimple, Eye, File, FileText, FileText as FilePdf, LoaderCircle as CircleNotch, RotateCcw as ArrowCounterClockwise, Trash2 as Trash } from 'lucide-react'
 import { ApiCallError, documentosApi, estudiantesApi, mensajeDeError } from '@/lib/api'
 import type { DocumentoResponse } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'

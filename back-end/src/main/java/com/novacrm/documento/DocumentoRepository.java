@@ -31,5 +31,14 @@ public interface DocumentoRepository extends JpaRepository<Documento, UUID> {
 
     long countByEstudianteIdAndActualTrue(UUID estudianteId);
 
+    /**
+     * Los documentos vigentes de un estudiante, para la línea de tiempo.
+     *
+     * <p>Solo la versión actual: la línea cuenta que se entregó un documento,
+     * no cada vez que se resubió con una corrección. Con las versiones dentro,
+     * un contrato reemplazado cuatro veces llenaría media historia.
+     */
+    List<Documento> findByEstudianteIdAndActualTrueOrderByCreatedAtDesc(UUID estudianteId);
+
     long countByActualTrue();
 }

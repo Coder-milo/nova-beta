@@ -5,6 +5,7 @@ import { usePathname } from '@/compat/next-navigation'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { SidebarNav } from '@/components/admin/sidebar-nav'
+import { BarraUtilidades } from '@/components/admin/barra-utilidades'
 import { Header } from '@/components/admin/header'
 import { StudentHelpChat } from '@/components/student/student-help-chat'
 import { AdminAssistantChat } from '@/components/admin/admin-assistant-chat'
@@ -12,17 +13,39 @@ import { useAuth } from '@/lib/auth'
 import { soloEsEstudiante } from '@/lib/navigation'
 import { usePreferences } from '@/lib/preferences'
 
-import { CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight } from '@phosphor-icons/react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+
+/** Si el usuario dejó el menú plegado, sigue plegado la próxima vez. */
+const CLAVE_COLAPSADO = 'nova_menu_plegado'
 
 /**
  * Envoltorio del panel administrativo.
- * En la ruta /login, renderiza únicamente los children (sin sidebar ni header).
+ * En la ruta /login, renderiza únicamente los children (sin cabecera ni menú).
  */
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const { locale } = usePreferences()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [sidebarColapsado, setSidebarColapsado] = useState(false)
   const pathname = usePathname()
+
+  // Se lee en un efecto y no al inicializar el estado: en el primer render el
+  // servidor no tiene `localStorage`, y sembrar el estado desde ahí haría que
+  // el marcado del cliente no coincidiera con el que llegó del servidor.
+  useEffect(() => {
+    try {
+      setSidebarColapsado(localStorage.getItem(CLAVE_COLAPSADO) === '1')
+    } catch {
+      /* Sin almacenamiento arranca desplegado, que es el valor por defecto. */
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CLAVE_COLAPSADO, sidebarColapsado ? '1' : '0')
+    } catch {
+      /* Preferencia de presentación: si no se puede guardar, no pasa nada. */
+    }
+  }, [sidebarColapsado])
   const { user } = useAuth()
   const esEstudiante = soloEsEstudiante(user?.roles)
 
@@ -51,7 +74,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     setMobileOpen(false)
   }, [pathname])
 
-  if (pathname === '/login' || pathname === '/recuperar-contrasena') {
+  // Las pantallas a las que se llega sin sesion se pintan solas. El menú
+  // lateral es de quien ya entró: en el formulario público lo verían empresas
+  // de fuera, y enseña la estructura interna del panel a quien no es de casa.
+  if (pathname === '/login' || pathname === '/recuperar-contrasena'
+      || pathname === '/publicar-vacante') {
     return <>{children}</>
   }
 
@@ -80,27 +107,31 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <div className="ambient-grid absolute inset-0 opacity-[0.035] dark:opacity-100" />
       </div>
 
-      {/* Sidebar escritorio con soporte de colapso */}
+      {/* Panel lateral de escritorio, plegable a solo iconos. */}
       <aside
         className={cn(
-          'relative z-20 hidden h-full shrink-0 transition-all duration-300 lg:block',
-          sidebarColapsado ? 'w-18' : 'w-64',
+          'relative z-20 hidden h-full shrink-0 transition-[width] duration-200 lg:block',
+          sidebarColapsado ? 'w-14' : 'w-60',
         )}
       >
         <SidebarNav collapsed={sidebarColapsado} />
 
-        {/* Botón flotante para colapsar/expandir el panel lateral */}
         <button
           type="button"
-          onClick={() => setSidebarColapsado((prev) => !prev)}
-          className="absolute -right-3 top-20 z-30 flex size-6 items-center justify-center rounded-full border border-border/80 bg-card text-foreground shadow-md transition hover:bg-primary hover:text-primary-foreground hover:scale-110"
-          title={sidebarColapsado ? 'Expandir panel lateral' : 'Colapsar panel lateral'}
+          onClick={() => setSidebarColapsado((previo) => !previo)}
+          aria-expanded={!sidebarColapsado}
+          className="absolute -right-3 top-3.5 z-30 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-primary"
+          title={
+            sidebarColapsado
+              ? locale === 'en' ? 'Expand menu' : 'Expandir menú'
+              : locale === 'en' ? 'Collapse menu' : 'Plegar menú'
+          }
         >
-          {sidebarColapsado ? <CaretRight className="size-3.5" /> : <CaretLeft className="size-3.5" />}
+          {sidebarColapsado ? <ChevronRight className="size-3.5" /> : <ChevronLeft className="size-3.5" />}
         </button>
       </aside>
 
-      {/* Sidebar móvil */}
+      {/* Menú móvil */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent
           side="left"
@@ -115,11 +146,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       {/* Contenido principal */}
       <div className="relative z-10 flex h-full min-w-0 flex-1 flex-col overflow-hidden">
         <Header onOpenMobile={() => setMobileOpen(true)} />
-        <main className="relative flex-1 overflow-y-auto px-4 pb-5 pt-3 md:px-7 md:pb-7 md:pt-4">
+        {/* El lienzo también se aprieta: 12 px de margen en vez de 28. Con
+            tarjetas planas el contenido ya no necesita aire alrededor para
+            despegarse del fondo, que era lo que justificaba el margen ancho. */}
+        <main className="relative flex-1 overflow-y-auto px-3 pb-4 pt-3 md:px-4 md:pb-5">
           <div className="relative z-10 mx-auto w-full max-w-[1600px]">
             {children}
           </div>
         </main>
+        {!esEstudiante && <BarraUtilidades />}
       </div>
       {esEstudiante ? <StudentHelpChat /> : <AdminAssistantChat />}
     </div>

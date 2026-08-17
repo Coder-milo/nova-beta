@@ -60,6 +60,22 @@ public class SmartRecruitersConnector implements FuenteDeVacantes {
      */
     private static final String EMPRESAS_POR_DEFECTO = "Sutherland,Alorica";
 
+    /**
+     * Tope de detalles pedidos por empresa y corrida.
+     *
+     * <p>El texto del anuncio solo está en el endpoint de detalle, así que cada
+     * oferta que pasa el filtro de ciudad cuesta una petición más. Con
+     * {@code limit=100} y dos empresas eso eran hasta 200 llamadas en serie, con
+     * 15 s de tope cada una: en el peor caso la fuente sola se comía la corrida
+     * entera, y encima en ráfaga contra la misma API.
+     *
+     * <p>Cuarenta cubre de sobra lo que un área metropolitana devuelve en un
+     * día. Lo que sobrepasa el tope <strong>no se descarta</strong>: entra sin
+     * descripción, y el enriquecedor la puntúa con lo que tenga. Media vacante
+     * es mejor que ninguna, y mañana vuelve a intentarse.
+     */
+    static final int MAXIMO_DETALLES_POR_EMPRESA = 40;
+
     private final boolean habilitado;
     private final List<String> empresas;
 
@@ -171,6 +187,7 @@ public class SmartRecruitersConnector implements FuenteDeVacantes {
     List<OfertaCruda> procesar(String cuerpoJson, String empresa) throws Exception {
         List<OfertaCruda> ofertas = new ArrayList<>();
         JsonNode contenido = MAPPER.readTree(cuerpoJson).path("content");
+        int detallesPedidos = 0;
 
         for (JsonNode oferta : contenido) {
             try {
@@ -215,7 +232,18 @@ public class SmartRecruitersConnector implements FuenteDeVacantes {
                 // cobertura minima exigida no llega a generar match. Se pide
                 // despues de filtrar por ciudad, para no gastar una peticion
                 // por cada oferta que igualmente se iba a descartar.
-                completarConElDetalle(vacante, empresa, id);
+                //
+                // Y con tope, porque siguen siendo N peticiones en serie: ver
+                // MAXIMO_DETALLES_POR_EMPRESA. Pasado el tope la oferta entra
+                // igual, solo que sin descripcion.
+                if (detallesPedidos < MAXIMO_DETALLES_POR_EMPRESA) {
+                    completarConElDetalle(vacante, empresa, id);
+                    detallesPedidos++;
+                } else if (detallesPedidos == MAXIMO_DETALLES_POR_EMPRESA) {
+                    log.info("[{}] {} trae mas de {} ofertas cercanas; el resto entra sin descripcion",
+                            FUENTE, empresa, MAXIMO_DETALLES_POR_EMPRESA);
+                    detallesPedidos++;
+                }
 
                 ofertas.add(new OfertaCruda(vacante, empresa));
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from '@/compat/next-link'
-import { BriefcaseIcon as Briefcase, BuildingsIcon as Buildings, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CurrencyDollarIcon as CurrencyDollar, MagnifyingGlassIcon as MagnifyingGlass, PlusIcon as Plus, UsersIcon as Users, WarningCircleIcon as WarningCircle, XCircleIcon as XCircle } from '@phosphor-icons/react'
+import { Briefcase, Building2 as Buildings, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, CircleX as XCircle, DollarSign as CurrencyDollar, LoaderCircle as CircleNotch, Plus, Search as MagnifyingGlass, Users } from 'lucide-react'
 import { colocacionesApi, empresasApi, estudiantesApi, ApiCallError } from '@/lib/api'
 import { useConfirmar } from '@/components/ui/confirmar'
 import type { CatalogosColocacion, ColocacionRequest, ColocacionResponse, EmpresaResponse, EstudianteResponse, ResumenColocaciones } from '@/lib/types'

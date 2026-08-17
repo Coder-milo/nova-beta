@@ -155,6 +155,16 @@ export interface EstudianteResponse {
   carpetaUrl: string | null
   linkedinUrl: string | null
   plantillaPreferidaId: string | null
+  /**
+   * Quién lleva el caso. Nulo = sin asignar, que es un estado normal y hay que
+   * poder verlo para repartir el trabajo.
+   *
+   * No confundir con los campos de traza —quién escribió aquella nota, quién
+   * movió aquella postulación—: aquellos registran el pasado y se quedan
+   * quietos; esto es de quién es el caso hoy, y se puede reasignar.
+   */
+  responsableId: string | null
+  responsableNombre: string | null
 }
 
 /** POST /api/v1/estudiantes — campos mínimos requeridos: nombre, apellido, email */
@@ -351,6 +361,19 @@ export interface VacanteResponse {
    */
   motivoCierre?: MotivoCierre | null
   creadaPor?: string | null
+  /**
+   * Lo que declaró quien mandó el formulario público, sin verificar. También
+   * son campos de gestión: son datos de contacto de una persona y el
+   * estudiante que ve el anuncio no los recibe.
+   *
+   * `empresaDeclarada` no es `empresaNombre`: aquella es una afirmación sin
+   * comprobar y esta, una empresa del CRM. El enlace lo hace una persona al
+   * aprobar la oferta.
+   */
+  empresaDeclarada?: string | null
+  contactoDeclarado?: string | null
+  emailDeclarado?: string | null
+  telefonoDeclarado?: string | null
 }
 
 /** Una plantilla de correo tal como la devuelve el backend. */
@@ -487,7 +510,13 @@ export interface CatalogosColocacion {
  * Se guarda el motivo y no sólo que está cerrada porque la diferencia importa:
  * cubierta significa que el proceso terminó; expirada, que se dejó pasar.
  */
-export type MotivoCierre = 'EXPIRADA' | 'CUBIERTA' | 'RETIRADA'
+/**
+ * `FUERA_DE_PERFIL` es propio y no `RETIRADA`: la oferta sigue abierta en su
+ * portal y es buena para otra persona; lo que dice es que no pide inglés y este
+ * es un programa bilingüe. Contarlas como retiradas inflaría las ofertas que
+ * «se perdieron» y haría pensar que el programa llega tarde.
+ */
+export type MotivoCierre = 'EXPIRADA' | 'CUBIERTA' | 'RETIRADA' | 'FUERA_DE_PERFIL'
 
 /** Datos que el equipo registra cuando crea una vacante sin importar un enlace. */
 export interface VacanteRequest {
@@ -1026,6 +1055,15 @@ export interface ResultadoImportacionCrm {
   errores: { fila: number; motivo: string }[]
   /** `campo` en null son columnas que se ignoran; verlas explica por qué falta un dato. */
   columnasReconocidas: { cabecera: string; campo: string | null }[]
+  /**
+   * Identificador del análisis que produjo esto.
+   *
+   * Lo devuelve la simulación y hay que mandarlo de vuelta al importar de
+   * verdad: significa «ejecuta el mapeo que enseñaste». Sin él el backend
+   * vuelve a analizar el archivo, y el reconocimiento por IA no da siempre lo
+   * mismo, así que lo revisado podía no ser lo escrito.
+   */
+  planId: string | null
 }
 
 export type CrearVacante = VacanteRequest
@@ -1066,6 +1104,8 @@ export interface ImportacionHistorialResponse {
   actualizados: number
   errores: number
   createdAt: string
+  /** Qué importador la hizo: ESTUDIANTES, CRM o LIBRO. */
+  origen: 'ESTUDIANTES' | 'CRM' | 'LIBRO'
 }
 
 export interface UsuarioResponse {
@@ -1330,6 +1370,190 @@ export interface PostulacionResponse {
   registradaPorEstudiante: boolean
   urlOferta: string | null
   esperandoConfirmacion: boolean
+
+  // ── La cita ───────────────────────────────────────────────────────────────
+  /** ISO local sin zona, tal y como lo guarda el backend: `2026-08-20T15:30:00`. */
+  fechaHoraEntrevista: string | null
+  modalidadEntrevista: ModalidadEntrevista | null
+  modalidadEtiqueta: string | null
+  /** Dirección si es presencial, enlace de reunión si es virtual. */
+  lugarEntrevista: string | null
+  contactoNombre: string | null
+  contactoEmail: string | null
+  contactoTelefono: string | null
+  proximoSeguimiento: string | null
+  entrevistaPendiente: boolean
+  /** Pasó la hora y el proceso sigue en «entrevista agendada»: hay que mirarlo. */
+  entrevistaVencida: boolean
+  /** Horas que faltan; negativo si ya pasó, nulo si no hay cita. */
+  horasParaEntrevista: number | null
+}
+
+/**
+ * Una postulación vista por el estudiante que la hizo (GET /postulaciones/mias).
+ *
+ * Es un recorte de `PostulacionResponse`, no un alias. El endpoint devolvía el
+ * registro completo del panel, así que el estudiante recibía —en la respuesta,
+ * la pintara o no la pantalla— quién de la institución lleva su caso, la fecha
+ * del próximo seguimiento interno y el correo del reclutador.
+ *
+ * Sí trae la cita entera: cuándo, dónde, en qué modalidad, con quién y a qué
+ * teléfono. Es su entrevista.
+ */
+export interface MiPostulacion {
+  id: string
+  vacanteId: string | null
+  empresaNombre: string
+  cargo: string
+  canal: string | null
+  fechaPostulacion: string
+  estado: string
+  estadoEtiqueta: string
+  estadoFinal: boolean
+  fechaRespuesta: string | null
+  diasEsperando: number | null
+  resultado: string | null
+  /** Las escribe el propio estudiante al registrar la postulación. */
+  observaciones: string | null
+  registradaPorEstudiante: boolean
+  urlOferta: string | null
+  esperandoConfirmacion: boolean
+
+  /** ISO local sin zona, tal y como lo guarda el backend: `2026-08-20T15:30:00`. */
+  fechaHoraEntrevista: string | null
+  modalidadEntrevista: ModalidadEntrevista | null
+  modalidadEtiqueta: string | null
+  /** Dirección si es presencial, enlace de reunión si es virtual. */
+  lugarEntrevista: string | null
+  contactoNombre: string | null
+  contactoTelefono: string | null
+  entrevistaPendiente: boolean
+  entrevistaVencida: boolean
+  /** Horas que faltan; negativo si ya pasó, nulo si no hay cita. */
+  horasParaEntrevista: number | null
+}
+
+/** Una cuenta del equipo que puede llevar casos, con cuántos lleva ya. */
+export interface ResponsablePosible {
+  id: string
+  nombre: string
+  email: string
+  /** Repartir sin ver esto es como una persona acaba con ochenta y otra con seis. */
+  aCargo: number
+}
+
+/**
+ * Un acercamiento a una empresa (GET /empresas/{id}/contactos).
+ *
+ * Es un hilo de verdad: una fila por contacto, con quién lo hizo y cuándo.
+ * Antes esto se concatenaba al campo `notas` de la ficha —«2026-08-16: llamé y
+ * no contestan» pegado al anterior—, con lo que no se sabía quién había escrito
+ * cada línea y dos personas guardando a la vez se pisaban.
+ */
+export interface ContactoEmpresaResponse {
+  id: string
+  /** ISO local sin zona. */
+  fecha: string
+  tipo: string
+  asunto: string
+  contacto: string | null
+  /** Quién lo registró. Es la mitad que faltaba en el bloque de texto. */
+  responsable: string | null
+  notas: string | null
+}
+
+export type ModalidadEntrevista = 'PRESENCIAL' | 'VIRTUAL' | 'TELEFONICA'
+
+// ── Portal de empresas ───────────────────────────────────────────────────────
+
+export type EstadoVacantePortal =
+  | 'BORRADOR'
+  | 'EN_REVISION'
+  /** Rechazada con motivo. Sigue viva y editable: corregirla y reenviarla basta. */
+  | 'RECHAZADA'
+  | 'PUBLICADA'
+  | 'CERRADA'
+
+export interface VacanteDelPortal {
+  id: string
+  titulo: string
+  descripcion: string | null
+  requisitos: string | null
+  ciudad: string | null
+  modalidadTrabajo: string | null
+  tipoContrato: string | null
+  jornada: string | null
+  rangoSalarial: string | null
+  nivelInglesRequerido: string | null
+  aniosExperienciaRequeridos: number | null
+  fechaPublicacion: string | null
+  fechaExpiracion: string | null
+  estado: EstadoVacantePortal
+  /** Lo que dijo el equipo al rechazarla. Nulo si no está rechazada. */
+  motivoRechazo: string | null
+  postulantes: number
+}
+
+export interface VacanteEntrante {
+  titulo: string
+  descripcion?: string | null
+  requisitos?: string | null
+  ciudad?: string | null
+  modalidadTrabajo?: string | null
+  tipoContrato?: string | null
+  jornada?: string | null
+  rangoSalarial?: string | null
+  nivelInglesRequerido?: string | null
+  aniosExperienciaRequeridos?: number | null
+  fechaExpiracion?: string | null
+}
+
+/**
+ * Lo que una empresa ve de un candidato.
+ *
+ * Espejo de `PerfilLaboralDto` del backend, que es una lista blanca: no hay
+ * documento, ni fecha de nacimiento, ni dirección, ni teléfono, ni correo, ni
+ * el id del estudiante. Se identifica por la postulación, no por la persona.
+ */
+export interface PerfilLaboral {
+  postulacionId: string
+  nombreCompleto: string
+  programa: string | null
+  ciudad: string | null
+  tituloAcademico: string | null
+  perfilProfesional: string | null
+  ultimoCargo: string | null
+  sectorExperiencia: string | null
+  aniosExperiencia: number | null
+  nivelIngles: string | null
+  habilidades: string[]
+  disponibilidadMovilidad: boolean | null
+  fechaPostulacion: string | null
+  cargoAlQueSePostulo: string | null
+  estadoPostulacion: string
+  estadoEtiqueta: string
+  fechaHoraEntrevista: string | null
+  modalidadEntrevista: string | null
+}
+
+/** Los únicos estados que la empresa puede poner. CONTRATADO lo confirma el equipo. */
+export type MovimientoDeEmpresa =
+  | 'EN_PROCESO'
+  | 'ENTREVISTA_AGENDADA'
+  | 'ENTREVISTA_REALIZADA'
+  | 'RECHAZADO'
+
+/** Lo que se manda al agendar o mover una cita. */
+export interface CitaRequest {
+  fechaHoraEntrevista?: string | null
+  modalidadEntrevista?: ModalidadEntrevista | null
+  lugarEntrevista?: string | null
+  contactoNombre?: string | null
+  contactoEmail?: string | null
+  contactoTelefono?: string | null
+  proximoSeguimiento?: string | null
+  /** Los campos nulos no se tocan, así que borrar la cita necesita bandera. */
+  cancelarEntrevista?: boolean
 }
 
 export interface ResumenPostulaciones {
@@ -1422,9 +1646,53 @@ export interface HojaProcesada {
   destinoPorIa: boolean
 }
 
+/**
+ * Una corrida de actualización de vacantes (GET /api/v1/vacantes/scraping/ejecuciones).
+ *
+ * `errores` vacío no quiere decir que todo fuera bien: quiere decir que nada
+ * falló **ruidosamente**. Un portal cuyos selectores se caen responde 200 y
+ * devuelve cero, y eso llega aquí como una corrida correcta con `vacantesNuevas`
+ * en 0. Por eso el registro se lee en serie y no fila a fila.
+ */
+export interface EjecucionDeScraping {
+  id: string
+  inicio: string
+  fin: string | null
+  origen: 'PROGRAMADA' | 'MANUAL'
+  portales: string[]
+  vacantesNuevas: number
+  vacantesCerradas: number
+  errores: string[]
+  enCurso: boolean
+  duracionSegundos: number | null
+  /**
+   * Cuántas devolvió cada portal, antes de deduplicar.
+   *
+   * Vacío significa **«no se registró»** —corridas anteriores a la columna—,
+   * nunca «todos trajeron cero». Sin este desglose, «0 nuevas y sin errores»
+   * no distingue entre traer cuarenta ofertas ya conocidas (sano) y no traer
+   * nada porque cambió el HTML (roto).
+   */
+  ofertasPorPortal: { portal: string; ofertas: number }[]
+  /** Los que respondieron sin traer nada. Repetidos varios días = scraper muerto. */
+  portalesEnCero: string[]
+  /**
+   * Ofertas que llegaron pero no exigían inglés, y no se guardaron.
+   *
+   * El programa es de empleabilidad bilingüe. Este número es lo que separa «el
+   * portal está caído» de «el portal trajo cuarenta plazas monolingües»: sin
+   * él, los dos casos se ven igual —una corrida de cero nuevas—.
+   */
+  descartadasPorIdioma: number
+  /** Lo calcula el backend para no repetir la regla en cada pantalla. */
+  estado: 'EN_CURSO' | 'CORRECTA' | 'PARCIAL' | 'FALLIDA'
+}
+
 export interface ResultadoImportacionLibro {
   simulacion: boolean
   hojas: HojaProcesada[]
+  /** Ver `ResultadoImportacionCrm.planId`. */
+  planId: string | null
 }
 
 /**
@@ -1492,4 +1760,38 @@ export interface ChatGrupoMiembroResponse {
   fotoUrl: string | null
   esAdmin: boolean
   soyYo: boolean
+}
+
+// ── Vistas guardadas ─────────────────────────────────────────────────────────
+
+export type ModuloDeVista =
+  | 'ESTUDIANTES' | 'VACANTES' | 'EMPRESAS' | 'POSTULACIONES' | 'SEGUIMIENTO'
+
+export interface VistaGuardada {
+  id: string
+  nombre: string
+  modulo: ModuloDeVista
+  /** JSON con los filtros. Las claves que la pantalla no conozca se ignoran. */
+  filtros: string
+  propietario: string
+  compartida: boolean
+  /** Si quien pregunta puede editarla o borrarla. Compartir da lectura, no escritura. */
+  mia: boolean
+}
+
+// ── Línea de tiempo del estudiante ───────────────────────────────────────────
+
+export type TipoDeHito =
+  | 'POSTULACION' | 'ENTREVISTA' | 'SEGUIMIENTO' | 'DOCUMENTO' | 'COLOCACION'
+
+export interface HitoDeLaLinea {
+  referenciaId: string
+  tipo: TipoDeHito
+  /** Siempre con hora; una fecha sin hora se ancla al mediodía en el backend. */
+  cuando: string | null
+  titulo: string
+  detalle: string | null
+  responsable: string | null
+  /** Dónde se corrige. Nula cuando el suceso no tiene pantalla propia. */
+  ruta: string | null
 }

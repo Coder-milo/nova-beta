@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwiseIcon as ArrowsClockwise, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CircleNotchIcon as CircleNotch, ClockCounterClockwiseIcon as ClockCounterClockwise, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileArrowUpIcon as FileArrowUp, FileTextIcon as FileText, MagnifyingGlassIcon as MagnifyingGlass, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { ChevronLeft as CaretLeft, ChevronRight as CaretRight, CircleAlert as WarningCircle, Download as DownloadSimple, Eye, FileText, FileUp as FileArrowUp, History as ClockCounterClockwise, LoaderCircle as CircleNotch, RefreshCw as ArrowsClockwise, Search as MagnifyingGlass, Trash2 as Trash, Upload as UploadSimple, X } from 'lucide-react'
 /**
  * Página de Documentos — módulo documental completo con versionado.
  *

@@ -1,23 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import {
-  CheckIcon as Check,
-  ChecksIcon as Checks,
-  CircleNotchIcon as CircleNotch,
-  HeartIcon as Heart,
-  ImageIcon as Image,
-  FileTextIcon as FileText,
-  DownloadSimpleIcon as DownloadSimple,
-  MicrophoneIcon as Microphone,
-  MinusIcon as Minus,
-  PaperPlaneTiltIcon as PaperPlaneTilt,
-  SmileyIcon as Smiley,
-  PencilSimpleIcon as PencilSimple,
-  TrashIcon as Trash,
-  XIcon as X,
-  ArrowsOutIcon as ArrowsOut,
-} from '@phosphor-icons/react'
+import { Check, CheckCheck as Checks, Download as DownloadSimple, FileText, Heart, Image, LoaderCircle as CircleNotch, Maximize2 as ArrowsOut, Mic as Microphone, Minus, Pencil as PencilSimple, Send as PaperPlaneTilt, Smile as Smiley, Trash2 as Trash, X } from 'lucide-react'
 import { chatsApi, gruposApi, mensajeDeError } from '@/lib/api'
 import type { ChatDirectoMensajeResponse, ChatGrupoMensajeResponse } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -703,7 +687,7 @@ export function FloatingChatPopup({
                   title={T.enviarEmoji}
                 >
                   {quickEmoji === '❤️' ? (
-                    <Heart className="size-4 text-rose-500" weight="fill" />
+                    <Heart className="size-4 text-rose-500" fill="currentColor" />
                   ) : (
                     <span className="flex size-5 items-center justify-center text-center text-base leading-none select-none">{quickEmoji}</span>
                   )}

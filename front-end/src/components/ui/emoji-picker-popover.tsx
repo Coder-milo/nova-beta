@@ -1,18 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import {
-  MagnifyingGlassIcon as MagnifyingGlass,
-  SmileyIcon as Smiley,
-  CatIcon as Cat,
-  ForkKnifeIcon as ForkKnife,
-  SoccerBallIcon as SoccerBall,
-  CarIcon as Car,
-  LightbulbIcon as Lightbulb,
-  HeartIcon as Heart,
-  FlagIcon as Flag,
-  XIcon as X,
-} from '@phosphor-icons/react'
+import { Car, Cat, Flag, Heart, Lightbulb, Search as MagnifyingGlass, Smile as Smiley, Utensils as ForkKnife, Volleyball as SoccerBall, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface EmojiPickerProps {

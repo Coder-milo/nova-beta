@@ -75,6 +75,17 @@ public class ConfiguracionGlobal {
     @Column(name = "dias_retencion_papelera")
     private Integer diasRetencionPapelera;
 
+    /**
+     * Cómo se reparte un participante nuevo entre el equipo.
+     *
+     * <p>Texto y no enum a proposito: es configuracion que se lee y se escribe
+     * por API, y un enum obligaria a migrar la columna cada vez que se anada un
+     * modo. Ver {@code AsignacionAutomatica.Regla} para los valores validos; lo
+     * que no se reconozca se trata como apagado.
+     */
+    @Column(name = "regla_asignacion", nullable = false, length = 20)
+    private String reglaAsignacion = "NINGUNA";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -131,6 +142,9 @@ public class ConfiguracionGlobal {
 
     public Integer getUmbralMatchMinimo() { return umbralMatchMinimo; }
     public void setUmbralMatchMinimo(Integer v) { this.umbralMatchMinimo = v; }
+
+    public String getReglaAsignacion() { return reglaAsignacion; }
+    public void setReglaAsignacion(String v) { this.reglaAsignacion = v; }
 
     public Integer getDiasRetencionPapelera() { return diasRetencionPapelera; }
     public void setDiasRetencionPapelera(Integer v) { this.diasRetencionPapelera = v; }

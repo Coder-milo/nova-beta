@@ -13,18 +13,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ArrowsClockwiseIcon as ArrowsClockwise,
-  CheckCircleIcon as CheckCircle,
-  CircleNotchIcon as CircleNotch,
-  KeyIcon as Key,
-  PlusIcon as Plus,
-  ShieldIcon as Shield,
-  UserIcon as User,
-  UsersIcon as Users,
-  WarningCircleIcon as WarningCircle,
-  XIcon as X,
-} from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Key, LoaderCircle as CircleNotch, Plus, RefreshCw as ArrowsClockwise, Shield, User, Users, X } from 'lucide-react'
 import { Dialog } from '@base-ui/react/dialog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -106,7 +95,20 @@ function textos(english: boolean) {
       }
 }
 
-export function PanelUsuarios() {
+/**
+ * Qué mitad del panel se pinta.
+ *
+ * <p>Este componente juntaba dos cosas que no son la misma: **mi cuenta** —mi
+ * perfil y el estado de mi sesión, que solo me afectan a mí— y **el equipo**
+ * —la tabla de administradores y coordinadores, que es gestionar a otros—.
+ * Vivían bajo «Usuarios & Seguridad», y ese «&» era la señal.
+ *
+ * <p>Se parte por prop y no en dos componentes para no duplicar el estado ni
+ * la carga: la tabla del equipo ya tiene su propio permiso y su propio fetch.
+ */
+export type MitadDeUsuarios = 'todo' | 'mi-cuenta' | 'equipo'
+
+export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios } = {}) {
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
@@ -256,6 +258,7 @@ export function PanelUsuarios() {
 
   return (
     <div className="flex flex-col gap-6">
+      {mostrar !== 'equipo' && (
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="rounded-2xl shadow-sm">
           <CardHeader>
@@ -292,7 +295,7 @@ export function PanelUsuarios() {
         <Card className="rounded-2xl shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Shield className="size-4 text-primary" /> Estado de la sesión &amp; seguridad
+              <Shield className="size-4 text-primary" /> Estado de tu sesión
             </CardTitle>
             <CardDescription>{T.validacionDelToken}</CardDescription>
           </CardHeader>
@@ -310,13 +313,15 @@ export function PanelUsuarios() {
           </CardContent>
         </Card>
       </div>
+      )}
 
+      {mostrar !== 'mi-cuenta' && (
       <Card className="rounded-2xl shadow-sm">
         <CardHeader className="border-b border-border/50">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Users className="size-5 text-primary" /> Administradores &amp; coordinadores
+                <Users className="size-5 text-primary" /> Cuentas del equipo
               </CardTitle>
               <CardDescription>{T.cuentasConAcceso}</CardDescription>
             </div>
@@ -495,6 +500,7 @@ export function PanelUsuarios() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {modalPassword && (
         <Dialog.Root open={!!modalPassword} onOpenChange={(open) => !open && setModalPassword(null)}>

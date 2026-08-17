@@ -7,6 +7,7 @@ import com.novacrm.vacante.Vacante;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * Una postulacion concreta de un estudiante a una empresa.
@@ -93,6 +94,60 @@ public class Postulacion extends BaseEntity {
     @Column(name = "url_oferta", length = 1000)
     private String urlOferta;
 
+    // ── La cita ─────────────────────────────────────────────────────────────
+
+    /**
+     * Cuando es la entrevista, con hora.
+     *
+     * <p>El estado {@link EstadoPostulacion#ENTREVISTA_AGENDADA} existia desde
+     * el principio, pero no habia donde apuntar cuando era: la cita acababa
+     * dentro de {@code observaciones} en texto libre. Eso impedia las dos cosas
+     * para las que sirve tenerla: avisar al estudiante antes de que se le pase y
+     * sacar la agenda de la semana del equipo.
+     *
+     * <p>Es {@code LocalDateTime} y no {@code LocalDate} porque a una cita se
+     * llega a una hora. Sin zona horaria a proposito: el programa opera en una
+     * sola —Colombia no tiene horario de verano—, y guardar un instante absoluto
+     * obligaria a convertir en cada lectura para acabar mostrando exactamente lo
+     * que se escribio.
+     */
+    @Column(name = "fecha_hora_entrevista")
+    private LocalDateTime fechaHoraEntrevista;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modalidad_entrevista", length = 20)
+    private ModalidadEntrevista modalidadEntrevista;
+
+    /**
+     * Direccion si es presencial, enlace de la reunion si es virtual.
+     *
+     * <p>Un solo campo para las dos cosas porque son excluyentes: la modalidad
+     * ya dice como interpretarlo, y dos columnas de las que siempre hay una
+     * vacia se acaban rellenando cruzadas.
+     */
+    @Column(name = "lugar_entrevista", length = 1000)
+    private String lugarEntrevista;
+
+    /** Con quien es la cita, del lado de la empresa. */
+    @Column(name = "contacto_nombre", length = 160)
+    private String contactoNombre;
+
+    @Column(name = "contacto_email", length = 160)
+    private String contactoEmail;
+
+    @Column(name = "contacto_telefono", length = 40)
+    private String contactoTelefono;
+
+    /**
+     * Cuando hay que volver a mirar esta postulacion.
+     *
+     * <p>Lo que se pierde no son las postulaciones con respuesta sino las que se
+     * quedan calladas: sin una fecha en la que reaparezcan, una postulacion
+     * enviada hace tres semanas no vuelve a la vista de nadie.
+     */
+    @Column(name = "proximo_seguimiento")
+    private LocalDate proximoSeguimiento;
+
     /**
      * Mueve la postulacion de estado dejando la fecha de respuesta puesta.
      *
@@ -106,6 +161,25 @@ public class Postulacion extends BaseEntity {
         if (nuevo.implicaRespuesta() && this.fechaRespuesta == null) {
             this.fechaRespuesta = cuando;
         }
+    }
+
+    /** Hay cita puesta y todavia no ha pasado. */
+    public boolean tieneEntrevistaPendiente() {
+        return fechaHoraEntrevista != null && fechaHoraEntrevista.isAfter(LocalDateTime.now());
+    }
+
+    /**
+     * La cita quedo sin atender.
+     *
+     * <p>Ya paso la hora y el proceso sigue en "entrevista agendada": o se hizo
+     * y nadie lo anoto, o no se presento. En ambos casos hace falta que alguien
+     * mire, y es lo que separa una agenda util de un calendario que solo
+     * acumula citas viejas.
+     */
+    public boolean entrevistaVencidaSinCerrar() {
+        return fechaHoraEntrevista != null
+                && fechaHoraEntrevista.isBefore(LocalDateTime.now())
+                && estado == EstadoPostulacion.ENTREVISTA_AGENDADA;
     }
 
     /** Nombre de la empresa preferiendo la ficha registrada. */
@@ -141,4 +215,18 @@ public class Postulacion extends BaseEntity {
     public void setRegistradaPorEstudiante(boolean v) { this.registradaPorEstudiante = v; }
     public String getUrlOferta() { return urlOferta; }
     public void setUrlOferta(String urlOferta) { this.urlOferta = urlOferta; }
+    public LocalDateTime getFechaHoraEntrevista() { return fechaHoraEntrevista; }
+    public void setFechaHoraEntrevista(LocalDateTime f) { this.fechaHoraEntrevista = f; }
+    public ModalidadEntrevista getModalidadEntrevista() { return modalidadEntrevista; }
+    public void setModalidadEntrevista(ModalidadEntrevista m) { this.modalidadEntrevista = m; }
+    public String getLugarEntrevista() { return lugarEntrevista; }
+    public void setLugarEntrevista(String lugarEntrevista) { this.lugarEntrevista = lugarEntrevista; }
+    public String getContactoNombre() { return contactoNombre; }
+    public void setContactoNombre(String contactoNombre) { this.contactoNombre = contactoNombre; }
+    public String getContactoEmail() { return contactoEmail; }
+    public void setContactoEmail(String contactoEmail) { this.contactoEmail = contactoEmail; }
+    public String getContactoTelefono() { return contactoTelefono; }
+    public void setContactoTelefono(String contactoTelefono) { this.contactoTelefono = contactoTelefono; }
+    public LocalDate getProximoSeguimiento() { return proximoSeguimiento; }
+    public void setProximoSeguimiento(LocalDate proximoSeguimiento) { this.proximoSeguimiento = proximoSeguimiento; }
 }

@@ -5,6 +5,7 @@ import com.novacrm.estudiante.Estudiante;
 import com.novacrm.estudiante.EstudianteRepository;
 import com.novacrm.matching.dto.MatchResponse;
 import com.novacrm.notificacion.NotificacionService;
+import com.novacrm.scraper.fuente.AreaMetropolitana;
 import com.novacrm.vacante.Vacante;
 import com.novacrm.vacante.VacanteRepository;
 import org.springframework.data.domain.Page;
@@ -212,7 +213,10 @@ public class MatchingService {
                             java.time.LocalDate.now(),
                             com.novacrm.postulacion.EstadoPostulacion.ENVIADA,
                             urlOferta,
-                            null),
+                            null,
+                            // Postularse desde un match no agenda nada: la cita
+                            // la pone la empresa cuando contesta.
+                            null, null, null, null, null, null, null),
                     autor, loHaceElEstudiante);
         } catch (com.novacrm.exception.BusinessException e) {
             // Carrera entre dos clics sobre el mismo match: el perdedor llega a
@@ -515,6 +519,11 @@ public class MatchingService {
             return null;
         }
         if (lugarVacante.contains(ciudadEstudiante) || ciudadEstudiante.contains(lugarVacante)) {
+            return 1.0;
+        }
+        // Coincidencia dentro del Área Metropolitana de Barranquilla / Atlántico
+        if (AreaMetropolitana.esCercana(ciudadEstudiante, null)
+                && AreaMetropolitana.esCercana(v.getCiudad(), v.getUbicacion())) {
             return 1.0;
         }
         return Boolean.TRUE.equals(e.getDisponibilidadMovilidad()) ? 0.6 : 0.0;

@@ -15,7 +15,7 @@
  */
 
 import { useRef, useState } from 'react'
-import { CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, FileXlsIcon as FileXls, InfoIcon as Info, SparkleIcon as Sparkle, UploadSimpleIcon as UploadSimple, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, FileSpreadsheet as FileXls, Info, LoaderCircle as CircleNotch, Sparkles as Sparkle, Upload as UploadSimple, X } from 'lucide-react'
 import { importarCrmApi } from '@/lib/api'
 import type { HojaProcesada, ResultadoImportacionLibro } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -90,7 +90,11 @@ export function ImportadorLibro() {
     setTrabajando(simular ? 'simular' : 'importar')
     setError(null)
     try {
-      const res = await importarCrmApi.libro(archivo, simular)
+      // Al importar de verdad se manda el plan de la simulación: escribe el
+      // mapeo que está en pantalla en vez de volver a analizar el archivo, que
+      // con la IA de por medio puede dar otro resultado. `elegir` borra la
+      // simulación, así que el plan es siempre el del archivo que hay puesto.
+      const res = await importarCrmApi.libro(archivo, simular, simular ? null : simulacion?.planId)
       if (simular) setSimulacion(res)
       else setResultado(res)
     } catch (err) {
