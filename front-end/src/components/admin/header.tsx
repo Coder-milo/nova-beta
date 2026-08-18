@@ -906,7 +906,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
               }}
               placeholder={t('generalSearch')}
               aria-label={t('generalSearch')}
-              className="h-8 w-full rounded-(--radius) border border-input bg-card pl-8 pr-8 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50"
+              className="h-8.5 w-full rounded-xl border border-input/70 bg-card/80 pl-8 pr-8 text-xs text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
             />
             {searchQuery && (
               <button
@@ -1226,7 +1226,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
               onKeyDown={(event) => { if (event.key === 'Escape') setBusquedaMovilAbierta(false) }}
               placeholder={t('generalSearch')}
               aria-label={t('generalSearch')}
-              className="h-9 w-full rounded-(--radius) border border-input bg-background pl-8 pr-8 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50"
+              className="h-9 w-full rounded-xl border border-input/70 bg-background pl-8 pr-8 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
             />
             <button
               type="button"

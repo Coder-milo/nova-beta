@@ -50,23 +50,29 @@ export function StatCard({ stat }: { stat: StatCardType }) {
   const FlechaDelta = stat.delta?.signo === 'baja' ? ArrowDownRight : ArrowUpRight
 
   return (
-    <Card className="gap-0 shadow-none">
-      <CardContent className="flex flex-col gap-1.5 p-3.5">
+    <Card className="gap-0 transition-all hover:border-primary/30">
+      <CardContent className="flex flex-col gap-2 p-4">
         <div className="flex items-start justify-between gap-2">
-          <span className="text-[1.375rem] font-semibold leading-none tracking-tight text-foreground tabular-nums">
+          <span className="text-2xl font-bold leading-none tracking-tight text-foreground tabular-nums">
             {stat.value}
           </span>
-          {/* El icono es una ayuda de reconocimiento, no el protagonista: se
-              queda al margen, sin recuadro ni fondo que le den peso propio. */}
-          <Icon className="mt-0.5 size-4 shrink-0" style={{ color }} aria-hidden="true" />
+          <div
+            className="flex size-8 shrink-0 items-center justify-center rounded-xl transition-transform group-hover/card:scale-105"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`,
+              color: color,
+            }}
+          >
+            <Icon className="size-4 shrink-0" aria-hidden="true" />
+          </div>
         </div>
 
-        <span className="truncate text-xs font-medium text-muted-foreground">
+        <span className="truncate text-xs font-semibold text-muted-foreground">
           {stat.label}
         </span>
 
         {(stat.delta || stat.helper) && (
-          <div className="flex min-w-0 items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5 pt-0.5">
             {stat.delta && (
               <span className="panel-delta" data-signo={stat.delta.signo}>
                 {stat.delta.signo !== 'neutro' && (

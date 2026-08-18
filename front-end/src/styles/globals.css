@@ -155,65 +155,64 @@
   --glass-shadow: rgba(25, 67, 123, 0.22);
 }
 
-/* ── MODO OSCURO (Dark Glass Equilibrado) ─────────────────────────────────── */
+/* ── MODO OSCURO (Dark Glass Equilibrado y Armónico) ──────────────────────── */
 .dark {
   color-scheme: dark;
 
-  /* Variables semánticas — Dark CAC Glass.
-     Mismo tono de marca, claridades propias del modo oscuro. */
-  --background: hsl(var(--marca-h) 62% 3.1%);
-  --foreground: #F4F7FC;
-  --card: hsl(var(--marca-h) 53% 10% / 0.66);
-  --card-foreground: #F4F7FC;
-  --popover: hsl(var(--marca-h) 56% 8% / 0.9);
-  --popover-foreground: #F4F7FC;
+  /* Variables semánticas con tono dinámico de marca (--marca-h) */
+  --background: hsl(var(--marca-h) 22% 8.5%);
+  --foreground: #F1F5F9;
+  --card: hsl(var(--marca-h) 20% 12.5% / 0.82);
+  --card-foreground: #F8FAFC;
+  --popover: hsl(var(--marca-h) 22% 12.5% / 0.96);
+  --popover-foreground: #F8FAFC;
 
-  --primary: #315CFF;
+  --primary: hsl(var(--marca-h) 82% 56%);
   --primary-foreground: #FFFFFF;
 
-  --secondary: rgba(148, 163, 184, 0.10);
+  --secondary: hsl(var(--marca-h) 18% 16% / 0.65);
   --secondary-foreground: #F8FAFC;
-  --muted: rgba(148, 163, 184, 0.09);
-  --muted-foreground: #9AA9BE;
-  --accent: rgba(59, 130, 246, 0.16);
-  --accent-foreground: #7DB4FF;
+  --muted: hsl(var(--marca-h) 18% 15% / 0.55);
+  --muted-foreground: #94A3B8;
+  --accent: hsl(var(--marca-h) 65% 50% / 0.16);
+  --accent-foreground: hsl(var(--marca-h) 85% 78%);
 
-  --destructive: #FF3B30;
+  --destructive: #FF453A;
   --destructive-foreground: #FFFFFF;
-  --success: #34C759;
+  --success: #30D158;
   --success-foreground: #FFFFFF;
-  --warning: #FF9500;
+  --warning: #FF9F0A;
   --warning-foreground: #FFFFFF;
 
-  --border: rgba(159, 178, 205, 0.15);
-  --input: rgba(159, 178, 205, 0.18);
-  --ring: #60A5FA;
+  --border: hsl(var(--marca-h) 20% 26% / 0.45);
+  --input: hsl(var(--marca-h) 20% 28% / 0.55);
+  --ring: hsl(var(--marca-h) 80% 60%);
 
   --chart-1: #38BDF8;
-  --chart-2: #34C759;
-  --chart-3: #A855F7;
-  --chart-4: #FF9500;
-  --chart-5: #FF3B30;
+  --chart-2: #34D399;
+  --chart-3: #A78BFA;
+  --chart-4: #FBBF24;
+  --chart-5: #F87171;
 
-  --sidebar: hsl(var(--marca-h) 69% 5.1% / 0.62);
+  --sidebar: hsl(var(--marca-h) 24% 7.8% / 0.94);
   --sidebar-foreground: #F8FAFC;
-  --sidebar-primary: #315CFF;
+  --sidebar-primary: hsl(var(--marca-h) 82% 56%);
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: rgba(49, 92, 255, 0.14);
+  --sidebar-accent: hsl(var(--marca-h) 65% 50% / 0.15);
   --sidebar-accent-foreground: #F8FAFC;
-  --sidebar-border: rgba(126, 156, 211, 0.18);
-  --sidebar-ring: #60A5FA;
+  --sidebar-border: hsl(var(--marca-h) 20% 20% / 0.55);
+  --sidebar-ring: hsl(var(--marca-h) 80% 60%);
 
-  --glass-chrome: rgba(5, 12, 26, 0.57);
-  --glass-surface: rgba(13, 24, 44, 0.56);
-  --glass-elevated: rgba(20, 35, 61, 0.74);
-  --glass-blur: 32px;
-  --glass-saturate: 168%;
-  --glass-rim: rgba(255, 255, 255, 0.18);
-  --glass-edge: rgba(143, 173, 231, 0.17);
-  --glass-outline: rgba(0, 3, 12, 0.55);
-  --glass-sheen: rgba(93, 139, 255, 0.13);
-  --glass-shadow: rgba(0, 2, 12, 0.7);
+  --glass-chrome: hsl(var(--marca-h) 24% 8% / 0.88);
+  --glass-surface: hsl(var(--marca-h) 20% 12.5% / 0.82);
+  --glass-elevated: hsl(var(--marca-h) 20% 16% / 0.92);
+  --glass-blur: 24px;
+  --glass-saturate: 160%;
+  --glass-rim: rgba(255, 255, 255, 0.12);
+  --glass-edge: hsl(var(--marca-h) 20% 26% / 0.45);
+  --glass-outline: rgba(0, 0, 0, 0.45);
+  --glass-sheen: hsl(var(--marca-h) 75% 65% / 0.08);
+  --glass-shadow: rgba(0, 0, 0, 0.55);
 }
 
 @layer base {
@@ -754,43 +753,20 @@ textarea {
 }
 
 .dark .ambient-mesh {
-  /* Fondo institucional propio del panel administrativo. La fotografía queda
-     muy atenuada para aportar profundidad sin competir con los datos. */
+  /* Fondo institucional dinámico adaptado a la marca. Sutil y elegante para aportar
+     profundidad y contraste sin competir con datos ni formularios. */
   background:
-    linear-gradient(115deg, hsl(var(--marca-h) 45% 4% / 0.94), hsl(var(--marca-h) 42% 7% / 0.87) 55%, hsl(var(--marca-h) 38% 6% / 0.93)),
-    radial-gradient(52rem 42rem at 94% -4%, hsl(var(--marca-h) 100% 56% / 0.16), transparent 66%),
-    radial-gradient(45rem 38rem at -2% 88%, hsl(calc(var(--marca-h) + 26) 88% 58% / 0.10), transparent 68%),
-    url("/brand/photos/academy-admin-backdrop.png") center center / cover no-repeat;
+    radial-gradient(55rem 45rem at 85% -5%, hsl(var(--marca-h) 85% 50% / 0.08), transparent 70%),
+    radial-gradient(50rem 40rem at 5% 95%, hsl(calc(var(--marca-h) + 20) 80% 45% / 0.06), transparent 68%),
+    hsl(var(--marca-h) 22% 8.5%);
 }
 
-/* El panel administrativo oscuro usa un único color sólido, sin fotografía,
-   halos, degradados, ondas ni cuadrícula. */
-.dark .admin-project-shell .ambient-mesh {
-  background: #080d16;
-}
-
-.dark .admin-project-shell .ambient-grid,
-.dark .admin-project-shell .dark-brand-backdrop {
-  display: none;
-}
-
-/* El portal estudiantil conserva una atmósfera neutra para que predomine el
-   color elegido por cada proyecto, no la fotografía del panel administrativo. */
+.dark .admin-project-shell .ambient-mesh,
 .dark .student-project-shell .ambient-mesh {
-  /* El portal del estudiante no usa halos ni manchas de luz: conserva un
-     fondo oscuro uniforme, apenas teñido con la identidad del proyecto. */
-  background: hsl(var(--marca-h) 52% 4%);
-}
-
-/* Sin sombras flotantes en el portal oscuro: las tarjetas se separan por
-   borde y contraste de superficie, no por un resplandor alrededor. */
-.dark .student-project-shell .glass-card,
-.dark .student-project-shell .glass-card:hover {
-  box-shadow: none;
-}
-
-.dark .student-project-shell .glass-card::after {
-  display: none;
+  background:
+    radial-gradient(55rem 45rem at 85% -5%, hsl(var(--marca-h) 85% 50% / 0.08), transparent 70%),
+    radial-gradient(50rem 40rem at 5% 95%, hsl(calc(var(--marca-h) + 20) 80% 45% / 0.06), transparent 68%),
+    hsl(var(--marca-h) 22% 8.5%);
 }
 
 /* Fine grid: unchanged in light mode and subtler over the CAC dark waves. */
@@ -1197,7 +1173,7 @@ textarea {
  *     atmósfera sí aporta.
  */
 .admin-project-shell {
-  --radius: 0.375rem;
+  --radius: 0.875rem;
 
   --panel-superficie: #FFFFFF;
   /* El tono de la marca entra al 12%: lo justo para que el lienzo no sea un
@@ -1226,21 +1202,20 @@ textarea {
      de impresión— pueda respirar sin salirse del sistema. */
   --panel-fila-alto: 2.25rem;
   --panel-cabecera-alto: 2rem;
-  --panel-campo-alto: 2.125rem;
+  --panel-campo-alto: 2.25rem;
   --panel-relleno: 1rem;
 
   letter-spacing: 0;
 }
 
 .dark .admin-project-shell {
-  /* Azul de tinta, no negro: un borde de 1px sobre negro puro desaparece, y
-     toda la separación de este lenguaje descansa en ese borde. */
-  --panel-superficie: hsl(var(--marca-h) 20% 12.5%);
-  --panel-superficie-tenue: hsl(var(--marca-h) 19% 16%);
-  --panel-borde: rgba(255, 255, 255, 0.11);
-  --panel-borde-fuerte: rgba(255, 255, 255, 0.18);
-  --panel-sombra: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
-  --panel-sombra-elevada: 0 2px 6px rgba(0, 0, 0, 0.45), 0 8px 24px -10px rgba(0, 0, 0, 0.6);
+  /* Slate enriquecido con la marca, armónico con la interfaz del estudiante */
+  --panel-superficie: hsl(var(--marca-h) 20% 12.5% / 0.82);
+  --panel-superficie-tenue: hsl(var(--marca-h) 19% 16% / 0.7);
+  --panel-borde: hsl(var(--marca-h) 20% 26% / 0.45);
+  --panel-borde-fuerte: hsl(var(--marca-h) 20% 34% / 0.6);
+  --panel-sombra: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+  --panel-sombra-elevada: 0 8px 30px -4px rgba(0, 0, 0, 0.55);
   --panel-cian: #22B8CF;
   --panel-positivo: #4CB782;
   --panel-negativo: #E8737D;
@@ -1249,30 +1224,20 @@ textarea {
 }
 
 /*
- * Aplanado de las superficies.
- *
- * Se reescribe `.glass-card` en vez de cambiar el componente `Card`: la clase
- * está puesta en decenas de sitios —tarjetas, hojas laterales, paneles de
- * ajustes— y tocarla aquí los alcanza a todos de una vez. El componente sigue
- * exportando lo mismo, así que nada de lo que ya existe deja de compilar.
+ * Superficies consistentes y fluidas.
  */
 .admin-project-shell .glass-card {
   background: var(--panel-superficie);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
   border: 1px solid var(--panel-borde);
   border-radius: var(--radius);
   box-shadow: var(--panel-sombra);
-  transition: border-color 140ms ease, box-shadow 140ms ease;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
 
 .admin-project-shell .glass-card::after {
   display: none;
 }
 
-/* El hover de una tarjeta solo debe existir si la tarjeta hace algo al
-   pulsarla. Como `.glass-card` la llevan también las estáticas, aquí queda un
-   cambio de borde apenas perceptible en lugar del realce anterior. */
 .admin-project-shell .glass-card:hover {
   transform: none;
   background: var(--panel-superficie);
@@ -1280,63 +1245,53 @@ textarea {
   box-shadow: var(--panel-sombra);
 }
 
-.dark .admin-project-shell .glass-card,
-.dark .admin-project-shell .glass-card:hover {
-  background: var(--panel-superficie);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  border-color: var(--panel-borde);
-  box-shadow: var(--panel-sombra);
+.dark .admin-project-shell .glass-card {
+  background: linear-gradient(135deg, hsl(var(--marca-h) 80% 65% / 0.05) 0%, transparent 35%), var(--panel-superficie);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--panel-borde);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), var(--panel-sombra);
 }
 
 .dark .admin-project-shell .glass-card:hover {
-  border-color: var(--panel-borde-fuerte);
+  border-color: hsl(var(--marca-h) 65% 55% / 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), var(--panel-sombra-elevada);
 }
 
-/* El cromo —barra lateral y cabecera— pierde el blur y pasa a ser una
-   superficie sólida separada del lienzo por una línea. Es lo que hace que la
-   navegación deje de flotar sobre el contenido y se lea como marco. */
 .admin-project-shell .glass-chrome {
   background: var(--panel-superficie);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
   box-shadow: none;
   border-color: var(--panel-borde);
 }
 
 .dark .admin-project-shell .glass-chrome {
-  background: var(--panel-superficie);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  box-shadow: none;
+  background: hsl(var(--marca-h) 24% 8% / 0.88);
+  -webkit-backdrop-filter: blur(24px) saturate(165%);
+  backdrop-filter: blur(24px) saturate(165%);
+  box-shadow: inset 0 -1px 0 var(--panel-borde);
   border-color: var(--panel-borde);
 }
 
 /*
  * Ítem activo del menú.
- *
- * Zoho rellena el ítem entero con el color del módulo en tinta suave y deja el
- * icono a color pleno; no usa la barra de acento al canto, que es de la otra
- * familia. Sin relieve ni sombra: el color ya dice cuál está abierto.
  */
 .admin-project-shell .sidebar-nav-item {
-  border-radius: var(--radius);
+  border-radius: 0.625rem;
 }
 
-.admin-project-shell .sidebar-nav-item--active,
-.dark .admin-project-shell .sidebar-nav-item--active {
+.admin-project-shell .sidebar-nav-item--active {
   position: relative;
   color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 11%, transparent);
-  border-color: transparent;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  box-shadow: none;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
 }
 
 .dark .admin-project-shell .sidebar-nav-item--active {
-  color: color-mix(in srgb, var(--primary) 45%, #FFFFFF);
-  background: color-mix(in srgb, var(--primary) 24%, transparent);
+  color: #FFFFFF;
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 2px 10px -2px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
 .admin-project-shell .sidebar-nav-item--active::before,
@@ -1344,22 +1299,19 @@ textarea {
   content: none;
 }
 
-/* Controles: sin cristal y a la altura de la escala de densidad. */
+/* Controles: redondeados armónicos y altura consistente. */
 .admin-project-shell [data-slot="input"],
 .admin-project-shell select,
 .admin-project-shell textarea {
   background-color: var(--panel-superficie) !important;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  box-shadow: none;
-  border-radius: var(--radius);
+  border-radius: 0.625rem;
 }
 
 .admin-project-shell select,
 .admin-project-shell textarea,
 .admin-project-shell input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
   min-height: var(--panel-campo-alto);
-  border-radius: var(--radius);
+  border-radius: 0.625rem;
   font-size: 0.8125rem;
 }
 

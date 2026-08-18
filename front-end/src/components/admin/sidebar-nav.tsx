@@ -56,19 +56,19 @@ function EntradaNav({
       onClick={onNavigate}
       aria-current={activa ? 'page' : undefined}
       className={cn(
-        'sidebar-nav-item group relative flex items-center gap-2.5 px-2.5 py-1.5 text-[13px] font-medium',
-        'transition-colors duration-150',
+        'sidebar-nav-item group relative flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] font-medium',
+        'transition-all duration-150',
         collapsed && 'justify-center px-2',
         activa
           ? 'sidebar-nav-item--active font-semibold'
-          : 'text-foreground/80 hover:bg-secondary hover:text-foreground',
+          : 'text-foreground/80 hover:bg-secondary/70 hover:text-foreground',
       )}
     >
       {/* Lucide no tiene `weight`. El ítem activo ya se distingue por el fondo
           teñido y el color del texto, así que el icono solo cambia de tono:
           rellenarlo además sería marcar dos veces lo mismo. */}
       <Icon
-        className="size-4 shrink-0"
+        className="size-4 shrink-0 transition-transform duration-150 group-hover:scale-105"
         strokeWidth={activa ? 2.25 : 2}
         style={{ color: `var(--mod-${item.tono})` }}
       />
@@ -163,7 +163,7 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
           collapsed && 'justify-center px-2',
         )}
       >
-        <div className="relative flex size-8 shrink-0 items-center justify-center rounded-(--radius) border border-border/40 bg-white p-1">
+        <div className="relative flex size-8.5 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-white p-1 shadow-sm">
           <Image
             src="/brand/cac-logo.png"
             alt="Logo CAC Academic"
@@ -188,7 +188,7 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
       {/* Buscador de módulos. Sin sitio para él cuando está plegado. */}
       {!collapsed && (
         <div className="relative z-10 px-2 pt-2">
-          <div className="flex h-8 items-center gap-2 rounded-(--radius) border border-input bg-card px-2">
+          <div className="flex h-8.5 items-center gap-2 rounded-xl border border-input/60 bg-card/70 px-2.5 shadow-xs transition-colors focus-within:border-primary/50">
             <Search className="size-3.5 shrink-0 text-muted-foreground" />
             <input
               type="search"
@@ -196,12 +196,6 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
               onChange={(event) => setFiltro(event.target.value)}
               placeholder={locale === 'en' ? 'Search' : 'Buscar'}
               aria-label={locale === 'en' ? 'Filter modules' : 'Filtrar módulos'}
-              /* `appearance-none` y no solo `border-0`: un `input[type=search]`
-                 conserva el dibujo nativo del sistema, y en Windows eso pinta
-                 su propio recuadro redondeado dentro del recuadro que ya dibuja
-                 el contenedor. Se veía como una caja metida en otra caja.
-                 `[&::-webkit-search-cancel-button]:hidden` quita la crucecita
-                 nativa, que aparece encima del borde y con otro estilo. */
               className="min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-[13px] text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
             />
           </div>
@@ -274,11 +268,11 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
       <div className="relative z-10 border-t border-border/50 p-2">
         <div
           className={cn(
-            'flex items-center gap-2.5 rounded-(--radius) p-1.5 transition-colors duration-150 hover:bg-secondary',
+            'flex items-center gap-2.5 rounded-xl p-2 transition-colors duration-150 hover:bg-secondary/70',
             collapsed && 'justify-center p-0',
           )}
         >
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
+          <span className="flex size-7.5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground shadow-xs">
             {displayIniciales}
           </span>
           {!collapsed && (
@@ -297,7 +291,7 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
                   router.push('/login')
                 }}
                 title={t('signOut')}
-                className="flex size-7 shrink-0 items-center justify-center rounded-(--radius) text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-500"
+                className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
               >
                 <LogOut className="size-4" />
               </button>
