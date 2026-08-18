@@ -2,16 +2,19 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowSquareOutIcon as ArrowSquareOut, ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileMagnifyingGlassIcon as FileMagnifyingGlass, FileTextIcon as FileText, GlobeIcon as Globe, ListChecksIcon as ListChecks, MinusIcon as Minus, PencilSimpleLineIcon as PencilSimpleLine, PlusIcon as Plus, ReadCvLogoIcon as ReadCvLogo, StackIcon as Stack, StarIcon as Star, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, WarningCircleIcon as WarningCircle, XIcon as X, XCircleIcon as XCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, CircleX as XCircle, Download as DownloadSimple, ExternalLink as ArrowSquareOut, Eye, FileSearch as FileMagnifyingGlass, FileText, FileUser as ReadCvLogo, Globe, Layers as Stack, ListChecks, LoaderCircle as CircleNotch, Minus, PenLine as PencilSimpleLine, Plus, RefreshCw as ArrowsClockwise, Star, Trash2 as Trash, Upload as UploadSimple, X } from 'lucide-react'
 import Link from '@/compat/next-link'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin, type TextosAdmin } from '@/lib/textos-admin'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { VistaPreviaPdf } from '@/components/ui/vista-previa-pdf'
 import { hvApi, programasApi, estudiantesApi, perfilApi } from '@/lib/api'
+import { useConfirmar } from '@/components/ui/confirmar'
 import type {
   ProgramaResponse, PlantillaResponse, GeneracionMasivaResponse,
   CampoExtraido, EstudianteRequest, EstudianteResponse,
@@ -31,72 +34,444 @@ type TabId = 'generacion' | 'plantillas' | 'extraccion' | 'edicion'
  * etiqueta y por marcador, más abajo) porque el analizador devuelve unos u otros
  * según de dónde salga la plantilla.
  */
-const TITULOS_SECCIONES_ES: Record<string, string> = {
-  Header: 'Cabecera / Encabezado',
-  header: 'Cabecera / Encabezado',
-  Encabezado: 'Cabecera / Encabezado',
-  Contact: 'Información de Contacto',
-  contact: 'Información de Contacto',
-  'Professional Summary': 'Perfil Profesional',
-  summary: 'Perfil Profesional',
-  'Professional Experience': 'Experiencia Profesional',
-  experience: 'Experiencia Profesional',
-  Education: 'Educación Académica',
-  education: 'Educación Académica',
-  'Continuing Education & Certifications': 'Certificaciones y Formación Adicional',
-  certifications: 'Certificaciones y Formación Adicional',
-  Achievements: 'Logros Destacados',
-  achievements: 'Logros Destacados',
-  'Technical Skills': 'Habilidades Técnicas',
-  skills: 'Habilidades Técnicas',
-  Languages: 'Idiomas',
-  languages: 'Idiomas',
+function titulosDeSeccion(T: ReturnType<typeof textos>): Record<string, string> {
+  return {
+    Header: T.cabeceraEncabezado,
+    header: T.cabeceraEncabezado,
+    Encabezado: T.cabeceraEncabezado,
+    Contact: T.informacionDeContacto,
+    contact: T.informacionDeContacto,
+    'Professional Summary': T.perfilProfesional,
+    summary: T.perfilProfesional,
+    'Professional Experience': T.experienciaProfesional,
+    experience: T.experienciaProfesional,
+    Education: T.educacionAcademica,
+    education: T.educacionAcademica,
+    'Continuing Education & Certifications': T.certificacionesYFormacion,
+    certifications: T.certificacionesYFormacion,
+    Achievements: T.logrosDestacados,
+    achievements: T.logrosDestacados,
+    'Technical Skills': T.habilidadesTecnicas,
+    skills: T.habilidadesTecnicas,
+    Languages: T.idiomas,
+    languages: T.idiomas,
+  }
 }
 
-const ETIQUETAS_CAMPOS_ES: Record<string, string> = {
-  'Full Name': 'Nombre Completo',
-  FULL_NAME: 'Nombre Completo',
-  'Professional Title': 'Cargo / Título Profesional',
-  PROFESSIONAL_TITLE: 'Cargo / Título Profesional',
-  'City, Country': 'Ciudad y País',
-  CITY_COUNTRY: 'Ciudad y País',
-  Phone: 'Teléfono / Celular',
-  PHONE: 'Teléfono / Celular',
-  'LinkedIn URL': 'Perfil de LinkedIn',
-  LINKEDIN_URL: 'Perfil de LinkedIn',
-  'Portfolio URL': 'Portafolio Web',
-  PORTFOLIO_URL: 'Portafolio Web',
-  Email: 'Correo Electrónico',
-  EMAIL: 'Correo Electrónico',
-  'Professional Summary': 'Resumen Profesional',
-  SUMMARY: 'Resumen Profesional',
-  'Job Title': 'Cargo Desempeñado',
-  JOB_TITLE: 'Cargo Desempeñado',
-  Organization: 'Empresa / Organización',
-  ORGANIZATION: 'Empresa / Organización',
-  City: 'Ciudad',
-  CITY: 'Ciudad',
-  'Date Range': 'Rango de Fechas (Inicio - Fin)',
-  DATES: 'Rango de Fechas (Inicio - Fin)',
-  'Accomplishment Bullets': 'Logros y Funciones',
-  BULLETS: 'Logros y Funciones',
-  'Degree / Program': 'Título / Programa Académico',
-  DEGREE: 'Título / Programa Académico',
-  Institution: 'Institución Educativa',
-  INSTITUTION: 'Institución Educativa',
-  Year: 'Año de Graduación',
-  YEAR: 'Año de Graduación',
-  'Certification / Course': 'Certificación / Curso',
-  CERTIFICATION: 'Certificación / Curso',
-  Achievement: 'Logro Destacado',
-  ACHIEVEMENT: 'Logro Destacado',
-  Skills: 'Habilidades Técnicas y Herramientas',
-  SKILLS: 'Habilidades Técnicas y Herramientas',
-  Languages: 'Idiomas y Niveles',
-  LANGUAGES: 'Idiomas y Niveles',
+function etiquetasDeCampo(T: ReturnType<typeof textos>, C: TextosAdmin): Record<string, string> {
+  return {
+    'Full Name': T.nombreCompleto,
+    FULL_NAME: T.nombreCompleto,
+    'Professional Title': T.cargoTituloProfesional,
+    PROFESSIONAL_TITLE: T.cargoTituloProfesional,
+    'City, Country': T.ciudadYPais,
+    CITY_COUNTRY: T.ciudadYPais,
+    Phone: T.telefonoCelular,
+    PHONE: T.telefonoCelular,
+    'LinkedIn URL': T.perfilDeLinkedin,
+    LINKEDIN_URL: T.perfilDeLinkedin,
+    'Portfolio URL': T.portafolioWeb,
+    PORTFOLIO_URL: T.portafolioWeb,
+    Email: T.correoElectronico,
+    EMAIL: T.correoElectronico,
+    'Professional Summary': T.resumenProfesional,
+    SUMMARY: T.resumenProfesional,
+    'Job Title': T.cargoDesempenado,
+    JOB_TITLE: T.cargoDesempenado,
+    Organization: T.empresaOrganizacionX,
+    ORGANIZATION: T.empresaOrganizacionX,
+    City: C.ciudad,
+    CITY: C.ciudad,
+    'Date Range': T.rangoDeFechas,
+    DATES: T.rangoDeFechas,
+    'Accomplishment Bullets': T.logrosYFunciones,
+    BULLETS: T.logrosYFunciones,
+    'Degree / Program': T.tituloProgramaAcademico,
+    DEGREE: T.tituloProgramaAcademico,
+    Institution: T.institucionEducativa,
+    INSTITUTION: T.institucionEducativa,
+    Year: T.anoDeGraduacion,
+    YEAR: T.anoDeGraduacion,
+    'Certification / Course': T.certificacionCurso,
+    CERTIFICATION: T.certificacionCurso,
+    Achievement: T.logroDestacado,
+    ACHIEVEMENT: T.logroDestacado,
+    Skills: T.habilidadesTecnicasY,
+    SKILLS: T.habilidadesTecnicasY,
+    Languages: T.idiomasYNiveles,
+    LANGUAGES: T.idiomasYNiveles,
+  }
+}
+
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        edicionDeHoja: 'Résumé editing',
+        vistaPreviaDe: 'Résumé preview',
+        cerrarVistaPrevia: 'Close preview',
+        noSePudo: 'The preview could not be generated',
+        vistaOriginal: 'Original view',
+        conversionAPlantilla: 'Conversion to CAC template',
+        conversionDePdf: 'PDF to CAC ATS template conversion',
+        documentoCombinadoCon: 'Document merged with sample data',
+        verPlantillaCon: 'View template with sample data',
+        cargandoPlantillas: 'Loading templates…',
+        noHayPlantillas: 'No templates registered. Create the first one above.',
+        nuevaPlantilla: 'New template',
+        eliminarPlantilla: 'Delete template',
+        marcarComoPredeterminada: 'Set as default',
+        predeterminada: 'Default',
+        plantillaOficialCac: 'Official CAC template',
+        plantillaWordO: 'Word or PDF template *',
+        seleccionaUnaPlantilla: 'Choose a Word (.docx) or PDF template.',
+        formatoNoCompatible: 'Unsupported format. Use a .docx or .pdf file.',
+        elArchivoSupera: 'The file is over the 10 MB limit.',
+        seleccionaUnArchivo: 'Choose a PDF file first.',
+        noNecesitasModificar: 'You do not need to edit the file',
+        sinArchivo: 'No file',
+        archivoPdf: 'PDF file',
+        generacionMasiva: 'Bulk generation',
+        generaHojasDe: 'Generates PDF résumés for every student in a programme.',
+        seleccionaUnPrograma: 'Choose a programme',
+        seleccionaUnProgramaX: 'Choose a programme.',
+        seleccionaUnEstudiante: 'Choose a student',
+        errorAlAnalizar: 'The profile could not be analysed',
+        errorAlCargar: 'The templates could not be loaded',
+        errorAlCrear: 'The template could not be created',
+        errorAlEliminar: 'The template could not be deleted',
+        errorAlMarcar: 'The default template could not be set',
+        errorAlDescargar: 'The ZIP could not be downloaded',
+        errorAlExtraer: 'Data could not be extracted from the PDF',
+        errorAlGenerar: 'The résumé could not be generated',
+        errorAlGenerarX: 'The CAC ATS résumé could not be generated',
+        errorAlGuardar: 'The new record could not be saved',
+        faltaCargoEmpresa: 'Fill in the role and the company.',
+        faltaProgramaInstitucion: 'Fill in the programme and the institution.',
+        faltaHabilidad: 'Type the skill you want to add.',
+        faltaIdioma: 'Type the language and level you want to add.',
+        errorEnLa: 'Bulk generation failed',
+        agregarExperienciaLaboral: 'Add work experience',
+        agregarFormacionCertificacion: 'Add education / certificate',
+        agregarHabilidadTecnica: 'Add technical skill',
+        agregarIdiomaY: 'Add language and level',
+        agregarExperiencia: 'Add experience',
+        guardarYAgregar: 'Save and add',
+        nuevaEmpresa: 'New company',
+        nuevoCargo: 'New role',
+        nuevaCertificacionCurso: 'New certificate / course',
+        perfilProfesional: 'Professional summary',
+        resumenProfesional: 'Professional summary',
+        resumenDelPerfil: 'Profile summary',
+        descripcionSinteticaDel: 'Short description of the work profile and key skills…',
+        experienciaProfesional: 'Professional experience',
+        educacionAcademica: 'Academic education',
+        certificacionesYFormacion: 'Certificates and further training',
+        habilidadesTecnicasY: 'Technical skills and tools',
+        habilidadesTecnicasCompetencias: 'Technical skills',
+        habilidadesTecnicas: 'Technical skills',
+        idiomasYNiveles: 'Languages and levels',
+        informacionDeContacto: 'Contact details',
+        cabeceraEncabezado: 'Header',
+        logrosYFunciones: 'Achievements and duties',
+        logrosFuncionesUna: 'Achievements / duties (one per line)',
+        logrosDestacados: 'Key achievements',
+        logroDestacado: 'Key achievement',
+        logrosYPuestos: 'Achievements and roles taken from the PDF',
+        titulosAcademicosY: 'Academic qualifications and courses detected',
+        noSeDetectaron: 'No further education or certificates detected.',
+        describeTusResponsabilidades: 'Describe your responsibilities and measurable achievements',
+        cargoTituloProfesional: 'Role / professional title',
+        cargoObjetivoTitulo: 'Target role / title',
+        cargoDesempenado: 'Role held',
+        empresaOrganizacion: 'Company / organisation *',
+        empresaOrganizacionX: 'Company / organisation',
+        institucionEducativa: 'Educational institution',
+        institucionPrincipal: 'Main institution',
+        tituloAcademicoPrincipal: 'Main academic qualification',
+        tituloProgramaAcademico: 'Qualification / academic programme',
+        programaCertificado: 'Programme / certificate *',
+        habilidadTecnicaCompetencia: 'Technical skill *',
+        idiomaYNivel: 'Language and level *',
+        certificacionCurso: 'Certificate / course',
+        tipoDeFormacion: 'Type of education',
+        universitariaPregrado: 'University / undergraduate',
+        anoDeGraduacion: 'Graduation year',
+        anoFechaDe: 'Year / date obtained',
+        rangoDeFechas: 'Date range (start - end)',
+        fechaInicio: 'Start date',
+        fechaFin: 'End date',
+        fechaInicioX: 'Start date',
+        fechaFinX: 'End date',
+        presenteOYyyy: 'Present or YYYY-MM-DD',
+        nombreCompleto: 'Full name',
+        correoElectronico: 'Email address',
+        telefonoCelular: 'Phone / mobile',
+        ciudadYPais: 'City and country',
+        portafolioWeb: 'Web portfolio',
+        perfilDeLinkedin: 'LinkedIn profile',
+        completadoAutomaticamente: 'Filled in automatically',
+        completitudGeneral: 'Overall completeness',
+        generacion: 'Generation',
+        generadas: 'Generated',
+        solicitadas: 'Requested',
+        fallidas: 'Failed',
+        resultado: 'Result',
+        detalle: 'Detail',
+        plantillaCargadaEl: 'Template uploaded. Its design and sections are ready to take student data.',
+        reflejaLosDatos: 'Shows the data saved for the student. Any section you remove below applies when the final PDF is generated.',
+        plantillaDelSistema: '— System template —',
+        soloEstudiantesCon: 'Only students with complete information',
+        generarHojasDe: 'Generate résumés',
+        subeCualquierHoja: 'Upload any résumé in Word or PDF. The system keeps its style and works out on its own where each student’s data goes.',
+        puedesCargarloTal: 'You can upload it exactly as you received it. Name, contact, summary, experience, education, skills and languages are detected from the content and the document headings.',
+        losMarcadoresSon: 'Placeholders are optional and only help if you want to control an exact position. Also accepted:',
+        tamanoMaximo: '. Maximum size: 10 MB.',
+        crearPlantilla: 'Create template',
+        subeCualquierHojaPdf: 'Upload any résumé in PDF to pull out its data automatically and generate it on the official CAC ATS template, without saving students to the database.',
+        extraerYMapear: 'Extract and map to CAC',
+        idiomaDelPdf: 'PDF language:',
+        espanolEs: '🇪🇸 Spanish (ES)',
+        inglesEn: '🇬🇧 English (EN)',
+        datosPersonalesYContacto: '1. Personal details and contact',
+        perfilProfesionalNum: '2. Professional summary',
+        experienciaProfesionalNum: '3. Professional experience',
+        educacionYCertificaciones: '4. Education and certificates',
+        agregarFormacion: 'Add education',
+        seleccionaUnEstudiantePara: 'Choose a student to review their profile, fill in what is missing and generate their résumé on the CAC ATS template.',
+        volverAGenerar: 'Generate the preview again',
+        seccionRetiradaDel: 'Section removed from the PDF',
+        confirmarEliminarPlantilla: (n: string) => `Template "${n}" will be deleted. This cannot be undone.`,
+        mapeoAutomatico: (n: number) => `Automatic mapping · ${n} fields`,
+        vistaPreviaDeX: (n: string) => `Preview of ${n}`,
+        agregarMasElementos: (t: string) => `Add more items to ${t} (+)`,
+        incluirSeccion: (t: string) => `Include the whole ${t} section (+)`,
+        retirarSeccion: (t: string) => `Remove the whole ${t} section (-)`,
+        incluirCampo: (t: string) => `Include ${t} in the PDF (+)`,
+        retirarCampo: (t: string) => `Remove ${t} from the PDF (-)`,
+        ingresaX: (t: string) => `Enter ${t}`,
+        edicion: 'Editing',
+        plantillas: 'Templates',
+        plantilla: 'Template',
+        candidato: 'Candidate',
+        estudiante: 'Student',
+        diplomado: 'Diploma course',
+        certificacion: 'Certificate',
+        curso: 'Course',
+        educacion: 'Education',
+        idiomas: 'Languages',
+        institucion: 'Institution *',
+        cargo: 'Role *',
+        apellido: 'Last name',
+        celular: 'Mobile',
+        ano: 'Year',
+        ej2024: 'e.g. 2024',
+        ejEne2023: 'e.g. Jan 2023',
+        ejPresente: 'e.g. Present',
+        ejAnalistaDe: 'e.g. Data analyst',
+        ejDesarrolladorBackend: 'e.g. Junior backend developer',
+        ejTechSolutions: 'e.g. Tech Solutions S.A.S.',
+        ejIngenieriaDe: 'e.g. Systems engineering',
+        ejUniversidadDel: 'e.g. Universidad del Norte',
+        ejAwsCertified: 'e.g. AWS Certified Cloud Practitioner',
+        ejAmazonWeb: 'e.g. Amazon Web Services / University',
+        ejPythonDocker: 'e.g. Python, Docker, React, data analysis',
+        ejEspanolNativo: 'e.g. Spanish (native) | English B2',
+        ejInglesB2: 'e.g. English (B2 upper-intermediate)',
+        ejInstitucionalAzul: 'e.g. Institutional blue',
+        colorPrimario: 'Primary colour',
+        color: 'Colour',
+      }
+    : {
+        edicionDeHoja: 'Edición de hoja de vida',
+        vistaPreviaDe: 'Vista previa de la hoja de vida',
+        cerrarVistaPrevia: 'Cerrar vista previa',
+        noSePudo: 'No se pudo generar la vista previa',
+        vistaOriginal: 'Vista original',
+        conversionAPlantilla: 'Conversión a Plantilla CAC',
+        conversionDePdf: 'Conversión de PDF a Plantilla CAC ATS',
+        documentoCombinadoCon: 'Documento combinado con datos ficticios',
+        verPlantillaCon: 'Ver plantilla con datos de ejemplo',
+        cargandoPlantillas: 'Cargando plantillas…',
+        noHayPlantillas: 'No hay plantillas registradas. Crea la primera arriba.',
+        nuevaPlantilla: 'Nueva plantilla',
+        eliminarPlantilla: 'Eliminar plantilla',
+        marcarComoPredeterminada: 'Marcar como predeterminada',
+        predeterminada: 'Predeterminada',
+        plantillaOficialCac: 'Plantilla oficial CAC',
+        plantillaWordO: 'Plantilla Word o PDF *',
+        seleccionaUnaPlantilla: 'Selecciona una plantilla Word (.docx) o PDF.',
+        formatoNoCompatible: 'Formato no compatible. Usa un archivo .docx o .pdf.',
+        elArchivoSupera: 'El archivo supera el límite de 10 MB.',
+        seleccionaUnArchivo: 'Selecciona un archivo PDF primero.',
+        noNecesitasModificar: 'No necesitas modificar el archivo',
+        sinArchivo: 'Sin archivo',
+        archivoPdf: 'Archivo PDF',
+        generacionMasiva: 'Generación masiva',
+        generaHojasDe: 'Genera hojas de vida en PDF para todos los estudiantes de un programa.',
+        seleccionaUnPrograma: 'Selecciona un programa',
+        seleccionaUnProgramaX: 'Selecciona un programa.',
+        seleccionaUnEstudiante: 'Selecciona un estudiante',
+        errorAlAnalizar: 'Error al analizar el perfil',
+        errorAlCargar: 'Error al cargar las plantillas',
+        errorAlCrear: 'Error al crear la plantilla',
+        errorAlEliminar: 'Error al eliminar la plantilla',
+        errorAlMarcar: 'Error al marcar la plantilla predeterminada',
+        errorAlDescargar: 'Error al descargar el ZIP',
+        errorAlExtraer: 'Error al extraer datos del PDF',
+        errorAlGenerar: 'Error al generar la HV',
+        errorAlGenerarX: 'Error al generar la HV en formato CAC ATS',
+        errorAlGuardar: 'Error al guardar el nuevo registro',
+        faltaCargoEmpresa: 'Completa el cargo y la empresa.',
+        faltaProgramaInstitucion: 'Completa el programa y la institución.',
+        faltaHabilidad: 'Escribe la habilidad que quieres agregar.',
+        faltaIdioma: 'Escribe el idioma y el nivel que quieres agregar.',
+        errorEnLa: 'Error en la generación masiva',
+        agregarExperienciaLaboral: 'Agregar Experiencia Laboral',
+        agregarFormacionCertificacion: 'Agregar Formación / Certificación',
+        agregarHabilidadTecnica: 'Agregar Habilidad Técnica / Competencia',
+        agregarIdiomaY: 'Agregar Idioma y Nivel',
+        agregarExperiencia: 'Agregar experiencia',
+        guardarYAgregar: 'Guardar y agregar',
+        nuevaEmpresa: 'Nueva Empresa',
+        nuevoCargo: 'Nuevo Cargo',
+        nuevaCertificacionCurso: 'Nueva Certificación / Curso',
+        perfilProfesional: 'Perfil Profesional',
+        resumenProfesional: 'Resumen Profesional',
+        resumenDelPerfil: 'Resumen del Perfil',
+        descripcionSinteticaDel: 'Descripción sintética del perfil laboral y competencias clave...',
+        experienciaProfesional: 'Experiencia Profesional',
+        educacionAcademica: 'Educación Académica',
+        certificacionesYFormacion: 'Certificaciones y Formación Adicional',
+        habilidadesTecnicasY: 'Habilidades Técnicas y Herramientas',
+        habilidadesTecnicasCompetencias: 'Habilidades Técnicas / Competencias',
+        habilidadesTecnicas: 'Habilidades Técnicas',
+        idiomasYNiveles: 'Idiomas y Niveles',
+        informacionDeContacto: 'Información de Contacto',
+        cabeceraEncabezado: 'Cabecera / Encabezado',
+        logrosYFunciones: 'Logros y Funciones',
+        logrosFuncionesUna: 'Logros / Funciones (una por línea)',
+        logrosDestacados: 'Logros Destacados',
+        logroDestacado: 'Logro Destacado',
+        logrosYPuestos: 'Logros y puestos extraídos del PDF',
+        titulosAcademicosY: 'Títulos académicos y cursos detectados',
+        noSeDetectaron: 'No se detectaron formaciones o certificaciones adicionales.',
+        describeTusResponsabilidades: 'Describe tus responsabilidades y logros medibles',
+        cargoTituloProfesional: 'Cargo / Título Profesional',
+        cargoObjetivoTitulo: 'Cargo Objetivo / Título',
+        cargoDesempenado: 'Cargo Desempeñado',
+        empresaOrganizacion: 'Empresa / Organización *',
+        empresaOrganizacionX: 'Empresa / Organización',
+        institucionEducativa: 'Institución Educativa',
+        institucionPrincipal: 'Institución Principal',
+        tituloAcademicoPrincipal: 'Título Académico Principal',
+        tituloProgramaAcademico: 'Título / Programa Académico',
+        programaCertificado: 'Programa / Certificado *',
+        habilidadTecnicaCompetencia: 'Habilidad Técnica / Competencia *',
+        idiomaYNivel: 'Idioma y Nivel *',
+        certificacionCurso: 'Certificación / Curso',
+        tipoDeFormacion: 'Tipo de Formación',
+        universitariaPregrado: 'Universitaria / Pregrado',
+        anoDeGraduacion: 'Año de Graduación',
+        anoFechaDe: 'Año / Fecha de obtención',
+        rangoDeFechas: 'Rango de Fechas (Inicio - Fin)',
+        fechaInicio: 'Fecha Inicio',
+        fechaFin: 'Fecha Fin',
+        fechaInicioX: 'Fecha inicio',
+        fechaFinX: 'Fecha fin',
+        presenteOYyyy: 'Presente o YYYY-MM-DD',
+        nombreCompleto: 'Nombre Completo',
+        correoElectronico: 'Correo Electrónico',
+        telefonoCelular: 'Teléfono / Celular',
+        ciudadYPais: 'Ciudad y País',
+        portafolioWeb: 'Portafolio Web',
+        perfilDeLinkedin: 'Perfil de LinkedIn',
+        completadoAutomaticamente: 'Completado automáticamente',
+        completitudGeneral: 'Completitud general',
+        generacion: 'Generación',
+        generadas: 'Generadas',
+        solicitadas: 'Solicitadas',
+        fallidas: 'Fallidas',
+        resultado: 'Resultado',
+        detalle: 'Detalle',
+        plantillaCargadaEl: 'Plantilla cargada. El diseño y sus secciones están listos para usar los datos de los estudiantes.',
+        reflejaLosDatos: 'Refleja los datos guardados del estudiante. Las secciones que retires abajo se aplican al generar el PDF definitivo.',
+        plantillaDelSistema: '— Plantilla del sistema —',
+        soloEstudiantesCon: 'Solo estudiantes con información completa',
+        generarHojasDe: 'Generar hojas de vida',
+        subeCualquierHoja: 'Sube cualquier hoja de vida en Word o PDF. El sistema conservará su estilo y reconocerá automáticamente dónde ubicar los datos de cada estudiante.',
+        puedesCargarloTal: 'Puedes cargarlo tal como lo recibiste. Se detectan nombre, contacto, perfil, experiencia, educación, habilidades e idiomas a partir del contenido y los títulos del documento.',
+        losMarcadoresSon: 'Los marcadores son opcionales y solo sirven si deseas controlar una posición exacta. También se aceptan',
+        tamanoMaximo: '. Tamaño máximo: 10 MB.',
+        crearPlantilla: 'Crear plantilla',
+        subeCualquierHojaPdf: 'Sube cualquier hoja de vida en PDF para extraer sus datos automáticamente y generarla en la plantilla oficial CAC ATS sin guardar estudiantes en la BD.',
+        extraerYMapear: 'Extraer y Mapear a CAC',
+        idiomaDelPdf: 'Idioma del PDF:',
+        espanolEs: '🇪🇸 Español (ES)',
+        inglesEn: '🇬🇧 Inglés (EN)',
+        datosPersonalesYContacto: '1. Datos Personales y Contacto',
+        perfilProfesionalNum: '2. Perfil Profesional',
+        experienciaProfesionalNum: '3. Experiencia Profesional',
+        educacionYCertificaciones: '4. Educación y Certificaciones',
+        agregarFormacion: 'Agregar formación',
+        seleccionaUnEstudiantePara: 'Selecciona un estudiante para analizar su perfil, completar campos faltantes y generar su HV con la plantilla CAC ATS.',
+        volverAGenerar: 'Volver a generar la vista previa',
+        seccionRetiradaDel: 'Sección retirada del PDF',
+        confirmarEliminarPlantilla: (n: string) => `Se eliminará la plantilla "${n}". Esta acción no se puede deshacer.`,
+        mapeoAutomatico: (n: number) => `Mapeo automático · ${n} datos`,
+        vistaPreviaDeX: (n: string) => `Vista previa de ${n}`,
+        agregarMasElementos: (t: string) => `Agregar más elementos a ${t} (+)`,
+        incluirSeccion: (t: string) => `Incluir sección ${t} completa (+)`,
+        retirarSeccion: (t: string) => `Retirar sección ${t} completa (-)`,
+        incluirCampo: (t: string) => `Incluir campo ${t} en el PDF (+)`,
+        retirarCampo: (t: string) => `Retirar campo ${t} del PDF (-)`,
+        ingresaX: (t: string) => `Ingresa ${t}`,
+        edicion: 'Edición',
+        plantillas: 'Plantillas',
+        plantilla: 'Plantilla',
+        candidato: 'Candidato',
+        estudiante: 'Estudiante',
+        diplomado: 'Diplomado',
+        certificacion: 'Certificación',
+        curso: 'Curso',
+        educacion: 'Educación',
+        idiomas: 'Idiomas',
+        institucion: 'Institución *',
+        cargo: 'Cargo *',
+        apellido: 'Apellido',
+        celular: 'Celular',
+        ano: 'Año',
+        ej2024: 'Ej: 2024',
+        ejEne2023: 'Ej: Ene 2023',
+        ejPresente: 'Ej: Presente',
+        ejAnalistaDe: 'Ej: Analista de Datos',
+        ejDesarrolladorBackend: 'Ej: Desarrollador Backend Junior',
+        ejTechSolutions: 'Ej: Tech Solutions S.A.S.',
+        ejIngenieriaDe: 'Ej: Ingeniería de Sistemas',
+        ejUniversidadDel: 'Ej: Universidad del Norte',
+        ejAwsCertified: 'Ej: AWS Certified Cloud Practitioner',
+        ejAmazonWeb: 'Ej: Amazon Web Services / Universidad',
+        ejPythonDocker: 'Ej: Python, Docker, React, Análisis de Datos',
+        ejEspanolNativo: 'Ej: Español (Nativo) | Inglés B2',
+        ejInglesB2: 'Ej: Inglés (B2 Intermedio-Alto)',
+        ejInstitucionalAzul: 'Ej: Institucional azul',
+        colorPrimario: 'Color primario',
+        color: 'Color',
+      }
 }
 
 export default function HojasDeVidaPage() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
+  const TITULOS = titulosDeSeccion(T)
+  const ETIQUETAS = etiquetasDeCampo(T, C)
+  const { confirmar, dialogo } = useConfirmar()
   const [tab, setTab] = useState<TabId>('generacion')
 
   // Comunes
@@ -193,7 +568,7 @@ export default function HojasDeVidaPage() {
     setGuardandoItem(true)
     try {
       if (modalAgregar === 'experience') {
-        if (!nuevoCargo.trim() || !nuevaEmpresa.trim()) return
+        if (!nuevoCargo.trim() || !nuevaEmpresa.trim()) { setEditError(T.faltaCargoEmpresa); return }
         await perfilApi.crearExperiencia(editEstudianteId, {
           cargo: nuevoCargo,
           empresa: nuevaEmpresa,
@@ -202,7 +577,7 @@ export default function HojasDeVidaPage() {
           funciones: nuevasFunciones || undefined,
         })
       } else if (modalAgregar === 'education' || modalAgregar === 'certifications') {
-        if (!nuevoPrograma.trim() || !nuevaInstitucion.trim()) return
+        if (!nuevoPrograma.trim() || !nuevaInstitucion.trim()) { setEditError(T.faltaProgramaInstitucion); return }
         await perfilApi.crearFormacion(editEstudianteId, {
           tipo: modalAgregar === 'certifications' ? 'CERTIFICACION' : (nuevoTipoFormacion || 'CURSO'),
           programa: nuevoPrograma,
@@ -210,13 +585,13 @@ export default function HojasDeVidaPage() {
           fechaFin: nuevaFechaFin || undefined,
         })
       } else if (modalAgregar === 'skills') {
-        if (!nuevaSkill.trim()) return
+        if (!nuevaSkill.trim()) { setEditError(T.faltaHabilidad); return }
         const est = await estudiantesApi.obtener(editEstudianteId)
         const compsActuales = est.competencias?.trim()
         const nuevasComps = compsActuales ? `${compsActuales}, ${nuevaSkill.trim()}` : nuevaSkill.trim()
         await estudiantesApi.actualizar(editEstudianteId, { nombre: est.nombre, apellido: est.apellido, email: est.email, programaId: est.programaId, competencias: nuevasComps })
       } else if (modalAgregar === 'languages') {
-        if (!nuevoIdioma.trim()) return
+        if (!nuevoIdioma.trim()) { setEditError(T.faltaIdioma); return }
         const est = await estudiantesApi.obtener(editEstudianteId)
         const idiomasActuales = est.idiomas?.trim()
         const nuevosIdiomas = idiomasActuales ? `${idiomasActuales}, ${nuevoIdioma.trim()}` : nuevoIdioma.trim()
@@ -228,7 +603,7 @@ export default function HojasDeVidaPage() {
       const res = await hvApi.analizar(editEstudianteId)
       setAnalisis(res)
     } catch (err) {
-      setEditError(errorDe(err, 'Error al guardar el nuevo registro'))
+      setEditError(errorDe(err, T.errorAlGuardar))
     } finally {
       setGuardandoItem(false)
     }
@@ -251,7 +626,7 @@ export default function HojasDeVidaPage() {
       const pred = list.find((p) => p.predeterminada)
       setGenPlantilla((prev) => prev || (pred?.id ?? list[0]?.id ?? ''))
     } catch (err) {
-      setErrorPlantillas(errorDe(err, 'Error al cargar las plantillas'))
+      setErrorPlantillas(errorDe(err, T.errorAlCargar))
     } finally { setLoadingPlantillas(false) }
   }, [])
 
@@ -260,14 +635,21 @@ export default function HojasDeVidaPage() {
   // ── Edición: cargar estudiantes del programa seleccionado ─────────────
   useEffect(() => {
     if (!editPrograma) return
+    // Cambiar de programa antes de que conteste el anterior dejaba la lista del
+    // programa viejo bajo el nombre del nuevo: la respuesta que llega última no
+    // es siempre la que se pidió última. Aquí eso no es sólo cosmético, porque
+    // de esa lista se elige a quién se le asigna la hoja de vida.
+    let vigente = true
     estudiantesApi.listar(editPrograma, 0, 200).then((page) => {
+      if (!vigente) return
       setEditEstudiantes(page.content.map((e) => ({ id: e.id, nombre: `${e.nombre} ${e.apellido}` })))
-    }).catch(() => { setEditEstudiantes([]) })
+    }).catch(() => { if (vigente) setEditEstudiantes([]) })
+    return () => { vigente = false }
   }, [editPrograma])
 
   // ── Generación masiva ─────────────────────────────────────────────────────
   const handleGenerar = async () => {
-    if (!genPrograma) { setGenError('Selecciona un programa.'); return }
+    if (!genPrograma) { setGenError(T.seleccionaUnProgramaX); return }
     setGenerando(true); setGenError(null); setGenResult(null)
     try {
       const res = await hvApi.generarMasiva({
@@ -276,7 +658,7 @@ export default function HojasDeVidaPage() {
         soloCompletos,
       })
       setGenResult(res)
-    } catch (err) { setGenError(errorDe(err, 'Error en la generación masiva')) }
+    } catch (err) { setGenError(errorDe(err, T.errorEnLa)) }
     finally { setGenerando(false) }
   }
 
@@ -286,26 +668,26 @@ export default function HojasDeVidaPage() {
     if (ids.length === 0) return
     setDescargandoZip(true)
     try { await hvApi.descargarZip(ids) }
-    catch (err) { setGenError(errorDe(err, 'Error al descargar el ZIP')) }
+    catch (err) { setGenError(errorDe(err, T.errorAlDescargar)) }
     finally { setDescargandoZip(false) }
   }
 
   // ── Plantillas ────────────────────────────────────────────────────────────
   const handleCrearPlantilla = async (e: React.SyntheticEvent) => {
     e.preventDefault()
-    if (!plNombre.trim()) { setPlError('El nombre es obligatorio.'); return }
-    if (!plArchivo) { setPlError('Selecciona una plantilla Word (.docx) o PDF.'); return }
+    if (!plNombre.trim()) { setPlError(C.errorNombre); return }
+    if (!plArchivo) { setPlError(T.seleccionaUnaPlantilla); return }
     const extensionOk = /\.(docx|pdf)$/i.test(plArchivo.name)
-    if (!extensionOk) { setPlError('Formato no compatible. Usa un archivo .docx o .pdf.'); return }
-    if (plArchivo.size > 10 * 1024 * 1024) { setPlError('El archivo supera el límite de 10 MB.'); return }
+    if (!extensionOk) { setPlError(T.formatoNoCompatible); return }
+    if (plArchivo.size > 10 * 1024 * 1024) { setPlError(T.elArchivoSupera); return }
     setCreandoPlantilla(true); setPlError(null); setPlSuccess(null)
     try {
       await hvApi.crearPlantilla(plNombre.trim(), plColor, plArchivo ?? undefined)
       setPlNombre(''); setPlColor('#1C315E'); setPlArchivo(null)
       if (plFileRef.current) plFileRef.current.value = ''
-      setPlSuccess('Plantilla cargada. El diseño y sus secciones están listos para usar los datos de los estudiantes.')
+      setPlSuccess(T.plantillaCargadaEl)
       await loadPlantillas()
-    } catch (err) { setPlError(errorDe(err, 'Error al crear la plantilla')) }
+    } catch (err) { setPlError(errorDe(err, T.errorAlCrear)) }
     finally { setCreandoPlantilla(false) }
   }
 
@@ -323,7 +705,7 @@ export default function HojasDeVidaPage() {
       setPreviewUrl(URL.createObjectURL(blob))
       setPreviewName(pl.nombre)
     } catch (err) {
-      setPlError(errorDe(err, 'No se pudo generar la vista previa'))
+      setPlError(errorDe(err, T.noSePudo))
     } finally { setPreviewLoading(null) }
   }
 
@@ -333,18 +715,22 @@ export default function HojasDeVidaPage() {
 
   const handlePredeterminada = async (id: string) => {
     try { await hvApi.marcarPredeterminada(id); loadPlantillas() }
-    catch (err) { setPlError(errorDe(err, 'Error al marcar la plantilla predeterminada')) }
+    catch (err) { setPlError(errorDe(err, T.errorAlMarcar)) }
   }
 
   const handleEliminarPlantilla = async (pl: PlantillaResponse) => {
-    if (!confirm(`¿Eliminar la plantilla "${pl.nombre}"?`)) return
+    if (!(await confirmar({
+      titulo: T.eliminarPlantilla,
+      descripcion: T.confirmarEliminarPlantilla(pl.nombre),
+      textoConfirmar: C.eliminar,
+    }))) return
     try { await hvApi.eliminarPlantilla(pl.id); loadPlantillas() }
-    catch (err) { setPlError(errorDe(err, 'Error al eliminar la plantilla')) }
+    catch (err) { setPlError(errorDe(err, T.errorAlEliminar)) }
   }
 
   // ── Extracción y Conversión a Plantilla CAC ─────────────────────────
   const handleExtraer = async () => {
-    if (!extArchivo) { setExtError('Selecciona un archivo PDF primero.'); return }
+    if (!extArchivo) { setExtError(T.seleccionaUnArchivo); return }
     setExtrayendo(true); setExtError(null); setCampos([]); setDatosExt(null)
     try {
       const res = await hvApi.extraer(extArchivo)
@@ -365,13 +751,23 @@ export default function HojasDeVidaPage() {
         idiomas: res.datosEstructurados?.idiomas ?? mapa.get('idiomas') ?? '',
         titulo: res.datosEstructurados?.titulo ?? '',
         institucionEducativa: res.datosEstructurados?.institucionEducativa ?? '',
-        nivelEducativo: res.datosEstructurados?.nivelEducativo ?? 'Profesional',
+        // Sin nivel por defecto: se imprime junto a la institución («SENA —
+        // Profesional») y poner uno que nadie escribió es afirmar una
+        // titulación ajena en la hoja de vida que esa persona manda a empresas.
+        nivelEducativo: res.datosEstructurados?.nivelEducativo ?? '',
         experiencias: res.datosEstructurados?.experiencias ?? [],
         formaciones: res.datosEstructurados?.formaciones ?? [],
+        // Los seis que el PDF sabe pintar y aquí se quedaban por el camino.
+        telefono: res.datosEstructurados?.telefono ?? '',
+        nacionalidad: res.datosEstructurados?.nacionalidad ?? '',
+        linkedinUrl: res.datosEstructurados?.linkedinUrl ?? '',
+        portafolioUrl: res.datosEstructurados?.portafolioUrl ?? '',
+        nivelIngles: res.datosEstructurados?.nivelIngles ?? '',
+        logros: res.datosEstructurados?.logros ?? [],
       }
 
       setDatosExt(dtoCompleto)
-    } catch (err) { setExtError(errorDe(err, 'Error al extraer datos del PDF')) }
+    } catch (err) { setExtError(errorDe(err, T.errorAlExtraer)) }
     finally { setExtrayendo(false) }
   }
 
@@ -379,10 +775,10 @@ export default function HojasDeVidaPage() {
     if (!datosExt) return
     setConvertiendo(true); setExtError(null)
     try {
-      const nom = `${datosExt.nombre ?? 'Candidato'}_${datosExt.apellido ?? ''}`.replace(/\s+/g, '_')
+      const nom = `${datosExt.nombre ?? T.candidato}_${datosExt.apellido ?? ''}`.replace(/\s+/g, '_')
       await hvApi.convertirPdf(datosExt, { idioma: extIdioma }, `HV-CAC-${nom}.pdf`)
     } catch (err) {
-      setExtError(errorDe(err, 'Error al generar la HV en formato CAC ATS'))
+      setExtError(errorDe(err, T.errorAlGenerarX))
     } finally {
       setConvertiendo(false)
     }
@@ -395,10 +791,10 @@ export default function HojasDeVidaPage() {
   }
 
   const tabs: { id: TabId; label: string; icon: typeof ReadCvLogo }[] = [
-    { id: 'generacion',  label: 'Generación',             icon: ReadCvLogo },
-    { id: 'plantillas',  label: 'Plantillas',             icon: Stack },
-    { id: 'extraccion',  label: 'Conversión a Plantilla CAC', icon: FileMagnifyingGlass },
-    { id: 'edicion',     label: 'Edición',               icon: PencilSimpleLine },
+    { id: 'generacion',  label: T.generacion,             icon: ReadCvLogo },
+    { id: 'plantillas',  label: T.plantillas,             icon: Stack },
+    { id: 'extraccion',  label: T.conversionAPlantilla, icon: FileMagnifyingGlass },
+    { id: 'edicion',     label: T.edicion,               icon: PencilSimpleLine },
   ]
 
 
@@ -419,22 +815,22 @@ export default function HojasDeVidaPage() {
         <div className="flex flex-col gap-4">
           <Card className="rounded-lg border-border shadow-none">
             <CardHeader>
-              <CardTitle className="text-base">Generación masiva</CardTitle>
-              <CardDescription>Genera hojas de vida en PDF para todos los estudiantes de un programa.</CardDescription>
+              <CardTitle className="text-base">{T.generacionMasiva}</CardTitle>
+              <CardDescription>{T.generaHojasDe}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="gen-programa" className="text-[11px] uppercase tracking-wider text-muted-foreground">Programa</label>
+                  <label htmlFor="gen-programa" className="text-[11px] uppercase tracking-wider text-muted-foreground">{C.programa}</label>
                   <select id="gen-programa" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={genPrograma} onChange={(e) => setGenPrograma(e.target.value)} disabled={generando}>
-                    <option value="">Selecciona un programa</option>
+                    <option value="">{T.seleccionaUnPrograma}</option>
                     {programas.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="gen-plantilla" className="text-[11px] uppercase tracking-wider text-muted-foreground">Plantilla</label>
+                  <label htmlFor="gen-plantilla" className="text-[11px] uppercase tracking-wider text-muted-foreground">{T.plantilla}</label>
                   <select id="gen-plantilla" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={genPlantilla} onChange={(e) => setGenPlantilla(e.target.value)} disabled={generando || loadingPlantillas}>
-                    <option value="">— Plantilla del sistema —</option>
+                    <option value="">{T.plantillaDelSistema}</option>
                     {plantillas.map((p) => (
                       <option key={p.id} value={p.id}>{p.nombre}{p.predeterminada ? ' (predeterminada)' : ''}</option>
                     ))}
@@ -443,7 +839,7 @@ export default function HojasDeVidaPage() {
               </div>
               <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
                 <input type="checkbox" checked={soloCompletos} onChange={(e) => setSoloCompletos(e.target.checked)} disabled={generando} className="size-4 cursor-pointer" />
-                Solo estudiantes con información completa
+                {T.soloEstudiantesCon}
               </label>
 
               {genError && (
@@ -454,7 +850,7 @@ export default function HojasDeVidaPage() {
 
               <div>
                 <Button onClick={handleGenerar} disabled={generando || !genPrograma}>
-                  {generando ? <><CircleNotch className="size-4 animate-spin" /> Generando…</> : <><ReadCvLogo className="size-4" /> Generar hojas de vida</>}
+                  {generando ? <><CircleNotch className="size-4 animate-spin" /> Generando…</> : <><ReadCvLogo className="size-4" /> {T.generarHojasDe}</>}
                 </Button>
               </div>
             </CardContent>
@@ -466,19 +862,19 @@ export default function HojasDeVidaPage() {
               <div className="grid gap-4 sm:grid-cols-3">
                 <Card className="rounded-lg border-border shadow-none">
                   <CardContent className="pt-5 flex flex-col gap-1">
-                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Solicitadas</span>
+                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{T.solicitadas}</span>
                     <span className="text-2xl font-semibold tabular-nums text-foreground">{genResult.solicitadas}</span>
                   </CardContent>
                 </Card>
                 <Card className="rounded-lg border-border shadow-none">
                   <CardContent className="pt-5 flex flex-col gap-1">
-                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Generadas</span>
+                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{T.generadas}</span>
                     <span className="text-2xl font-semibold tabular-nums text-[#0F6E56]">{genResult.generadas}</span>
                   </CardContent>
                 </Card>
                 <Card className="rounded-lg border-border shadow-none">
                   <CardContent className="pt-5 flex flex-col gap-1">
-                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Fallidas</span>
+                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{T.fallidas}</span>
                     <span className="text-2xl font-semibold tabular-nums text-destructive">{genResult.fallidas}</span>
                   </CardContent>
                 </Card>
@@ -490,9 +886,9 @@ export default function HojasDeVidaPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border bg-secondary/50">
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Estudiante</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Resultado</th>
-                        <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Detalle</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.estudiante}</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.resultado}</th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.detalle}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -529,9 +925,9 @@ export default function HojasDeVidaPage() {
         <div className="flex flex-col gap-4">
           <Card className="rounded-lg border-border shadow-none">
             <CardHeader>
-              <CardTitle className="text-base">Nueva plantilla</CardTitle>
+              <CardTitle className="text-base">{T.nuevaPlantilla}</CardTitle>
               <CardDescription>
-                Sube cualquier hoja de vida en Word o PDF. El sistema conservará su estilo y reconocerá automáticamente dónde ubicar los datos de cada estudiante.
+                {T.subeCualquierHoja}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
@@ -540,9 +936,9 @@ export default function HojasDeVidaPage() {
                   <FileText className="mt-0.5 size-5 shrink-0 text-primary" />
                   <div className="flex flex-col gap-2">
                     <div>
-                      <p className="text-sm font-semibold text-foreground">No necesitas modificar el archivo</p>
+                      <p className="text-sm font-semibold text-foreground">{T.noNecesitasModificar}</p>
                       <p className="text-xs leading-relaxed text-muted-foreground">
-                        Puedes cargarlo tal como lo recibiste. Se detectan nombre, contacto, perfil, experiencia, educación, habilidades e idiomas a partir del contenido y los títulos del documento.
+                        {T.puedesCargarloTal}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
@@ -553,7 +949,7 @@ export default function HojasDeVidaPage() {
                       ))}
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Los marcadores son opcionales y solo sirven si deseas controlar una posición exacta. También se aceptan <code>{'{{NOMBRE_COMPLETO}}'}</code>, <code>{'{{CORREO}}'}</code> y <code>{'{{EXPERIENCIA}}'}</code>. Tamaño máximo: 10 MB.
+                      {T.losMarcadoresSon} <code>{'{{NOMBRE_COMPLETO}}'}</code>, <code>{'{{CORREO}}'}</code> y <code>{'{{EXPERIENCIA}}'}</code>{T.tamanoMaximo}
                     </p>
                   </div>
                 </div>
@@ -561,21 +957,21 @@ export default function HojasDeVidaPage() {
 
               <form onSubmit={handleCrearPlantilla} className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_80px_minmax(260px,1.4fr)_auto] lg:items-end">
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="pl-nombre" className="text-[11px] uppercase tracking-wider text-muted-foreground">Nombre *</label>
-                  <Input id="pl-nombre" value={plNombre} onChange={(e) => setPlNombre(e.target.value)} placeholder="Ej: Institucional azul" disabled={creandoPlantilla} />
+                  <label htmlFor="pl-nombre" className="text-[11px] uppercase tracking-wider text-muted-foreground">{C.nombreObligatorio}</label>
+                  <Input id="pl-nombre" value={plNombre} onChange={(e) => setPlNombre(e.target.value)} placeholder={T.ejInstitucionalAzul} disabled={creandoPlantilla} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="pl-color" className="text-[11px] uppercase tracking-wider text-muted-foreground">Color primario</label>
+                  <label htmlFor="pl-color" className="text-[11px] uppercase tracking-wider text-muted-foreground">{T.colorPrimario}</label>
                   <input id="pl-color" type="color" value={plColor} onChange={(e) => setPlColor(e.target.value)} disabled={creandoPlantilla}
                     className="h-9 w-16 rounded-md border border-input bg-background p-1 cursor-pointer" />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="pl-archivo" className="text-[11px] uppercase tracking-wider text-muted-foreground">Plantilla Word o PDF *</label>
+                  <label htmlFor="pl-archivo" className="text-[11px] uppercase tracking-wider text-muted-foreground">{T.plantillaWordO}</label>
                   <input ref={plFileRef} id="pl-archivo" type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => { setPlArchivo(e.target.files?.[0] ?? null); setPlError(null); setPlSuccess(null) }} disabled={creandoPlantilla}
                     className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium" />
                 </div>
                 <Button type="submit" size="sm" disabled={creandoPlantilla}>
-                  {creandoPlantilla ? <><CircleNotch className="size-3.5 animate-spin" /> Creando…</> : <><Plus className="size-3.5" /> Crear plantilla</>}
+                  {creandoPlantilla ? <><CircleNotch className="size-3.5 animate-spin" /> Creando…</> : <><Plus className="size-3.5" /> {T.crearPlantilla}</>}
                 </Button>
               </form>
               {plError && (
@@ -594,7 +990,7 @@ export default function HojasDeVidaPage() {
           {loadingPlantillas ? (
             <div className="flex items-center justify-center py-12">
               <PageSpinner />
-              <span className="ml-2 text-sm text-muted-foreground">Cargando plantillas…</span>
+              <span className="ml-2 text-sm text-muted-foreground">{T.cargandoPlantillas}</span>
             </div>
           ) : errorPlantillas ? (
             <div className="flex flex-col items-center gap-3 py-10">
@@ -606,7 +1002,7 @@ export default function HojasDeVidaPage() {
             <Card className="rounded-lg border-border shadow-none">
               <CardContent className="flex flex-col items-center gap-2 py-10">
                 <Stack className="size-8 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">No hay plantillas registradas. Crea la primera arriba.</p>
+                <p className="text-sm text-muted-foreground">{T.noHayPlantillas}</p>
               </CardContent>
             </Card>
           ) : (
@@ -615,11 +1011,11 @@ export default function HojasDeVidaPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-secondary/50">
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Nombre</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Color</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Archivo</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Fecha</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground text-[11px] uppercase tracking-wider">Acciones</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{C.nombre}</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{T.color}</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{C.archivo}</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{C.fecha}</th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground text-[11px] uppercase tracking-wider">{C.acciones}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -627,7 +1023,7 @@ export default function HojasDeVidaPage() {
                       <tr key={pl.id} className="hover:bg-secondary/30 transition-colors">
                         <td className="px-4 py-3">
                           <span className="font-medium text-foreground">{pl.nombre}</span>
-                          {pl.predeterminada && <Badge className="ml-2 bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-300 text-[10px] py-0 px-1.5">Predeterminada</Badge>}
+                          {pl.predeterminada && <Badge className="ml-2 bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-300 text-[10px] py-0 px-1.5">{T.predeterminada}</Badge>}
                         </td>
                         <td className="px-4 py-3">
                           <span className="inline-flex items-center gap-2">
@@ -638,31 +1034,31 @@ export default function HojasDeVidaPage() {
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-0.5">
                             <span className="w-fit rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                              {pl.tipoArchivo ?? 'Sin archivo'}
+                              {pl.tipoArchivo ?? T.sinArchivo}
                             </span>
                             <span className="text-[10px] text-muted-foreground">
                               {pl.automatica
-                                ? `Mapeo automático · ${pl.camposDetectados} datos`
+                                ? T.mapeoAutomatico(pl.camposDetectados)
                                 : pl.camposDetectados > 0
                                   ? `${pl.camposDetectados} campos detectados`
-                                  : pl.tieneHtml ? 'Plantilla oficial CAC' : 'Vista original'}
+                                  : pl.tieneHtml ? T.plantillaOficialCac : T.vistaOriginal}
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground tabular-nums">{new Date(pl.createdAt).toLocaleDateString('es-CO')}</td>
+                        <td className="px-4 py-3 text-muted-foreground tabular-nums">{new Date(pl.createdAt).toLocaleDateString(locale === 'en' ? 'en-GB' : 'es-CO')}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="inline-flex gap-1">
-                            <button type="button" onClick={() => handleVistaPrevia(pl)} title="Ver plantilla con datos de ejemplo" aria-label={`Vista previa de ${pl.nombre}`}
+                            <button type="button" onClick={() => handleVistaPrevia(pl)} title={T.verPlantillaCon} aria-label={T.vistaPreviaDeX(pl.nombre)}
                               className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary">
                               {previewLoading === pl.id ? <CircleNotch className="size-4 animate-spin" /> : <Eye className="size-4" />}
                             </button>
                             {!pl.predeterminada && (
-                              <button type="button" onClick={() => handlePredeterminada(pl.id)} title="Marcar como predeterminada" aria-label={`Marcar ${pl.nombre} como predeterminada`}
+                              <button type="button" onClick={() => handlePredeterminada(pl.id)} title={T.marcarComoPredeterminada} aria-label={`Marcar ${pl.nombre} como predeterminada`}
                                 className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
                                 <Star className="size-4" />
                               </button>
                             )}
-                            <button type="button" onClick={() => handleEliminarPlantilla(pl)} title="Eliminar" aria-label={`Eliminar ${pl.nombre}`}
+                            <button type="button" onClick={() => handleEliminarPlantilla(pl)} title={C.eliminar} aria-label={`Eliminar ${pl.nombre}`}
                               className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
                               <Trash className="size-4" />
                             </button>
@@ -681,7 +1077,7 @@ export default function HojasDeVidaPage() {
               className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/75 p-3 backdrop-blur-md sm:p-6"
               role="dialog"
               aria-modal="true"
-              aria-label={`Vista previa de ${previewName}`}
+              aria-label={T.vistaPreviaDeX(previewName)}
               onMouseDown={(event) => {
                 if (event.currentTarget === event.target) closePreview()
               }}
@@ -690,15 +1086,15 @@ export default function HojasDeVidaPage() {
                 <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-4 py-3 sm:px-5">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">Vista previa · {previewName}</p>
-                    <p className="text-xs text-muted-foreground">Documento combinado con datos ficticios</p>
+                    <p className="text-xs text-muted-foreground">{T.documentoCombinadoCon}</p>
                   </div>
-                  <button type="button" onClick={closePreview} className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground" aria-label="Cerrar vista previa">
+                  <button type="button" onClick={closePreview} className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground" aria-label={T.cerrarVistaPrevia}>
                     <X className="size-5" />
                   </button>
                 </div>
                 <iframe
                   src={`${previewUrl}#view=FitH`}
-                  title={`Vista previa de ${previewName}`}
+                  title={T.vistaPreviaDeX(previewName)}
                   className="min-h-0 w-full flex-1 border-0 bg-slate-200"
                 />
               </div>
@@ -713,17 +1109,17 @@ export default function HojasDeVidaPage() {
         <div className="flex flex-col gap-4">
           <Card className="rounded-lg border-border shadow-none">
             <CardHeader>
-              <CardTitle className="text-base">Conversión de PDF a Plantilla CAC ATS</CardTitle>
-              <CardDescription>Sube cualquier hoja de vida en PDF para extraer sus datos automáticamente y generarla en la plantilla oficial CAC ATS sin guardar estudiantes en la BD.</CardDescription>
+              <CardTitle className="text-base">{T.conversionDePdf}</CardTitle>
+              <CardDescription>{T.subeCualquierHojaPdf}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="flex flex-col gap-1.5 flex-1">
-                <label htmlFor="ext-archivo" className="text-[11px] uppercase tracking-wider text-muted-foreground">Archivo PDF</label>
+                <label htmlFor="ext-archivo" className="text-[11px] uppercase tracking-wider text-muted-foreground">{T.archivoPdf}</label>
                 <input ref={extFileRef} id="ext-archivo" type="file" accept=".pdf" onChange={(e) => { setExtArchivo(e.target.files?.[0] ?? null); setCampos([]); setDatosExt(null); setExtError(null) }}
                   className="h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium" disabled={extrayendo} />
               </div>
               <Button onClick={handleExtraer} disabled={extrayendo || !extArchivo}>
-                {extrayendo ? <><CircleNotch className="size-4 animate-spin" /> Procesando PDF…</> : <><UploadSimple className="size-4" /> Extraer y Mapear a CAC</>}
+                {extrayendo ? <><CircleNotch className="size-4 animate-spin" /> Procesando PDF…</> : <><UploadSimple className="size-4" /> {T.extraerYMapear}</>}
               </Button>
             </CardContent>
           </Card>
@@ -741,7 +1137,7 @@ export default function HojasDeVidaPage() {
                 <CardContent className="pt-4 pb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Globe className="size-4 text-primary" /> Idioma del PDF:
+                      <Globe className="size-4 text-primary" /> {T.idiomaDelPdf}
                     </span>
                     <div className="inline-flex rounded-lg border border-border p-0.5 bg-background gap-0.5">
                       <button
@@ -751,7 +1147,7 @@ export default function HojasDeVidaPage() {
                           extIdioma === 'es' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        🇪🇸 Español (ES)
+                        {T.espanolEs}
                       </button>
                       <button
                         type="button"
@@ -760,7 +1156,7 @@ export default function HojasDeVidaPage() {
                           extIdioma === 'en' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        🇬🇧 Inglés (EN)
+                        {T.inglesEn}
                       </button>
                     </div>
                   </div>
@@ -776,36 +1172,36 @@ export default function HojasDeVidaPage() {
                 {/* Datos personales */}
                 <Card className="rounded-lg border-border shadow-none">
                   <CardHeader>
-                    <CardTitle className="text-sm font-semibold">1. Datos Personales y Contacto</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{T.datosPersonalesYContacto}</CardTitle>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-3">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] uppercase text-muted-foreground font-semibold">Nombre</label>
+                        <label className="text-[10px] uppercase text-muted-foreground font-semibold">{C.nombre}</label>
                         <Input value={datosExt.nombre ?? ''} onChange={(e) => setDatosExt({ ...datosExt, nombre: e.target.value })} className="h-8 text-sm" />
                       </div>
                       <div>
-                        <label className="text-[10px] uppercase text-muted-foreground font-semibold">Apellido</label>
+                        <label className="text-[10px] uppercase text-muted-foreground font-semibold">{T.apellido}</label>
                         <Input value={datosExt.apellido ?? ''} onChange={(e) => setDatosExt({ ...datosExt, apellido: e.target.value })} className="h-8 text-sm" />
                       </div>
                     </div>
                     <div>
-                      <label className="text-[10px] uppercase text-muted-foreground font-semibold">Cargo Objetivo / Título</label>
-                      <Input value={datosExt.cargoObjetivo ?? ''} onChange={(e) => setDatosExt({ ...datosExt, cargoObjetivo: e.target.value })} placeholder="Ej: Analista de Datos" className="h-8 text-sm" />
+                      <label className="text-[10px] uppercase text-muted-foreground font-semibold">{T.cargoObjetivoTitulo}</label>
+                      <Input value={datosExt.cargoObjetivo ?? ''} onChange={(e) => setDatosExt({ ...datosExt, cargoObjetivo: e.target.value })} placeholder={T.ejAnalistaDe} className="h-8 text-sm" />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] uppercase text-muted-foreground font-semibold">Email</label>
+                        <label className="text-[10px] uppercase text-muted-foreground font-semibold">{C.email}</label>
                         <Input value={datosExt.email ?? ''} onChange={(e) => setDatosExt({ ...datosExt, email: e.target.value })} className="h-8 text-sm" />
                       </div>
                       <div>
-                        <label className="text-[10px] uppercase text-muted-foreground font-semibold">Celular</label>
+                        <label className="text-[10px] uppercase text-muted-foreground font-semibold">{T.celular}</label>
                         <Input value={datosExt.celular ?? ''} onChange={(e) => setDatosExt({ ...datosExt, celular: e.target.value })} className="h-8 text-sm" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] uppercase text-muted-foreground font-semibold">Ciudad</label>
+                        <label className="text-[10px] uppercase text-muted-foreground font-semibold">{C.ciudad}</label>
                         <Input value={datosExt.ciudad ?? ''} onChange={(e) => setDatosExt({ ...datosExt, ciudad: e.target.value })} className="h-8 text-sm" />
                       </div>
                       <div>
@@ -819,21 +1215,21 @@ export default function HojasDeVidaPage() {
                 {/* Perfil Profesional */}
                 <Card className="rounded-lg border-border shadow-none">
                   <CardHeader>
-                    <CardTitle className="text-sm font-semibold">2. Perfil Profesional</CardTitle>
+                    <CardTitle className="text-sm font-semibold">{T.perfilProfesionalNum}</CardTitle>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-3">
                     <div>
-                      <label className="text-[10px] uppercase text-muted-foreground font-semibold">Resumen del Perfil</label>
+                      <label className="text-[10px] uppercase text-muted-foreground font-semibold">{T.resumenDelPerfil}</label>
                       <Textarea
                         value={datosExt.perfilProfesional ?? ''}
                         onChange={(e) => setDatosExt({ ...datosExt, perfilProfesional: e.target.value })}
                         minRows={6}
                         className="w-full rounded-md border border-input bg-background p-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                        placeholder="Descripción sintética del perfil laboral y competencias clave..."
+                        placeholder={T.descripcionSinteticaDel}
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] uppercase text-muted-foreground font-semibold">Habilidades Técnicas / Competencias</label>
+                      <label className="text-[10px] uppercase text-muted-foreground font-semibold">{T.habilidadesTecnicasCompetencias}</label>
                       <Textarea
                         value={datosExt.competencias ?? ''}
                         onChange={(e) => setDatosExt({ ...datosExt, competencias: e.target.value })}
@@ -843,8 +1239,8 @@ export default function HojasDeVidaPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] uppercase text-muted-foreground font-semibold">Idiomas</label>
-                      <Input value={datosExt.idiomas ?? ''} onChange={(e) => setDatosExt({ ...datosExt, idiomas: e.target.value })} placeholder="Ej: Español (Nativo) | Inglés B2" className="h-8 text-sm" />
+                      <label className="text-[10px] uppercase text-muted-foreground font-semibold">{T.idiomas}</label>
+                      <Input value={datosExt.idiomas ?? ''} onChange={(e) => setDatosExt({ ...datosExt, idiomas: e.target.value })} placeholder={T.ejEspanolNativo} className="h-8 text-sm" />
                     </div>
                   </CardContent>
                 </Card>
@@ -854,20 +1250,20 @@ export default function HojasDeVidaPage() {
               <Card className="rounded-lg border-border shadow-none">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle className="text-sm font-semibold">3. Experiencia Profesional</CardTitle>
-                    <CardDescription className="text-xs">Logros y puestos extraídos del PDF</CardDescription>
+                    <CardTitle className="text-sm font-semibold">{T.experienciaProfesionalNum}</CardTitle>
+                    <CardDescription className="text-xs">{T.logrosYPuestos}</CardDescription>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => {
                     const exps = [...(datosExt.experiencias ?? [])]
-                    exps.push({ cargo: 'Nuevo Cargo', empresa: 'Nueva Empresa', fechaInicio: '2023-01-01', fechaFin: null, actual: true, funciones: '' })
+                    exps.push({ cargo: T.nuevoCargo, empresa: T.nuevaEmpresa, fechaInicio: '2023-01-01', fechaFin: null, actual: true, funciones: '' })
                     setDatosExt({ ...datosExt, experiencias: exps })
                   }}>
-                    <Plus className="size-3.5" /> Agregar experiencia
+                    <Plus className="size-3.5" /> {T.agregarExperiencia}
                   </Button>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3">
                   {datosExt.experiencias?.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">No se detectaron experiencias laborales automáticamente. Haz clic en "Agregar experiencia".</p>
+                    <p className="text-xs text-muted-foreground italic">No se detectaron experiencias laborales automáticamente. Haz clic en {T.agregarExperiencia}.</p>
                   ) : (
                     datosExt.experiencias?.map((exp, idx) => (
                       <div key={idx} className="flex flex-col gap-2 rounded-lg border border-border p-3 bg-secondary/10">
@@ -882,7 +1278,7 @@ export default function HojasDeVidaPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-[10px] uppercase text-muted-foreground font-semibold">Cargo</label>
+                            <label className="text-[10px] uppercase text-muted-foreground font-semibold">{C.cargo}</label>
                             <Input value={exp.cargo} onChange={(e) => {
                               const exps = [...datosExt.experiencias]
                               exps[idx] = { ...exps[idx], cargo: e.target.value }
@@ -890,7 +1286,7 @@ export default function HojasDeVidaPage() {
                             }} className="h-8 text-sm" />
                           </div>
                           <div>
-                            <label className="text-[10px] uppercase text-muted-foreground font-semibold">Empresa</label>
+                            <label className="text-[10px] uppercase text-muted-foreground font-semibold">{C.empresa}</label>
                             <Input value={exp.empresa} onChange={(e) => {
                               const exps = [...datosExt.experiencias]
                               exps[idx] = { ...exps[idx], empresa: e.target.value }
@@ -900,7 +1296,7 @@ export default function HojasDeVidaPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-[10px] uppercase text-muted-foreground font-semibold">Fecha Inicio</label>
+                            <label className="text-[10px] uppercase text-muted-foreground font-semibold">{T.fechaInicio}</label>
                             <Input value={exp.fechaInicio ?? ''} onChange={(e) => {
                               const exps = [...datosExt.experiencias]
                               exps[idx] = { ...exps[idx], fechaInicio: e.target.value }
@@ -908,16 +1304,16 @@ export default function HojasDeVidaPage() {
                             }} placeholder="YYYY-MM-DD" className="h-8 text-sm" />
                           </div>
                           <div>
-                            <label className="text-[10px] uppercase text-muted-foreground font-semibold">Fecha Fin</label>
+                            <label className="text-[10px] uppercase text-muted-foreground font-semibold">{T.fechaFin}</label>
                             <Input value={exp.fechaFin ?? ''} onChange={(e) => {
                               const exps = [...datosExt.experiencias]
                               exps[idx] = { ...exps[idx], fechaFin: e.target.value, actual: !e.target.value }
                               setDatosExt({ ...datosExt, experiencias: exps })
-                            }} placeholder="Presente o YYYY-MM-DD" className="h-8 text-sm" />
+                            }} placeholder={T.presenteOYyyy} className="h-8 text-sm" />
                           </div>
                         </div>
                         <div>
-                          <label className="text-[10px] uppercase text-muted-foreground font-semibold">Logros / Funciones (una por línea)</label>
+                          <label className="text-[10px] uppercase text-muted-foreground font-semibold">{T.logrosFuncionesUna}</label>
                           <Textarea
                             value={exp.funciones ?? ''}
                             onChange={(e) => {
@@ -939,31 +1335,31 @@ export default function HojasDeVidaPage() {
               <Card className="rounded-lg border-border shadow-none">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle className="text-sm font-semibold">4. Educación y Certificaciones</CardTitle>
-                    <CardDescription className="text-xs">Títulos académicos y cursos detectados</CardDescription>
+                    <CardTitle className="text-sm font-semibold">{T.educacionYCertificaciones}</CardTitle>
+                    <CardDescription className="text-xs">{T.titulosAcademicosY}</CardDescription>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => {
                     const fms = [...(datosExt.formaciones ?? [])]
-                    fms.push({ tipo: 'CERTIFICACION', programa: 'Nueva Certificación / Curso', institucion: 'Institución', fechaFin: '2024' })
+                    fms.push({ tipo: 'CERTIFICACION', programa: T.nuevaCertificacionCurso, institucion: C.institucion, fechaFin: '2024' })
                     setDatosExt({ ...datosExt, formaciones: fms })
                   }}>
-                    <Plus className="size-3.5" /> Agregar formación
+                    <Plus className="size-3.5" /> {T.agregarFormacion}
                   </Button>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3">
                   <div className="grid grid-cols-2 gap-2 pb-2 border-b border-border">
                     <div>
-                      <label className="text-[10px] uppercase text-muted-foreground font-semibold">Título Académico Principal</label>
-                      <Input value={datosExt.titulo ?? ''} onChange={(e) => setDatosExt({ ...datosExt, titulo: e.target.value })} placeholder="Ej: Ingeniería de Sistemas" className="h-8 text-sm" />
+                      <label className="text-[10px] uppercase text-muted-foreground font-semibold">{T.tituloAcademicoPrincipal}</label>
+                      <Input value={datosExt.titulo ?? ''} onChange={(e) => setDatosExt({ ...datosExt, titulo: e.target.value })} placeholder={T.ejIngenieriaDe} className="h-8 text-sm" />
                     </div>
                     <div>
-                      <label className="text-[10px] uppercase text-muted-foreground font-semibold">Institución Principal</label>
-                      <Input value={datosExt.institucionEducativa ?? ''} onChange={(e) => setDatosExt({ ...datosExt, institucionEducativa: e.target.value })} placeholder="Ej: Universidad del Norte" className="h-8 text-sm" />
+                      <label className="text-[10px] uppercase text-muted-foreground font-semibold">{T.institucionPrincipal}</label>
+                      <Input value={datosExt.institucionEducativa ?? ''} onChange={(e) => setDatosExt({ ...datosExt, institucionEducativa: e.target.value })} placeholder={T.ejUniversidadDel} className="h-8 text-sm" />
                     </div>
                   </div>
 
                   {datosExt.formaciones?.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">No se detectaron formaciones o certificaciones adicionales.</p>
+                    <p className="text-xs text-muted-foreground italic">{T.noSeDetectaron}</p>
                   ) : (
                     datosExt.formaciones?.map((f, idx) => (
                       <div key={idx} className="flex items-center gap-2 rounded-lg border border-border p-2 bg-secondary/10 text-sm">
@@ -972,26 +1368,26 @@ export default function HojasDeVidaPage() {
                           fms[idx] = { ...fms[idx], tipo: e.target.value }
                           setDatosExt({ ...datosExt, formaciones: fms })
                         }} className="h-8 text-xs rounded border border-input bg-background px-2">
-                          <option value="EDUCACION">Educación</option>
-                          <option value="CERTIFICACION">Certificación</option>
-                          <option value="CURSO">Curso</option>
-                          <option value="DIPLOMADO">Diplomado</option>
+                          <option value="EDUCACION">{T.educacion}</option>
+                          <option value="CERTIFICACION">{T.certificacion}</option>
+                          <option value="CURSO">{T.curso}</option>
+                          <option value="DIPLOMADO">{T.diplomado}</option>
                         </select>
                         <Input value={f.programa} onChange={(e) => {
                           const fms = [...datosExt.formaciones]
                           fms[idx] = { ...fms[idx], programa: e.target.value }
                           setDatosExt({ ...datosExt, formaciones: fms })
-                        }} placeholder="Programa" className="h-8 text-sm flex-1" />
+                        }} placeholder={C.programa} className="h-8 text-sm flex-1" />
                         <Input value={f.institucion} onChange={(e) => {
                           const fms = [...datosExt.formaciones]
                           fms[idx] = { ...fms[idx], institucion: e.target.value }
                           setDatosExt({ ...datosExt, formaciones: fms })
-                        }} placeholder="Institución" className="h-8 text-sm flex-1" />
+                        }} placeholder={C.institucion} className="h-8 text-sm flex-1" />
                         <Input value={f.fechaFin ?? ''} onChange={(e) => {
                           const fms = [...datosExt.formaciones]
                           fms[idx] = { ...fms[idx], fechaFin: e.target.value }
                           setDatosExt({ ...datosExt, formaciones: fms })
-                        }} placeholder="Año" className="h-8 text-xs w-20" />
+                        }} placeholder={T.ano} className="h-8 text-xs w-20" />
                         <button type="button" onClick={() => {
                           const fms = datosExt.formaciones.filter((_, i) => i !== idx)
                           setDatosExt({ ...datosExt, formaciones: fms })
@@ -1014,24 +1410,24 @@ export default function HojasDeVidaPage() {
         <div className="flex flex-col gap-4">
           <Card className="rounded-lg border-border shadow-none">
             <CardHeader>
-              <CardTitle className="text-base">Edición de hoja de vida</CardTitle>
+              <CardTitle className="text-base">{T.edicionDeHoja}</CardTitle>
               <CardDescription>
-                Selecciona un estudiante para analizar su perfil, completar campos faltantes y generar su HV con la plantilla CAC ATS.
+                {T.seleccionaUnEstudiantePara}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] uppercase tracking-wider text-muted-foreground">Programa</label>
+                  <label className="text-[11px] uppercase tracking-wider text-muted-foreground">{C.programa}</label>
                   <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={editPrograma} onChange={(e) => { setEditPrograma(e.target.value); setEditEstudianteId(''); setAnalisis(null) }}>
-                    <option value="">Selecciona un programa</option>
+                    <option value="">{T.seleccionaUnPrograma}</option>
                     {programas.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] uppercase tracking-wider text-muted-foreground">Estudiante</label>
+                  <label className="text-[11px] uppercase tracking-wider text-muted-foreground">{T.estudiante}</label>
                   <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={editEstudianteId} onChange={(e) => { setEditEstudianteId(e.target.value); setAnalisis(null) }} disabled={!editPrograma}>
-                    <option value="">Selecciona un estudiante</option>
+                    <option value="">{T.seleccionaUnEstudiante}</option>
                     {editEstudiantes.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
                   </select>
                 </div>
@@ -1051,7 +1447,7 @@ export default function HojasDeVidaPage() {
                     }
                     setEditFormData(form)
                   } catch (err) {
-                    setEditError(errorDe(err, 'Error al analizar el perfil'))
+                    setEditError(errorDe(err, T.errorAlAnalizar))
                   } finally { setAnalizando(false) }
                 }} disabled={analizando || !editEstudianteId}>
                   {analizando ? <><CircleNotch className="size-4 animate-spin" /> Analizando…</> : <><ListChecks className="size-4" /> Analizar perfil</>}
@@ -1072,7 +1468,7 @@ export default function HojasDeVidaPage() {
                 <CardContent className="pt-4 pb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Globe className="size-4 text-primary" /> Idioma del PDF:
+                      <Globe className="size-4 text-primary" /> {T.idiomaDelPdf}
                     </span>
                     <div className="inline-flex rounded-lg border border-border p-0.5 bg-background gap-0.5">
                       <button
@@ -1082,7 +1478,7 @@ export default function HojasDeVidaPage() {
                           editIdioma === 'es' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        🇪🇸 Español (ES)
+                        {T.espanolEs}
                       </button>
                       <button
                         type="button"
@@ -1091,7 +1487,7 @@ export default function HojasDeVidaPage() {
                           editIdioma === 'en' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        🇬🇧 Inglés (EN)
+                        {T.inglesEn}
                       </button>
                     </div>
                   </div>
@@ -1108,7 +1504,7 @@ export default function HojasDeVidaPage() {
                       const apNom = typeof analisis.datosEstudiante.nombre === 'string' ? analisis.datosEstudiante.nombre : 'estudiante'
                       await hvApi.descargarPdf(hv.id, `HV-${apNom}-${editIdioma.toUpperCase()}.pdf`)
                     } catch (err) {
-                      setEditError(errorDe(err, 'Error al generar la HV'))
+                      setEditError(errorDe(err, T.errorAlGenerar))
                     } finally { setGenerandoEdit(false) }
                   }} disabled={generandoEdit}>
                     {generandoEdit ? (
@@ -1127,13 +1523,13 @@ export default function HojasDeVidaPage() {
                 <CardContent className="pt-5">
                   <VistaPreviaPdf
                     cargar={cargarPreviewEstudiante}
-                    titulo="Vista previa de la hoja de vida"
-                    descripcion="Refleja los datos guardados del estudiante. Las secciones que retires abajo se aplican al generar el PDF definitivo."
+                    titulo={T.vistaPreviaDe}
+                    descripcion={T.reflejaLosDatos}
                     altura="38rem"
                   />
                   <div className="mt-2 flex justify-end">
                     <Button variant="ghost" size="sm" onClick={() => setRevisionPreview((n) => n + 1)}>
-                      <ArrowsClockwise className="size-3.5" /> Volver a generar la vista previa
+                      <ArrowsClockwise className="size-3.5" /> {T.volverAGenerar}
                     </Button>
                   </div>
                 </CardContent>
@@ -1143,7 +1539,7 @@ export default function HojasDeVidaPage() {
               <Card className="rounded-lg border-border shadow-none">
                 <CardContent className="pt-5 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">Completitud general</span>
+                    <span className="text-sm font-medium text-foreground">{T.completitudGeneral}</span>
                     <span className={`text-lg font-bold tabular-nums ${
                       analisis.porcentajeTotal >= 80 ? 'text-[#0F6E56]' : analisis.porcentajeTotal >= 50 ? 'text-navy-600' : 'text-destructive'
                     }`}>{analisis.porcentajeTotal}%</span>
@@ -1161,7 +1557,7 @@ export default function HojasDeVidaPage() {
                 const sectionKey = sec.id.toUpperCase()
                 const estaExcluidaSec = seccionesExcluidas.includes(sectionKey)
                 const esRepetible = ['experience', 'education', 'certifications', 'achievements', 'skills', 'languages'].includes(sec.id)
-                const tituloEs = TITULOS_SECCIONES_ES[sec.titulo] || TITULOS_SECCIONES_ES[sec.id] || sec.titulo
+                const tituloEs = TITULOS[sec.titulo] || TITULOS[sec.id] || sec.titulo
 
                 return (
                   <Card key={sec.id} className={`rounded-lg border-border shadow-none transition-colors ${estaExcluidaSec ? 'border-destructive/30 bg-destructive/5' : ''}`}>
@@ -1173,7 +1569,7 @@ export default function HojasDeVidaPage() {
                           </CardTitle>
                           {estaExcluidaSec && (
                             <Badge className="bg-destructive/10 text-destructive border-none text-[10px]">
-                              Sección retirada del PDF
+                              {T.seccionRetiradaDel}
                             </Badge>
                           )}
                         </div>
@@ -1188,7 +1584,7 @@ export default function HojasDeVidaPage() {
                               type="button"
                               onClick={() => setModalAgregar(sec.id as any)}
                               className="inline-flex size-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 transition-colors shadow-sm"
-                              title={`Agregar más elementos a ${tituloEs} (+)`}
+                              title={T.agregarMasElementos(tituloEs)}
                             >
                               <Plus className="size-4" />
                             </button>
@@ -1203,7 +1599,7 @@ export default function HojasDeVidaPage() {
                                 ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                                 : 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-950/40 dark:text-rose-400'
                             }`}
-                            title={estaExcluidaSec ? `Incluir sección ${tituloEs} completa (+)` : `Retirar sección ${tituloEs} completa (-)`}
+                            title={estaExcluidaSec ? T.incluirSeccion(tituloEs) : T.retirarSeccion(tituloEs)}
                           >
                             {estaExcluidaSec ? <Plus className="size-4" /> : <Minus className="size-4" />}
                           </button>
@@ -1220,7 +1616,7 @@ export default function HojasDeVidaPage() {
                       <CardContent className="flex flex-col gap-3">
                         {sec.campos.map((c) => {
                           const fieldKey = c.placeholder.toUpperCase()
-                          const labelEs = ETIQUETAS_CAMPOS_ES[c.label] || ETIQUETAS_CAMPOS_ES[c.placeholder] || c.label
+                          const labelEs = ETIQUETAS[c.label] || ETIQUETAS[c.placeholder] || c.label
                           const estaExcluidoFld = camposExcluidos.includes(fieldKey) ||
                             (fieldKey === 'LINKEDIN_URL' && camposExcluidos.includes('LINKEDIN')) ||
                             (fieldKey === 'CITY_COUNTRY' && camposExcluidos.includes('CITY'))
@@ -1243,7 +1639,7 @@ export default function HojasDeVidaPage() {
                                       ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400'
                                       : 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-950/40 dark:text-rose-400'
                                   }`}
-                                  title={estaExcluidoFld ? `Incluir campo ${labelEs} en el PDF (+)` : `Retirar campo ${labelEs} del PDF (-)`}
+                                  title={estaExcluidoFld ? T.incluirCampo(labelEs) : T.retirarCampo(labelEs)}
                                 >
                                   {estaExcluidoFld ? <Plus className="size-3.5" /> : <Minus className="size-3.5" />}
                                 </button>
@@ -1251,7 +1647,7 @@ export default function HojasDeVidaPage() {
                               <Input
                                 value={editFormData[c.placeholder] ?? c.valorActual ?? ''}
                                 onChange={(e) => setEditFormData((prev) => ({ ...prev, [c.placeholder]: e.target.value }))}
-                                placeholder={c.completo ? 'Completado automáticamente' : `Ingresa ${labelEs.toLowerCase()}`}
+                                placeholder={c.completo ? T.completadoAutomaticamente : T.ingresaX(labelEs.toLowerCase())}
                                 className={`h-8 text-sm transition-all ${
                                   estaExcluidoFld
                                     ? 'opacity-40 bg-secondary/50 line-through'
@@ -1275,12 +1671,12 @@ export default function HojasDeVidaPage() {
                     <CardHeader className="flex flex-row items-center justify-between pb-3">
                       <CardTitle className="text-base">
                         {modalAgregar === 'experience'
-                          ? 'Agregar Experiencia Laboral'
+                          ? T.agregarExperienciaLaboral
                           : modalAgregar === 'skills'
-                          ? 'Agregar Habilidad Técnica / Competencia'
+                          ? T.agregarHabilidadTecnica
                           : modalAgregar === 'languages'
-                          ? 'Agregar Idioma y Nivel'
-                          : 'Agregar Formación / Certificación'}
+                          ? T.agregarIdiomaY
+                          : T.agregarFormacionCertificacion}
                       </CardTitle>
                       <button
                         type="button"
@@ -1295,41 +1691,41 @@ export default function HojasDeVidaPage() {
                         {modalAgregar === 'experience' ? (
                           <>
                             <div className="flex flex-col gap-1">
-                              <label className="text-xs font-medium text-muted-foreground">Cargo *</label>
+                              <label className="text-xs font-medium text-muted-foreground">{T.cargo}</label>
                               <Input
                                 value={nuevoCargo}
                                 onChange={(e) => setNuevoCargo(e.target.value)}
-                                placeholder="Ej: Desarrollador Backend Junior"
+                                placeholder={T.ejDesarrolladorBackend}
                                 className="h-8 text-sm"
                                 required
                               />
                             </div>
                             <div className="flex flex-col gap-1">
-                              <label className="text-xs font-medium text-muted-foreground">Empresa / Organización *</label>
+                              <label className="text-xs font-medium text-muted-foreground">{T.empresaOrganizacion}</label>
                               <Input
                                 value={nuevaEmpresa}
                                 onChange={(e) => setNuevaEmpresa(e.target.value)}
-                                placeholder="Ej: Tech Solutions S.A.S."
+                                placeholder={T.ejTechSolutions}
                                 className="h-8 text-sm"
                                 required
                               />
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               <div className="flex flex-col gap-1">
-                                <label className="text-xs font-medium text-muted-foreground">Fecha inicio</label>
+                                <label className="text-xs font-medium text-muted-foreground">{T.fechaInicioX}</label>
                                 <Input
                                   value={nuevaFechaInicio}
                                   onChange={(e) => setNuevaFechaInicio(e.target.value)}
-                                  placeholder="Ej: Ene 2023"
+                                  placeholder={T.ejEne2023}
                                   className="h-8 text-sm"
                                 />
                               </div>
                               <div className="flex flex-col gap-1">
-                                <label className="text-xs font-medium text-muted-foreground">Fecha fin</label>
+                                <label className="text-xs font-medium text-muted-foreground">{T.fechaFinX}</label>
                                 <Input
                                   value={nuevaFechaFin}
                                   onChange={(e) => setNuevaFechaFin(e.target.value)}
-                                  placeholder="Ej: Presente"
+                                  placeholder={T.ejPresente}
                                   className="h-8 text-sm"
                                 />
                               </div>
@@ -1339,29 +1735,29 @@ export default function HojasDeVidaPage() {
                               <Textarea
                                 value={nuevasFunciones}
                                 onChange={(e) => setNuevasFunciones(e.target.value)}
-                                placeholder="Describe tus responsabilidades y logros medibles"
+                                placeholder={T.describeTusResponsabilidades}
                                 className="min-h-[70px] w-full rounded-md border border-input bg-background p-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                               />
                             </div>
                           </>
                         ) : modalAgregar === 'skills' ? (
                           <div className="flex flex-col gap-1">
-                            <label className="text-xs font-medium text-muted-foreground">Habilidad Técnica / Competencia *</label>
+                            <label className="text-xs font-medium text-muted-foreground">{T.habilidadTecnicaCompetencia}</label>
                             <Input
                               value={nuevaSkill}
                               onChange={(e) => setNuevaSkill(e.target.value)}
-                              placeholder="Ej: Python, Docker, React, Análisis de Datos"
+                              placeholder={T.ejPythonDocker}
                               className="h-8 text-sm"
                               required
                             />
                           </div>
                         ) : modalAgregar === 'languages' ? (
                           <div className="flex flex-col gap-1">
-                            <label className="text-xs font-medium text-muted-foreground">Idioma y Nivel *</label>
+                            <label className="text-xs font-medium text-muted-foreground">{T.idiomaYNivel}</label>
                             <Input
                               value={nuevoIdioma}
                               onChange={(e) => setNuevoIdioma(e.target.value)}
-                              placeholder="Ej: Inglés (B2 Intermedio-Alto)"
+                              placeholder={T.ejInglesB2}
                               className="h-8 text-sm"
                               required
                             />
@@ -1369,44 +1765,44 @@ export default function HojasDeVidaPage() {
                         ) : (
                           <>
                             <div className="flex flex-col gap-1">
-                              <label className="text-xs font-medium text-muted-foreground">Tipo de Formación</label>
+                              <label className="text-xs font-medium text-muted-foreground">{T.tipoDeFormacion}</label>
                               <select
                                 value={nuevoTipoFormacion}
                                 onChange={(e) => setNuevoTipoFormacion(e.target.value)}
                                 className="h-8 rounded-md border border-input bg-background px-2 text-sm"
                               >
-                                <option value="CERTIFICACION">Certificación</option>
-                                <option value="CURSO">Curso</option>
-                                <option value="DIPLOMADO">Diplomado</option>
-                                <option value="UNIVERSITARIA">Universitaria / Pregrado</option>
+                                <option value="CERTIFICACION">{T.certificacion}</option>
+                                <option value="CURSO">{T.curso}</option>
+                                <option value="DIPLOMADO">{T.diplomado}</option>
+                                <option value="UNIVERSITARIA">{T.universitariaPregrado}</option>
                               </select>
                             </div>
                             <div className="flex flex-col gap-1">
-                              <label className="text-xs font-medium text-muted-foreground">Programa / Certificado *</label>
+                              <label className="text-xs font-medium text-muted-foreground">{T.programaCertificado}</label>
                               <Input
                                 value={nuevoPrograma}
                                 onChange={(e) => setNuevoPrograma(e.target.value)}
-                                placeholder="Ej: AWS Certified Cloud Practitioner"
+                                placeholder={T.ejAwsCertified}
                                 className="h-8 text-sm"
                                 required
                               />
                             </div>
                             <div className="flex flex-col gap-1">
-                              <label className="text-xs font-medium text-muted-foreground">Institución *</label>
+                              <label className="text-xs font-medium text-muted-foreground">{T.institucion}</label>
                               <Input
                                 value={nuevaInstitucion}
                                 onChange={(e) => setNuevaInstitucion(e.target.value)}
-                                placeholder="Ej: Amazon Web Services / Universidad"
+                                placeholder={T.ejAmazonWeb}
                                 className="h-8 text-sm"
                                 required
                               />
                             </div>
                             <div className="flex flex-col gap-1">
-                              <label className="text-xs font-medium text-muted-foreground">Año / Fecha de obtención</label>
+                              <label className="text-xs font-medium text-muted-foreground">{T.anoFechaDe}</label>
                               <Input
                                 value={nuevaFechaFin}
                                 onChange={(e) => setNuevaFechaFin(e.target.value)}
-                                placeholder="Ej: 2024"
+                                placeholder={T.ej2024}
                                 className="h-8 text-sm"
                               />
                             </div>
@@ -1422,7 +1818,7 @@ export default function HojasDeVidaPage() {
                             Cancelar
                           </Button>
                           <Button type="submit" disabled={guardandoItem} className="h-8 text-xs">
-                            {guardandoItem ? <><CircleNotch className="size-3.5 animate-spin" /> Guardando…</> : 'Guardar y agregar'}
+                            {guardandoItem ? <><CircleNotch className="size-3.5 animate-spin" /> Guardando…</> : T.guardarYAgregar}
                           </Button>
                         </div>
                       </CardContent>
@@ -1455,6 +1851,7 @@ export default function HojasDeVidaPage() {
           )}
         </div>
       )}
+      {dialogo}
     </div>
   )
 }

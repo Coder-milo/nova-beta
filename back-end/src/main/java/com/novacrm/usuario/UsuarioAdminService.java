@@ -38,7 +38,7 @@ public class UsuarioAdminService {
 
     @Transactional
     public UsuarioResponse crear(UsuarioRequest request) {
-        if (usuarioRepository.existsByEmail(request.email())) {
+        if (usuarioRepository.existsByEmailIgnoreCase(request.email())) {
             throw new BusinessException("Ya existe un usuario con el email: " + request.email());
         }
         Usuario usuario = new Usuario();
@@ -63,7 +63,10 @@ public class UsuarioAdminService {
             usuario.setActivo(request.activo());
         }
         if (request.password() != null && !request.password().isBlank()) {
-            usuario.setPassword(passwordEncoder.encode(request.password()));
+            // cambiarPassword y no setPassword: si un administrador cambia la
+            // contrasena de alguien es porque esa cuenta ya no es de fiar, y
+            // dejarle la sesion abierta vacia el gesto.
+            usuario.cambiarPassword(passwordEncoder.encode(request.password()));
         }
         return toResponse(usuarioRepository.save(usuario));
     }

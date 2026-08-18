@@ -19,23 +19,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ArrowsClockwiseIcon as ArrowsClockwise,
-  BankIcon as Bank,
-  CertificateIcon as Certificate,
-  CheckCircleIcon as CheckCircle,
-  CircleNotchIcon as CircleNotch,
-  FloppyDiskIcon as FloppyDisk,
-  GlobeIcon as Globe,
-  IdentificationCardIcon as IdentificationCard,
-  InfoIcon as Info,
-  InstagramLogoIcon as InstagramLogo,
-  LinkedinLogoIcon as LinkedinLogo,
-  MapPinIcon as MapPin,
-  PhoneIcon as Phone,
-  WarningCircleIcon as WarningCircle,
-  WhatsappLogoIcon as WhatsappLogo,
-} from '@phosphor-icons/react'
+import { Award as Certificate, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Globe, IdCard as IdentificationCard, Info, Landmark as Bank, LoaderCircle as CircleNotch, MapPin, Phone, RefreshCw as ArrowsClockwise, Save as FloppyDisk } from 'lucide-react'
+import { InstagramLogo, LinkedinLogo, WhatsappLogo } from '@/components/ui/iconos-de-marca'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -43,6 +28,8 @@ import { FieldLabel, SettingsSection } from '@/components/admin/settings-section
 import { configuracionApi } from '@/lib/api'
 import { errorDeGestion } from '@/lib/errores'
 import type { ConfiguracionGlobalResponse } from '@/lib/types'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 const CLAVE_LEGADA = 'nova_inst_config'
 
@@ -100,7 +87,54 @@ function delNavegador(): Partial<Formulario> | null {
   }
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        estosDatosVienen: 'This data comes from the previous version, which kept it only in this browser. Save it to upload it to the server so the whole team can see it.',
+        datosOficialesDe: 'Official institution data, stored on the server and shared across the team.',
+        todaviaNoHay: 'There is no institution data stored on the server yet.',
+        datosInstitucionalesGuardados: 'Institution data stored on the server.',
+        datosQueIdentifican: 'Data that officially identifies the institution.',
+        mediosDeAtencion: 'Support channels for students and companies.',
+        nombreOficialDe: 'Official name of the institution',
+        nitIdentificacionTributaria: 'Tax ID',
+        registroEducativoO: 'Education registration or licence',
+        direccionDeLa: 'Main site address',
+        correoDeEmpleabilidad: 'Employability email',
+        identidadLegalY: 'Legal identity and site',
+        canalesDeContacto: 'Contact channels',
+        resolucionSed: 'SED resolution…',
+        telefonoPbx: 'Switchboard number',
+      }
+    : {
+        estosDatosVienen: 'Estos datos vienen de la versión anterior, que los guardaba solo en este navegador. Guarda para subirlos al servidor y que los vea todo el equipo.',
+        datosOficialesDe: 'Datos oficiales de la institución, guardados en el servidor y compartidos por todo el equipo.',
+        todaviaNoHay: 'Todavía no hay datos institucionales guardados en el servidor.',
+        datosInstitucionalesGuardados: 'Datos institucionales guardados en el servidor.',
+        datosQueIdentifican: 'Datos que identifican oficialmente a la institución.',
+        mediosDeAtencion: 'Medios de atención para estudiantes y empresas.',
+        nombreOficialDe: 'Nombre oficial de la institución',
+        nitIdentificacionTributaria: 'NIT / Identificación tributaria',
+        registroEducativoO: 'Registro educativo o licencia',
+        direccionDeLa: 'Dirección de la sede principal',
+        correoDeEmpleabilidad: 'Correo de empleabilidad',
+        identidadLegalY: 'Identidad legal y sede',
+        canalesDeContacto: 'Canales de contacto',
+        resolucionSed: 'Resolución SED…',
+        telefonoPbx: 'Teléfono PBX',
+      }
+}
+
 export function PanelInstitucion() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [config, setConfig] = useState<ConfiguracionGlobalResponse | null>(null)
   const [form, setForm] = useState<Formulario>(VACIO)
   const [cargando, setCargando] = useState(true)
@@ -179,14 +213,11 @@ export function PanelInstitucion() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-3">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-blue-400 text-primary-foreground shadow-[0_10px_24px_-12px_rgba(18,104,232,0.8)]">
-                <Bank className="size-5" weight="duotone" />
+                <Bank className="size-5" />
               </span>
               <div>
                 <CardTitle className="text-lg">Perfil institucional</CardTitle>
-                <CardDescription className="mt-1 max-w-2xl leading-relaxed">
-                  Datos oficiales de la institución, guardados en el servidor y compartidos
-                  por todo el equipo.
-                </CardDescription>
+                <CardDescription className="mt-1 max-w-2xl leading-relaxed">{T.datosOficialesDe}</CardDescription>
               </div>
             </div>
             <div className="flex items-center gap-2 self-start">
@@ -218,36 +249,33 @@ export function PanelInstitucion() {
           {guardado && (
             <div role="status" className="flex items-center gap-3 rounded-2xl border border-green-500/25 bg-green-500/10 px-4 py-3 text-sm font-medium text-green-700 dark:text-green-300">
               <span className="flex size-8 items-center justify-center rounded-full bg-green-500/15">
-                <CheckCircle className="size-4 shrink-0" weight="fill" />
+                <CheckCircle className="size-4 shrink-0" />
               </span>
-              <span>Datos institucionales guardados en el servidor.</span>
+              <span>{T.datosInstitucionalesGuardados}</span>
             </div>
           )}
 
           {vieneDelNavegador && !guardado && (
             <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-300/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
               <Info className="mt-0.5 size-4 shrink-0" />
-              <span>
-                Estos datos vienen de la versión anterior, que los guardaba solo en este
-                navegador. Guarda para subirlos al servidor y que los vea todo el equipo.
-              </span>
+              <span>{T.estosDatosVienen}</span>
             </div>
           )}
 
           {!cargando && config && !config.guardado && !vieneDelNavegador && (
             <p className="rounded-2xl border border-border bg-secondary/30 px-4 py-3 text-xs text-muted-foreground">
-              Todavía no hay datos institucionales guardados en el servidor.
+              {T.todaviaNoHay}
             </p>
           )}
 
           <SettingsSection
             icon={IdentificationCard}
-            title="Identidad legal y sede"
-            description="Datos que identifican oficialmente a la institución."
+            title={T.identidadLegalY}
+            description={T.datosQueIdentifican}
           >
             <div className="grid gap-x-4 gap-y-5 md:grid-cols-2">
               <div className="flex flex-col gap-2 md:col-span-2">
-                <FieldLabel>Nombre oficial de la institución</FieldLabel>
+                <FieldLabel>{T.nombreOficialDe}</FieldLabel>
                 <Input
                   className="h-11"
                   value={form.nombreOficial}
@@ -258,7 +286,7 @@ export function PanelInstitucion() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <FieldLabel>NIT / Identificación tributaria</FieldLabel>
+                <FieldLabel>{T.nitIdentificacionTributaria}</FieldLabel>
                 <div className="relative">
                   <Certificate className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -272,20 +300,20 @@ export function PanelInstitucion() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <FieldLabel>Registro educativo o licencia</FieldLabel>
+                <FieldLabel>{T.registroEducativoO}</FieldLabel>
                 <Input
                   className="h-11"
                   value={form.registroEducativo}
                   onChange={(e) => editar('registroEducativo', e.target.value)}
-                  placeholder="Resolución SED…"
+                  placeholder={T.resolucionSed}
                   disabled={cargando}
                 />
               </div>
 
               <div className="flex flex-col gap-2 md:col-span-2">
-                <FieldLabel>Dirección de la sede principal</FieldLabel>
+                <FieldLabel>{T.direccionDeLa}</FieldLabel>
                 <div className="relative">
-                  <MapPin className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-primary" weight="duotone" />
+                  <MapPin className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-primary" />
                   <Input
                     className="h-11 pl-10"
                     value={form.sedePrincipal}
@@ -301,12 +329,12 @@ export function PanelInstitucion() {
           <div className="grid gap-5 xl:grid-cols-2">
             <SettingsSection
               icon={Phone}
-              title="Canales de contacto"
-              description="Medios de atención para estudiantes y empresas."
+              title={T.canalesDeContacto}
+              description={T.mediosDeAtencion}
             >
               <div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
-                  <FieldLabel>Teléfono PBX</FieldLabel>
+                  <FieldLabel>{T.telefonoPbx}</FieldLabel>
                   <Input
                     className="h-11"
                     value={form.telefonoContacto}
@@ -319,7 +347,7 @@ export function PanelInstitucion() {
                 <div className="flex flex-col gap-2">
                   <FieldLabel>WhatsApp institucional</FieldLabel>
                   <div className="relative">
-                    <WhatsappLogo className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-green-500" weight="fill" />
+                    <WhatsappLogo className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-green-500" />
                     <Input
                       className="h-11 pl-10"
                       value={form.whatsappSoporte}
@@ -347,7 +375,7 @@ export function PanelInstitucion() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <FieldLabel>Correo de empleabilidad</FieldLabel>
+                  <FieldLabel>{T.correoDeEmpleabilidad}</FieldLabel>
                   <Input
                     className="h-11"
                     type="email"
@@ -369,7 +397,7 @@ export function PanelInstitucion() {
                 <div className="flex flex-col gap-2">
                   <FieldLabel>Sitio web oficial</FieldLabel>
                   <div className="relative">
-                    <Globe className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-primary" weight="duotone" />
+                    <Globe className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-primary" />
                     <Input
                       className="h-11 pl-10"
                       value={form.sitioWeb}
@@ -383,7 +411,7 @@ export function PanelInstitucion() {
                 <div className="flex flex-col gap-2">
                   <FieldLabel>LinkedIn institucional</FieldLabel>
                   <div className="relative">
-                    <LinkedinLogo className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-[#0A66C2]" weight="fill" />
+                    <LinkedinLogo className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-[#0A66C2]" />
                     <Input
                       className="h-11 pl-10"
                       value={form.linkedinUrl}
@@ -397,7 +425,7 @@ export function PanelInstitucion() {
                 <div className="flex flex-col gap-2">
                   <FieldLabel>Instagram institucional</FieldLabel>
                   <div className="relative">
-                    <InstagramLogo className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-fuchsia-500" weight="duotone" />
+                    <InstagramLogo className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-fuchsia-500" />
                     <Input
                       className="h-11 pl-10"
                       value={form.instagramUrl}

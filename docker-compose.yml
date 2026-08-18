@@ -75,6 +75,10 @@ services:
       CORREO_LOGO_URL: ${CORREO_LOGO_URL:-}
       CORREO_BANNER_PIE_URL: ${CORREO_BANNER_PIE_URL:-}
       CORREO_DESTINATARIOS_PERMITIDOS: ${CORREO_DESTINATARIOS_PERMITIDOS:-}
+      # Cuantas ofertas por hora acepta el formulario publico desde una misma
+      # direccion. Se deja regulable porque depende de cuanto se difunda.
+      RATE_LIMIT_PUBLICO_MAX: ${RATE_LIMIT_PUBLICO_MAX:-3}
+      RATE_LIMIT_PUBLICO_WINDOW_MINUTES: ${RATE_LIMIT_PUBLICO_WINDOW_MINUTES:-60}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODELO: ${GROQ_MODELO:-llama-3.3-70b-versatile}
     ports:

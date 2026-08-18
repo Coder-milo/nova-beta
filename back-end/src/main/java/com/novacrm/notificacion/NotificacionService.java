@@ -21,6 +21,7 @@ public class NotificacionService {
 
     /** Anuncio general del coordinador (feria de empleo, convocatoria, aviso). */
     public static final String TIPO_ANUNCIO = "ANUNCIO";
+    private static final String TIPO_CHAT = "CHAT";
 
     private final NotificacionRepository notificacionRepository;
     private final MatchRepository matchRepository;
@@ -49,17 +50,20 @@ public class NotificacionService {
      *
      * @param porWhatsapp si ademas se avisa por WhatsApp; solo cuando el canal
      *                    del programa esta activo y la plantilla aprobada
-     * @return cuantos destinatarios recibieron el anuncio
+     * @return cuantos recibieron el anuncio en el panel y cuantos ademas por
+     *         WhatsApp, que no tienen por que coincidir
      */
+    public record ResultadoAnuncio(int destinatarios, int porWhatsapp) {}
+
     @Transactional
-    public int publicarAnuncio(String titulo, String mensaje, UUID programaId,
+    public ResultadoAnuncio publicarAnuncio(String titulo, String mensaje, UUID programaId,
                                String mediaUrl, String mediaTipo, boolean porWhatsapp) {
         var destinatarios = programaId == null
                 ? estudianteRepository.findAllByActivoTrue()
                 : estudianteRepository.findAllByProgramaIdAndActivoTrue(programaId);
 
         if (destinatarios.isEmpty()) {
-            return 0;
+            return new ResultadoAnuncio(0, 0);
         }
 
         var notificaciones = destinatarios.stream().map(estudiante -> {
@@ -77,14 +81,17 @@ public class NotificacionService {
 
         // Opt-in por anuncio: el coordinador decide en cada publicacion si
         // ademas del panel quiere llegar al celular de la gente.
+        int enviadosPorWhatsapp = 0;
         if (porWhatsapp) {
             for (var estudiante : destinatarios) {
-                whatsappAvisosService.avisarAnuncio(estudiante, titulo,
-                        com.novacrm.config.TextoPlano.deHtml(mensaje));
+                if (whatsappAvisosService.avisarAnuncio(estudiante, titulo,
+                        com.novacrm.config.TextoPlano.deHtml(mensaje))) {
+                    enviadosPorWhatsapp++;
+                }
             }
         }
 
-        return notificaciones.size();
+        return new ResultadoAnuncio(notificaciones.size(), enviadosPorWhatsapp);
     }
 
     public Page<NotificacionResponse> obtenerNotificaciones(UUID estudianteId, Pageable pageable) {
@@ -204,6 +211,57 @@ public class NotificacionService {
         notificacion.setTitulo(ordenados.size() + " vacantes recomendadas");
         notificacion.setMensaje(mensaje);
         return notificacion;
+    }
+
+    /**
+     * Avisa de que un companero escribio.
+     *
+     * <p>Sin esto el chat entre estudiantes era de una sola direccion: llegaba
+     * el mensaje y el destinatario no se enteraba salvo que buscara a esa
+     * persona y abriera la conversacion por su cuenta.
+     *
+     * <p>Uno por conversacion mientras no se lea, no uno por mensaje. Veinte
+     * frases seguidas no son veinte noticias, y llenar la campana con ellas
+     * tapa las alertas del programa. Es la misma leccion que ya se aprendio
+     * con los avisos de match.
+     *
+     * @param remitenteId de quien viene, y a la vez la referencia que agrupa
+     */
+    @Transactional
+    public void registrarMensajeDeCompanero(Estudiante destinatario, UUID remitenteId, String nombreRemitente) {
+        String referencia = remitenteId.toString();
+        if (notificacionRepository.existsByEstudianteIdAndTipoAndReferenciaIdAndLeidaFalse(
+                destinatario.getId(), TIPO_CHAT, referencia)) {
+            return;
+        }
+        var notificacion = new Notificacion();
+        notificacion.setEstudiante(destinatario);
+        notificacion.setTitulo("Mensaje de " + nombreRemitente);
+        notificacion.setMensaje("Te escribio por el chat. Abre la conversacion para responderle.");
+        notificacion.setTipo(TIPO_CHAT);
+        notificacion.setReferenciaId(referencia);
+        notificacionRepository.save(notificacion);
+    }
+
+    /**
+     * Da por leidos los avisos de chat de una conversacion.
+     *
+     * <p>Lo llama el chat al abrir la conversacion, y no es un adorno: como solo
+     * se crea un aviso por contacto mientras haya uno sin leer, el aviso que se
+     * queda pendiente para siempre deja de ser un aviso y pasa a ser un tapon.
+     * El estudiante ve un numero en la campana que leer el chat no baja, y al
+     * mismo tiempo los mensajes siguientes de esa persona ya no avisan de nada.
+     */
+    @Transactional
+    public void marcarLeidosLosAvisosDeChat(UUID estudianteId, UUID contactoId) {
+        var pendientes = notificacionRepository
+                .findByEstudianteIdAndTipoAndReferenciaIdAndLeidaFalse(
+                        estudianteId, TIPO_CHAT, contactoId.toString());
+        if (pendientes.isEmpty()) return;
+        for (var notificacion : pendientes) {
+            notificacion.setLeida(true);
+        }
+        notificacionRepository.saveAll(pendientes);
     }
 
     /** Registra en la bandeja del estudiante cada mensaje enviado por el equipo. */

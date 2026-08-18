@@ -1,10 +1,12 @@
 package com.novacrm.excel;
 
 import com.novacrm.catalogo.nivel_ingles.NivelInglesRepository;
+import com.novacrm.estudiante.EstadoHito;
 import com.novacrm.estudiante.Estudiante;
 import com.novacrm.estudiante.EstudianteRepository;
 import com.novacrm.excel.dto.ImportPreviewResponse;
 import com.novacrm.excel.dto.ImportacionHistorialResponse;
+import com.novacrm.excel.libro.DeteccionDeCabecera;
 import com.novacrm.exception.BusinessException;
 import com.novacrm.programa.Programa;
 import com.novacrm.programa.ProgramaRepository;
@@ -43,10 +45,7 @@ public class ExcelService {
         "7.5 Acceso a equipo prestado...",
         "9.2 Disposicion a asumir gastos migratorios",
         "10.1 Autorizas uso de datos (Prototipo NOVA)",
-        "ID_Participante",
-        "HV_Revisada",
-        "LinkedIn_Optimizado",
-        "Simulacro_Entrevista"
+        "ID_Participante"
     );
 
     private static final int MAX_FILAS = 5000;
@@ -86,31 +85,51 @@ public class ExcelService {
     private static Map<String, String> buildBBDDMap() {
         var m = new LinkedHashMap<String, String>();
         m.put("3.9 Correo electronico", "email");
+        m.put("3.9 Correo electrónico", "email");
         m.put("3.1 Nombre (s)", "nombre");
         m.put("3.2 Apellido (s)", "apellido");
         m.put("3.3 Tipo de documento", "tipoDocumento");
         m.put("3.4 Numero de documento", "numeroDocumento");
+        m.put("3.4 Número de documento", "numeroDocumento");
         m.put("3.6 Fecha de nacimiento", "fechaNacimiento");
         m.put("3.7 Genero", "genero");
+        m.put("3.7 Género", "genero");
         m.put("3.8 Celular (WhatsApp activo)", "celular");
         m.put("3.10 Ciudad de residencia", "ciudad");
         m.put("3.12 Barrio", "barrio");
         m.put("4.1 Cual es tu clasificacion en SISBEN IV?", "clasificacionSisben");
+        m.put("4.1 ¿Cuál es tu clasificación en SISBEN IV?", "clasificacionSisben");
         m.put("4.2 Actualmente, Cual es tu situacion laboral?", "situacionLaboral");
+        m.put("4.2 Actualmente, ¿Cuál es tu situación laboral?", "situacionLaboral");
         m.put("4.3 Cuanto tiempo de experiencia laboral tienes en total?", "aniosExperiencia");
+        m.put("4.3 ¿Cuánto tiempo de experiencia laboral tienes en total?", "aniosExperiencia");
         m.put("4.4 En cual de los siguientes sectores tienes mayor experiencia laboral o formacion principal?", "sectorExperiencia");
+        m.put("4.4 ¿En cuál de los siguientes sectores tienes mayor experiencia laboral o formación principal?", "sectorExperiencia");
         m.put("4.6 Si trabajas actualmente, cual es tu ingreso?", "ingresoMensual");
+        m.put("4.6 Si trabajas actualmente, ¿Cuál es tu ingreso mensual promedio?", "ingresoMensual");
         m.put("4.7 Eres responsable economicamente de otros?", "responsableEconomico");
+        m.put("4.7 ¿Eres responsable económicamente de otras personas?", "responsableEconomico");
         m.put("5.1 Nivel educativo alcanzado", "nivelEducativo");
         m.put("5.2 Mencione el titulo obtenido...", "titulo");
+        m.put("5.2 Mencione el titulo obtenido,  certificaciones de educación para el trabajo o no formal.", "titulo");
         m.put("5.3 Has trabajado antes?", "haTrabajado");
+        m.put("5.3 ¿Has trabajado antes?", "haTrabajado");
         m.put("5.4 Describe brevemente tu experiencia laboral", "perfilProfesional");
+        m.put("5.4 Si respondiste “Sí”, describe brevemente tu experiencia laboral (cargo, sector y tiempo)", "perfilProfesional");
         m.put("6.1 Cual consideras que es tu nivel actual de ingles?", "nivelIngles");
+        m.put("6.1¿Cuál consideras que es tu nivel actual de inglés?", "nivelIngles");
+        m.put("6.1 ¿Cuál consideras que es tu nivel actual de inglés?", "nivelIngles");
         m.put("7.1 Cual es tu principal motivacion...", "motivacion");
+        m.put("7.1 ¿Cuál es tu principal motivación para aplicar a este programa?", "motivacion");
         m.put("7.3 Tienes computador funcional?", "tieneComputador");
+        m.put("7.3 ¿Tienes computador funcional para clases virtuales?", "tieneComputador");
         m.put("7.4 Cuentas con conexion a internet estable?", "tieneInternet");
+        m.put("7.4 ¿Cuentas con conexión a internet estable?", "tieneInternet");
         m.put("8.1 En que tipo de oportunidades laborales...", "tipoOportunidad");
+        m.put("8.1 ¿En qué tipo de oportunidades laborales te gustaría trabajar?", "tipoOportunidad");
         m.put("9.1 Te interesaria migrar a otro pais?", "interesMigratorio");
+        m.put("9.1 ¿Te interesaría migrar y trabajar en otro país si se presenta una oportunidad formal y acompañada?", "interesMigratorio");
+        m.put("9.4 ¿Cuentas actualmente con pasaporte vigente y en condiciones aptas para iniciar un proceso de movilidad laboral internacional?", "disponibilidadMovilidad");
         m.put("3.5 Nacionalidad", "nacionalidad");
         m.put("Resultado Prueba Escrita", "resultadoPruebaEscrita");
         m.put("Resultado Prueba oral", "resultadoPruebaOral");
@@ -126,11 +145,14 @@ public class ExcelService {
         m.put("Correo", "email");
         m.put("Nivel_Ingles", "nivelIngles");
         m.put("Estado_Programa", "estadoPrograma");
+        m.put("Condicion_Estudio", "estadoFormacion");
         m.put("Nivel_Educativo", "nivelEducativo");
         m.put("Programa_Academico", "programaAcademico");
         m.put("Institucion_Educativa", "institucionEducativa");
         m.put("Area_Formacion", "areaFormacion");
         m.put("Estado_Formacion", "estadoFormacion");
+        m.put("Semestre_Actual", "observaciones");
+        m.put("Fecha_Estimada_Graduacion", "observaciones");
         m.put("Tiene_Experiencia", "haTrabajado");
         m.put("Anos_Experiencia", "aniosExperiencia");
         m.put("Ultimo_Cargo", "ultimoCargo");
@@ -139,6 +161,9 @@ public class ExcelService {
         m.put("Sector_Objetivo", "sectorObjetivo");
         m.put("Cargo_Objetivo", "cargoObjetivo");
         m.put("Disponibilidad_Laboral", "disponibilidadLaboral");
+        m.put("HV_Revisada", "cvListo");
+        m.put("LinkedIn_Optimizado", "linkedinOptimizado");
+        m.put("Simulacro_Entrevista", "observaciones");
         m.put("Postulaciones_Enviadas", "postulacionesEnviadas");
         m.put("Empresas_Contactadas", "empresasContactadas");
         m.put("Estado_Busqueda", "estadoBusqueda");
@@ -164,7 +189,7 @@ public class ExcelService {
         List<String> columnasDetectadas = datos.columnasDetectadas();
         List<FilaImportada> filas = datos.filas();
 
-        boolean esFormatoMaestra = columnasDetectadas.contains("Nombre_Completo");
+        boolean esFormatoMaestra = columnasDetectadas.contains("Nombre_Completo") || columnasDetectadas.contains("nombre_completo");
 
         Map<String, String> columnMap = construirColumnMap(columnasDetectadas);
 
@@ -181,66 +206,62 @@ public class ExcelService {
 
         for (FilaImportada fila : filas) {
             try {
-                var estudiante = construirEstudiante(fila.datos(), columnMap, esFormatoMaestra);
-                estudiante.setPrograma(programa);
-                estudiante.setActivo(true);
+                var nuevo = construirEstudiante(fila.datos(), columnMap, esFormatoMaestra);
+                nuevo.setPrograma(programa);
 
-                // construirEstudiante ya exige email no vacio (lanza BusinessException si
-                // falta), asi que llegado aqui el email siempre esta presente: no hace
-                // falta una rama alterna por numeroDocumento.
-                var existente = estudianteRepository.findByEmail(estudiante.getEmail());
-                if (existente.isPresent()) {
-                    aplicarActualizacion(existente.get(), estudiante);
-                    estudianteRepository.save(existente.get());
-                    actualizados++;
-                } else if (upsertPorDocumentoOInsertar(estudiante)) {
+                var existenteOpt = buscarExistente(nuevo);
+                if (existenteOpt.isPresent()) {
+                    var existente = existenteOpt.get();
+                    aplicarActualizacion(existente, nuevo);
+                    estudianteRepository.save(existente);
                     actualizados++;
                 } else {
+                    estudianteRepository.save(nuevo);
                     creados++;
                 }
                 importados++;
             } catch (Exception e) {
                 errores++;
-                // Numero de fila real del archivo Excel (BE-08): antes se citaba
-                // el contador de exitos+errores, que no coincide con la fila
-                // real en cuanto el archivo tiene alguna fila en blanco.
                 erroresDetalle.add("Fila " + fila.numeroFilaExcel() + ": " + e.getMessage());
             }
         }
 
-        Map<String, Object> resultado = new HashMap<>();
-        resultado.put("importados", importados);
-        resultado.put("errores", errores);
-        resultado.put("totalFilas", filas.size());
-        resultado.put("columnasDetectadas", columnasDetectadas);
-        resultado.put("columnasMapeadas", columnMap);
-        resultado.put("columnasSinMapeo", columnasSinMapeo);
-        resultado.put("erroresDetalle", erroresDetalle);
-
         registrarHistorial(archivo, programaId, creados, actualizados, errores, erroresDetalle);
 
-        return resultado;
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("totalFilas", filas.size());
+        resp.put("importados", importados);
+        resp.put("creados", creados);
+        resp.put("actualizados", actualizados);
+        resp.put("errores", errores);
+        resp.put("columnasDetectadas", columnasDetectadas);
+        resp.put("columnasMapeadas", columnMap);
+        resp.put("columnasSinMapeo", columnasSinMapeo);
+        resp.put("erroresDetalle", erroresDetalle);
+        return resp;
     }
 
     public ImportPreviewResponse previewImport(MultipartFile archivo, UUID programaId) {
-        validarArchivo(archivo);
+        return previsualizar(archivo);
+    }
 
-        if (programaId != null && programaRepository.findById(programaId).isEmpty()) {
-            throw new BusinessException("Programa no encontrado: " + programaId);
-        }
+    public ImportPreviewResponse previsualizar(MultipartFile archivo) {
+        validarArchivo(archivo);
 
         DatosArchivo datos = parsearArchivo(archivo);
         List<String> columnasDetectadas = datos.columnasDetectadas();
         List<FilaImportada> filas = datos.filas();
 
-        boolean esFormatoMaestra = columnasDetectadas.contains("Nombre_Completo");
+        boolean esFormatoMaestra = columnasDetectadas.contains("Nombre_Completo") || columnasDetectadas.contains("nombre_completo");
 
         Map<String, String> columnMap = construirColumnMap(columnasDetectadas);
 
-        List<String> advertencias = columnMap.entrySet().stream()
-                .filter(e -> e.getValue() == null)
-                .map(e -> "Columna sin mapeo: " + e.getKey())
-                .collect(Collectors.toList());
+        List<String> advertencias = new ArrayList<>();
+        columnMap.forEach((col, campo) -> {
+            if (campo == null && !SKIP.contains(col)) {
+                advertencias.add("Columna '" + col + "' no sera importada");
+            }
+        });
 
         int nuevos = 0;
         int actualizados = 0;
@@ -250,7 +271,7 @@ public class ExcelService {
         for (FilaImportada fila : filas) {
             try {
                 var estudiante = construirEstudiante(fila.datos(), columnMap, esFormatoMaestra);
-                if (estudianteRepository.findByEmail(estudiante.getEmail()).isPresent()) {
+                if (buscarExistente(estudiante).isPresent()) {
                     actualizados++;
                 } else {
                     nuevos++;
@@ -280,7 +301,8 @@ public class ExcelService {
                         h.getCreados(),
                         h.getActualizados(),
                         h.getErrores(),
-                        h.getCreatedAt()))
+                        h.getCreatedAt(),
+                        h.getOrigen()))
                 .collect(Collectors.toList());
     }
 
@@ -288,25 +310,29 @@ public class ExcelService {
         List<String> columnasDetectadas = new ArrayList<>();
         List<FilaImportada> filas = new ArrayList<>();
 
-        // XSSFWorkbook carga el libro completo en memoria antes de que
-        // podamos validar nada (BE-08); el limite de tamaño ya lo pone
-        // spring.servlet.multipart.max-file-size (50MB) antes de llegar aqui,
-        // asi que el peor caso queda acotado. Pasar a un lector streaming
-        // (SXSSFWorkbook/SAX) evitaria el resto, pero es un cambio mayor que
-        // toca la deteccion dinamica de columnas: se deja fuera de este pase.
         try (var workbook = new XSSFWorkbook(archivo.getInputStream())) {
-            Sheet sheet = workbook.getSheetAt(0);
-            Row header = sheet.getRow(0);
+            if (workbook.getNumberOfSheets() == 0) {
+                throw new BusinessException("El archivo no tiene hojas");
+            }
+
+            // Seleccionar la mejor hoja para importar estudiantes
+            Sheet sheet = seleccionarHojaEstudiantes(workbook);
+            int filaCabeceraIdx = detectarFilaCabecera(sheet);
+
+            Row header = sheet.getRow(filaCabeceraIdx);
             if (header == null) throw new BusinessException("El archivo no tiene encabezados");
             if (sheet.getLastRowNum() > MAX_FILAS) {
                 throw new BusinessException("El archivo supera el maximo de " + MAX_FILAS + " filas permitidas");
             }
 
             for (Cell cell : header) {
-                columnasDetectadas.add(getCellValueAsString(cell).trim());
+                String val = getCellValueAsString(cell).trim();
+                if (!val.isBlank()) {
+                    columnasDetectadas.add(val);
+                }
             }
 
-            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+            for (int i = filaCabeceraIdx + 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
                 boolean allEmpty = true;
@@ -317,8 +343,6 @@ public class ExcelService {
                     fila.put(columnasDetectadas.get(j), val);
                     if (!val.isBlank()) allEmpty = false;
                 }
-                // i es el indice de POI (0-based, fila 0 = encabezado); i+1 es
-                // el numero de fila tal cual lo ve el usuario en Excel.
                 if (!allEmpty) filas.add(new FilaImportada(i + 1, fila));
             }
         } catch (IOException e) {
@@ -328,9 +352,37 @@ public class ExcelService {
         return new DatosArchivo(columnasDetectadas, filas);
     }
 
+    private Sheet seleccionarHojaEstudiantes(Workbook workbook) {
+        Sheet mejorHoja = workbook.getSheetAt(0);
+        int mejorPuntaje = -1;
+
+        for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+            Sheet candidate = workbook.getSheetAt(i);
+            String name = candidate.getSheetName().toLowerCase(Locale.ROOT);
+            if (name.contains("dashboard") || name.contains("indicador") || name.contains("kpi")) {
+                continue;
+            }
+
+            var cabecera = DeteccionDeCabecera.buscar(candidate, t -> columnMapper.map(t) != null);
+            if (cabecera.isPresent()) {
+                int aciertos = cabecera.get().aciertos();
+                if (aciertos > mejorPuntaje) {
+                    mejorPuntaje = aciertos;
+                    mejorHoja = candidate;
+                }
+            }
+        }
+        return mejorHoja;
+    }
+
+    private int detectarFilaCabecera(Sheet sheet) {
+        var cabecera = DeteccionDeCabecera.buscar(sheet, t -> columnMapper.map(t) != null);
+        return cabecera.map(DeteccionDeCabecera.Cabecera::fila).orElse(0);
+    }
+
     private Map<String, String> construirColumnMap(List<String> columnasDetectadas) {
-        boolean esFormatoBBDD = columnasDetectadas.stream().anyMatch(c -> c.startsWith("3."));
-        boolean esFormatoMaestra = columnasDetectadas.contains("Nombre_Completo");
+        boolean esFormatoBBDD = columnasDetectadas.stream().anyMatch(c -> c.startsWith("3.") || c.startsWith("4.") || c.startsWith("5.") || c.startsWith("6."));
+        boolean esFormatoMaestra = columnasDetectadas.contains("Nombre_Completo") || columnasDetectadas.contains("nombre_completo");
 
         Map<String, String> exactOverrides;
         if (esFormatoBBDD) {
@@ -357,7 +409,7 @@ public class ExcelService {
             String val = fila.get(col);
             if (val == null || val.isBlank()) continue;
 
-            if (esFormatoMaestra && "Nombre_Completo".equals(col)) {
+            if (("Nombre_Completo".equalsIgnoreCase(col) || "nombreCompleto".equals(field)) && (estudiante.getNombre() == null || estudiante.getNombre().isBlank())) {
                 splitAndSetNombreCompleto(estudiante, val);
                 continue;
             }
@@ -370,7 +422,7 @@ public class ExcelService {
             throw new BusinessException("El nombre es requerido y no puede estar vacío");
         }
         if (estudiante.getApellido() == null) {
-            throw new BusinessException("El apellido es requerido");
+            estudiante.setApellido("");
         }
         if (estudiante.getEmail() == null || estudiante.getEmail().trim().isEmpty()) {
             throw new BusinessException("El email es requerido y no puede estar vacío");
@@ -396,19 +448,23 @@ public class ExcelService {
         importacionHistorialRepository.save(historial);
     }
 
-    private boolean upsertPorDocumentoOInsertar(Estudiante estudiante) {
-        if (estudiante.getNumeroDocumento() != null
-                && !estudiante.getNumeroDocumento().isBlank()) {
-            var existenteDoc = estudianteRepository
-                    .findByNumeroDocumento(estudiante.getNumeroDocumento());
-            if (existenteDoc.isPresent()) {
-                aplicarActualizacion(existenteDoc.get(), estudiante);
-                estudianteRepository.save(existenteDoc.get());
-                return true;
-            }
+    private Optional<Estudiante> buscarExistente(Estudiante estudiante) {
+        String documento = estudiante.getNumeroDocumento();
+        if (documento != null && !documento.isBlank()) {
+            var porDocumento = estudianteRepository.findByDocumentoNormalizado(documento);
+            if (porDocumento.isPresent()) return porDocumento;
         }
-        estudianteRepository.save(estudiante);
-        return false;
+
+        if (estudiante.getEmail() != null && !estudiante.getEmail().isBlank()) {
+            var porCorreo = estudianteRepository.findByEmailIgnoreCase(estudiante.getEmail());
+            if (porCorreo.isPresent()) return porCorreo;
+        }
+
+        String nombreCompleto = (estudiante.getNombre() + " " + (estudiante.getApellido() != null ? estudiante.getApellido() : "")).trim();
+        var porNombre = estudianteRepository.buscarPorNombreCompletoNormalizado(nombreCompleto);
+        if (porNombre.size() == 1) return Optional.of(porNombre.get(0));
+
+        return Optional.empty();
     }
 
     private record DatosArchivo(List<String> columnasDetectadas, List<FilaImportada> filas) {}
@@ -438,6 +494,7 @@ public class ExcelService {
                 case "numeroDocumento" -> e.setNumeroDocumento(truncate(val));
                 case "genero" -> e.setGenero(truncate(val));
                 case "celular" -> e.setCelular(truncate(val));
+                case "telefono" -> e.setTelefono(truncate(val));
                 case "ciudad" -> e.setCiudad(truncate(val));
                 case "barrio" -> e.setBarrio(truncate(val));
                 case "nacionalidad" -> e.setNacionalidad(truncate(val));
@@ -468,6 +525,27 @@ public class ExcelService {
                 case "tieneComputador" -> e.setTieneComputador(parseBoolean(val));
                 case "tieneInternet" -> e.setTieneInternet(parseBoolean(val));
                 case "interesMigratorio" -> e.setInteresMigratorio(parseBoolean(val));
+                case "disponibilidadMovilidad" -> e.setDisponibilidadMovilidad(parseBoolean(val));
+                case "cvListo" -> {
+                    var h = parseHito(val);
+                    if (h != null) e.getPreparacion().setCvListo(h);
+                }
+                case "cvEnIngles" -> {
+                    var h = parseHito(val);
+                    if (h != null) e.getPreparacion().setCvEnIngles(h);
+                }
+                case "linkedinCreado" -> {
+                    var h = parseHito(val);
+                    if (h != null) e.getPreparacion().setLinkedinCreado(h);
+                }
+                case "linkedinOptimizado" -> {
+                    var h = parseHito(val);
+                    if (h != null) e.getPreparacion().setLinkedinOptimizado(h);
+                }
+                case "perfilOcupacional" -> {
+                    var h = parseHito(val);
+                    if (h != null) e.getPreparacion().setPerfilOcupacional(h);
+                }
                 case "fechaNacimiento" -> {
                     LocalDate fecha = null;
                     for (var fmt : List.of(
@@ -499,6 +577,20 @@ public class ExcelService {
         }
     }
 
+    private static EstadoHito parseHito(String val) {
+        if (val == null || val.isBlank()) return null;
+        String v = java.text.Normalizer.normalize(val.trim().toLowerCase(Locale.ROOT), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}", "");
+        if (v.equals("si") || v.equals("x") || v.equals("true") || v.equals("1") || v.equals("s")) {
+            return EstadoHito.SI;
+        } else if (v.contains("proceso") || v.contains("parcial")) {
+            return EstadoHito.EN_PROCESO;
+        } else if (v.equals("no") || v.equals("false") || v.equals("0") || v.equals("n")) {
+            return EstadoHito.NO;
+        }
+        return null;
+    }
+
     private String truncate(String val) {
         if (val == null) return null;
         val = val.trim();
@@ -506,8 +598,6 @@ public class ExcelService {
     }
 
     private void aplicarActualizacion(Estudiante existente, Estudiante nuevo) {
-        // Reimportar por email/documento a alguien en la papelera trae datos
-        // frescos: reactivarlo, no dejarlo desactualizado ahi (BE-09).
         if (!existente.isActivo()) {
             existente.setActivo(true);
             existente.setDeletedAt(null);
@@ -552,6 +642,17 @@ public class ExcelService {
         if (nuevo.getPostulacionesEnviadas() != null) existente.setPostulacionesEnviadas(nuevo.getPostulacionesEnviadas());
         if (nuevo.getEmpresasContactadas() != null) existente.setEmpresasContactadas(nuevo.getEmpresasContactadas());
         if (nuevo.getDisponibilidadMovilidad() != null) existente.setDisponibilidadMovilidad(nuevo.getDisponibilidadMovilidad());
+
+        if (nuevo.getPreparacion() != null) {
+            var pEx = existente.getPreparacion();
+            var pNu = nuevo.getPreparacion();
+            if (pNu.getCvListo() != null) pEx.setCvListo(pNu.getCvListo());
+            if (pNu.getCvEnIngles() != null) pEx.setCvEnIngles(pNu.getCvEnIngles());
+            if (pNu.getLinkedinCreado() != null) pEx.setLinkedinCreado(pNu.getLinkedinCreado());
+            if (pNu.getLinkedinOptimizado() != null) pEx.setLinkedinOptimizado(pNu.getLinkedinOptimizado());
+            if (pNu.getPerfilOcupacional() != null) pEx.setPerfilOcupacional(pNu.getPerfilOcupacional());
+            existente.setPreparacion(pEx);
+        }
     }
 
     private Integer parseExperiencia(String val, String columna) {
@@ -576,24 +677,9 @@ public class ExcelService {
         }
     }
 
-    // Solo palabras completas e inequivocas. Las iniciales sueltas ("s", "n")
-    // quedan fuera a proposito: "N/A" empieza por "n" y significa "sin dato",
-    // no "no".
     private static final Set<String> RESPUESTAS_SI = Set.of("si", "true", "yes", "1");
     private static final Set<String> RESPUESTAS_NO = Set.of("no", "false", "0");
 
-    /**
-     * Interpreta la respuesta a una pregunta de si/no.
-     *
-     * <p>El formulario de admision no responde con "Si" a secas: las opciones
-     * reales son del estilo "Si, propio", "Si, tengo acceso a un computador" o
-     * "No tengo la posibilidad...". Por eso se decide con la primera palabra y
-     * no con la cadena completa; comparar la cadena entera descartaba en
-     * silencio la respuesta de todos los participantes.
-     *
-     * @return {@code true}/{@code false}, o {@code null} si la respuesta no
-     *         empieza por una afirmacion ni una negacion reconocible.
-     */
     static Boolean parseBoolean(String val) {
         if (val == null || val.isBlank()) return null;
 
@@ -615,9 +701,6 @@ public class ExcelService {
         return switch (cell.getCellType()) {
             case STRING -> cell.getStringCellValue();
             case NUMERIC -> {
-                // Excel guarda las fechas como numero serial; sin este chequeo
-                // "3.6 Fecha de nacimiento" llega como "45000.0" y ningun
-                // formato de fecha calza (BE-04).
                 if (DateUtil.isCellDateFormatted(cell)) {
                     yield cell.getLocalDateTimeCellValue().toLocalDate()
                             .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));

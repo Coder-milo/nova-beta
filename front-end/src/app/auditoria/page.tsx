@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwiseIcon as ArrowsClockwise, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, ShieldCheckIcon as ShieldCheck, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { ChevronLeft as CaretLeft, ChevronRight as CaretRight, CircleAlert as WarningCircle, RefreshCw as ArrowsClockwise, ShieldCheck, X } from 'lucide-react'
 /**
  * Página de Auditoría — registro histórico de acciones del sistema.
  *
@@ -16,13 +16,30 @@ import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { auditoriaApi, ApiCallError } from '@/lib/api'
 import type { AuditoriaResponse, Page } from '@/lib/types'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin, type TextosAdmin } from '@/lib/textos-admin'
 
-const modulos = ['Proyectos', 'Estudiantes', 'Documentos', 'Hojas de vida', 'Importaciones']
-const acciones = ['Creación', 'Actualización', 'Eliminación', 'Cambio de estado']
+/**
+ * El valor va tal cual al backend, que guarda el modulo y la accion en
+ * espanol; solo la etiqueta cambia de idioma. Por eso van separados.
+ */
+const MODULOS = ['Proyectos', 'Estudiantes', 'Documentos', 'Hojas de vida', 'Importaciones'] as const
+const ACCIONES = ['Creación', 'Actualización', 'Eliminación', 'Cambio de estado'] as const
 
-function formatoFecha(fecha: string): string {
+function etiquetaModulo(T: ReturnType<typeof textos>, C: TextosAdmin, valor: string) {
+  return { Proyectos: T.proyectos, Estudiantes: C.estudiantes, Documentos: C.documentos,
+           'Hojas de vida': T.hojasDeVida, Importaciones: T.importaciones }[valor] ?? valor
+}
+
+function etiquetaAccion(T: ReturnType<typeof textos>, valor: string) {
+  return { 'Creación': T.creacion, 'Actualización': T.actualizacion,
+           'Eliminación': T.eliminacion, 'Cambio de estado': T.cambioDeEstado }[valor] ?? valor
+}
+
+/** `en-GB` y no `en-US`: el dia primero, como en el resto del sistema. */
+function formatoFecha(fecha: string, english = false): string {
   try {
-    return new Date(fecha).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
+    return new Date(fecha).toLocaleString(english ? 'en-GB' : 'es-CO', { dateStyle: 'medium', timeStyle: 'short' })
   } catch { return fecha }
 }
 
@@ -39,7 +56,68 @@ function CampoDetalle({ label, value }: { label: string; value: string | null })
   )
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        noHayRegistros: 'No records match the filters.',
+        aunNoHay: 'There are no audit records yet.',
+        cargandoRegistrosDe: 'Loading audit records…',
+        detalleDelRegistro: 'Record detail',
+        informacionAnterior: 'Previous data',
+        informacionNueva: 'New data',
+        filtrarPorUsuario: 'Filter by user…',
+        filtrarPorModulo: 'Filter by module',
+        filtrarPorAccion: 'Filter by action',
+        todosLosModulos: 'All modules',
+        todasLasAcciones: 'All actions',
+        cambioDeEstado: 'Status change',
+        idDelRegistro: 'Record ID',
+        direccionIp: 'IP address',
+        hojasDeVida: 'Résumés',
+        importaciones: 'Imports',
+        actualizacion: 'Update',
+        eliminacion: 'Deletion',
+        creacion: 'Creation',
+        proyectos: 'Projects',
+        modulo: 'Module',
+        accion: 'Action',
+      }
+    : {
+        noHayRegistros: 'No hay registros que coincidan con los filtros.',
+        aunNoHay: 'Aún no hay registros de auditoría.',
+        cargandoRegistrosDe: 'Cargando registros de auditoría…',
+        detalleDelRegistro: 'Detalle del registro',
+        informacionAnterior: 'Información anterior',
+        informacionNueva: 'Información nueva',
+        filtrarPorUsuario: 'Filtrar por usuario…',
+        filtrarPorModulo: 'Filtrar por módulo',
+        filtrarPorAccion: 'Filtrar por acción',
+        todosLosModulos: 'Todos los módulos',
+        todasLasAcciones: 'Todas las acciones',
+        cambioDeEstado: 'Cambio de estado',
+        idDelRegistro: 'ID del registro',
+        direccionIp: 'Dirección IP',
+        hojasDeVida: 'Hojas de vida',
+        importaciones: 'Importaciones',
+        actualizacion: 'Actualización',
+        eliminacion: 'Eliminación',
+        creacion: 'Creación',
+        proyectos: 'Proyectos',
+        modulo: 'Módulo',
+        accion: 'Acción',
+      }
+}
+
 export default function AuditoriaPage() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [page, setPage]           = useState<Page<AuditoriaResponse> | null>(null)
   const [currentPage, setCurrent] = useState(0)
   const [loading, setLoading]     = useState(true)
@@ -63,9 +141,9 @@ export default function AuditoriaPage() {
     } catch (err) {
       if (err instanceof ApiCallError) {
         setError(err.status === 401 || err.status === 403
-          ? 'Sin permisos. Inicia sesión como ADMIN o COORDINADOR.'
+          ? C.errorPermisos
           : `Error al cargar la auditoría (HTTP ${err.status}).`)
-      } else { setError('No se pudo conectar con el backend.') }
+      } else { setError(C.errorConexion) }
     } finally { setLoading(false) }
   }, [])
 
@@ -93,18 +171,18 @@ export default function AuditoriaPage() {
 
       {/* Filtros */}
       <form onSubmit={aplicarFiltros} className="flex flex-wrap items-center gap-2">
-        <Input value={usuarioInput} onChange={(e) => setUsuarioInput(e.target.value)} placeholder="Filtrar por usuario…" className="w-56" />
+        <Input value={usuarioInput} onChange={(e) => setUsuarioInput(e.target.value)} placeholder={T.filtrarPorUsuario} className="w-56" />
         <select value={modulo} onChange={(e) => { setModulo(e.target.value); setCurrent(0) }}
           className="h-9 rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          aria-label="Filtrar por módulo">
-          <option value="">Todos los módulos</option>
-          {modulos.map((m) => <option key={m} value={m}>{m}</option>)}
+          aria-label={T.filtrarPorModulo}>
+          <option value="">{T.todosLosModulos}</option>
+          {MODULOS.map((m) => <option key={m} value={m}>{etiquetaModulo(T, C, m)}</option>)}
         </select>
         <select value={accion} onChange={(e) => { setAccion(e.target.value); setCurrent(0) }}
           className="h-9 rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          aria-label="Filtrar por acción">
-          <option value="">Todas las acciones</option>
-          {acciones.map((a) => <option key={a} value={a}>{a}</option>)}
+          aria-label={T.filtrarPorAccion}>
+          <option value="">{T.todasLasAcciones}</option>
+          {ACCIONES.map((a) => <option key={a} value={a}>{etiquetaAccion(T, a)}</option>)}
         </select>
         <Button type="submit" variant="outline" size="sm">Filtrar</Button>
         {hayFiltros && (
@@ -118,7 +196,7 @@ export default function AuditoriaPage() {
       {loading && (
         <div className="flex items-center justify-center py-20">
           <PageSpinner />
-          <span className="ml-2 text-sm text-muted-foreground">Cargando registros de auditoría…</span>
+          <span className="ml-2 text-sm text-muted-foreground">{T.cargandoRegistrosDe}</span>
         </div>
       )}
       {error && !loading && (
@@ -138,7 +216,7 @@ export default function AuditoriaPage() {
             <CardContent className="flex flex-col items-center gap-3 py-16">
               <ShieldCheck className="size-10 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">
-                {hayFiltros ? 'No hay registros que coincidan con los filtros.' : 'Aún no hay registros de auditoría.'}
+                {hayFiltros ? T.noHayRegistros : T.aunNoHay}
               </p>
             </CardContent>
           </Card>
@@ -150,8 +228,8 @@ export default function AuditoriaPage() {
                   <tr className="border-b border-border bg-secondary/50">
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Fecha</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Usuario</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Módulo</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Acción</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{T.modulo}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{T.accion}</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Entidad</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Registro</th>
                   </tr>
@@ -159,7 +237,7 @@ export default function AuditoriaPage() {
                 <tbody className="divide-y divide-border">
                   {page.content.map((reg) => (
                     <tr key={reg.id} onClick={() => setSelected(reg)} className="cursor-pointer hover:bg-secondary/30 transition-colors">
-                      <td className="px-4 py-3 text-muted-foreground tabular-nums whitespace-nowrap">{formatoFecha(reg.fecha)}</td>
+                      <td className="px-4 py-3 text-muted-foreground tabular-nums whitespace-nowrap">{formatoFecha(reg.fecha, locale === 'en')}</td>
                       <td className="px-4 py-3 text-foreground">{reg.usuario}</td>
                       <td className="px-4 py-3 text-muted-foreground">{reg.modulo}</td>
                       <td className="px-4 py-3 text-muted-foreground">{reg.accion}</td>
@@ -199,35 +277,35 @@ export default function AuditoriaPage() {
           {selected && (
             <>
               <SheetHeader className="p-6 border-b border-border shrink-0">
-                <SheetTitle className="text-base">Detalle del registro</SheetTitle>
-                <SheetDescription className="text-xs tabular-nums">{formatoFecha(selected.fecha)}</SheetDescription>
+                <SheetTitle className="text-base">{T.detalleDelRegistro}</SheetTitle>
+                <SheetDescription className="text-xs tabular-nums">{formatoFecha(selected.fecha, locale === 'en')}</SheetDescription>
               </SheetHeader>
 
               <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <CampoDetalle label="Usuario" value={selected.usuario} />
-                  <CampoDetalle label="Módulo" value={selected.modulo} />
-                  <CampoDetalle label="Acción" value={selected.accion} />
+                  <CampoDetalle label={T.modulo} value={selected.modulo} />
+                  <CampoDetalle label={T.accion} value={selected.accion} />
                   <CampoDetalle label="Entidad" value={selected.entidad} />
                   <CampoDetalle label="Registro" value={selected.registroNombre} />
-                  <CampoDetalle label="ID del registro" value={selected.registroId} />
-                  <CampoDetalle label="Dirección IP" value={selected.ip} />
+                  <CampoDetalle label={T.idDelRegistro} value={selected.registroId} />
+                  <CampoDetalle label={T.direccionIp} value={selected.ip} />
                 </div>
 
                 <div className="grid gap-3">
                   <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                    <Etiqueta>Información anterior</Etiqueta>
+                    <Etiqueta>{T.informacionAnterior}</Etiqueta>
                     <pre className="mt-1.5 whitespace-pre-wrap font-mono text-xs text-muted-foreground">{selected.datosAnteriores ?? '—'}</pre>
                   </div>
                   <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                    <Etiqueta>Información nueva</Etiqueta>
+                    <Etiqueta>{T.informacionNueva}</Etiqueta>
                     <pre className="mt-1.5 whitespace-pre-wrap font-mono text-xs text-muted-foreground">{selected.datosNuevos ?? '—'}</pre>
                   </div>
                 </div>
               </div>
 
               <div className="p-4 border-t border-border shrink-0 flex justify-end">
-                <Button variant="outline" size="sm" onClick={() => setSelected(null)}>Cerrar</Button>
+                <Button variant="outline" size="sm" onClick={() => setSelected(null)}>{C.cerrar}</Button>
               </div>
             </>
           )}

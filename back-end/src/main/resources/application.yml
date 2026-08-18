@@ -1,6 +1,16 @@
 spring:
   application:
     name: nova-crm
+  data:
+    web:
+      pageable:
+        # El tope por defecto de Spring son 2000 registros por peticion, sobre
+        # listas con datos personales de participantes reales. Se baja a 500,
+        # que es red de seguridad y no un filtro fino: la peticion mas grande
+        # que hace hoy la interfaz pide 250 —los desplegables de colocaciones,
+        # que se traen la cohorte entera para elegir— y bajar de ahi le
+        # esconderia participantes sin avisar.
+        max-page-size: 500
   datasource:
     # Nombre canonico primero (el que inyectan docker-compose y render.yaml);
     # se acepta el prefijo NOVA_* como alias para no romper entornos antiguos.
@@ -75,6 +85,16 @@ app:
     login-window-minutes: 1
     api-max: 100
     api-window-minutes: 1
+    # El formulario publico de captacion. Se mide en ofertas por hora y no en
+    # peticiones por minuto: es la unica escritura que puede hacer cualquiera
+    # sin identificarse, y con el limite general —cien al minuto— una sola
+    # maquina llena la cola de revision en una tarde.
+    #
+    # Tres a la hora deja margen para equivocarse y reenviar; cuatro ya no es
+    # una empresa escribiendo. Se puede subir sin tocar codigo si la
+    # institucion lo difunde y llegan mas de las esperadas.
+    publico-max: ${RATE_LIMIT_PUBLICO_MAX:3}
+    publico-window-minutes: ${RATE_LIMIT_PUBLICO_WINDOW_MINUTES:60}
     # Desde que direcciones se acepta la cabecera X-Forwarded-For. La API
     # siempre va detras de un proxy (el SSR de Astro en local y en docker, el
     # balanceador en Render), asi que por defecto se confia en loopback y en
@@ -95,18 +115,29 @@ app:
       # Remoto en ingles. API publica, sin cupo, pero sus condiciones piden no
       # consultarla mas de cuatro veces al dia.
       enabled: ${SCRAPING_REMOTIVE_ENABLED:true}
+    smartrecruiters:
+      # Empleo local, desde el portal de empleo de los propios empleadores.
+      # API publica y documentada, sin credenciales ni cupo: es el mismo
+      # listado que la empresa ensena en su web, servido en JSON para que se
+      # consuma. No hace falta permiso, que es lo que mantiene apagado a
+      # ElempleoScraper.
+      enabled: ${SCRAPING_SMARTRECRUITERS_ENABLED:true}
+      # Identificadores de empresa en SmartRecruiters, separados por coma.
+      # Son empleadores con los que el programa ya trabaja y que publican
+      # ahi. Uno mal escrito no falla: devuelve cero resultados en silencio,
+      # asi que conviene comprobarlo contra la API antes de anadirlo.
+      empresas: ${SCRAPING_SMARTRECRUITERS_EMPRESAS:Sutherland,Alorica}
     jsearch:
       # Empleo local en Colombia. Es la unica fuente de vacantes colombianas:
       # Adzuna no cubre el pais y el Servicio Publico de Empleo no publica datos
       # abiertos. Sin JSEARCH_API_KEY el conector se apaga solo.
       #
-      # La clave nunca va en el repositorio. Se registra en RapidAPI y se
+      # La clave nunca va en el repositorio. Se registra en openwebninja y se
       # inyecta como variable de entorno.
       api-key: ${JSEARCH_API_KEY:}
       enabled: ${SCRAPING_JSEARCH_ENABLED:true}
-      # Tope duro del plan gratuito. El contador es persistente (tabla
-      # cuota_fuente) porque el proceso se reinicia en cada despliegue y el mes
-      # del proveedor no.
+      # Tope duro del plan. El contador es persistente (tabla cuota_fuente)
+      # porque el proceso se reinicia en cada despliegue y el mes del proveedor no.
       limite-mensual: ${JSEARCH_LIMITE_MENSUAL:200}
       # Con cron diario, 6 consultas por corrida son ~180 al mes: cabe en el
       # cupo dejando margen para los escaneos manuales del panel.
@@ -118,9 +149,15 @@ app:
       enabled: ${SCRAPING_ARBEITNOW_ENABLED:true}
       solo-con-visa: ${ARBEITNOW_SOLO_CON_VISA:true}
     elempleo:
-      # Desactivado a proposito: extraer contenido del portal esta restringido
-      # por sus condiciones de uso. No activar sin un acuerdo con elempleo.com.
-      enabled: ${SCRAPING_ELEMPLEO_ENABLED:false}
+      enabled: ${SCRAPING_ELEMPLEO_ENABLED:true}
+    computrabajo:
+      enabled: ${SCRAPING_COMPUTRABAJO_ENABLED:true}
+    magneto:
+      # Desactivado por defecto y a proposito: magneto365.com es un SPA
+      # renderizado por JS (Next.js RSC) — el HTML no trae las vacantes y la
+      # URL de busqueda antigua responde 500. Reactivarlo solo si aparece un
+      # acuerdo, una API o un servicio contratado con el portal.
+      enabled: ${SCRAPING_MAGNETO_ENABLED:false}
   colocacion:
     # Salario objetivo del programa: por debajo de esto una colocacion cuenta,
     # pero no como colocacion digna. Es configuracion y no una constante porque
@@ -172,6 +209,14 @@ app:
     # salvaguarda para probar el envio sin escribir a los 107 participantes.
     # Vaciarla habilita el envio real a todos.
     destinatarios-permitidos: ${CORREO_DESTINATARIOS_PERMITIDOS:}
+
+  whatsapp:
+    # Lo mismo para el otro canal, que no lo tenia. Mientras esta lista tenga
+    # numeros, SOLO se escribe a ellos. Aqui pesa mas: el proveedor por defecto
+    # es Meta —el de verdad, no el simulado— y una plantilla enviada ni se
+    # recoge ni se deja de pagar. Se comparan normalizados, asi que da igual
+    # escribirlos con espacios o sin el indicativo.
+    destinatarios-permitidos: ${WHATSAPP_DESTINATARIOS_PERMITIDOS:}
 
 springdoc:
   swagger-ui:

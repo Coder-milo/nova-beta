@@ -15,9 +15,9 @@
  * que lo abrió.
  */
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
-import { CircleNotchIcon as CircleNotch, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CircleAlert as WarningCircle, LoaderCircle as CircleNotch } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -79,7 +79,6 @@ export function Confirmar({
           <div className="flex items-start gap-3">
             <WarningCircle
               className={cn('mt-0.5 size-6 shrink-0', destructivo ? 'text-destructive' : 'text-amber-500')}
-              weight="duotone"
             />
             <div className="min-w-0">
               <Dialog.Title className="text-sm font-semibold text-foreground">{titulo}</Dialog.Title>
@@ -114,4 +113,60 @@ export function Confirmar({
       </Dialog.Portal>
     </Dialog.Root>
   )
+}
+
+/** Lo que pide `confirmar()`, sin las props de control que gestiona el hook. */
+export type OpcionesConfirmar = Pick<
+  ConfirmarProps,
+  'titulo' | 'descripcion' | 'textoConfirmar' | 'textoCancelar' | 'destructivo'
+>
+
+/**
+ * Reemplazo imperativo de `confirm()` nativo.
+ *
+ * <p>Devuelve `confirmar(opts)`, una promesa que resuelve `true` si la persona
+ * acepta y `false` si cancela o cierra —igual que el `confirm()` del navegador,
+ * pero con el diálogo estilado de la app—. El control de flujo queda idéntico:
+ *
+ * <pre>if (!(await confirmar({ titulo: '¿Eliminar?' }))) return</pre>
+ *
+ * <p>Hay que montar el elemento `dialogo` que también devuelve, una vez, en el
+ * árbol del componente.
+ */
+export function useConfirmar() {
+  const [pendiente, setPendiente] = useState<{
+    opts: OpcionesConfirmar
+    resolver: (aceptado: boolean) => void
+  } | null>(null)
+
+  const confirmar = useCallback(
+    (opts: OpcionesConfirmar) =>
+      new Promise<boolean>((resolver) => setPendiente({ opts, resolver })),
+    [],
+  )
+
+  // Resuelve una sola vez: al cerrar tras aceptar, el segundo intento ve
+  // `actual === null` y no vuelve a resolver.
+  const cerrar = (aceptado: boolean) =>
+    setPendiente((actual) => {
+      actual?.resolver(aceptado)
+      return null
+    })
+
+  const dialogo = pendiente ? (
+    <Confirmar
+      open
+      onOpenChange={(abierto) => {
+        if (!abierto) cerrar(false)
+      }}
+      titulo={pendiente.opts.titulo}
+      descripcion={pendiente.opts.descripcion}
+      textoConfirmar={pendiente.opts.textoConfirmar}
+      textoCancelar={pendiente.opts.textoCancelar}
+      destructivo={pendiente.opts.destructivo}
+      onConfirmar={() => cerrar(true)}
+    />
+  ) : null
+
+  return { confirmar, dialogo }
 }

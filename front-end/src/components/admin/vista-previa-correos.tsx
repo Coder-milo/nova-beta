@@ -22,25 +22,57 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowsClockwiseIcon as ArrowsClockwise, CircleNotchIcon as CircleNotch, EnvelopeIcon as Envelope, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CircleAlert as WarningCircle, LoaderCircle as CircleNotch, Mail as Envelope, RefreshCw as ArrowsClockwise } from 'lucide-react'
 import { ApiCallError, correosApi, programasApi } from '@/lib/api'
 import type { TipoCorreo } from '@/lib/api'
 import type { ProgramaResponse } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Campo, Selector } from '@/components/ui/campo'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin, type TextosAdmin } from '@/lib/textos-admin'
 
-function mensajeDe(error: unknown): string {
+/** No es un componente: no puede leer el idioma, se lo pasan. */
+function mensajeDe(error: unknown, C: TextosAdmin): string {
   if (error instanceof ApiCallError) {
     if (error.status === 401 || error.status === 403) {
-      return 'Sin permisos. Inicia sesión como ADMIN o COORDINADOR.'
+      return C.errorPermisos
     }
-    return error.body.message ?? `Error del servidor (HTTP ${error.status}).`
+    return error.body.message ?? `Error ${error.status}.`
   }
-  return 'No se pudo conectar con el servidor.'
+  return C.errorConexion
+}
+
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        miralosAntesDe: 'See them before they go out. They are shown with sample data and the branding of the programme you choose, exactly as the student will receive them.',
+        cadaProgramaPuede: 'Each programme can have its own header, footer and colour.',
+        correosQueEnvia: 'Emails the system sends',
+        eligeUnCorreo: 'Choose an email to view it.',
+        montandoElCorreo: 'Building the email…',
+        marcaDelPrograma: 'Programme branding',
+      }
+    : {
+        miralosAntesDe: 'Míralos antes de que salgan. Se muestran con datos de ejemplo y con la marca del programa que elijas, tal como los va a recibir el estudiante.',
+        cadaProgramaPuede: 'Cada programa puede tener su cabecera, su pie y su color.',
+        correosQueEnvia: 'Correos que envía el sistema',
+        eligeUnCorreo: 'Elige un correo para verlo.',
+        montandoElCorreo: 'Montando el correo…',
+        marcaDelPrograma: 'Marca del programa',
+      }
 }
 
 export function VistaPreviaCorreos() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [tipos, setTipos] = useState<TipoCorreo[]>([])
   const [programas, setProgramas] = useState<ProgramaResponse[]>([])
   const [tipo, setTipo] = useState('')
@@ -56,7 +88,7 @@ export function VistaPreviaCorreos() {
         setTipos(lista)
         if (lista.length > 0) setTipo((actual) => actual || lista[0].id)
       })
-      .catch((e) => setError(mensajeDe(e)))
+      .catch((e) => setError(mensajeDe(e, C)))
 
     // Sin programas la pantalla sigue sirviendo: se ve la marca institucional.
     programasApi.listar().then(setProgramas).catch(() => setProgramas([]))
@@ -69,7 +101,7 @@ export function VistaPreviaCorreos() {
     try {
       setHtml(await correosApi.vistaPrevia(tipo, programaId || undefined))
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, C))
       setHtml('')
     } finally {
       setCargando(false)
@@ -86,13 +118,10 @@ export function VistaPreviaCorreos() {
     <Card className="rounded-lg border-border shadow-none">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Envelope className="size-4 text-primary" weight="duotone" />
-          Correos que envía el sistema
+          <Envelope className="size-4 text-primary" />
+          {T.correosQueEnvia}
         </CardTitle>
-        <CardDescription>
-          Míralos antes de que salgan. Se muestran con datos de ejemplo y con la marca del
-          programa que elijas, tal como los va a recibir el estudiante.
-        </CardDescription>
+        <CardDescription>{T.miralosAntesDe}</CardDescription>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
@@ -106,8 +135,8 @@ export function VistaPreviaCorreos() {
           </Campo>
 
           <Campo
-            etiqueta="Marca del programa"
-            ayuda="Cada programa puede tener su cabecera, su pie y su color."
+            etiqueta={T.marcaDelPrograma}
+            ayuda={T.cadaProgramaPuede}
           >
             <Selector
               value={programaId}
@@ -138,7 +167,7 @@ export function VistaPreviaCorreos() {
         {cargando && !html ? (
           <div className="flex h-96 items-center justify-center gap-2 rounded-xl border border-border bg-secondary/30 text-sm text-muted-foreground">
             <CircleNotch className="size-5 animate-spin" />
-            Montando el correo…
+            {T.montandoElCorreo}
           </div>
         ) : html ? (
           <iframe
@@ -153,7 +182,7 @@ export function VistaPreviaCorreos() {
         ) : (
           !error && (
             <div className="flex h-96 items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
-              Elige un correo para verlo.
+              {T.eligeUnCorreo}
             </div>
           )
         )}

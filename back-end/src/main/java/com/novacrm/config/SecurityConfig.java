@@ -115,6 +115,17 @@ public class SecurityConfig {
                 // seguridad es la firma HMAC (X-Hub-Signature-256), no una
                 // sesion; un JWT aqui solo conseguiria que Meta no pueda entrar.
                 .requestMatchers("/api/v1/whatsapp/webhook").permitAll()
+                // El formulario de captacion: una empresa que llega por su
+                // cuenta no tiene cuenta con que entrar, y las cuentas del
+                // portal son por invitacion. Solo POST y solo esa ruta —no
+                // "/publico/**" entero— para que un GET que alguien añada
+                // manana al lado no herede la exposicion.
+                //
+                // Su defensa no es la sesion sino, por este orden: el limite
+                // estricto por IP de RateLimitFilter, que no lee ninguna URL ni
+                // manda ningun correo, y que lo que entra nace sin revisar y no
+                // se ve hasta que una persona lo aprueba.
+                .requestMatchers(HttpMethod.POST, "/api/v1/publico/vacantes").permitAll()
                 // Programas, vacantes y certificaciones estaban en permitAll, y
                 // no deben estarlo: exponian el catalogo de proyectos, sus
                 // clientes y las credenciales emitidas a cualquiera que supiera
@@ -125,8 +136,28 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/programas/**").hasAnyRole("ADMIN", "COORDINADOR", "ESTUDIANTE")
                 .requestMatchers(HttpMethod.GET, "/api/v1/vacantes/**").hasAnyRole("ADMIN", "COORDINADOR", "ESTUDIANTE")
                 .requestMatchers(HttpMethod.GET, "/api/v1/certificaciones/**").hasAnyRole("ADMIN", "COORDINADOR", "ESTUDIANTE")
+                // El portal de empresas es lo unico que puede tocar el rol
+                // EMPRESA, y es lo unico que ese rol puede tocar. La regla se
+                // escribe en los dos sentidos a proposito: sin la segunda
+                // mitad, una cuenta de empresa autenticada caeria en
+                // `anyRequest().authenticated()` y alcanzaria cualquier
+                // endpoint que no exija rol por su cuenta.
+                //
+                // Aqui solo se comprueba quien entra. De quien son los datos lo
+                // decide `AccesoDelPortal`, porque una URL no sabe a que
+                // empresa pertenece la vacante que pide.
+                .requestMatchers("/api/v1/portal/**").hasRole("EMPRESA")
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .anyRequest().authenticated()
+                .anyRequest().access((quienPregunta, ctx) -> {
+                    var a = quienPregunta.get();
+                    boolean esEmpresa = a != null && a.isAuthenticated()
+                            && a.getAuthorities().stream()
+                                .anyMatch(g -> "ROLE_EMPRESA".equals(g.getAuthority()));
+                    // Una cuenta de empresa fuera de /portal no pasa: es un
+                    // tercero, y todo lo demas son datos de la institucion.
+                    return new org.springframework.security.authorization.AuthorizationDecision(
+                            a != null && a.isAuthenticated() && !esEmpresa);
+                })
             )
             .addFilterBefore(jwtFilter(), UsernamePasswordAuthenticationFilter.class);
         return http.build();

@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, EnvelopeIcon as Envelope, KeyIcon as Key, MagnifyingGlassIcon as MagnifyingGlass, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Key, LoaderCircle as CircleNotch, Mail as Envelope, RefreshCw as ArrowsClockwise, Search as MagnifyingGlass } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -34,6 +34,8 @@ import { Confirmar } from '@/components/ui/confirmar'
 import { comunicacionesApi } from '@/lib/api'
 import type { FilaPadron, Padron, ResumenAltaCuentas, ResultadoCuenta } from '@/lib/types'
 import { errorDe } from '@/lib/errores'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 type Alcance = 'todos' | 'seleccion'
 type Filtro = 'todos' | 'sin-cuenta' | 'con-cuenta'
@@ -47,6 +49,8 @@ function normalizar(texto: string): string {
 }
 
 function FilaResultado({ cuenta }: { cuenta: ResultadoCuenta }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   const color =
     cuenta.estado === 'CREADA'
       ? 'text-emerald-600 dark:text-emerald-400'
@@ -63,7 +67,7 @@ function FilaResultado({ cuenta }: { cuenta: ResultadoCuenta }) {
       <td className={`px-3 py-2 text-sm font-medium ${color}`}>{cuenta.estado}</td>
       <td className="px-3 py-2 text-sm">
         {cuenta.envio === 'ENVIADO' ? (
-          <span className="text-emerald-600 dark:text-emerald-400">Enviado</span>
+          <span className="text-emerald-600 dark:text-emerald-400">{T.enviado}</span>
         ) : (
           // Un fallo del proveedor se destaca: es lo unico que hay que
           // reintentar. Que la lista de pruebas bloquee un correo, no.
@@ -91,6 +95,8 @@ function FilaSeleccion({
   onToggle: () => void
   avisarBloqueo: boolean
 }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   const sinCorreo = fila.email === null
 
   return (
@@ -106,24 +112,24 @@ function FilaSeleccion({
           checked={marcada}
           disabled={sinCorreo}
           onChange={onToggle}
-          aria-label={`Seleccionar a ${fila.nombre}`}
+          aria-label={T.seleccionarA(fila.nombre)}
         />
       </td>
       <td className="px-3 py-2 text-sm">{fila.nombre}</td>
       <td className="px-3 py-2 text-sm text-muted-foreground">
-        {fila.email ?? 'Sin correo en la ficha'}
+        {fila.email ?? T.sinCorreoEn}
       </td>
       <td className="px-3 py-2 text-sm">
         {fila.tieneCuenta ? (
-          <span className="text-muted-foreground">Ya tiene cuenta</span>
+          <span className="text-muted-foreground">{T.yaTieneCuenta}</span>
         ) : sinCorreo ? (
-          <span className="text-amber-600 dark:text-amber-400">No se le puede crear</span>
+          <span className="text-amber-600 dark:text-amber-400">{T.noSeLe}</span>
         ) : (
-          <span className="text-emerald-600 dark:text-emerald-400">Sin cuenta</span>
+          <span className="text-emerald-600 dark:text-emerald-400">{T.sinCuentaX}</span>
         )}
         {avisarBloqueo && !sinCorreo && !fila.sePuedeEscribir && (
           <span className="ml-2 text-xs text-muted-foreground">
-            (fuera de la lista de pruebas)
+            {T.fueraDeLa}
           </span>
         )}
       </td>
@@ -131,7 +137,90 @@ function FilaSeleccion({
   )
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        creaElUsuario: 'Creates the account for every student who does not have one yet and emails them a link to set their password. Their username is their email.',
+        cadaEstudianteDefine: 'Each student sets their own password from the link they receive. Nobody — not even you — gets to see it.',
+        seLesEnviara: 'They will be emailed their activation link.',
+        enviarlesSuEnlace: 'Email them their activation link',
+        ningunEstudianteCoincide: 'No student matches the search.',
+        cuentasDeAcceso: 'Student sign-in accounts',
+        soloLosQue: 'Only those who already have an account',
+        soloLosQueX: 'Only those without an account',
+        todosLosEstudiantes: 'All active students',
+        buscarPorNombre: 'Search by name or email…',
+        noSeEnviara: 'No email will be sent.',
+        aQuien: 'Who',
+        enviado: 'Sent',
+        seleccionarA: (n: string) => `Select ${n}`,
+        fueraDeLa: '(outside the test list)',
+        simulacionNoSe: 'Dry run — nothing was created or sent',
+        eligeAlMenos: 'Choose at least one student.',
+        simularNoCrea: 'Dry run (creates nothing)',
+        crearCuentasDe: 'Create sign-in accounts',
+        soloLosQueXX: 'Only the ones I pick',
+        limpiarSeleccion: 'Clear selection',
+        sinCorreoEn: 'No email on the record',
+        sinCorreoEnX: 'no email on the record',
+        estudiantesActivos: 'active students',
+        noSeLe: 'Cannot be created',
+        yaTienenCuenta: 'already have an account',
+        yaTenianCuenta: 'already had an account',
+        yaTieneCuenta: 'Already has an account',
+        seCrearian: 'would be created',
+        crearCuentas: 'Create accounts',
+        sinCuenta: 'no account',
+        sinCuentaX: 'No account',
+        todos: 'All',
+      }
+    : {
+        creaElUsuario: 'Crea el usuario de cada estudiante que aún no lo tenga y le envía un enlace para que defina su contraseña. El usuario es su correo.',
+        cadaEstudianteDefine: 'Cada estudiante define su propia contraseña desde el enlace que recibe. Nadie —tampoco tú— llega a conocerla.',
+        seLesEnviara: 'Se les enviará su enlace de activación por correo.',
+        enviarlesSuEnlace: 'Enviarles su enlace de activación por correo',
+        ningunEstudianteCoincide: 'Ningún estudiante coincide con la búsqueda.',
+        cuentasDeAcceso: 'Cuentas de acceso de los estudiantes',
+        soloLosQue: 'Solo los que ya tienen cuenta',
+        soloLosQueX: 'Solo los que no tienen cuenta',
+        todosLosEstudiantes: 'Todos los estudiantes activos',
+        buscarPorNombre: 'Buscar por nombre o correo…',
+        noSeEnviara: 'No se enviará ningún correo.',
+        aQuien: 'A quién',
+        enviado: 'Enviado',
+        seleccionarA: (n: string) => `Seleccionar a ${n}`,
+        fueraDeLa: '(fuera de la lista de pruebas)',
+        simulacionNoSe: 'Simulación — no se creó ni se envió nada',
+        eligeAlMenos: 'Elige al menos un estudiante.',
+        simularNoCrea: 'Simular (no crea nada)',
+        crearCuentasDe: 'Crear cuentas de acceso',
+        soloLosQueXX: 'Solo los que yo elija',
+        limpiarSeleccion: 'Limpiar selección',
+        sinCorreoEn: 'Sin correo en la ficha',
+        sinCorreoEnX: 'sin correo en la ficha',
+        estudiantesActivos: 'estudiantes activos',
+        noSeLe: 'No se le puede crear',
+        yaTienenCuenta: 'ya tienen cuenta',
+        yaTenianCuenta: 'ya tenían cuenta',
+        yaTieneCuenta: 'Ya tiene cuenta',
+        seCrearian: 'se crearían',
+        crearCuentas: 'Crear cuentas',
+        sinCuenta: 'sin cuenta',
+        sinCuentaX: 'Sin cuenta',
+        todos: 'Todos',
+      }
+}
+
 export function PanelCuentasEstudiante() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [padron, setPadron] = useState<Padron | null>(null)
   const [cargando, setCargando] = useState(true)
   const [errorPadron, setErrorPadron] = useState<string | null>(null)
@@ -215,7 +304,7 @@ export function PanelCuentasEstudiante() {
     try {
       setResumen(
         await comunicacionesApi.crearCuentasEstudiante({
-          // Vacío significa "todos" en el backend; mandar la lista explícita
+          // Vacío significa {'todos'} en el backend; mandar la lista explícita
           // cuando se eligió a mano evita depender de esa convención.
           estudianteIds: alcance === 'todos' ? undefined : [...seleccion],
           enviarCorreo,
@@ -238,12 +327,11 @@ export function PanelCuentasEstudiante() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Key className="size-5 text-primary" weight="duotone" />
-              Cuentas de acceso de los estudiantes
+              <Key className="size-5 text-primary" />
+              {T.cuentasDeAcceso}
             </CardTitle>
             <CardDescription>
-              Crea el usuario de cada estudiante que aún no lo tenga y le envía un
-              enlace para que defina su contraseña. El usuario es su correo.
+              {T.creaElUsuario}
             </CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={cargarPadron} disabled={cargando}>
@@ -273,17 +361,17 @@ export function PanelCuentasEstudiante() {
           <>
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <span>
-                <strong>{padron.total}</strong> estudiantes activos
+                <strong>{padron.total}</strong> {T.estudiantesActivos}
               </span>
               <span className="text-muted-foreground">
-                <strong>{padron.conCuenta}</strong> ya tienen cuenta
+                <strong>{padron.conCuenta}</strong> {T.yaTienenCuenta}
               </span>
               <span className="text-muted-foreground">
-                <strong>{padron.sinCuenta}</strong> sin cuenta
+                <strong>{padron.sinCuenta}</strong> {T.sinCuenta}
               </span>
               {padron.sinCorreo > 0 && (
                 <span className="text-amber-600 dark:text-amber-400">
-                  <strong>{padron.sinCorreo}</strong> sin correo en la ficha
+                  <strong>{padron.sinCorreo}</strong> {T.sinCorreoEnX}
                 </span>
               )}
             </div>
@@ -291,7 +379,7 @@ export function PanelCuentasEstudiante() {
             {/* ── A quién ─────────────────────────────────────────────── */}
             <fieldset className="flex flex-col gap-2 rounded-xl border border-border/60 bg-secondary/10 p-4">
               <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                A quién
+                {T.aQuien}
               </legend>
               <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <input
@@ -301,7 +389,7 @@ export function PanelCuentasEstudiante() {
                   onChange={() => setAlcance('seleccion')}
                 />
                 <span>
-                  Solo los que yo elija
+                  {T.soloLosQueXX}
                   <span className="ml-2 text-xs text-muted-foreground">
                     {seleccion.size} seleccionado{seleccion.size === 1 ? '' : 's'}
                   </span>
@@ -315,7 +403,7 @@ export function PanelCuentasEstudiante() {
                   onChange={() => setAlcance('todos')}
                 />
                 <span>
-                  Todos los estudiantes activos
+                  {T.todosLosEstudiantes}
                   <span className="ml-2 text-xs text-muted-foreground">
                     {padron.total} personas
                   </span>
@@ -331,7 +419,7 @@ export function PanelCuentasEstudiante() {
                     <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       className="h-9 pl-9"
-                      placeholder="Buscar por nombre o correo…"
+                      placeholder={T.buscarPorNombre}
                       value={busqueda}
                       onChange={(e) => setBusqueda(e.target.value)}
                     />
@@ -341,9 +429,9 @@ export function PanelCuentasEstudiante() {
                     value={filtro}
                     onChange={(e) => setFiltro(e.target.value as Filtro)}
                   >
-                    <option value="todos">Todos</option>
-                    <option value="sin-cuenta">Solo los que no tienen cuenta</option>
-                    <option value="con-cuenta">Solo los que ya tienen cuenta</option>
+                    <option value={'todos'}>{T.todos}</option>
+                    <option value="sin-cuenta">{T.soloLosQueX}</option>
+                    <option value="con-cuenta">{T.soloLosQue}</option>
                   </select>
                   <Button
                     variant="outline"
@@ -356,7 +444,7 @@ export function PanelCuentasEstudiante() {
                   </Button>
                   {seleccion.size > 0 && (
                     <Button variant="outline" size="sm" onClick={() => setSeleccion(new Set())}>
-                      Limpiar selección
+                      {T.limpiarSeleccion}
                     </Button>
                   )}
                 </div>
@@ -387,7 +475,7 @@ export function PanelCuentasEstudiante() {
                             colSpan={4}
                             className="px-3 py-6 text-center text-sm text-muted-foreground"
                           >
-                            Ningún estudiante coincide con la búsqueda.
+                            {T.ningunEstudianteCoincide}
                           </td>
                         </tr>
                       )}
@@ -406,7 +494,7 @@ export function PanelCuentasEstudiante() {
                 onChange={(e) => setEnviarCorreo(e.target.checked)}
               />
               <span>
-                Enviarles su enlace de activación por correo
+                {T.enviarlesSuEnlace}
                 <span className="block text-xs text-muted-foreground">
                   Canal configurado: <strong>{padron.canalDeCorreo}</strong>.
                 </span>
@@ -447,7 +535,7 @@ export function PanelCuentasEstudiante() {
                     <CircleNotch className="size-4 animate-spin" /> Calculando…
                   </>
                 ) : (
-                  'Simular (no crea nada)'
+                  T.simularNoCrea
                 )}
               </Button>
               <Button onClick={() => setShowConfirmModal(true)} disabled={procesando || nadaQueHacer}>
@@ -458,7 +546,7 @@ export function PanelCuentasEstudiante() {
               </Button>
               {nadaQueHacer && (
                 <span className="text-xs text-muted-foreground">
-                  Elige al menos un estudiante.
+                  {T.eligeAlMenos}
                 </span>
               )}
             </div>
@@ -466,7 +554,7 @@ export function PanelCuentasEstudiante() {
             <Confirmar
               open={showConfirmModal}
               onOpenChange={setShowConfirmModal}
-              titulo="Crear cuentas de acceso"
+              titulo={T.crearCuentasDe}
               descripcion={
                 <>
                   Se van a crear las cuentas que falten para{' '}
@@ -477,11 +565,11 @@ export function PanelCuentasEstudiante() {
                   </strong>
                   .
                   {enviarCorreo
-                    ? ' Se les enviará su enlace de activación por correo.'
-                    : ' No se enviará ningún correo.'}
+                    ? ` ${T.seLesEnviara}`
+                    : ` ${T.noSeEnviara}`}
                 </>
               }
-              textoConfirmar="Crear cuentas"
+              textoConfirmar={T.crearCuentas}
               destructivo={false}
               onConfirmar={() => ejecutar(false)}
             />
@@ -497,18 +585,18 @@ export function PanelCuentasEstudiante() {
             <div className="flex flex-wrap items-center gap-3 text-sm">
               {resumen.simulacion && (
                 <span className="rounded-full bg-amber-500/15 px-3 py-1 font-medium text-amber-700 dark:text-amber-400">
-                  Simulación — no se creó ni se envió nada
+                  {T.simulacionNoSe}
                 </span>
               )}
               <span>
                 <strong>{resumen.creadas}</strong>{' '}
-                {resumen.simulacion ? 'se crearían' : 'creadas'}
+                {resumen.simulacion ? T.seCrearian : 'creadas'}
               </span>
               <span className="text-muted-foreground">
-                <strong>{resumen.yaTenian}</strong> ya tenían cuenta
+                <strong>{resumen.yaTenian}</strong> {T.yaTenianCuenta}
               </span>
               <span className="text-muted-foreground">
-                <strong>{resumen.sinCorreo}</strong> sin correo en la ficha
+                <strong>{resumen.sinCorreo}</strong> {T.sinCorreoEnX}
               </span>
               {!resumen.simulacion && (
                 <span className="text-emerald-600 dark:text-emerald-400">
@@ -525,8 +613,7 @@ export function PanelCuentasEstudiante() {
             <p className="flex items-start gap-2 text-xs text-muted-foreground">
               <CheckCircle className="mt-0.5 size-3.5 shrink-0" />
               <span>
-                Cada estudiante define su propia contraseña desde el enlace que
-                recibe. Nadie —tampoco tú— llega a conocerla.
+                {T.cadaEstudianteDefine}
               </span>
             </p>
 

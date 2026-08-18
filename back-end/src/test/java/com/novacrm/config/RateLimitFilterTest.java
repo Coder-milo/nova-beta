@@ -1,10 +1,16 @@
 package com.novacrm.config;
 
+import com.novacrm.auth.JwtClaims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,7 +27,7 @@ class RateLimitFilterTest {
 
     /** Limite de 2 peticiones por minuto para que las pruebas sean rapidas. */
     private RateLimitFilter filtro(String proxiesDeConfianza) {
-        return new RateLimitFilter(2, 1, 2, 1, proxiesDeConfianza);
+        return new RateLimitFilter(2, 1, 2, 1, 2, 1, proxiesDeConfianza);
     }
 
     private int pedirLogin(RateLimitFilter filtro, String remoteAddr, String forwardedFor)
@@ -142,6 +148,59 @@ class RateLimitFilterTest {
                 "dos refrescos no pueden dejar al usuario sin poder iniciar sesion");
     }
 
+    /**
+     * El formulario publico tiene su propio cupo.
+     *
+     * <p>Es la unica escritura que puede hacer cualquiera sin identificarse. Con
+     * el contador general —cien al minuto— una sola maquina llena la cola de
+     * revision en una tarde; y compartiendo el del login, cada oferta enviada
+     * gastaria intentos de inicio de sesion de quien salga por esa misma IP.
+     */
+    @Test
+    void elFormularioPublicoTieneSuPropioCupo() throws Exception {
+        var filtro = filtro(PROXY);
+
+        assertEquals(HttpServletResponse.SC_OK, pedir(filtro, "/api/v1/publico/vacantes", "203.0.113.9"));
+        assertEquals(HttpServletResponse.SC_OK, pedir(filtro, "/api/v1/publico/vacantes", "203.0.113.9"));
+        assertEquals(429, pedir(filtro, "/api/v1/publico/vacantes", "203.0.113.9"),
+                "pasado el cupo, el formulario publico se corta");
+
+        assertEquals(HttpServletResponse.SC_OK, pedirLogin(filtro, "203.0.113.9", null),
+                "agotarlo no puede dejar sin iniciar sesion a quien salga por esa IP");
+
+        var request = new MockHttpServletRequest("GET", "/api/v1/estudiantes");
+        request.setRequestURI("/api/v1/estudiantes");
+        request.setRemoteAddr("203.0.113.9");
+        var response = new MockHttpServletResponse();
+        filtro.doFilter(request, response, new MockFilterChain());
+        assertEquals(HttpServletResponse.SC_OK, response.getStatus(),
+                "ni sin usar el resto de la API");
+    }
+
+    /**
+     * El cupo publico cuenta por IP y no por lo que declare quien envia.
+     *
+     * <p>No hay token que mirar, y el correo del formulario no esta verificado:
+     * si el contador dependiera de el, cambiar una letra estrenaria cupo.
+     */
+    @Test
+    void elCupoPublicoNoSeEstrenaCambiandoDeCabecera() throws Exception {
+        var filtro = filtro(PROXY);
+
+        pedir(filtro, "/api/v1/publico/vacantes", "203.0.113.9");
+        pedir(filtro, "/api/v1/publico/vacantes", "203.0.113.9");
+
+        var request = new MockHttpServletRequest("POST", "/api/v1/publico/vacantes");
+        request.setRequestURI("/api/v1/publico/vacantes");
+        request.setRemoteAddr("203.0.113.9");
+        request.addHeader("Authorization", "Bearer loQueSea");
+        var response = new MockHttpServletResponse();
+        filtro.doFilter(request, response, new MockFilterChain());
+
+        assertEquals(429, response.getStatus(),
+                "una cabecera inventada no puede estrenar contador");
+    }
+
     @Test
     void elLoginSigueTeniendoElLimiteEstricto() throws Exception {
         var filtro = filtro(PROXY);
@@ -193,5 +252,138 @@ class RateLimitFilterTest {
         assertTrue(filtro.contadoresVivos() <= 3_000,
                 "los contadores no deben crecer mas alla de las IPs vistas");
         assertTrue(filtro.contadoresVivos() > 0, "deben seguir existiendo contadores activos");
+    }
+
+    /**
+     * Llenar la memoria de la API no puede reiniciar el freno del login.
+     *
+     * <p>El tope se medía sobre la suma de los dos registros y, al desbordarse,
+     * se vaciaban los dos. Asi que generar trafico desde muchas direcciones
+     * —trivial con un rango IPv6 propio— borraba tambien los intentos fallidos
+     * acumulados: quien estaba adivinando una contrasena recuperaba sus cinco
+     * intentos por minuto tantas veces como quisiera.
+     *
+     * <p>Son dos defensas distintas y una no puede apagar a la otra.
+     */
+    @Test
+    void llenarElRegistroDeLaApiNoBorraElFrenoDelLogin() throws Exception {
+        var filtro = filtro(PROXY);
+        String atacante = "203.0.113.7";
+
+        assertEquals(HttpServletResponse.SC_OK, pedirLogin(filtro, atacante, null));
+        assertEquals(HttpServletResponse.SC_OK, pedirLogin(filtro, atacante, null));
+        assertEquals(429, pedirLogin(filtro, atacante, null), "el freno esta puesto");
+
+        // Trafico de la API desde muchas direcciones distintas, por encima del
+        // presupuesto de ese registro.
+        for (int i = 0; i < 26_000; i++) {
+            pedirApi(filtro, "10." + (i / 65_536) + "." + ((i / 256) % 256) + "." + (i % 256), null);
+        }
+
+        assertEquals(429, pedirLogin(filtro, atacante, null),
+                "el contador de login del atacante sigue agotado");
+    }
+
+    // --- Cupo por usuario en el resto de la API ---
+
+    private static final String SECRETO = "secreto_de_prueba_para_el_rate_limit_con_32_bytes_o_mas";
+
+    /** Deja {@code jwtSecretActivo} listo para poder firmar tokens de prueba. */
+    private static void prepararSecreto() {
+        var config = new SecurityConfig();
+        ReflectionTestUtils.setField(config, "jwtSecret", SECRETO);
+        ReflectionTestUtils.setField(config, "allowEphemeralSecret", false);
+        config.validarJwtSecret();
+    }
+
+    private static String tokenDe(String sujeto) {
+        prepararSecreto();
+        return Jwts.builder()
+                .subject(sujeto)
+                .claim(JwtClaims.TYPE, JwtClaims.TYPE_ACCESS)
+                .signWith(Keys.hmacShaKeyFor(SECRETO.getBytes(StandardCharsets.UTF_8)))
+                .compact();
+    }
+
+    private int pedirApi(RateLimitFilter filtro, String remoteAddr, String token) throws Exception {
+        var request = new MockHttpServletRequest("GET", "/api/v1/estudiantes");
+        request.setRequestURI("/api/v1/estudiantes");
+        request.setRemoteAddr(remoteAddr);
+        if (token != null) {
+            request.addHeader("Authorization", "Bearer " + token);
+        }
+        var response = new MockHttpServletResponse();
+        filtro.doFilter(request, response, new MockFilterChain());
+        return response.getStatus();
+    }
+
+    /**
+     * El caso real: el centro de formacion sale a internet por una sola IP, asi
+     * que con el contador por IP los estudiantes se robaban el cupo entre ellos
+     * y el 429 le tocaba a quien pasara por ahi.
+     */
+    @Test
+    void dosUsuariosEnLaMismaIpNoSeGastanElCupoElUnoAlOtro() throws Exception {
+        var filtro = filtro(PROXY);
+        String ana = tokenDe("ana@novacrm.test");
+        String luis = tokenDe("luis@novacrm.test");
+
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.9", ana));
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.9", ana));
+        assertEquals(429, pedirApi(filtro, "203.0.113.9", ana),
+                "ana si debe agotar su propio cupo");
+
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.9", luis),
+                "luis comparte la IP con ana, pero no su cupo");
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.9", luis));
+    }
+
+    /**
+     * Si un token inventado estrenara contador, bastaria con cambiar la cabecera
+     * en cada peticion para no tener limite ninguno. Sin identificar, se cuenta
+     * por IP igual que antes.
+     */
+    @Test
+    void unTokenInventadoNoEstrenaContador() throws Exception {
+        var filtro = filtro(PROXY);
+
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.10", "basura-1"));
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.10", "basura-2"));
+        assertEquals(429, pedirApi(filtro, "203.0.113.10", "basura-3"),
+                "sin firma valida se cuenta por IP: cambiar el token no da cupo nuevo");
+    }
+
+    /** Un token bien firmado pero de refresco tampoco identifica: cuenta por IP. */
+    @Test
+    void elTokenDeRefrescoNoIdentificaParaElCupo() throws Exception {
+        var filtro = filtro(PROXY);
+        prepararSecreto();
+        String refresco = Jwts.builder()
+                .subject("ana@novacrm.test")
+                .claim(JwtClaims.TYPE, JwtClaims.TYPE_REFRESH)
+                .signWith(Keys.hmacShaKeyFor(SECRETO.getBytes(StandardCharsets.UTF_8)))
+                .compact();
+
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.11", refresco));
+        assertEquals(HttpServletResponse.SC_OK, pedirApi(filtro, "203.0.113.11", refresco));
+        assertEquals(429, pedirApi(filtro, "203.0.113.11", null),
+                "el refresco cae al contador por IP, el mismo que una peticion sin token");
+    }
+
+    /** El login sigue contando por IP aunque llegue con un token valido. */
+    @Test
+    void elLoginSigueContandoPorIpAunqueVengaConToken() throws Exception {
+        var filtro = filtro(PROXY);
+        String ana = tokenDe("ana@novacrm.test");
+
+        var request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        request.setRequestURI("/api/v1/auth/login");
+        request.setRemoteAddr("203.0.113.12");
+        request.addHeader("Authorization", "Bearer " + ana);
+        filtro.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
+
+        pedirLogin(filtro, "203.0.113.12", null);
+        assertEquals(429, pedirLogin(filtro, "203.0.113.12", null),
+                "un token valido no puede servir para ampliar el cupo anti fuerza bruta");
     }
 }

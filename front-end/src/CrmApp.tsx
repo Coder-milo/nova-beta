@@ -12,111 +12,84 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { ProveedorBranding } from '@/lib/branding'
-import { PreferencesProvider } from '@/lib/preferences'
+import { PreferencesProvider, usePreferences } from '@/lib/preferences'
 import {
   estudiantePuedeVer,
   soloEsEstudiante,
   RUTA_INICIO_ESTUDIANTE,
+  empresaPuedeVer,
+  soloEsEmpresa,
+  RUTA_INICIO_EMPRESA,
 } from '@/lib/navigation'
 import { usePathname } from '@/compat/next-navigation'
+import {
+  cargadoresDeRuta,
+  cargadoresPorPatron,
+  normalizarRuta,
+} from '@/lib/rutas'
 
-const DashboardPage = lazy(() => import('@/app/page'))
-const AuditoriaPage = lazy(() => import('@/app/auditoria/page'))
-const ComunicacionesPage = lazy(() => import('@/app/comunicaciones/page'))
-const ColocacionesPage = lazy(() => import('@/app/colocaciones/page'))
-const ConfiguracionPage = lazy(() => import('@/app/configuracion/page'))
-const DocumentosPage = lazy(() => import('@/app/documentos/page'))
-const EmpresasPage = lazy(() => import('@/app/empresas/page'))
-const EstudiantesPage = lazy(() => import('@/app/estudiantes/page'))
-const EstudianteDetallePage = lazy(() => import('@/app/estudiantes/[id]/page'))
-const NuevoEstudiantePage = lazy(() => import('@/app/estudiantes/nuevo/page'))
-const HojasDeVidaPage = lazy(() => import('@/app/hojas-de-vida/page'))
-const ImportacionesPage = lazy(() => import('@/app/importaciones/page'))
-const LoginPage = lazy(() => import('@/app/login/page'))
-const PortalEstudiantePage = lazy(() => import('@/app/inicio-estudiante/page'))
-const PowerBiPage = lazy(() => import('@/app/power-bi/page'))
-const ProyectosPage = lazy(() => import('@/app/proyectos/page'))
-const ProyectoDetallePage = lazy(() => import('@/app/proyectos/[id]/page'))
-const RecuperarContrasenaPage = lazy(
-  () => import('@/app/recuperar-contrasena/page'),
-)
-const ReportesPage = lazy(() => import('@/app/reportes/page'))
-const VacantesPage = lazy(() => import('@/app/vacantes/page'))
-const MiProcesoPage = lazy(() => import('@/app/mi-proceso/page'))
-const MisActividadesPage = lazy(() => import('@/app/mis-actividades/page'))
-const MisDocumentosPage = lazy(() => import('@/app/mis-documentos/page'))
-const MiHojaDeVidaPage = lazy(() => import('@/app/mi-hoja-de-vida/page'))
-const MisPostulacionesPage = lazy(() => import('@/app/mis-postulaciones/page'))
-const MiCalendarioPage = lazy(() => import('@/app/mi-calendario/page'))
-const MisMensajesPage = lazy(() => import('@/app/mis-mensajes/page'))
-const MisNotificacionesPage = lazy(() => import('@/app/mis-notificaciones/page'))
-const AyudaEstudiantePage = lazy(() => import('@/app/ayuda-estudiante/page'))
-const ConfiguracionEstudiantePage = lazy(() => import('@/app/configuracion-estudiante/page'))
-
-const exactRoutes: Record<string, ComponentType> = {
-  '/': DashboardPage,
-  '/auditoria': AuditoriaPage,
-  '/comunicaciones': ComunicacionesPage,
-  '/colocaciones': ColocacionesPage,
-  '/configuracion': ConfiguracionPage,
-  '/documentos': DocumentosPage,
-  '/empresas': EmpresasPage,
-  '/estudiantes': EstudiantesPage,
-  '/estudiantes/nuevo': NuevoEstudiantePage,
-  '/hojas-de-vida': HojasDeVidaPage,
-  '/importaciones': ImportacionesPage,
-  '/login': LoginPage,
-  '/portal-estudiante': PortalEstudiantePage,
-  '/power-bi': PowerBiPage,
-  '/proyectos': ProyectosPage,
-  '/recuperar-contrasena': RecuperarContrasenaPage,
-  '/reportes': ReportesPage,
-  '/vacantes': VacantesPage,
-  // Compatibilidad para enlaces guardados: el perfil ahora vive en Configuración.
-  '/mi-perfil': ConfiguracionEstudiantePage,
-  '/mi-proceso': MiProcesoPage,
-  '/mis-actividades': MisActividadesPage,
-  '/mis-documentos': MisDocumentosPage,
-  '/mi-hoja-de-vida': MiHojaDeVidaPage,
-  '/mis-postulaciones': MisPostulacionesPage,
-  '/mi-calendario': MiCalendarioPage,
-  '/mis-mensajes': MisMensajesPage,
-  '/mis-notificaciones': MisNotificacionesPage,
-  '/ayuda-estudiante': AyudaEstudiantePage,
-  '/configuracion-estudiante': ConfiguracionEstudiantePage,
+function lazyRetry<T extends ComponentType<any>>(factory: () => Promise<{ default: T }>) {
+  return lazy(async () => {
+    try {
+      return await factory()
+    } catch (error) {
+      const pageKey = 'nova_crm_lazy_retry'
+      const lastRetry = sessionStorage.getItem(pageKey)
+      if (!lastRetry || Date.now() - Number(lastRetry) > 3000) {
+        sessionStorage.setItem(pageKey, String(Date.now()))
+        window.location.reload()
+      }
+      throw error
+    }
+  })
 }
 
+/**
+ * Las pantallas salen del registro de `lib/rutas`, que es el mismo del que
+ * tira la precarga al apuntar un enlace. Compartir la lista evita que una
+ * ruta quede navegable pero sin precargar —o al revés— cuando se añada la
+ * siguiente.
+ */
+const exactRoutes: Record<string, ComponentType> = Object.fromEntries(
+  Object.entries(cargadoresDeRuta).map(([ruta, cargar]) => [ruta, lazyRetry(cargar)]),
+)
+
+const rutasPorPatron: ReadonlyArray<[RegExp, ComponentType]> = cargadoresPorPatron.map(
+  ([patron, cargar]) => [patron, lazyRetry(cargar)],
+)
+
+const PortalEstudiantePage = exactRoutes['/portal-estudiante']
+const PortalEmpresaPage = exactRoutes['/portal/vacantes']
+
 function NotFoundPage() {
+  const { locale } = usePreferences()
+  const english = locale === 'en'
   return (
     <div className="glass-card flex min-h-72 flex-col items-center justify-center gap-3 rounded-3xl p-8 text-center">
       <p className="text-sm font-semibold uppercase tracking-wider text-primary">
         Error 404
       </p>
       <h2 className="text-2xl font-semibold text-foreground">
-        Esta página no existe
+        {english ? 'This page does not exist' : 'Esta página no existe'}
       </h2>
       <a className="text-sm font-medium text-primary hover:underline" href="/">
-        Volver al dashboard
+        {english ? 'Back to the dashboard' : 'Volver al dashboard'}
       </a>
     </div>
   )
 }
 
 function resolvePage(pathname: string): ComponentType {
-  const normalized =
-    pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+  const normalized = normalizarRuta(pathname)
 
   const ExactPage = exactRoutes[normalized]
   if (ExactPage) {
     return ExactPage
   }
 
-  if (/^\/estudiantes\/[^/]+$/.test(normalized)) {
-    return EstudianteDetallePage
-  }
-
-  if (/^\/proyectos\/[^/]+$/.test(normalized)) {
-    return ProyectoDetallePage
+  const PatronPage = rutasPorPatron.find(([patron]) => patron.test(normalized))?.[1]
+  if (PatronPage) {
+    return PatronPage
   }
 
   return NotFoundPage
@@ -133,26 +106,37 @@ function resolvePage(pathname: string): ComponentType {
  */
 function CurrentRoute() {
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, cargando } = useAuth()
   const esEstudiante = soloEsEstudiante(user?.roles)
+  const esEmpresa = soloEsEmpresa(user?.roles)
+
+  // Fuera de sitio: el rol no alcanza esta ruta. Se corrige la URL en vez de
+  // navegar, para no dejar la pantalla prohibida en el historial —donde el
+  // botón Atrás la volvería a abrir—.
+  const fueraDeSitio =
+    (esEstudiante && !estudiantePuedeVer(pathname)) ||
+    (esEmpresa && !empresaPuedeVer(pathname))
 
   useEffect(() => {
-    if (
-      esEstudiante &&
-      !estudiantePuedeVer(pathname) &&
-      typeof window !== 'undefined'
-    ) {
-      window.history.replaceState(null, '', RUTA_INICIO_ESTUDIANTE)
+    if (!cargando && fueraDeSitio && typeof window !== 'undefined') {
+      window.history.replaceState(null, '', esEmpresa ? RUTA_INICIO_EMPRESA : RUTA_INICIO_ESTUDIANTE)
       window.dispatchEvent(new PopStateEvent('popstate'))
     }
-  }, [esEstudiante, pathname])
+  }, [cargando, fueraDeSitio, esEmpresa, pathname])
 
-  // Mientras el efecto corrige la URL ya se pinta el portal, para que no
-  // llegue a montarse el dashboard y disparar las llamadas que dan 403.
-  const Page =
-    esEstudiante && !estudiantePuedeVer(pathname)
-      ? PortalEstudiantePage
-      : resolvePage(pathname)
+  // Hasta que se sepa quien entro no se monta ninguna pantalla. La sesion se
+  // lee en un efecto, asi que en el primer render `user` es null y
+  // `soloEsEstudiante` responde false: pintar ya habria montado el dashboard
+  // de administracion —con sus llamadas a datos de todos los proyectos— en la
+  // pantalla de un estudiante, que es de donde salian los 403 del arranque.
+  const { locale } = usePreferences()
+  if (cargando) return <PageSpinner label={locale === 'en' ? 'Signing in…' : 'Iniciando sesión…'} />
+
+  // Mientras el efecto corrige la URL ya se pinta la pantalla de destino, para
+  // que no llegue a montarse el dashboard y disparar las llamadas que dan 403.
+  const Page = fueraDeSitio
+    ? (esEmpresa ? PortalEmpresaPage : PortalEstudiantePage)
+    : resolvePage(pathname)
 
   return <Page />
 }
@@ -180,14 +164,17 @@ class AppErrorBoundary extends Component<
   render() {
     if (!this.state.error) return this.props.children
 
+    // Esta pantalla envuelve al proveedor de preferencias, asi que no puede
+    // usar su hook: lee directamente la clave que el proveedor guarda. Si
+    // fallara la lectura, el espanol es el idioma por defecto del sistema.
+    let english = false
+    try { english = localStorage.getItem('nova_locale') === 'en' } catch { /* noop */ }
+
     return (
       <main className="flex min-h-svh items-center justify-center bg-[#050b14] p-6 text-white">
         <section className="w-full max-w-md rounded-2xl border border-white/15 bg-white/5 p-7 text-center shadow-2xl">
-          <h1 className="text-xl font-semibold">No se pudo cargar el panel</h1>
-          <p className="mt-3 text-sm leading-6 text-white/70">
-            Ocurrió un error al iniciar la interfaz. El detalle técnico aparece
-            abajo para poder corregirlo.
-          </p>
+          <h1 className="text-xl font-semibold">{english ? 'The panel could not be loaded' : 'No se pudo cargar el panel'}</h1>
+          <p className="mt-3 text-sm leading-6 text-white/70">{english ? 'Something went wrong starting the interface. The technical detail is shown below so it can be fixed.' : 'Ocurrió un error al iniciar la interfaz. El detalle técnico aparece abajo para poder corregirlo.'}</p>
           <pre className="mt-4 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-black/30 p-3 text-left text-xs text-red-200">
             {this.state.error.message || this.state.error.name}
           </pre>
@@ -196,7 +183,7 @@ class AppErrorBoundary extends Component<
             onClick={this.recuperar}
             className="mt-6 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
           >
-            Recuperar aplicación
+            {english ? 'Recover the application' : 'Recuperar aplicación'}
           </button>
         </section>
       </main>

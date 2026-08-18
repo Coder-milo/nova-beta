@@ -16,6 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -47,6 +48,28 @@ public class VacanteController {
         return scrapingService.ejecutarScraping();
     }
 
+    /**
+     * Cierra las ofertas abiertas que no exigen ingles.
+     *
+     * <p>Limpieza puntual para lo que se guardo antes de que existiera el
+     * colador bilingue. Se cierran con motivo propio, no se borran: el
+     * historico de que ofertas se vieron y de que portal sigue sirviendo.
+     */
+    @PostMapping("/depurar-no-bilingues")
+    @Operation(summary = "Cerrar las ofertas abiertas que no exigen ingles")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public Map<String, Object> depurarNoBilingues() {
+        int cerradas = scrapingService.cerrarLasQueNoExigenIngles();
+        return Map.of("cerradas", cerradas);
+    }
+
+    @GetMapping("/scraping/ejecuciones")
+    @Operation(summary = "Registro de las ultimas corridas de actualizacion, con sus errores")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public java.util.List<com.novacrm.scraper.dto.EjecucionDeScraping> ejecuciones() {
+        return scrapingService.historial();
+    }
+
     @GetMapping("/ultima-actualizacion")
     @Operation(summary = "Cuantas ofertas entraron en la ultima actualizacion")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
@@ -60,12 +83,29 @@ public class VacanteController {
                 .orElse(Map.of("mensaje", "Todavia no se ha ejecutado ninguna actualizacion"));
     }
 
+    /**
+     * El estudiante ve el anuncio; no ve como lo gestiona el equipo.
+     *
+     * <p>{@code creadaPor} y {@code motivoCierre} sólo viajan hacia gestión. El
+     * detalle por identificador ya estaba restringido por ese motivo, pero este
+     * listado devolvía los mismos campos y sí lo alcanza el estudiante: en una
+     * oferta sugerida, {@code creadaPor} es el correo de otro participante.
+     */
     @GetMapping
     @Operation(summary = "Listar vacantes vigentes (paginado)")
     public Page<VacanteResponse> listar(
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
-            Pageable pageable) {
-        return vacanteService.listarActivas(pageable);
+            Pageable pageable,
+            Authentication auth) {
+        return vacanteService.listarActivas(pageable, esGestion(auth));
+    }
+
+    /** ADMIN o COORDINADOR. Un estudiante nunca lo es, aunque tenga sesión. */
+    private static boolean esGestion(Authentication auth) {
+        if (auth == null) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
+                        || a.getAuthority().equals("ROLE_COORDINADOR"));
     }
 
     @GetMapping("/{id}")
@@ -104,10 +144,31 @@ public class VacanteController {
     }
 
     @PostMapping("/{id}/revisar")
-    @Operation(summary = "Dar por buena una oferta sugerida por un estudiante")
+    @Operation(summary = "Dar por buena una oferta pendiente de revision")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public VacanteResponse revisar(@PathVariable UUID id) {
         return vacanteService.marcarRevisada(id);
+    }
+
+    /** Motivo del rechazo. Obligatorio: sin el, quien publico no sabe que corregir. */
+    public record RechazoDeVacante(
+            @jakarta.validation.constraints.NotBlank(message = "Hace falta decir por que se rechaza")
+            @jakarta.validation.constraints.Size(max = 2000) String motivo) {}
+
+    @PostMapping("/{id}/rechazar")
+    @Operation(summary = "Rechazar una oferta diciendo por que, para que se pueda corregir")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public VacanteResponse rechazar(@PathVariable UUID id,
+                                    @Valid @RequestBody RechazoDeVacante cuerpo,
+                                    Authentication auth) {
+        return vacanteService.rechazar(id, cuerpo.motivo(), auth.getName());
+    }
+
+    @GetMapping("/cola-revision")
+    @Operation(summary = "Ofertas pendientes de revision, las del portal primero")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public List<VacanteResponse> colaDeRevision() {
+        return vacanteService.colaDeRevision();
     }
 
     @PutMapping("/{id}")

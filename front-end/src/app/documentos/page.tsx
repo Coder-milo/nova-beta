@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowsClockwiseIcon as ArrowsClockwise, CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, CircleNotchIcon as CircleNotch, ClockCounterClockwiseIcon as ClockCounterClockwise, DownloadSimpleIcon as DownloadSimple, EyeIcon as Eye, FileArrowUpIcon as FileArrowUp, FileTextIcon as FileText, MagnifyingGlassIcon as MagnifyingGlass, TrashIcon as Trash, UploadSimpleIcon as UploadSimple, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { ChevronLeft as CaretLeft, ChevronRight as CaretRight, CircleAlert as WarningCircle, Download as DownloadSimple, Eye, FileText, FileUp as FileArrowUp, History as ClockCounterClockwise, LoaderCircle as CircleNotch, RefreshCw as ArrowsClockwise, Search as MagnifyingGlass, Trash2 as Trash, Upload as UploadSimple, X } from 'lucide-react'
 /**
  * Página de Documentos — módulo documental completo con versionado.
  *
@@ -21,8 +21,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { FilePreview, FilePreviewSheet } from '@/components/ui/file-preview'
-import { documentosApi, programasApi, ApiCallError } from '@/lib/api'
+import { documentosApi, programasApi, ApiCallError, mensajeDeError } from '@/lib/api'
+import { useAvisos } from '@/components/ui/avisos'
+import { useConfirmar } from '@/components/ui/confirmar'
 import type { DocumentoResponse, ProgramaResponse, Page, ApiError } from '@/lib/types'
+import { useSearchParams } from '@/compat/next-navigation'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,23 +58,157 @@ function formatoTamano(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function formatoFecha(fecha: string): string {
+/**
+ * `en-GB` y no `en-US`: el resto del sistema muestra el dia primero, y un
+ * «08/09» que cambia de significado con el idioma es peor que no traducir.
+ */
+function formatoFecha(fecha: string, english: boolean): string {
   try {
-    return new Date(fecha).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
+    return new Date(fecha).toLocaleString(english ? 'en-GB' : 'es-CO', { dateStyle: 'medium', timeStyle: 'short' })
   } catch { return fecha }
 }
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        repositorioInternoDel: "Internal team repository. Each student's own documents are viewed from their record.",
+        esteRepositorioEs: 'This repository is only for team files; student documents stay in their record.',
+        noHayDocumentos: 'No documents match the filters.',
+        aunNoHay: 'There are no documents in the repository yet.',
+        errorDeConexion: 'Connection error while uploading the document.',
+        errorDeConexionX: 'Connection error while replacing the document.',
+        noSePudieron: 'The versions could not be loaded.',
+        noSePudo: 'The document could not be downloaded.',
+        noSePudoX: 'The document could not be deleted.',
+        noSePudoXX: 'The version could not be downloaded.',
+        noHayVersiones: 'No versions recorded.',
+        documentoSubidoCorrectamente: 'Document uploaded.',
+        sinPermisosInicia: 'No permission. Sign in.',
+        guardarDocumentoInstitucional: 'Save an institutional document',
+        versionesDelDocumento: 'Document versions',
+        cargandoDocumentos: 'Loading documents…',
+        cargandoVersiones: 'Loading versions…',
+        buscarPorNombre: 'Search by name…',
+        globalSinVinculo: 'Global (not linked)',
+        eliminarDocumento: 'Delete document',
+        descargarVersion: 'Download version',
+        subirDocumento: 'Upload document',
+        filtrarPorTipo: 'Filter by type',
+        todosLosTipos: 'All types',
+        vistaPrevia: 'Preview',
+        vinculadoA: 'Linked to',
+        subidoPor: 'Uploaded by',
+        vincularA: 'Link to',
+        reemplazar: 'Replace',
+        versiones: 'Versions',
+        version: 'Version',
+        sinTipo: 'No type',
+        tamano: 'Size',
+        limpiar: 'Clear',
+        tipo: 'Type',
+        actual: ' · current',
+        errorAlCargar: (s: number) => `Documents could not be loaded (HTTP ${s}).`,
+        errorAlSubir: (s: number) => `Upload failed (HTTP ${s}).`,
+        confirmarEliminar: (n: string) => `Document "${n}" will be deleted. This cannot be undone.`,
+        previsualizarX: (n: string) => `Preview ${n}`,
+        descargarX: (n: string) => `Download ${n}`,
+        verVersionesX: (n: string) => `View versions of ${n}`,
+        reemplazarX: (n: string) => `Replace ${n}`,
+        eliminarX: (n: string) => `Delete ${n}`,
+        descargarVersionX: (n: number) => `Download version ${n}`,
+        paginaDe: (p: number, total: number, elementos: number) => `Page ${p} of ${total} · ${elementos} documents`,
+      }
+    : {
+        repositorioInternoDel: 'Repositorio interno del equipo. Los documentos personales de cada estudiante se consultan desde su ficha.',
+        esteRepositorioEs: 'Este repositorio es solo para archivos del equipo; los documentos del estudiante permanecen en su expediente.',
+        noHayDocumentos: 'No hay documentos que coincidan con los filtros.',
+        aunNoHay: 'Aún no hay documentos en el repositorio.',
+        errorDeConexion: 'Error de conexión al subir el documento.',
+        errorDeConexionX: 'Error de conexión al reemplazar el documento.',
+        noSePudieron: 'No se pudieron cargar las versiones.',
+        noSePudo: 'No se pudo descargar el documento.',
+        noSePudoX: 'No se pudo eliminar el documento.',
+        noSePudoXX: 'No se pudo descargar la versión.',
+        noHayVersiones: 'No hay versiones registradas.',
+        documentoSubidoCorrectamente: 'Documento subido correctamente.',
+        sinPermisosInicia: 'Sin permisos. Inicia sesión.',
+        guardarDocumentoInstitucional: 'Guardar documento institucional',
+        versionesDelDocumento: 'Versiones del documento',
+        cargandoDocumentos: 'Cargando documentos…',
+        cargandoVersiones: 'Cargando versiones…',
+        buscarPorNombre: 'Buscar por nombre…',
+        globalSinVinculo: 'Global (sin vínculo)',
+        eliminarDocumento: 'Eliminar documento',
+        descargarVersion: 'Descargar versión',
+        subirDocumento: 'Subir documento',
+        filtrarPorTipo: 'Filtrar por tipo',
+        todosLosTipos: 'Todos los tipos',
+        vistaPrevia: 'Vista previa',
+        vinculadoA: 'Vinculado a',
+        subidoPor: 'Subido por',
+        vincularA: 'Vincular a',
+        reemplazar: 'Reemplazar',
+        versiones: 'Versiones',
+        version: 'Versión',
+        sinTipo: 'Sin tipo',
+        tamano: 'Tamaño',
+        limpiar: 'Limpiar',
+        tipo: 'Tipo',
+        actual: ' · actual',
+        errorAlCargar: (s: number) => `Error al cargar documentos (HTTP ${s}).`,
+        errorAlSubir: (s: number) => `Error al subir (HTTP ${s}).`,
+        confirmarEliminar: (n: string) => `Se eliminará el documento "${n}". Esta acción no se puede deshacer.`,
+        previsualizarX: (n: string) => `Previsualizar ${n}`,
+        descargarX: (n: string) => `Descargar ${n}`,
+        verVersionesX: (n: string) => `Ver versiones de ${n}`,
+        reemplazarX: (n: string) => `Reemplazar ${n}`,
+        eliminarX: (n: string) => `Eliminar ${n}`,
+        descargarVersionX: (n: number) => `Descargar versión ${n}`,
+        paginaDe: (p: number, total: number, elementos: number) => `Página ${p} de ${total} · ${elementos} documentos`,
+      }
+}
+
 export default function DocumentosPage() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
+  const { confirmar, dialogo } = useConfirmar()
+  const { mostrarError, avisos } = useAvisos()
   const [page, setPage]           = useState<Page<DocumentoResponse> | null>(null)
   const [currentPage, setCurrent] = useState(0)
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState<string | null>(null)
 
   // Filtros
-  const [q, setQ]           = useState('')
-  const [qInput, setQInput] = useState('')
+  /**
+   * El término que trae la URL, si se llegó desde la búsqueda global.
+   *
+   * La cabecera enlaza a `/documentos?q=…` al pulsar un resultado, y esta
+   * pantalla no lo leía: se aterrizaba en la lista completa y había que
+   * volver a escribir lo que ya se había escrito arriba. Se escucha el
+   * parámetro y no sólo el montaje, porque estando ya aquí la ruta no cambia
+   * y el componente no se vuelve a montar.
+   */
+  const parametros = useSearchParams()
+  const qDeLaUrl = parametros.get('q') ?? ''
+
+  const [q, setQ]           = useState(qDeLaUrl)
+  const [qInput, setQInput] = useState(qDeLaUrl)
+
+  useEffect(() => {
+    if (!qDeLaUrl) return
+    setQ(qDeLaUrl)
+    setQInput(qDeLaUrl)
+    setCurrent(0)
+  }, [qDeLaUrl])
   const [tipoFiltro, setTipoFiltro] = useState('')
   const [tipos, setTipos]   = useState<string[]>([])
 
@@ -103,9 +242,9 @@ export default function DocumentosPage() {
     } catch (err) {
       if (err instanceof ApiCallError) {
         setError(err.status === 401 || err.status === 403
-          ? 'Sin permisos. Inicia sesión.'
-          : `Error al cargar documentos (HTTP ${err.status}).`)
-      } else { setError('No se pudo conectar con el backend.') }
+          ? T.sinPermisosInicia
+          : T.errorAlCargar(err.status))
+      } else { setError(C.errorConexion) }
     } finally { setLoading(false) }
   }, [])
 
@@ -136,31 +275,35 @@ export default function DocumentosPage() {
       })
       setArchivo(null); setTipoSubida(''); setVinculoPgm('')
       if (uploadRef.current) uploadRef.current.value = ''
-      setUploadMsg('Documento subido correctamente.')
+      setUploadMsg(T.documentoSubidoCorrectamente)
       load(currentPage, q, tipoFiltro)
     } catch (err) {
-      setUploadMsg(err instanceof ApiCallError ? `Error al subir (HTTP ${err.status}).` : 'Error de conexión al subir el documento.')
+      setUploadMsg(err instanceof ApiCallError ? T.errorAlSubir(err.status) : T.errorDeConexion)
     } finally { setUploadBusy(false) }
   }
 
   // ── Acciones de fila ──────────────────────────────────────────────────────
   const handleDownload = async (doc: DocumentoResponse) => {
     try { await documentosApi.descargar(doc.id, doc.nombre) }
-    catch { alert('No se pudo descargar el documento.') }
+    catch { mostrarError(T.noSePudo) }
   }
 
   const handleDelete = async (doc: DocumentoResponse) => {
-    if (!confirm(`¿Eliminar el documento "${doc.nombre}"?`)) return
+    if (!(await confirmar({
+      titulo: T.eliminarDocumento,
+      descripcion: T.confirmarEliminar(doc.nombre),
+      textoConfirmar: C.eliminar,
+    }))) return
     setRowBusy(true)
     try { await documentosApi.eliminar(doc.id); load(currentPage, q, tipoFiltro) }
-    catch { alert('No se pudo eliminar el documento.') }
+    catch { mostrarError(T.noSePudoX) }
     finally { setRowBusy(false) }
   }
 
   const abrirVersiones = async (doc: DocumentoResponse) => {
     setVersionesDoc(doc); setVersiones([]); setVersionesError(null); setVersionesLoading(true)
     try { setVersiones(await documentosApi.versiones(doc.id)) }
-    catch { setVersionesError('No se pudieron cargar las versiones.') }
+    catch { setVersionesError(T.noSePudieron) }
     finally { setVersionesLoading(false) }
   }
 
@@ -178,7 +321,7 @@ export default function DocumentosPage() {
       await reemplazarDocumento(reemplazoId, file)
       load(currentPage, q, tipoFiltro)
     } catch (err) {
-      alert(err instanceof ApiCallError ? `Error al reemplazar (HTTP ${err.status}).` : 'Error de conexión al reemplazar el documento.')
+      mostrarError(mensajeDeError(err, T.errorDeConexionX))
     } finally {
       setReemplazoId(null); setRowBusy(false)
     }
@@ -192,36 +335,36 @@ export default function DocumentosPage() {
       {/* Cabecera */}
       <div className="flex justify-end gap-4">
         <Button variant="outline" size="sm" onClick={() => load(currentPage, q, tipoFiltro)}>
-          <ArrowsClockwise className="size-3.5" /> Refrescar
+          <ArrowsClockwise className="size-3.5" /> {C.refrescar}
         </Button>
       </div>
 
-      <p className="text-sm text-muted-foreground">Repositorio interno del equipo. Los documentos personales de cada estudiante se consultan desde su ficha.</p>
+      <p className="text-sm text-muted-foreground">{T.repositorioInternoDel}</p>
 
       {/* Subir documento */}
       <Card className="rounded-2xl border-border shadow-sm">
         <CardContent className="space-y-4 py-5">
-          <div><p className="text-sm font-semibold text-foreground">Guardar documento institucional</p><p className="mt-1 text-xs text-muted-foreground">Este repositorio es solo para archivos del equipo; los documentos del estudiante permanecen en su expediente.</p></div>
+          <div><p className="text-sm font-semibold text-foreground">{T.guardarDocumentoInstitucional}</p><p className="mt-1 text-xs text-muted-foreground">{T.esteRepositorioEs}</p></div>
           <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="up-archivo" className="text-[11px] uppercase tracking-wider text-muted-foreground">Archivo</label>
+            <label htmlFor="up-archivo" className="text-[11px] uppercase tracking-wider text-muted-foreground">{C.archivo}</label>
             <input id="up-archivo" ref={uploadRef} type="file" disabled={uploadBusy}
               onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
               className="text-xs text-muted-foreground file:mr-3 file:rounded-xl file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-xs file:font-medium file:text-foreground hover:file:bg-secondary" />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="up-tipo" className="text-[11px] uppercase tracking-wider text-muted-foreground">Tipo</label>
+            <label htmlFor="up-tipo" className="text-[11px] uppercase tracking-wider text-muted-foreground">{T.tipo}</label>
             <select id="up-tipo" value={tipoSubida} onChange={(e) => setTipoSubida(e.target.value)} disabled={uploadBusy}
               className="h-10 rounded-xl border border-input bg-card/90 px-3 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15">
-              <option value="">Sin tipo</option>
+              <option value="">{T.sinTipo}</option>
               {tipos.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="up-vinculo" className="text-[11px] uppercase tracking-wider text-muted-foreground">Vincular a</label>
+            <label htmlFor="up-vinculo" className="text-[11px] uppercase tracking-wider text-muted-foreground">{T.vincularA}</label>
             <select id="up-vinculo" value={vinculoPgm} onChange={(e) => setVinculoPgm(e.target.value)} disabled={uploadBusy}
               className="h-10 rounded-xl border border-input bg-card/90 px-3 text-sm outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15">
-              <option value="">Global (sin vínculo)</option>
+              <option value="">{T.globalSinVinculo}</option>
               {programas.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
             </select>
           </div>
@@ -238,18 +381,18 @@ export default function DocumentosPage() {
       <form onSubmit={aplicarBusqueda} className="flex flex-wrap items-center gap-2">
         <div className="relative">
           <MagnifyingGlass className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder="Buscar por nombre…" className="w-64 pl-8" />
+          <Input value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder={T.buscarPorNombre} className="w-64 pl-8" />
         </div>
         <select value={tipoFiltro} onChange={(e) => { setTipoFiltro(e.target.value); setCurrent(0) }}
           className="h-9 rounded-md border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          aria-label="Filtrar por tipo">
-          <option value="">Todos los tipos</option>
+          aria-label={T.filtrarPorTipo}>
+          <option value="">{T.todosLosTipos}</option>
           {tipos.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
-        <Button type="submit" variant="outline" size="sm">Buscar</Button>
+        <Button type="submit" variant="outline" size="sm">{C.buscar}</Button>
         {(q || tipoFiltro || qInput) && (
           <Button type="button" variant="ghost" size="sm" onClick={limpiarFiltros}>
-            <X className="size-3.5" /> Limpiar
+            <X className="size-3.5" /> {T.limpiar}
           </Button>
         )}
       </form>
@@ -258,14 +401,14 @@ export default function DocumentosPage() {
       {loading && (
         <div className="flex items-center justify-center py-20">
           <PageSpinner />
-          <span className="ml-2 text-sm text-muted-foreground">Cargando documentos…</span>
+          <span className="ml-2 text-sm text-muted-foreground">{T.cargandoDocumentos}</span>
         </div>
       )}
       {error && !loading && (
         <div className="flex flex-col items-center gap-3 py-12">
           <WarningCircle className="size-8 text-destructive" />
           <p className="text-sm text-destructive">{error}</p>
-          <Button variant="outline" onClick={() => load(currentPage, q, tipoFiltro)}><ArrowsClockwise className="size-4" /> Reintentar</Button>
+          <Button variant="outline" onClick={() => load(currentPage, q, tipoFiltro)}><ArrowsClockwise className="size-4" /> {C.reintentar}</Button>
         </div>
       )}
 
@@ -276,7 +419,7 @@ export default function DocumentosPage() {
             <CardContent className="flex flex-col items-center gap-3 py-16">
               <FileText className="size-10 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">
-                {q || tipoFiltro ? 'No hay documentos que coincidan con los filtros.' : 'Aún no hay documentos en el repositorio.'}
+                {q || tipoFiltro ? T.noHayDocumentos : T.aunNoHay}
               </p>
             </CardContent>
           </Card>
@@ -286,14 +429,14 @@ export default function DocumentosPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/50">
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nombre</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tipo</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Vinculado a</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Versión</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tamaño</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Subido por</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Fecha</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Acciones</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{C.nombre}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{T.tipo}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{T.vinculadoA}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{T.version}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{T.tamano}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{T.subidoPor}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{C.fecha}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{C.acciones}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -305,26 +448,26 @@ export default function DocumentosPage() {
                       <td className="px-4 py-3 text-muted-foreground tabular-nums">v{doc.numeroVersion}</td>
                       <td className="px-4 py-3 text-muted-foreground tabular-nums">{formatoTamano(doc.tamano)}</td>
                       <td className="px-4 py-3 text-muted-foreground">{doc.subidoPor ?? '—'}</td>
-                      <td className="px-4 py-3 text-muted-foreground tabular-nums">{formatoFecha(doc.createdAt)}</td>
+                      <td className="px-4 py-3 text-muted-foreground tabular-nums">{formatoFecha(doc.createdAt, locale === 'en')}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex gap-1">
-                          <button type="button" onClick={() => setPreviewDoc(doc)} disabled={rowBusy} title="Vista previa" aria-label={`Previsualizar ${doc.nombre}`}
+                          <button type="button" onClick={() => setPreviewDoc(doc)} disabled={rowBusy} title={T.vistaPrevia} aria-label={T.previsualizarX(doc.nombre)}
                             className="inline-flex size-8 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-40">
                             <Eye className="size-4" />
                           </button>
-                          <button type="button" onClick={() => handleDownload(doc)} disabled={rowBusy} title="Descargar" aria-label={`Descargar ${doc.nombre}`}
+                          <button type="button" onClick={() => handleDownload(doc)} disabled={rowBusy} title={C.descargar} aria-label={T.descargarX(doc.nombre)}
                             className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-40">
                             <DownloadSimple className="size-4" />
                           </button>
-                          <button type="button" onClick={() => abrirVersiones(doc)} disabled={rowBusy} title="Versiones" aria-label={`Ver versiones de ${doc.nombre}`}
+                          <button type="button" onClick={() => abrirVersiones(doc)} disabled={rowBusy} title={T.versiones} aria-label={T.verVersionesX(doc.nombre)}
                             className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-40">
                             <ClockCounterClockwise className="size-4" />
                           </button>
-                          <button type="button" onClick={() => iniciarReemplazo(doc)} disabled={rowBusy} title="Reemplazar" aria-label={`Reemplazar ${doc.nombre}`}
+                          <button type="button" onClick={() => iniciarReemplazo(doc)} disabled={rowBusy} title={T.reemplazar} aria-label={T.reemplazarX(doc.nombre)}
                             className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-40">
                             <FileArrowUp className="size-4" />
                           </button>
-                          <button type="button" onClick={() => handleDelete(doc)} disabled={rowBusy} title="Eliminar" aria-label={`Eliminar ${doc.nombre}`}
+                          <button type="button" onClick={() => handleDelete(doc)} disabled={rowBusy} title={C.eliminar} aria-label={T.eliminarX(doc.nombre)}
                             className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40">
                             <Trash className="size-4" />
                           </button>
@@ -340,7 +483,7 @@ export default function DocumentosPage() {
             {page.totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-border px-4 py-3">
                 <span className="text-xs text-muted-foreground tabular-nums">
-                  Página {page.number + 1} de {page.totalPages} · {page.totalElements} documentos
+                  {T.paginaDe(page.number + 1, page.totalPages, page.totalElements)}
                 </span>
                 <div className="flex gap-1">
                   <button type="button" disabled={page.number === 0} onClick={() => setCurrent((p) => p - 1)}
@@ -364,7 +507,7 @@ export default function DocumentosPage() {
           {versionesDoc && (
             <>
               <SheetHeader className="p-6 border-b border-border shrink-0">
-                <SheetTitle className="text-base">Versiones del documento</SheetTitle>
+                <SheetTitle className="text-base">{T.versionesDelDocumento}</SheetTitle>
                 <SheetDescription className="text-xs">{versionesDoc.nombre}</SheetDescription>
               </SheetHeader>
 
@@ -372,7 +515,7 @@ export default function DocumentosPage() {
                 {versionesLoading && (
                   <div className="flex items-center justify-center py-12">
                     <PageSpinner />
-                    <span className="ml-2 text-sm text-muted-foreground">Cargando versiones…</span>
+                    <span className="ml-2 text-sm text-muted-foreground">{T.cargandoVersiones}</span>
                   </div>
                 )}
                 {versionesError && !versionesLoading && (
@@ -380,23 +523,23 @@ export default function DocumentosPage() {
                     <WarningCircle className="size-6 text-destructive" />
                     <p className="text-sm text-destructive">{versionesError}</p>
                     <Button variant="outline" size="sm" onClick={() => abrirVersiones(versionesDoc)}>
-                      <ArrowsClockwise className="size-3.5" /> Reintentar
+                      <ArrowsClockwise className="size-3.5" /> {C.reintentar}
                     </Button>
                   </div>
                 )}
                 {!versionesLoading && !versionesError && (
                   versiones.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-muted-foreground">No hay versiones registradas.</p>
+                    <p className="py-8 text-center text-sm text-muted-foreground">{T.noHayVersiones}</p>
                   ) : (
                     <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
                       {versiones.map((v) => (
                         <div key={v.id} className="flex items-center justify-between gap-3 px-4 py-3">
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-sm font-medium text-foreground tabular-nums">v{v.numeroVersion}{v.actual ? ' · actual' : ''}</span>
-                            <span className="text-xs text-muted-foreground tabular-nums">{formatoFecha(v.createdAt)} · {formatoTamano(v.tamano)}</span>
+                            <span className="text-sm font-medium text-foreground tabular-nums">v{v.numeroVersion}{v.actual ? T.actual : ''}</span>
+                            <span className="text-xs text-muted-foreground tabular-nums">{formatoFecha(v.createdAt, locale === 'en')} · {formatoTamano(v.tamano)}</span>
                           </div>
-                          <button type="button" onClick={() => documentosApi.descargar(v.id, v.nombre).catch(() => alert('No se pudo descargar la versión.'))}
-                            title="Descargar versión" aria-label={`Descargar versión ${v.numeroVersion}`}
+                          <button type="button" onClick={() => documentosApi.descargar(v.id, v.nombre).catch(() => mostrarError(T.noSePudoXX))}
+                            title={T.descargarVersion} aria-label={T.descargarVersionX(v.numeroVersion)}
                             className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
                             <DownloadSimple className="size-4" />
                           </button>
@@ -408,7 +551,7 @@ export default function DocumentosPage() {
               </div>
 
               <div className="p-4 border-t border-border shrink-0 flex justify-end">
-                <Button variant="outline" size="sm" onClick={() => setVersionesDoc(null)}>Cerrar</Button>
+                <Button variant="outline" size="sm" onClick={() => setVersionesDoc(null)}>{C.cerrar}</Button>
               </div>
             </>
           )}
@@ -422,6 +565,8 @@ export default function DocumentosPage() {
         contentType={previewDoc.contentType}
         onDownload={() => handleDownload(previewDoc)}
       />}
+      {dialogo}
+      {avisos}
     </div>
   )
 }

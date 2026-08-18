@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Conector con JSearch (RapidAPI), agregador de Indeed, LinkedIn y Glassdoor.
+ * Conector con JSearch (openwebninja), agregador de Indeed, LinkedIn y Glassdoor.
  *
  * <p>Es la unica via encontrada a vacantes colombianas reales: Adzuna no cubre
  * Colombia —en Latinoamerica solo Brasil y Mexico—, el Servicio Publico de
@@ -32,8 +32,7 @@ import java.util.Optional;
  * poblacion que en su mayoria mide A1 oral.
  *
  * <p>Ademas es la fuente mas rica del conjunto: es la unica que trae
- * {@code requisitos}, hoy nulos en el 100% de las vacantes automaticas, y la
- * unica que declara fecha de expiracion.
+ * {@code requisitos}, hoy nulos en el 100% de las vacantes automaticas.
  *
  * <p>La clave sale de la variable de entorno {@code JSEARCH_API_KEY} y nunca
  * del repositorio. Si esta vacia el conector se apaga y lo registra: preferible
@@ -44,8 +43,7 @@ public class JSearchConnector implements FuenteDeVacantes {
 
     private static final Logger log = LoggerFactory.getLogger(JSearchConnector.class);
     private static final String FUENTE = "JSEARCH";
-    private static final String HOST = "jsearch.p.rapidapi.com";
-    private static final String ENDPOINT = "https://" + HOST + "/search";
+    private static final String ENDPOINT = "https://api.openwebninja.com/jsearch/search-v2";
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final ControlDeCuota controlDeCuota;
@@ -143,8 +141,7 @@ public class JSearchConnector implements FuenteDeVacantes {
             HttpResponse<String> respuesta = httpClient().send(
                     HttpRequest.newBuilder(URI.create(url))
                             .header("Accept", "application/json")
-                            .header("x-rapidapi-host", HOST)
-                            .header("x-rapidapi-key", apiKey)
+                            .header("X-API-Key", apiKey)
                             .timeout(Duration.ofSeconds(25))
                             .GET()
                             .build(),
@@ -166,14 +163,20 @@ public class JSearchConnector implements FuenteDeVacantes {
         }
     }
 
+    /**
+     * Traduce el sobre de openwebninja: {@code data[]} son paginas y cada una
+     * trae las ofertas en {@code jobs[]}.
+     */
     List<OfertaCruda> procesar(String cuerpoJson) throws Exception {
         List<OfertaCruda> ofertas = new ArrayList<>();
-        JsonNode datos = MAPPER.readTree(cuerpoJson).path("data");
-        for (JsonNode oferta : datos) {
-            try {
-                mapear(oferta).ifPresent(ofertas::add);
-            } catch (Exception e) {
-                log.warn("Error mapeando oferta de JSearch: {}", e.getMessage());
+        JsonNode raiz = MAPPER.readTree(cuerpoJson);
+        for (JsonNode pagina : raiz.path("data")) {
+            for (JsonNode oferta : pagina.path("jobs")) {
+                try {
+                    mapear(oferta).ifPresent(ofertas::add);
+                } catch (Exception e) {
+                    log.warn("Error mapeando oferta de JSearch: {}", e.getMessage());
+                }
             }
         }
         return ofertas;
@@ -232,7 +235,8 @@ public class JSearchConnector implements FuenteDeVacantes {
             return null;
         }
         String moneda = texto(oferta, "job_salary_currency");
-        return min.asText() + " - " + max.asText() + (moneda == null ? "" : " " + moneda);
+        return (min.asText() + " - " + max.asText()
+                + (moneda == null ? "" : " " + moneda)).trim();
     }
 
     /**

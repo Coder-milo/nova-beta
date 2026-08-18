@@ -1,5 +1,6 @@
 package com.novacrm.vacante;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -19,6 +20,35 @@ class EnriquecedorDeVacanteTest {
     private static final int DIAS_VIGENCIA = 30;
 
     private final EnriquecedorDeVacante enriquecedor = new EnriquecedorDeVacante(DIAS_VIGENCIA);
+
+    /**
+     * Requisitos tal cual los publica Sutherland para su oferta de
+     * "Bilingual Customer Service Specialist" en Barranquilla, copiados de la
+     * respuesta real de la API en agosto de 2026.
+     *
+     * <p>Es el perfil al que aspiran 71 de los 108 participantes, asi que si el
+     * enriquecedor no sabe leer este texto concreto, la cadena entera —conector,
+     * enriquecedor, motor— no le sirve a nadie por muy verde que este cada
+     * pieza por separado.
+     */
+    private static final String REQUISITOS_REALES = """
+            Required: B2+ English communication skills (minimum). High school             diploma or equivalent. Ability to multitask and navigate multiple             systems efficiently. Customer-focused mindset with strong             problem-solving abilities. Basic computer skills (CRM tools, email,             spreadsheets).
+            """;
+
+    @Test
+    @DisplayName("lee el nivel de inglés de una oferta real de Barranquilla")
+    void leeElInglesDeUnaOfertaReal() {
+        // "B2+" no es un codigo MCER limpio: lo que se comprueba es que el
+        // signo no impida reconocerlo, porque asi es como lo escribe el
+        // empleador de verdad.
+        var v = vacante("Bilingual Customer Service Specialist I", null);
+        v.setRequisitos(REQUISITOS_REALES);
+
+        enriquecedor.enriquecer(v);
+
+        assertEquals("B2", v.getNivelInglesRequerido(),
+                "sin esto el criterio de ingles queda sin datos y el par no llega a match");
+    }
 
     private Vacante vacante(String titulo, String descripcion) {
         var v = new Vacante();

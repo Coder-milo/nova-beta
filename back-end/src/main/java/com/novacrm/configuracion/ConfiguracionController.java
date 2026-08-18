@@ -29,9 +29,24 @@ public class ConfiguracionController {
         this.configuracionService = configuracionService;
     }
 
+    /**
+     * Leer la configuración es de gestión, igual que escribirla.
+     *
+     * <p>Estaba abierta a cualquier usuario autenticado sin que ninguna pantalla
+     * del estudiante la usara: los tres sitios que la piden son la pantalla de
+     * configuración y sus dos paneles, todos de administración. Mientras tanto
+     * la respuesta lleva el NIT y el registro educativo de la institución, y los
+     * dos parámetros con los que trabaja el sistema —el corte del matching y los
+     * días que aguanta una ficha en la papelera—.
+     *
+     * <p>Es la misma fuga que ya se cerró en las actividades y, antes, en
+     * programas y vacantes. Se apunta aquí porque es la tercera vez: cuando un
+     * endpoint devuelve datos de dos audiencias distintas, el permiso acaba
+     * puesto al de la audiencia más amplia.
+     */
     @GetMapping
     @Operation(summary = "Configuración vigente. Si nadie ha guardado nada, los valores por defecto.")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public ConfiguracionResponse obtener() {
         return configuracionService.obtener();
     }

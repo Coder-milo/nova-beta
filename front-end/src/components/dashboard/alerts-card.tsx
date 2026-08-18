@@ -1,4 +1,4 @@
-import { ArrowRightIcon as ArrowRight, InfoIcon as Info, WarningIcon as Warning } from '@phosphor-icons/react/ssr'
+import { ArrowRight, Info, TriangleAlert as Warning } from 'lucide-react'
 import Link from '@/compat/next-link'
 import {
   Card,
@@ -12,6 +12,8 @@ import { SampleDataBadge } from '@/components/dashboard/sample-data-badge'
 import { cn } from '@/lib/utils'
 import { importantAlerts } from '@/lib/mock-data'
 import type { AlertaResponse } from '@/lib/types'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 /** Mapeo de la severidad del backend a la UI. */
 const severityConfig: Record<
@@ -49,7 +51,28 @@ interface Props {
   alerts: AlertaResponse[] | null
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        situacionesQueRequieren: 'Situations that need your attention',
+        sinAlertasActivas: 'No active alerts. All good!',
+      }
+    : {
+        situacionesQueRequieren: 'Situaciones que requieren tu atención',
+        sinAlertasActivas: 'Sin alertas activas. ¡Todo en orden!',
+      }
+}
+
 export function AlertsCard({ alerts }: Props) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   // Convertir mock-data al mismo shape que AlertaResponse para reutilizar el render
   const items: AlertaResponse[] =
     alerts !== null
@@ -64,52 +87,63 @@ export function AlertsCard({ alerts }: Props) {
         }))
 
   return (
-    <Card className="rounded-xl shadow-sm">
-      <CardHeader>
+    <Card className="gap-0 shadow-none">
+      {/* La cabecera se separa del cuerpo con una línea en vez de con espacio:
+          a esta densidad el hueco solo no basta para leerla como cabecera. */}
+      <CardHeader className="border-b border-[var(--panel-borde)] px-4 pb-2.5">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle>Alertas importantes</CardTitle>
+          <CardTitle className="text-sm">Alertas importantes</CardTitle>
           {alerts === null && <SampleDataBadge />}
         </div>
-        <CardDescription>Situaciones que requieren tu atención</CardDescription>
+        <CardDescription className="text-xs">{T.situacionesQueRequieren}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="p-0">
         {items.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            Sin alertas activas. ¡Todo en orden!
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            {T.sinAlertasActivas}
           </p>
         ) : (
-          items.map((alert, i) => {
-            const config = severityConfig[alert.severidad] ?? defaultConfig
-            const Icon   = config.icon
-            const content = (
-              <>
-                <Icon className={cn('mt-0.5 size-[18px] shrink-0', config.dot)} />
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-foreground">{alert.titulo}</span>
-                    <Badge className={cn('shrink-0', config.badge)}>{config.label}</Badge>
+          /*
+           * Lista dividida por filetes, no una pila de tarjetas dentro de otra
+           * tarjeta. Cada alerta llevaba su propio borde y su propio fondo, de
+           * modo que la tarjeta contenedora repetía el marco tantas veces como
+           * alertas hubiera y el conjunto se leía como cinco cajas sueltas.
+           */
+          <ul className="divide-y divide-[var(--panel-borde)]">
+            {items.map((alert, i) => {
+              const config = severityConfig[alert.severidad] ?? defaultConfig
+              const Icon   = config.icon
+              const content = (
+                <>
+                  <Icon className={cn('mt-px size-4 shrink-0', config.dot)} />
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-[13px] font-semibold text-foreground">{alert.titulo}</span>
+                      <Badge className={cn('shrink-0', config.badge)}>{config.label}</Badge>
+                    </div>
+                    <span className="text-xs leading-snug text-muted-foreground">{alert.detalle}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">{alert.detalle}</span>
-                </div>
-                {alert.ruta && <ArrowRight className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />}
-              </>
-            )
-            const key = alert.referenciaId ?? `${alert.tipo}-${i}`
-            return alert.ruta ? (
-              <Link
-                key={key}
-                href={alert.ruta}
-                className="group flex items-start gap-3 rounded-xl border border-black/[0.08] bg-black/[0.02] p-3 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary/[0.06] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label={`${alert.titulo}. Abrir detalle`}
-              >
-                {content}
-              </Link>
-            ) : (
-              <div key={key} className="flex items-start gap-3 rounded-xl border border-black/[0.08] bg-black/[0.02] p-3">
-                {content}
-              </div>
-            )
-          })
+                  {alert.ruta && <ArrowRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />}
+                </>
+              )
+              const key = alert.referenciaId ?? `${alert.tipo}-${i}`
+              return (
+                <li key={key}>
+                  {alert.ruta ? (
+                    <Link
+                      href={alert.ruta}
+                      className="group flex items-start gap-2.5 px-4 py-2.5 transition-colors hover:bg-[var(--panel-superficie-tenue)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                      aria-label={`${alert.titulo}. Abrir detalle`}
+                    >
+                      {content}
+                    </Link>
+                  ) : (
+                    <div className="flex items-start gap-2.5 px-4 py-2.5">{content}</div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
         )}
       </CardContent>
     </Card>

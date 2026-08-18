@@ -31,7 +31,7 @@ class DescarteDeMatchTest {
     void configurar() {
         matchRepository = mock(MatchRepository.class);
         matchingService = new MatchingService(
-                matchRepository, null, null, null, null, null, null, null, null);
+                matchRepository, null, null, null, null, null, null, null, null, null);
     }
 
     private Match match() {
@@ -96,9 +96,31 @@ class DescarteDeMatchTest {
         buscando.setEstadoAcademico(EstadoAcademico.ACTIVO);
         buscando.setEstadoEmpleabilidad(EstadoEmpleabilidad.BUSCANDO);
 
-        assertFalse(MatchingService.buscaEmpleo(retirado));
-        assertFalse(MatchingService.buscaEmpleo(empleado));
-        assertTrue(MatchingService.buscaEmpleo(buscando));
+        assertFalse(MatchingService.buscaEmpleo(retirado, java.util.Set.of()));
+        assertFalse(MatchingService.buscaEmpleo(empleado, java.util.Set.of()));
+        assertTrue(MatchingService.buscaEmpleo(buscando, java.util.Set.of()));
+    }
+
+    /**
+     * Quien se coloco por el CRM ya no busca, aunque su ficha siga diciendo que
+     * si.
+     *
+     * <p>El enum EstadoEmpleabilidad solo lo escriben la importacion antigua y
+     * la edicion manual: a quien entra por una colocacion registrada nadie se
+     * lo cambia. Mirando solo el enum, a esa persona se le seguian mandando
+     * vacantes recomendadas —con su aviso de WhatsApp y sus botones de si/no—
+     * mientras estaba trabajando.
+     */
+    @Test
+    void unaColocacionVigenteSacaDeLaBusquedaAunqueLaFichaDigaOtraCosa() {
+        var colocado = new Estudiante();
+        colocado.setId(java.util.UUID.randomUUID());
+        colocado.setEstadoAcademico(EstadoAcademico.ACTIVO);
+        colocado.setEstadoEmpleabilidad(EstadoEmpleabilidad.BUSCANDO);
+
+        assertFalse(MatchingService.buscaEmpleo(colocado, java.util.Set.of(colocado.getId())));
+        assertTrue(MatchingService.buscaEmpleo(colocado, java.util.Set.of()),
+                "sin colocacion vigente vuelve a la busqueda");
     }
 
     /** Sin informacion de empleabilidad se sigue buscando: es el estado por defecto. */
@@ -107,6 +129,6 @@ class DescarteDeMatchTest {
         var e = new Estudiante();
 
         assertEquals(EstadoEmpleabilidad.SIN_INFO, e.getEstadoEmpleabilidad());
-        assertTrue(MatchingService.buscaEmpleo(e));
+        assertTrue(MatchingService.buscaEmpleo(e, java.util.Set.of()));
     }
 }

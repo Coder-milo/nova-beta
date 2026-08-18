@@ -28,6 +28,8 @@ import java.util.UUID;
 @Service
 public class TableroService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TableroService.class);
+
     private final EstudianteRepository estudianteRepository;
     private final SeguimientoRepository seguimientoRepository;
     private final MatchRepository matchRepository;
@@ -61,15 +63,48 @@ public class TableroService {
      */
     @Transactional(readOnly = true)
     public Tablero construir() {
+        return construir(null);
+    }
+
+    @Transactional(readOnly = true)
+    public Tablero construir(UUID programaId) {
         var hoy = LocalDate.now();
         var porEstado = new EnumMap<EstadoContacto, List<TarjetaTablero>>(EstadoContacto.class);
         for (var estado : EstadoContacto.values()) {
             porEstado.put(estado, new ArrayList<>());
         }
 
-        List<Estudiante> estudiantes = estudianteRepository.findAllByActivoTrue();
+        List<Estudiante> estudiantes = (programaId != null)
+                ? estudianteRepository.findAllByProgramaIdAndActivoTrue(programaId)
+                : estudianteRepository.findAllByActivoTrue();
+
+        // A debug: el tablero se rehace al abrirlo y despues de cada tarjeta que
+        // se mueve, asi que en INFO son varias lineas por minuto de trabajo
+        // normal enterrando lo que si hay que ver en el log.
+        log.debug("Tablero del programa {}: {} estudiantes", programaId, estudiantes.size());
+
+        // El historial y las postulaciones de toda la cohorte, en dos consultas
+        // y no en 216. Antes se pedian dentro de cada tarjeta: 108 viajes a la
+        // base para el historial y otros 108 para el conteo, cada vez que se
+        // abre el tablero y despues de cada movimiento de tarjeta.
+        var ids = estudiantes.stream().map(Estudiante::getId).toList();
+        Map<UUID, List<Seguimiento>> historialPorEstudiante = ids.isEmpty()
+                ? Map.of()
+                : seguimientoRepository.historialDeVarios(ids).stream()
+                        .collect(java.util.stream.Collectors.groupingBy(s -> s.getEstudiante().getId()));
+        Map<UUID, Long> postuladosPorEstudiante = ids.isEmpty()
+                ? Map.of()
+                : matchRepository.contarPostuladosDeVarios(ids).stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                MatchRepository.PostuladosPorEstudiante::getEstudianteId,
+                                MatchRepository.PostuladosPorEstudiante::getTotal));
+
         for (Estudiante estudiante : estudiantes) {
-            var tarjeta = tarjetaDe(estudiante, hoy);
+            var tarjeta = tarjetaDe(estudiante, hoy,
+                    // Sin fila en el agrupado significa cero, no ausencia: un
+                    // `group by` no devuelve nada para quien no tiene ninguna.
+                    historialPorEstudiante.getOrDefault(estudiante.getId(), List.of()),
+                    postuladosPorEstudiante.getOrDefault(estudiante.getId(), 0L));
             porEstado.get(tarjeta.estadoContacto()).add(tarjeta);
         }
 
@@ -95,9 +130,25 @@ public class TableroService {
         return new Tablero(estudiantes.size(), columnas);
     }
 
+    /** Para una tarjeta suelta: pide lo suyo y delega. */
     private TarjetaTablero tarjetaDe(Estudiante estudiante, LocalDate hoy) {
-        var historial = seguimientoRepository.findByEstudianteIdOrderByFechaDesc(estudiante.getId());
-        var pipeline = pipelineService.calcular(estudiante.getId());
+        return tarjetaDe(estudiante, hoy,
+                seguimientoRepository.findByEstudianteIdOrderByFechaDesc(estudiante.getId()),
+                matchRepository.countByEstudianteIdAndPostuladoTrue(estudiante.getId()));
+    }
+
+    /**
+     * La tarjeta, con lo que ya se trajo por su cuenta.
+     *
+     * <p>El historial y el conteo llegan de fuera para que el tablero pueda
+     * traerlos de toda la cohorte en dos consultas. Armar la tarjeta no cambia:
+     * lo unico distinto es quien pide los datos.
+     */
+    private TarjetaTablero tarjetaDe(Estudiante estudiante, LocalDate hoy,
+                                     List<Seguimiento> historial, long postulados) {
+        // Con la ficha, no con su identificador: la version por identificador
+        // la vuelve a buscar, y aqui ya la tenemos leida.
+        var pipeline = pipelineService.calcular(estudiante);
 
         return new TarjetaTablero(
                 estudiante.getId(),
@@ -106,7 +157,7 @@ public class TableroService {
                 pipeline.etapa(),
                 pipeline.porcentajeAvance(),
                 EstadoDeContactoActual.de(historial),
-                (int) matchRepository.countByEstudianteIdAndPostuladoTrue(estudiante.getId()),
+                (int) postulados,
                 EstadoDeContactoActual.accionesRegistradas(historial),
                 EstadoDeContactoActual.fechaUltimoContacto(historial).orElse(null),
                 EstadoDeContactoActual.diasSinContacto(historial, hoy),
@@ -129,6 +180,27 @@ public class TableroService {
 
         if (nuevoEstado == null) {
             throw new BusinessException("Falta el estado al que se mueve la tarjeta");
+        }
+
+        // Soltar la tarjeta donde ya estaba no es un movimiento.
+        //
+        // Como aqui se escribe un registro nuevo y el estado actual es el del
+        // ultimo, sin esto cada vez que alguien suelta la tarjeta donde la
+        // cogio se apunta un movimiento a la misma columna. Ese historial es lo
+        // que lee el equipo para entender que ha pasado con la persona, y se
+        // llenaba de lineas que no cuentan nada.
+        //
+        // La comprobacion estaba solo en la pantalla, que es el sitio
+        // equivocado para una regla: el asistente tambien mueve tarjetas, y
+        // cualquier cliente futuro tambien.
+        //
+        // Con observacion si se apunta, aunque la columna no cambie: entonces
+        // lo que se registra es la nota, y descartarla por no haber cambio de
+        // columna seria tirar lo unico que traia informacion.
+        boolean sinNota = observacion == null || observacion.isBlank();
+        var historialPrevio = seguimientoRepository.findByEstudianteIdOrderByFechaDesc(estudianteId);
+        if (sinNota && EstadoDeContactoActual.de(historialPrevio) == nuevoEstado) {
+            return tarjetaDe(estudiante, LocalDate.now());
         }
 
         var movimiento = new Seguimiento();

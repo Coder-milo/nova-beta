@@ -33,5 +33,22 @@ public record VacanteResponse(
         /** Falso en ofertas que registro un estudiante y nadie ha validado. */
         boolean revisada,
         /** Correo de quien la registro; nulo si vino de un portal. */
-        String creadaPor
+        String creadaPor,
+
+        /**
+         * Lo que declaro quien mando el formulario publico, sin verificar.
+         *
+         * <p>Solo viaja hacia gestion, igual que {@code creadaPor}: son los
+         * datos de contacto de una persona, y el estudiante que ve el anuncio no
+         * tiene por que recibirlos. Nulos en todo lo que no venga de ahi.
+         *
+         * <p>{@code empresaDeclarada} no es {@code empresaNombre}: aquella es
+         * una afirmacion sin comprobar y esta, una empresa del CRM. Van
+         * separadas para que en la cola de revision se vea cual de las dos se
+         * esta leyendo.
+         */
+        String empresaDeclarada,
+        String contactoDeclarado,
+        String emailDeclarado,
+        String telefonoDeclarado
 ) {}

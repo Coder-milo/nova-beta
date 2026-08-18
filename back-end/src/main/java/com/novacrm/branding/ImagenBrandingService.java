@@ -1,8 +1,9 @@
 package com.novacrm.branding;
 
-import com.novacrm.documento.StorageService;
 import com.novacrm.exception.BusinessException;
+import com.novacrm.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
@@ -10,6 +11,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Guarda las imagenes de marca y devuelve la clave con la que se las referencia.
@@ -39,10 +41,10 @@ public class ImagenBrandingService {
      */
     private static final long MAX_BYTES = 2L * 1024 * 1024;
 
-    private final StorageService storageService;
+    private final BrandingImagenRepository imagenRepository;
 
-    public ImagenBrandingService(StorageService storageService) {
-        this.storageService = storageService;
+    public ImagenBrandingService(BrandingImagenRepository imagenRepository) {
+        this.imagenRepository = imagenRepository;
     }
 
     /**
@@ -55,6 +57,7 @@ public class ImagenBrandingService {
      *
      * @return la clave de almacenamiento con la que se referenciara la imagen
      */
+    @Transactional
     public String guardar(MedidasExigidas.Medida exigida, MultipartFile archivo) {
         var motivos = new java.util.ArrayList<String>();
 
@@ -74,6 +77,11 @@ public class ImagenBrandingService {
         BufferedImage imagen;
         try {
             contenido = archivo.getBytes();
+            // Antes de abrirla, no despues: descomprimir es donde un archivo
+            // pequeño se convierte en algo enorme, y quedarse sin memoria lanza
+            // un Error que no atrapa ningun catch de los de aqui abajo. Sube
+            // coordinacion y no un estudiante, pero la aplicacion se cae igual.
+            com.novacrm.shared.ImagenSegura.comprobar(contenido);
             imagen = ImageIO.read(new ByteArrayInputStream(contenido));
         } catch (IOException e) {
             throw new BusinessException("No se pudo leer el archivo: " + e.getMessage());
@@ -91,8 +99,15 @@ public class ImagenBrandingService {
             throw new BusinessException(String.join(" ", motivos));
         }
 
-        String key = storageService.subir("branding", nombreDe(exigida, tipo), contenido, tipo);
+        String key = "branding/" + UUID.randomUUID() + "-" + nombreDe(exigida, tipo);
+        imagenRepository.save(new BrandingImagen(key, tipo.toLowerCase(), contenido));
         return key;
+    }
+
+    @Transactional(readOnly = true)
+    public BrandingImagen descargar(String key) {
+        return imagenRepository.findById(claveSegura(key))
+                .orElseThrow(() -> new ResourceNotFoundException("Imagen no encontrada"));
     }
 
     /** La clave con la que se pide una imagen de marca.

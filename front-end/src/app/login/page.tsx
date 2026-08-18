@@ -1,13 +1,16 @@
 'use client'
 
-import { ArrowRightIcon as ArrowRight, CircleNotchIcon as CircleNotch, EnvelopeIcon as Envelope, EyeIcon as Eye, EyeSlashIcon as EyeSlash, InfoIcon as Info, LockKeyIcon as LockKey, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { ArrowRight, CircleAlert as WarningCircle, Eye, EyeOff as EyeSlash, Info, LoaderCircle as CircleNotch, Lock as LockKey, Mail as Envelope } from 'lucide-react'
 import Image from '@/compat/next-image'
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from '@/compat/next-navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PageSpinner } from '@/components/ui/page-spinner'
 import { ApiCallError, useAuth } from '@/lib/auth'
 import { RUTA_INICIO_ESTUDIANTE, soloEsEstudiante } from '@/lib/navigation'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 const LOGIN_BACKGROUNDS = [
   '/fondo-login.webp',
@@ -16,7 +19,58 @@ const LOGIN_BACKGROUNDS = [
   '/fondo-login.jpeg',
 ]
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        noFuePosible: 'Could not reach the server. Check that the backend is running.',
+        demasiadosIntentosEspera: 'Too many attempts. Wait a few minutes and try again.',
+        credencialesIncorrectasVerifica: 'Wrong credentials. Check your email and password.',
+        tuSesionExpiro: 'Your session expired. Sign in again to continue.',
+        gestionaEstudiantesProyectos: 'Manage students, projects, résumés and vacancies from a single panel.',
+        empleabilidadInteligentePara: 'Smart employability for your institution.',
+        iniciaSesionEn: 'Sign in to the admin panel',
+        olvidasteTuContrasena: 'Forgot your password?',
+        iniciandoSesion: 'Signing in…',
+        bienvenidoDeNuevo: 'Welcome back',
+        iniciarSesion: 'Sign in',
+        matchingDeVacantes: 'Vacancy matching',
+        hojasDeVida: 'ATS résumés',
+        ocultarContrasena: 'Hide password',
+        mostrarContrasena: 'Show password',
+        correoElectronico: 'Email address',
+        contrasena: 'Password',
+      }
+    : {
+        noFuePosible: 'No fue posible conectar con el servidor. Verifica que el backend esté activo.',
+        demasiadosIntentosEspera: 'Demasiados intentos. Espera unos minutos e inténtalo nuevamente.',
+        credencialesIncorrectasVerifica: 'Credenciales incorrectas. Verifica tu correo y contraseña.',
+        tuSesionExpiro: 'Tu sesión expiró. Inicia sesión nuevamente para continuar.',
+        gestionaEstudiantesProyectos: 'Gestiona estudiantes, proyectos, hojas de vida y vacantes desde un solo panel.',
+        empleabilidadInteligentePara: 'Empleabilidad inteligente para tu institución.',
+        iniciaSesionEn: 'Inicia sesión en el panel administrativo',
+        olvidasteTuContrasena: '¿Olvidaste tu contraseña?',
+        iniciandoSesion: 'Iniciando sesión...',
+        bienvenidoDeNuevo: 'Bienvenido de nuevo',
+        iniciarSesion: 'Iniciar sesión',
+        matchingDeVacantes: 'Matching de vacantes',
+        hojasDeVida: 'Hojas de vida ATS',
+        ocultarContrasena: 'Ocultar contraseña',
+        mostrarContrasena: 'Mostrar contraseña',
+        correoElectronico: 'Correo electrónico',
+        contrasena: 'Contraseña',
+      }
+}
+
 export default function LoginPage() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const router = useRouter()
   const { login } = useAuth()
 
@@ -35,7 +89,7 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search)
 
     if (params.get('expired') === '1') {
-      setInfo('Tu sesión expiró. Inicia sesión nuevamente para continuar.')
+      setInfo(T.tuSesionExpiro)
     }
   }, [])
 
@@ -68,11 +122,11 @@ export default function LoginPage() {
         if (err instanceof ApiCallError) {
           if (err.status === 401 || err.status === 403) {
             setError(
-              'Credenciales incorrectas. Verifica tu correo y contraseña.',
+              T.credencialesIncorrectasVerifica,
             )
           } else if (err.status === 429) {
             setError(
-              'Demasiados intentos. Espera unos minutos e inténtalo nuevamente.',
+              T.demasiadosIntentosEspera,
             )
           } else {
             // El mensaje del backend antes de inventar uno. Decir "error del
@@ -87,7 +141,7 @@ export default function LoginPage() {
           }
         } else {
           setError(
-            'No fue posible conectar con el servidor. Verifica que el backend esté activo.',
+            T.noFuePosible,
           )
         }
       }
@@ -96,6 +150,7 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex h-svh w-full overflow-hidden text-white">
+      {isPending && <PageSpinner label={T.iniciandoSesion} />}
       {/* ═══ Foto del CAC a sangre (fondo completo) ═══ */}
       {!backgroundFailed ? (
         <Image
@@ -123,13 +178,13 @@ export default function LoginPage() {
             <Image src="/brand/cac-logo-white.png" alt="CAC Academic" width={44} height={44} priority className="h-full w-full object-contain" />
           </div>
           <h2 className="max-w-lg text-[2.1rem] font-bold leading-[1.12] tracking-tight text-white xl:text-[2.5rem]">
-            Empleabilidad inteligente para tu institución.
+            {T.empleabilidadInteligentePara}
           </h2>
           <p className="max-w-md text-[0.95rem] leading-relaxed text-white/75">
-            Gestiona estudiantes, proyectos, hojas de vida y vacantes desde un solo panel.
+            {T.gestionaEstudiantesProyectos}
           </p>
           <div className="mt-1 flex flex-wrap gap-2">
-            {['Estudiantes', 'Hojas de vida ATS', 'Matching de vacantes'].map((t) => (
+            {['Estudiantes', T.hojasDeVida, T.matchingDeVacantes].map((t) => (
               <span key={t} className="rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/85 backdrop-blur-md">
                 {t}
               </span>
@@ -153,10 +208,10 @@ export default function LoginPage() {
                 />
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-white">
-                Bienvenido de nuevo
+                {T.bienvenidoDeNuevo}
               </h1>
               <p className="mt-1 text-sm text-white/65">
-                Inicia sesión en el panel administrativo
+                {T.iniciaSesionEn}
               </p>
             </div>
 
@@ -167,7 +222,7 @@ export default function LoginPage() {
                 htmlFor="login-email"
                 className="ml-1 text-xs font-semibold uppercase tracking-wider text-white/70"
               >
-                Correo electrónico
+                {T.correoElectronico}
               </label>
               <div className="group relative">
                 <Envelope className="pointer-events-none absolute left-4 top-1/2 z-10 size-4 -translate-y-1/2 text-[#86868B] transition-colors group-focus-within:text-[#0071E3]" />
@@ -195,13 +250,13 @@ export default function LoginPage() {
                   htmlFor="login-password"
                   className="ml-1 text-xs font-semibold uppercase tracking-wider text-white/70"
                 >
-                  Contraseña
+                  {T.contrasena}
                 </label>
                 <a
                   href="/recuperar-contrasena"
                   className="text-xs font-medium text-white/80 hover:text-white hover:underline"
                 >
-                  ¿Olvidaste tu contraseña?
+                  {T.olvidasteTuContrasena}
                 </a>
               </div>
               <div className="group relative">
@@ -223,7 +278,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPass((current) => !current)}
                   disabled={isPending}
-                  aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  aria-label={showPass ? T.ocultarContrasena : T.mostrarContrasena}
                   aria-pressed={showPass}
                   className="absolute right-3 top-1/2 z-10 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#86868B] hover:bg-black/5 hover:text-[#1D1D1F] transition-colors"
                 >
@@ -267,11 +322,11 @@ export default function LoginPage() {
               {isPending ? (
                 <>
                   <CircleNotch className="mr-2 size-4 animate-spin" />
-                  Iniciando sesión...
+                  {T.iniciandoSesion}
                 </>
               ) : (
                 <>
-                  Iniciar sesión
+                  {T.iniciarSesion}
                   <ArrowRight className="ml-2 size-4" />
                 </>
               )}

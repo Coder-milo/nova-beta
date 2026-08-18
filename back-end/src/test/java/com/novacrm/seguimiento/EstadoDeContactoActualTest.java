@@ -98,6 +98,30 @@ class EstadoDeContactoActualTest {
         assertEquals(0, EstadoDeContactoActual.diasSinContacto(agendado, HOY));
     }
 
+    /**
+     * Una llamada apuntada es contacto.
+     *
+     * <p>La cuenta de dias usaba el mismo filtro que la columna del tablero, y
+     * ese filtro existe por otra razon: que un simulacro no mueva a nadie de
+     * columna. Como efecto, una coordinadora llamaba a un participante,
+     * apuntaba la llamada y la tarjeta seguia diciendo «23 dias sin contacto» y
+     * en alerta. La lista que dice a quien hay que llamar dejaba fuera
+     * justamente las llamadas.
+     */
+    @Test
+    void unaLlamadaApuntadaCuentaComoContacto() {
+        var historial = List.of(
+                mov("CONTACTO", "EN_PROCESO", LocalDate.of(2026, 7, 1)),
+                mov("LLAMADA", "HECHA", LocalDate.of(2026, 7, 26)));
+
+        assertEquals(2, EstadoDeContactoActual.diasSinContacto(historial, HOY),
+                "hace dos dias que se le llamo, no veintisiete");
+        assertEquals(LocalDate.of(2026, 7, 26),
+                EstadoDeContactoActual.fechaUltimoContacto(historial).orElseThrow());
+        // Y la tarjeta no se ha movido de columna: son dos preguntas distintas.
+        assertEquals(EstadoContacto.EN_PROCESO, EstadoDeContactoActual.de(historial));
+    }
+
     @Test
     void seCuentanTodasLasAccionesNoSoloLasDeContacto() {
         var historial = List.of(

@@ -40,6 +40,37 @@ public class NotificacionController {
         return notificacionService.obtenerNotificaciones(estudianteId, pageable);
     }
 
+    /**
+     * Las del estudiante autenticado, sin que mande su id.
+     *
+     * <p>La ruta con {@code estudianteId} es del equipo, que si consulta fichas
+     * ajenas, y comprueba la propiedad antes de responder. El portal no
+     * necesita mandar un identificador que el cliente podria cambiar, y
+     * ademas asi no tiene que pedir su propio perfil solo para saberlo.
+     */
+    @GetMapping("/mias")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public Page<NotificacionResponse> mias(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            Authentication auth) {
+        return notificacionService.obtenerNotificaciones(
+                ownershipService.obtenerEstudianteAutenticado(auth).getId(), pageable);
+    }
+
+    @GetMapping("/mias/no-leidas")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public long misNoLeidas(Authentication auth) {
+        return notificacionService.contarNoLeidas(
+                ownershipService.obtenerEstudianteAutenticado(auth).getId());
+    }
+
+    @PutMapping("/mias/marcar-leidas")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public void marcarMisLeidas(Authentication auth) {
+        var estudiante = ownershipService.obtenerEstudianteAutenticado(auth);
+        notificacionService.marcarTodasLeidas(estudiante.getId(), auth);
+    }
+
     @GetMapping("/no-leidas")
     @Operation(summary = "Contar notificaciones no leidas")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
@@ -84,15 +115,28 @@ public class NotificacionController {
         if (mensaje.isBlank()) {
             throw new com.novacrm.exception.BusinessException("El mensaje es obligatorio");
         }
-        int destinatarios = notificacionService.publicarAnuncio(
+        boolean pidioWhatsapp = Boolean.TRUE.equals(request.porWhatsapp());
+        var resultado = notificacionService.publicarAnuncio(
                 request.titulo(), mensaje, request.programaId(), mediaUrl,
                 normalizarTipoMedia(request.mediaTipo(), mediaUrl),
-                Boolean.TRUE.equals(request.porWhatsapp()));
+                pidioWhatsapp);
+
+        // Los dos numeros por separado, y no solo el de destinatarios. Si el
+        // proyecto no tiene canal de WhatsApp configurado no sale ni uno, y
+        // decir "enviado a 108" dejaba a quien publica esperando respuestas que
+        // nadie iba a recibir.
+        String aviso = resultado.destinatarios() == 0
+                ? "No hay estudiantes activos a quienes avisar"
+                : "Anuncio enviado a " + resultado.destinatarios() + " estudiante(s)";
+        if (pidioWhatsapp) {
+            aviso += resultado.porWhatsapp() == 0
+                    ? ". Por WhatsApp no salio ninguno: revisa el canal del proyecto"
+                    : ". Por WhatsApp salieron " + resultado.porWhatsapp() + ".";
+        }
         return java.util.Map.of(
-                "destinatarios", destinatarios,
-                "mensaje", destinatarios == 0
-                        ? "No hay estudiantes activos a quienes avisar"
-                        : "Anuncio enviado a " + destinatarios + " estudiante(s)");
+                "destinatarios", resultado.destinatarios(),
+                "porWhatsapp", resultado.porWhatsapp(),
+                "mensaje", aviso);
     }
 
     @PostMapping(value = "/anuncio/adjunto", consumes = "multipart/form-data")

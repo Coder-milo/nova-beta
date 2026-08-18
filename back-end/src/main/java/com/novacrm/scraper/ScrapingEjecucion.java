@@ -42,6 +42,29 @@ public class ScrapingEjecucion extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String error;
 
+    /**
+     * Ofertas devueltas por cada portal, antes de deduplicar.
+     *
+     * <p>Formato {@code PORTAL=n;PORTAL=n}. Nulo en las corridas anteriores a
+     * la columna: es «no se registró», que no es lo mismo que cero. Sin esto,
+     * una corrida de «0 nuevas y sin errores» no distingue entre los portales
+     * que trajeron cuarenta ofertas ya conocidas y los que no trajeron nada
+     * porque les cambiaron el HTML.
+     */
+    @Column(name = "ofertas_por_portal", columnDefinition = "TEXT")
+    private String ofertasPorPortal;
+
+    /**
+     * Ofertas que llegaron pero no exigian ingles.
+     *
+     * <p>El programa es de empleabilidad bilingue y lo que no lo es se descarta
+     * antes de guardar. Sin este numero, una corrida de «0 nuevas» no distingue
+     * entre un portal caido y un portal sano que solo trajo plazas monolingues
+     * —dos diagnosticos opuestos con el mismo sintoma—.
+     */
+    @Column(name = "descartadas_por_idioma", nullable = false)
+    private int descartadasPorIdioma;
+
     public LocalDateTime getInicio() { return inicio; }
     public void setInicio(LocalDateTime inicio) { this.inicio = inicio; }
     public LocalDateTime getFin() { return fin; }
@@ -56,4 +79,8 @@ public class ScrapingEjecucion extends BaseEntity {
     public void setOrigen(Origen origen) { this.origen = origen; }
     public String getError() { return error; }
     public void setError(String error) { this.error = error; }
+    public String getOfertasPorPortal() { return ofertasPorPortal; }
+    public void setOfertasPorPortal(String ofertasPorPortal) { this.ofertasPorPortal = ofertasPorPortal; }
+    public int getDescartadasPorIdioma() { return descartadasPorIdioma; }
+    public void setDescartadasPorIdioma(int descartadasPorIdioma) { this.descartadasPorIdioma = descartadasPorIdioma; }
 }

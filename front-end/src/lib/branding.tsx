@@ -112,7 +112,7 @@ export function notificarIdentidadActualizada(programaId: string): void {
 }
 
 export function ProveedorBranding({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
+  const { user, cargando: cargandoSesion } = useAuth()
   const [branding, setBranding] = useState<BrandingResponse | null>(null)
   const [cargando, setCargando] = useState(true)
 
@@ -148,6 +148,10 @@ export function ProveedorBranding({ children }: { children: ReactNode }) {
   // dependencia, el estudiante iniciaba sesión y su panel se quedaba con la
   // gama global hasta que recargara a mano.
   useEffect(() => {
+    // Mientras la sesión se lee del navegador no se sabe de quién es la
+    // identidad. Decidir aquí daría "no hay marca" para todo el mundo y el
+    // estudiante vería su portal con la gama global hasta el siguiente render.
+    if (cargandoSesion) return
     if (!user) {
       // El proveedor vive también en las pantallas de administración. Si la
       // sesión anterior era de un estudiante, quitar la gama de su proyecto
@@ -167,7 +171,7 @@ export function ProveedorBranding({ children }: { children: ReactNode }) {
       return
     }
     cargar()
-  }, [user, cargar])
+  }, [cargandoSesion, user, cargar])
 
   // Al volver al portal o cuando otra pestaña publica una identidad, se vuelve
   // a consultar la marca. Así el banner y los colores nuevos aparecen sin

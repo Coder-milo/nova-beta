@@ -80,6 +80,11 @@ public class ConfiguracionService {
 
         config.setCohorteActiva(vacioComoNulo(request.cohorteActiva()));
         config.setUmbralMatchMinimo(request.umbralMatchMinimo());
+        // Un valor desconocido se guarda como apagado: repartir participantes
+        // segun una regla que nadie escribio es peor que no repartir.
+        String regla = request.reglaAsignacion();
+        config.setReglaAsignacion("ROTATIVO".equalsIgnoreCase(regla == null ? "" : regla.trim())
+                ? "ROTATIVO" : "NINGUNA");
         config.setDiasRetencionPapelera(request.diasRetencionPapelera());
 
         config.tocar();

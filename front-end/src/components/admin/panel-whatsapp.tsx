@@ -14,7 +14,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, FloppyDiskIcon as FloppyDisk, PaperPlaneTiltIcon as PaperPlaneTilt, WhatsappLogoIcon as WhatsappLogo, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, LoaderCircle as CircleNotch, RefreshCw as ArrowsClockwise, Save as FloppyDisk, Send as PaperPlaneTilt } from 'lucide-react'
+import { WhatsappLogo } from '@/components/ui/iconos-de-marca'
 import {
   Card,
   CardContent,
@@ -26,6 +27,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { programasApi, whatsappApi } from '@/lib/api'
 import { errorDe } from '@/lib/errores'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 import type {
   MensajeWhatsappResponse,
   ProgramaResponse,
@@ -33,7 +36,54 @@ import type {
   WhatsappResponse,
 } from '@/lib/types'
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        mensajesAutomaticosA: 'Automatic messages to students via the WhatsApp Cloud API. Each project has its own number, phone and token.',
+        esteProyectoAun: 'This project has no WhatsApp channel yet: students see no contact button and receive no message alerts.',
+        elCanalEsta: 'The channel is saved but disabled. Enable it so the automatic alerts start going out.',
+        codigoDePais: 'Country code included, with no spaces or dashes. Alerts are sent from this number.',
+
+        mensajeDePrueba: 'Test message sent. Check the WhatsApp of the business number.',
+        soloEscrituraNo: 'Write-only: it is not shown again',
+        guardaYActiva: 'Save and enable the channel before testing',
+        canalDeWhatsapp: 'Project WhatsApp channel',
+        requiereGuardarEl: '(the token must be saved first)',
+        numeroDesconocido: 'Unknown number',
+        numeroDelNegocio: 'Business number',
+        conexionConMeta: 'Connection to Meta',
+        tokenDeAcceso: 'Access token',
+        ultimosMensajes: 'Latest messages',
+      }
+    : {
+        mensajesAutomaticosA: 'Mensajes automáticos a los estudiantes por WhatsApp Cloud API. Cada proyecto tiene su propio número, teléfono y token.',
+        esteProyectoAun: 'Este proyecto aún no tiene canal de WhatsApp: los estudiantes no ven botón de contacto ni reciben avisos por mensaje.',
+        elCanalEsta: 'El canal está guardado pero desactivado. Actívalo para que los avisos automáticos empiecen a enviarse.',
+        codigoDePais: 'Código de país incluido, sin espacios ni guiones. Los avisos se envían desde este número.',
+
+        mensajeDePrueba: 'Mensaje de prueba enviado. Revisa el WhatsApp del número del negocio.',
+        soloEscrituraNo: 'Solo-escritura: no vuelve a mostrarse',
+        guardaYActiva: 'Guarda y activa el canal antes de probar',
+        canalDeWhatsapp: 'Canal de WhatsApp del proyecto',
+        requiereGuardarEl: '(requiere guardar el token)',
+        numeroDesconocido: 'Número desconocido',
+        numeroDelNegocio: 'Número del negocio',
+        conexionConMeta: 'Conexión con Meta',
+        tokenDeAcceso: 'Token de acceso',
+        ultimosMensajes: 'Últimos mensajes',
+      }
+}
+
 export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: string } = {}) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [programas, setProgramas] = useState<ProgramaResponse[]>([])
   const [programaId, setProgramaId] = useState(programaIdInicial ?? '')
   const [canal, setCanal] = useState<WhatsappResponse | null>(null)
@@ -131,12 +181,11 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <WhatsappLogo className="size-5 text-primary" weight="duotone" />
-              Canal de WhatsApp del proyecto
+              <WhatsappLogo className="size-5 text-primary" />
+              {T.canalDeWhatsapp}
             </CardTitle>
             <CardDescription>
-              Mensajes automáticos a los estudiantes por WhatsApp Cloud API. Cada proyecto
-              tiene su propio número, teléfono y token.
+              {T.mensajesAutomaticosA}
             </CardDescription>
           </div>
           <Button
@@ -179,25 +228,23 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
           <>
             {!canal.configurado && (
               <p className="rounded-xl border border-border bg-secondary/30 px-3 py-2.5 text-xs text-muted-foreground">
-                Este proyecto aún no tiene canal de WhatsApp: los estudiantes no ven botón
-                de contacto ni reciben avisos por mensaje.
+                {T.esteProyectoAun}
               </p>
             )}
 
             {canal.configurado && !canal.activo && (
               <p className="rounded-xl border border-amber-300/40 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-700 dark:text-amber-400">
-                El canal está guardado pero desactivado. Actívalo para que los avisos
-                automáticos empiecen a enviarse.
+                {T.elCanalEsta}
               </p>
             )}
 
             <fieldset className="grid gap-4 rounded-xl border border-border/60 bg-secondary/10 p-4">
               <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Conexión con Meta
+                {T.conexionConMeta}
               </legend>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-semibold text-foreground/85">Número del negocio</label>
+                <label className="text-[13px] font-semibold text-foreground/85">{T.numeroDelNegocio}</label>
                 <Input
                   className="h-10 font-mono"
                   placeholder="573001234567"
@@ -208,8 +255,7 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
                   }}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Código de país incluido, sin espacios ni guiones. Los avisos se envían
-                  desde este número.
+                  {T.codigoDePais}
                 </p>
               </div>
 
@@ -227,11 +273,11 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-semibold text-foreground/85">Token de acceso</label>
+                <label className="text-[13px] font-semibold text-foreground/85">{T.tokenDeAcceso}</label>
                 <Input
                   className="h-10 font-mono"
                   type="password"
-                  placeholder={canal.tokenConfigurado ? 'Ya hay un token guardado (vacío = conservarlo)' : 'Solo-escritura: no vuelve a mostrarse'}
+                  placeholder={canal.tokenConfigurado ? 'Ya hay un token guardado (vacío = conservarlo)' : T.soloEscrituraNo}
                   value={token}
                   onChange={(e) => {
                     setToken(e.target.value)
@@ -255,7 +301,7 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
                   Canal activo
                   {!canal.tokenConfigurado && !token && (
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
-                      (requiere guardar el token)
+                      {T.requiereGuardarEl}
                     </span>
                   )}
                 </span>
@@ -273,7 +319,7 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
                 disabled={probando || !canal.tokenConfigurado || !canal.activo}
                 title={
                   !canal.tokenConfigurado || !canal.activo
-                    ? 'Guarda y activa el canal antes de probar'
+                    ? T.guardaYActiva
                     : undefined
                 }
               >
@@ -285,8 +331,8 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
             {resultadoPrueba && (
               resultadoPrueba.enviado ? (
                 <p className="flex items-center gap-2 rounded-xl border border-green-500/25 bg-green-500/10 px-3 py-2.5 text-sm font-medium text-green-700 dark:text-green-300">
-                  <CheckCircle className="size-4 shrink-0" weight="fill" />
-                  Mensaje de prueba enviado. Revisa el WhatsApp del número del negocio.
+                  <CheckCircle className="size-4 shrink-0" />
+                  {T.mensajeDePrueba}
                 </p>
               ) : (
                 <p className="flex items-start gap-2 rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
@@ -308,7 +354,7 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
 
             {guardado && (
               <p className="flex items-center gap-2 rounded-xl border border-green-500/25 bg-green-500/10 px-3 py-2.5 text-sm font-medium text-green-700 dark:text-green-300">
-                <CheckCircle className="size-4 shrink-0" weight="fill" />
+                <CheckCircle className="size-4 shrink-0" />
                 Canal guardado.
               </p>
             )}
@@ -316,7 +362,7 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
             {bandeja && bandeja.length > 0 && (
               <fieldset className="flex flex-col gap-2 rounded-xl border border-border/60 bg-secondary/10 p-4">
                 <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Últimos mensajes
+                  {T.ultimosMensajes}
                 </legend>
                 {bandeja.slice(0, 8).map((m) => (
                   <div key={m.id} className="flex items-start gap-2.5 rounded-lg bg-background/60 px-3 py-2">
@@ -326,9 +372,9 @@ export function PanelWhatsapp({ programaIdInicial }: { programaIdInicial?: strin
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-medium text-foreground">
-                        {m.estudiante || m.remitente || 'Número desconocido'}
+                        {m.estudiante || m.remitente || T.numeroDesconocido}
                         <span className="ml-2 font-normal text-muted-foreground">
-                          {new Date(m.fecha).toLocaleString('es-CO')}
+                          {new Date(m.fecha).toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO')}
                         </span>
                       </p>
                       <p className="truncate text-xs text-muted-foreground">{m.texto}</p>

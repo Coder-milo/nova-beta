@@ -2,6 +2,7 @@ package com.novacrm.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -48,6 +49,38 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleCredenciales(CredencialesInvalidasException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new ErrorResponse("UNAUTHORIZED", ex.getMessage(), Instant.now()));
+    }
+
+    /**
+     * Un duplicado declarado por el propio codigo: 409.
+     */
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflicto(ConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("CONFLICT", ex.getMessage(), Instant.now()));
+    }
+
+    /**
+     * Un choque contra una restriccion de la base: 409, no 500.
+     *
+     * <p>Crear un estudiante con un correo que ya existe llegaba aqui como
+     * {@code DataIntegrityViolationException}, caia en el manejador generico y
+     * salia «Internal server error» con HTTP 500. La pantalla, que distingue
+     * 409 («ya existe») de 500 («se rompio el servidor»), decia que el servidor
+     * habia fallado cuando el dato era el problema — y encima quedaba en el log
+     * como "Unhandled exception" con su traza.
+     *
+     * <p>Es la red de seguridad, no la primera linea: quien pueda comprobar el
+     * duplicado antes debe lanzar {@link ConflictException} con un mensaje que
+     * diga cual es el dato repetido. El detalle de la excepcion no se devuelve
+     * porque nombra tablas, columnas y constraints internas.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleIntegridad(DataIntegrityViolationException ex) {
+        log.warn("Restriccion de integridad violada: {}", ex.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("CONFLICT",
+                        "El dato ya existe o choca con otro registro del sistema", Instant.now()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

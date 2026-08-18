@@ -160,4 +160,36 @@ class JSearchConnectorTest {
         assertEquals(6, conector.maximoConsultasPorCorrida(),
                 "con cron diario, 6 por corrida son ~180 al mes: cabe en las 200");
     }
+
+    /**
+     * El sobre de openwebninja trae las ofertas anidadas: {@code data[]} son
+     * paginas y cada una las tiene en {@code jobs[]}. Sin este desanidado la
+     * fuente devoveria cero ofertas siempre, aunque la API responda bien.
+     */
+    @Test
+    void procesaElSobreDeOpenwebninja() throws Exception {
+        var resultado = conector.procesar("""
+                {
+                  "status": "OK",
+                  "data": [
+                    {
+                      "jobs": [
+                        {"job_id": "uno", "job_title": "Agente Bilingue"},
+                        {"job_id": "dos", "job_title": "Auxiliar de bodega"}
+                      ],
+                      "cursor": "abc"
+                    },
+                    {
+                      "jobs": [
+                        {"job_id": "tres", "job_title": "Asesor comercial"}
+                      ]
+                    }
+                  ]
+                }
+                """);
+
+        assertEquals(3, resultado.size());
+        assertEquals("Agente Bilingue", resultado.get(0).vacante().getTitulo());
+        assertEquals("Asesor comercial", resultado.get(2).vacante().getTitulo());
+    }
 }

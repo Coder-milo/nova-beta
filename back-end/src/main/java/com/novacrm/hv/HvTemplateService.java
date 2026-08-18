@@ -366,8 +366,14 @@ public class HvTemplateService {
             var x = experiencias.get(idx);
             sb.append("<div style=\"").append(idx == 0 ? st.block() : st.blockRest()).append("\">");
             String fechasStr = nvl(x.fechaInicio(), "") + (x.actual() ? (isEn ? " – Present" : " – Presente") : (isBlank(x.fechaFin()) ? "" : " – " + x.fechaFin()));
+            // El guion une cargo y fechas; sin cargo no une nada y quedaba
+            // colgando delante de la fecha.
+            String separadorFechas = fechasStr.isBlank()
+                    ? ""
+                    : (isBlank(x.cargo()) ? "" : " — ")
+                            + "<span style=\"" + st.date() + "\">" + esc(fechasStr) + "</span>";
             sb.append("<div style=\"").append(st.title()).append("\">").append(esc(x.cargo()))
-                    .append(fechasStr.isBlank() ? "" : " — <span style=\"" + st.date() + "\">" + esc(fechasStr) + "</span>")
+                    .append(separadorFechas)
                     .append("</div>");
             sb.append("<div style=\"").append(st.subtitle()).append("\">").append(esc(x.empresa())).append("</div>");
             if (!isBlank(x.funciones())) {
@@ -403,8 +409,12 @@ public class HvTemplateService {
                     var sb = new StringBuilder();
                     sb.append("<div style=\"margin-top:6pt;page-break-inside:avoid;\">");
                     sb.append("<div style=\"").append(st.title()).append("\">").append(esc(f.programa())).append("</div>");
-                    sb.append("<div style=\"").append(SUB_ITALIC).append("\">").append(esc(f.institucion()))
-                            .append(!isBlank(f.fechaFin()) ? " — " + f.fechaFin() : "")
+                    // Sin institucion, el año va solo: con el guion delante
+                    // salia una raya suelta al principio de la linea.
+                    String piePrograma = isBlank(f.institucion())
+                            ? nvl(f.fechaFin(), "")
+                            : esc(f.institucion()) + (isBlank(f.fechaFin()) ? "" : " — " + f.fechaFin());
+                    sb.append("<div style=\"").append(SUB_ITALIC).append("\">").append(piePrograma)
                             .append("</div>");
                     sb.append("</div>");
                     items.add(sb.toString());
@@ -431,8 +441,10 @@ public class HvTemplateService {
         sb.append("<ul style=\"").append(UL_WIDE).append("\">");
         for (int i = 0; i < certs.size(); i++) {
             var c = certs.get(i);
+            // El guion solo cuando hay entidad detras: sin institucion salia
+            // «Excel avanzado — » con la raya colgando al final de la linea.
             sb.append("<li style=\"").append(i == 0 ? LI_FIRST : LI_REST).append("\">").append(esc(c.programa()))
-                    .append(" — ").append(esc(c.institucion()))
+                    .append(isBlank(c.institucion()) ? "" : " — " + esc(c.institucion()))
                     .append(!isBlank(c.fechaFin()) ? ", " + c.fechaFin() : "")
                     .append("</li>");
         }
@@ -461,6 +473,14 @@ public class HvTemplateService {
     private String convertirACirculoPngBase64(String base64) {
         try {
             byte[] bytes = java.util.Base64.getDecoder().decode(base64);
+            // Se comprueba antes de abrirla. El comentario de abajo ya avisaba
+            // del coste de una foto grande, pero el reescalado llega tarde:
+            // para entonces la imagen ya esta descomprimida en memoria. Y aqui
+            // las fotos vienen del almacenamiento, donde hay algunas anteriores
+            // a que la subida comprobara nada. Una foto inmanejable no puede
+            // tumbar una generacion masiva de 500 hojas de vida: se omite esa y
+            // se sigue, que es lo que ya hace el `return null`.
+            if (!com.novacrm.shared.ImagenSegura.sePuedeAbrir(bytes)) return null;
             java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(bytes);
             java.awt.image.BufferedImage src = javax.imageio.ImageIO.read(bais);
             if (src == null) return null;

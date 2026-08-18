@@ -18,25 +18,52 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ArrowsClockwiseIcon as ArrowsClockwise,
-  CheckCircleIcon as CheckCircle,
-  CircleNotchIcon as CircleNotch,
-  FloppyDiskIcon as FloppyDisk,
-  InfoIcon as Info,
-  SlidersIcon as Sliders,
-  WarningCircleIcon as WarningCircle,
-} from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Info, LoaderCircle as CircleNotch, RefreshCw as ArrowsClockwise, Save as FloppyDisk, SlidersHorizontal as Sliders } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { configuracionApi } from '@/lib/api'
 import { errorDeGestion } from '@/lib/errores'
 import type { ConfiguracionGlobalResponse } from '@/lib/types'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 const CLAVE_LEGADA = 'nova_acad_config'
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        corteDelMotor: 'Matching engine cut-off, bin retention and current cohort.',
+        guardadoEnEl: 'Saved on the server. The next matching run uses this threshold.',
+        pasadoEsePlazo: 'After that, “Purge bin” deletes the record for good.',
+        etiquetaDelPeriodo: 'Label for the current period, used in reports and follow-up.',
+        diasEnPapelera: 'Days in the bin before purging',
+        cohortePeriodoActivo: 'Active cohort / period',
+        umbralMinimoDe: 'Minimum match threshold',
+        parametrosDeOperacion: 'Operating parameters',
+      }
+    : {
+        corteDelMotor: 'Corte del motor de matching, retención de la papelera y cohorte en curso.',
+        guardadoEnEl: 'Guardado en el servidor. El próximo cálculo de matches usa este umbral.',
+        pasadoEsePlazo: 'Pasado ese plazo, «Purgar papelera» borra la ficha de forma definitiva.',
+        etiquetaDelPeriodo: 'Etiqueta del período en curso, para informes y seguimiento.',
+        diasEnPapelera: 'Días en papelera antes de purgar',
+        cohortePeriodoActivo: 'Cohorte / período activo',
+        umbralMinimoDe: 'Umbral mínimo de match',
+        parametrosDeOperacion: 'Parámetros de operación',
+      }
+}
+
 export function PanelAcademico() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [config, setConfig] = useState<ConfiguracionGlobalResponse | null>(null)
   const [cohorte, setCohorte] = useState('')
   const [umbral, setUmbral] = useState('')
@@ -136,10 +163,10 @@ export function PanelAcademico() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Sliders className="size-5 text-primary" /> Parámetros de operación
+                <Sliders className="size-5 text-primary" /> {T.parametrosDeOperacion}
               </CardTitle>
               <CardDescription>
-                Corte del motor de matching, retención de la papelera y cohorte en curso.
+                {T.corteDelMotor}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -171,14 +198,14 @@ export function PanelAcademico() {
           {guardado && (
             <div role="status" className="flex items-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 p-3 text-xs font-medium text-green-600 dark:text-green-400">
               <CheckCircle className="size-4 shrink-0" />
-              <span>Guardado en el servidor. El próximo cálculo de matches usa este umbral.</span>
+              <span>{T.guardadoEnEl}</span>
             </div>
           )}
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Cohorte / período activo
+                {T.cohortePeriodoActivo}
               </label>
               <Input
                 value={cohorte}
@@ -190,13 +217,13 @@ export function PanelAcademico() {
                 disabled={cargando}
               />
               <span className="text-[10px] text-muted-foreground">
-                Etiqueta del período en curso, para informes y seguimiento.
+                {T.etiquetaDelPeriodo}
               </span>
             </div>
 
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Umbral mínimo de match
+                {T.umbralMinimoDe}
               </label>
               <Input
                 type="number"
@@ -219,7 +246,7 @@ export function PanelAcademico() {
 
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Días en papelera antes de purgar
+                {T.diasEnPapelera}
               </label>
               <Input
                 type="number"
@@ -234,7 +261,7 @@ export function PanelAcademico() {
                 disabled={cargando}
               />
               <span className="text-[10px] text-muted-foreground">
-                Pasado ese plazo, «Purgar papelera» borra la ficha de forma definitiva.
+                {T.pasadoEsePlazo}
               </span>
             </div>
           </div>

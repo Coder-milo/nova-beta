@@ -1,6 +1,7 @@
 package com.novacrm.estudiante;
 
 import com.novacrm.catalogo.nivel_ingles.NivelInglesRepository;
+import com.novacrm.exception.ConflictException;
 import com.novacrm.exception.ResourceNotFoundException;
 import com.novacrm.estudiante.dto.EstudianteRequest;
 import com.novacrm.estudiante.dto.EstudianteResponse;
@@ -28,6 +29,8 @@ public class EstudianteService {
     private final com.novacrm.colocacion.ColocacionRepository colocacionRepository;
     private final com.novacrm.documento.StorageService storageService;
     private final com.novacrm.hv.PlantillaHvRepository plantillaHvRepository;
+    private final com.novacrm.auth.UsuarioRepository usuarioRepository;
+    private final AsignacionAutomatica asignacionAutomatica;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -38,7 +41,9 @@ public class EstudianteService {
                              com.novacrm.auditoria.AuditoriaService auditoriaService,
                              com.novacrm.colocacion.ColocacionRepository colocacionRepository,
                              com.novacrm.documento.StorageService storageService,
-                             com.novacrm.hv.PlantillaHvRepository plantillaHvRepository) {
+                             com.novacrm.hv.PlantillaHvRepository plantillaHvRepository,
+                             com.novacrm.auth.UsuarioRepository usuarioRepository,
+                             AsignacionAutomatica asignacionAutomatica) {
         this.estudianteRepository = estudianteRepository;
         this.programaRepository = programaRepository;
         this.nivelInglesRepository = nivelInglesRepository;
@@ -46,7 +51,79 @@ public class EstudianteService {
         this.colocacionRepository = colocacionRepository;
         this.storageService = storageService;
         this.plantillaHvRepository = plantillaHvRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.asignacionAutomatica = asignacionAutomatica;
     }
+
+    // ── Quien lleva cada caso ───────────────────────────────────────────────
+
+    /**
+     * Asigna —o quita— el responsable de varios participantes de una vez.
+     *
+     * <p>Es la acción que faltaba en el punto 5: repartir una cohorte de ciento
+     * y pico de uno en uno es lo que hace que el equipo vuelva a la hoja de
+     * cálculo.
+     *
+     * @param responsableId a quién se le asignan; {@code null} los deja sin
+     *                      responsable, que es como se libera el trabajo de
+     *                      alguien que se va
+     * @return cuántos se cambiaron de verdad
+     */
+    @Transactional
+    public int asignarResponsableMasivo(List<UUID> ids, UUID responsableId) {
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+        com.novacrm.auth.Usuario responsable = null;
+        if (responsableId != null) {
+            responsable = usuarioRepository.findById(responsableId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+            // Un estudiante no puede llevar casos, y una cuenta de empresa
+            // menos: el desplegable ya solo ofrece al equipo, pero el endpoint
+            // lo recibe por parametro y aqui es donde se comprueba.
+            if (!puedeLlevarCasos(responsable)) {
+                throw new com.novacrm.exception.BusinessException(
+                        "Solo una cuenta del equipo puede ser responsable de un participante");
+            }
+        }
+
+        int cambiados = 0;
+        for (Estudiante estudiante : estudianteRepository.findAllById(ids)) {
+            UUID actual = estudiante.getResponsable() == null ? null : estudiante.getResponsable().getId();
+            if (java.util.Objects.equals(actual, responsableId)) {
+                // Reasignar a quien ya lo tenia no es un cambio: contarlo
+                // inflaria el "42 actualizados" que se le enseña a quien pulsa.
+                continue;
+            }
+            estudiante.setResponsable(responsable);
+            cambiados++;
+        }
+        estudianteRepository.flush();
+        return cambiados;
+    }
+
+    /** COORDINADOR y ADMIN llevan casos; ESTUDIANTE y EMPRESA, no. */
+    private static boolean puedeLlevarCasos(com.novacrm.auth.Usuario usuario) {
+        return usuario.getRoles() != null && usuario.getRoles().stream()
+                .anyMatch(r -> r == com.novacrm.auth.Rol.COORDINADOR || r == com.novacrm.auth.Rol.ADMIN);
+    }
+
+    /** Las cuentas que pueden aparecer en el desplegable de responsable. */
+    public List<ResponsablePosible> responsablesPosibles() {
+        return usuarioRepository.findAll().stream()
+                .filter(u -> u.isActivo() && puedeLlevarCasos(u))
+                .map(u -> new ResponsablePosible(u.getId(), nombreDe(u), u.getEmail(),
+                        estudianteRepository.countByResponsableIdAndActivoTrue(u.getId())))
+                .sorted(java.util.Comparator.comparing(ResponsablePosible::nombre,
+                        String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    /**
+     * @param aCargo cuántos lleva ya. Se muestra en el desplegable: repartir a
+     *               ciegas es como una persona acaba con ochenta y otra con seis
+     */
+    public record ResponsablePosible(UUID id, String nombre, String email, long aCargo) {}
 
     public Page<EstudianteResponse> listarPorPrograma(UUID programaId, Pageable pageable) {
         return estudianteRepository.findByProgramaIdAndActivoTrue(programaId, pageable)
@@ -56,6 +133,20 @@ public class EstudianteService {
     public Page<EstudianteResponse> listarConDatosFaltantes(Pageable pageable) {
         return estudianteRepository.buscarActivosConDatosFaltantes(pageable)
                 .map(this::toResponse);
+    }
+
+    /**
+     * Los que lleva alguien, o los que no lleva nadie.
+     *
+     * @param responsableId {@code null} devuelve los <strong>sin asignar</strong>,
+     *                      que no es lo mismo que «todos»: es la lista que hay
+     *                      que mirar para repartir
+     */
+    public Page<EstudianteResponse> listarPorResponsable(UUID responsableId, Pageable pageable) {
+        var pagina = responsableId == null
+                ? estudianteRepository.findByResponsableIsNullAndActivoTrue(pageable)
+                : estudianteRepository.findByResponsableIdAndActivoTrue(responsableId, pageable);
+        return pagina.map(this::toResponse);
     }
 
     /** Búsqueda avanzada sin exigir programa: nombre/documento/email, ciudad y estados. */
@@ -125,13 +216,28 @@ public class EstudianteService {
         return toResponse(buscar(id));
     }
 
+    /**
+     * Da de alta a un participante.
+     *
+     * <p>El correo y el documento se comprueban antes de guardar. La base ya
+     * tiene el correo como unico, pero dejar que salte alli convertia un dato
+     * repetido en un 500 «Internal server error»: la pantalla no podia decir
+     * que pasaba y quedaba en el log como fallo del servidor. Y hay un caso muy
+     * comun detras —una persona ya matriculada en otro proyecto, o en la
+     * papelera— que merece un mensaje que diga donde esta, no «revisa los
+     * campos».
+     */
     @Transactional
     public EstudianteResponse crear(EstudianteRequest request) {
         var programa = programaRepository.findById(request.programaId())
                 .orElseThrow(() -> new ResourceNotFoundException("Programa no encontrado"));
+        verificarQueNoExista(request);
         var estudiante = new Estudiante();
         aplicarRequest(estudiante, request);
         estudiante.setPrograma(programa);
+        // Reparto automatico, si esta encendido. Apagado por defecto, y nunca
+        // pisa un responsable puesto a mano. Ver AsignacionAutomatica.
+        asignacionAutomatica.asignarSiCorresponde(estudiante);
         var creado = estudianteRepository.save(estudiante);
         auditoriaService.registrar("Estudiantes", "Creación", "Estudiante",
                 creado.getId().toString(), creado.getNombre() + " " + creado.getApellido(), null, null);
@@ -144,6 +250,56 @@ public class EstudianteService {
         aplicarRequest(estudiante, request);
         var actualizado = estudianteRepository.save(estudiante);
         auditoriaService.registrar("Estudiantes", "Actualización", "Estudiante",
+                id.toString(), actualizado.getNombre() + " " + actualizado.getApellido(), null, null);
+        return toResponse(actualizado);
+    }
+
+    /**
+     * Lo que el propio estudiante puede cambiar de su ficha.
+     *
+     * <p>Existe aparte de {@link #actualizar} porque {@code /mi-perfil} recibe
+     * el mismo DTO completo, y aplicarlo entero convertia el formulario del
+     * portal en una via para autocertificarse: el estudiante podia escribir su
+     * propio {@code resultadoPruebaEscrita} y {@code resultadoPruebaOral} —de
+     * donde sale el nivel de ingles que pesa en el matching y que decide la
+     * elegibilidad para las vacantes remotas en ingles—, darse por GRADUADO o
+     * por COLOCADO, y mover los contadores de postulaciones enviadas y empresas
+     * contactadas, que son los numeros con los que se mide el programa.
+     *
+     * <p>La lista es la de datos que la persona conoce mejor que nadie:
+     * contacto, ubicacion y el contenido de su hoja de vida. Todo lo que sea
+     * una <em>valoracion</em> —nivel medido, estado, vinculacion a un programa,
+     * documento de identidad, correo de acceso— lo sigue escribiendo quien
+     * gestiona, por {@code PUT /estudiantes/{id}}.
+     *
+     * <p>La restriccion es del endpoint y no del rol: un coordinador que edite
+     * <em>su propia</em> ficha por aqui tambien pasa por esta lista, y para lo
+     * demas tiene la ruta de gestion. Asi no hay que preguntarle a la sesion
+     * quien es para saber que se puede tocar.
+     */
+    @Transactional
+    public EstudianteResponse actualizarMiPerfil(UUID id, EstudianteRequest r) {
+        var e = buscar(id);
+
+        if (r.telefono() != null) e.setTelefono(r.telefono());
+        if (r.celular() != null) e.setCelular(r.celular());
+        if (r.ciudad() != null) e.setCiudad(r.ciudad());
+        if (r.barrio() != null) e.setBarrio(r.barrio());
+        if (r.direccion() != null) e.setDireccion(r.direccion());
+        if (r.perfilProfesional() != null) e.setPerfilProfesional(r.perfilProfesional());
+        if (r.cargoObjetivo() != null) e.setCargoObjetivo(r.cargoObjetivo());
+        if (r.sectorObjetivo() != null) e.setSectorObjetivo(r.sectorObjetivo());
+        if (r.competencias() != null) e.setCompetencias(r.competencias());
+        if (r.idiomas() != null) e.setIdiomas(r.idiomas());
+        if (r.referencias() != null) e.setReferencias(r.referencias());
+        if (r.disponibilidad() != null) e.setDisponibilidad(r.disponibilidad());
+        if (r.disponibilidadLaboral() != null) e.setDisponibilidadLaboral(r.disponibilidadLaboral());
+        if (r.disponibilidadMovilidad() != null) e.setDisponibilidadMovilidad(r.disponibilidadMovilidad());
+        if (r.motivacion() != null) e.setMotivacion(r.motivacion());
+        if (r.linkedinUrl() != null) e.setLinkedinUrl(vacioANulo(r.linkedinUrl()));
+
+        var actualizado = estudianteRepository.save(e);
+        auditoriaService.registrar("Estudiantes", "Actualización de perfil propio", "Estudiante",
                 id.toString(), actualizado.getNombre() + " " + actualizado.getApellido(), null, null);
         return toResponse(actualizado);
     }
@@ -186,6 +342,49 @@ public class EstudianteService {
     private Estudiante buscar(UUID id) {
         return estudianteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado: " + id));
+    }
+
+    /**
+     * Corta el alta cuando esa persona ya esta registrada.
+     *
+     * <p>El mensaje nombra el proyecto donde esta y avisa si esta en la
+     * papelera: son los dos casos reales. Alguien abre el proyecto nuevo, ve la
+     * lista vacia y vuelve a dar de alta a gente que ya existe en otro; y
+     * alguien que se elimino sigue ocupando su correo, porque el borrado es
+     * logico y la restriccion de la base no distingue.
+     */
+    private void verificarQueNoExista(EstudianteRequest request) {
+        if (request.email() != null && !request.email().isBlank()) {
+            estudianteRepository.findByEmailIgnoreCase(request.email().trim())
+                    .ifPresent(existente -> {
+                        throw new ConflictException(
+                                "Ya hay un estudiante con el correo " + existente.getEmail()
+                                        + " (" + descripcionDe(existente) + ")");
+                    });
+        }
+        if (request.numeroDocumento() != null && !request.numeroDocumento().isBlank()) {
+            estudianteRepository.findByDocumentoNormalizado(request.numeroDocumento().trim())
+                    .ifPresent(existente -> {
+                        throw new ConflictException(
+                                "Ya hay un estudiante con el documento " + existente.getNumeroDocumento()
+                                        + " (" + descripcionDe(existente) + ")");
+                    });
+        }
+    }
+
+    /** «Nombre Apellido, Ruta Accelerator» o «…, en la papelera». */
+    private static String descripcionDe(Estudiante e) {
+        String nombre = (safe(e.getNombre()) + " " + safe(e.getApellido())).trim();
+        if (nombre.isEmpty()) nombre = "sin nombre";
+        if (!e.isActivo()) {
+            return nombre + ", en la papelera";
+        }
+        var programa = e.getPrograma();
+        return programa == null ? nombre : nombre + ", " + programa.getNombre();
+    }
+
+    private static String safe(String valor) {
+        return valor == null ? "" : valor;
     }
 
     private void aplicarRequest(Estudiante e, EstudianteRequest r) {
@@ -408,8 +607,16 @@ public class EstudianteService {
                 e.edad(LocalDate.now()),
                 e.getCarpetaUrl(),
                 e.getLinkedinUrl(),
-                e.getPlantillaPreferida() != null ? e.getPlantillaPreferida().getId() : null
+                e.getPlantillaPreferida() != null ? e.getPlantillaPreferida().getId() : null,
+                e.getResponsable() != null ? e.getResponsable().getId() : null,
+                e.getResponsable() != null ? nombreDe(e.getResponsable()) : null
         );
+    }
+
+    /** El nombre de la cuenta, o el correo si no tiene: algo con que reconocerla. */
+    private static String nombreDe(com.novacrm.auth.Usuario usuario) {
+        String nombre = usuario.getNombre();
+        return nombre == null || nombre.isBlank() ? usuario.getEmail() : nombre;
     }
 
     @Transactional

@@ -5,6 +5,7 @@ import com.novacrm.estudiante.Estudiante;
 import com.novacrm.estudiante.EstudianteRepository;
 import com.novacrm.matching.dto.MatchResponse;
 import com.novacrm.notificacion.NotificacionService;
+import com.novacrm.scraper.fuente.AreaMetropolitana;
 import com.novacrm.vacante.Vacante;
 import com.novacrm.vacante.VacanteRepository;
 import org.springframework.data.domain.Page;
@@ -36,6 +37,16 @@ public class MatchingService {
      */
     private final com.novacrm.configuracion.ConfiguracionService configuracionService;
 
+    /**
+     * Quien esta trabajando ahora mismo, segun el registro que lo dice.
+     *
+     * <p>Hasta ahora eso se preguntaba solo al enum {@code EstadoEmpleabilidad}
+     * de la ficha, que unicamente escriben la importacion antigua y la edicion
+     * manual. A quien se coloca por el CRM nadie se lo cambia, asi que seguia
+     * contando como buscando empleo.
+     */
+    private final com.novacrm.colocacion.ColocacionRepository colocacionRepository;
+
     private static final List<String> NIVELES_INGLES = List.of("A1", "A2", "B1", "B2", "C1", "C2");
 
     public MatchingService(MatchRepository matchRepository,
@@ -46,7 +57,9 @@ public class MatchingService {
                            NotificacionService notificacionService,
                            com.novacrm.postulacion.PostulacionService postulacionService,
                            com.novacrm.postulacion.PostulacionRepository postulacionRepository,
-                           com.novacrm.configuracion.ConfiguracionService configuracionService) {
+                           com.novacrm.configuracion.ConfiguracionService configuracionService,
+                           com.novacrm.colocacion.ColocacionRepository colocacionRepository) {
+        this.colocacionRepository = colocacionRepository;
         this.matchRepository = matchRepository;
         this.estudianteRepository = estudianteRepository;
         this.vacanteRepository = vacanteRepository;
@@ -106,6 +119,14 @@ public class MatchingService {
                 v.getRangoSalarial(),
                 v.getModalidadTrabajo(),
                 v.getRequisitos(),
+                v.getDescripcion(),
+                v.getCiudad(),
+                v.getTipoContrato(),
+                v.getJornada(),
+                v.getNivelInglesRequerido(),
+                v.getAniosExperienciaRequeridos(),
+                v.getFechaExpiracion(),
+                v.getFuente(),
                 m.getPuntaje(),
                 m.isNotificado(),
                 m.isPostulado(),
@@ -171,17 +192,31 @@ public class MatchingService {
             return;
         }
         try {
+            String empresaNombre = vacante.getEmpresa() != null && vacante.getEmpresa().getNombre() != null && !vacante.getEmpresa().getNombre().isBlank()
+                    ? vacante.getEmpresa().getNombre()
+                    : "Sin registrar";
+            String cargo = vacante.getTitulo() != null && !vacante.getTitulo().isBlank()
+                    ? vacante.getTitulo()
+                    : "Vacante";
+            String rawUrl = vacante.getUrlAplicar() != null && !vacante.getUrlAplicar().isBlank()
+                    ? vacante.getUrlAplicar()
+                    : vacante.getUrlOrigen();
+            String urlOferta = sanitizarUrl(rawUrl);
+
             postulacionService.crear(estudianteId,
                     new com.novacrm.postulacion.dto.PostulacionDtos.CrearPostulacion(
                             estudianteId,
                             vacante.getId(),
-                            vacante.getEmpresa() != null ? vacante.getEmpresa().getNombre() : "Sin registrar",
-                            vacante.getTitulo(),
+                            empresaNombre,
+                            cargo,
                             vacante.getFuente(),
                             java.time.LocalDate.now(),
                             com.novacrm.postulacion.EstadoPostulacion.ENVIADA,
-                            vacante.getUrlAplicar() != null ? vacante.getUrlAplicar() : vacante.getUrlOrigen(),
-                            null),
+                            urlOferta,
+                            null,
+                            // Postularse desde un match no agenda nada: la cita
+                            // la pone la empresa cuando contesta.
+                            null, null, null, null, null, null, null),
                     autor, loHaceElEstudiante);
         } catch (com.novacrm.exception.BusinessException e) {
             // Carrera entre dos clics sobre el mismo match: el perdedor llega a
@@ -191,6 +226,20 @@ public class MatchingService {
                 throw e;
             }
         }
+    }
+
+    private static String sanitizarUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        String trimmed = url.trim();
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+            return trimmed;
+        }
+        if (trimmed.startsWith("www.") || trimmed.contains(".")) {
+            return "https://" + trimmed;
+        }
+        return null;
     }
 
     /** Una vacante del pool con sus tokens ya resueltos, para no repetirlo. */
@@ -211,8 +260,11 @@ public class MatchingService {
         // quien se retiro del programa y a quien ya esta empleado. Mandarles
         // recomendaciones —y avisos de WhatsApp— es ruido para ellos y trabajo
         // perdido para el equipo.
+        // Quien tiene una colocacion vigente ya no busca, lo diga o no el enum
+        // de su ficha. En una consulta para toda la corrida, no una por persona.
+        var colocados = java.util.Set.copyOf(colocacionRepository.idsColocados());
         var estudiantes = estudianteRepository.findAllByActivoTrue().stream()
-                .filter(MatchingService::buscaEmpleo)
+                .filter(e -> buscaEmpleo(e, colocados))
                 .toList();
         if (estudiantes.isEmpty()) {
             return 0;
@@ -330,10 +382,22 @@ public class MatchingService {
      * <p>Quien se retiro del programa ya no participa, y a quien esta empleado
      * recomendarle plazas no le sirve: el seguimiento de esa persona es la
      * permanencia en el puesto, no una nueva busqueda.
+     *
+     * <p>«Empleado» son dos cosas y hasta ahora se miraba solo una. El enum
+     * {@code EstadoEmpleabilidad} viene de la hoja antigua y lo escriben la
+     * importacion y la edicion manual; la colocacion es el registro real —con
+     * empresa, fecha y salario— y es por donde entra todo el que se coloca por
+     * el CRM. Mirando solo el enum, a quien acababa de encontrar trabajo con el
+     * programa se le seguian mandando vacantes recomendadas, con su aviso de
+     * WhatsApp y sus botones de si/no, mientras estaba trabajando.
+     *
+     * @param colocados ids con colocacion vigente, resueltos de una vez para
+     *                  toda la corrida
      */
-    static boolean buscaEmpleo(Estudiante e) {
+    static boolean buscaEmpleo(Estudiante e, java.util.Set<UUID> colocados) {
         return e.getEstadoAcademico() != com.novacrm.estudiante.EstadoAcademico.RETIRADO
-                && e.getEstadoEmpleabilidad() != com.novacrm.estudiante.EstadoEmpleabilidad.EMPLEADO;
+                && e.getEstadoEmpleabilidad() != com.novacrm.estudiante.EstadoEmpleabilidad.EMPLEADO
+                && !colocados.contains(e.getId());
     }
 
     /**
@@ -455,6 +519,11 @@ public class MatchingService {
             return null;
         }
         if (lugarVacante.contains(ciudadEstudiante) || ciudadEstudiante.contains(lugarVacante)) {
+            return 1.0;
+        }
+        // Coincidencia dentro del Área Metropolitana de Barranquilla / Atlántico
+        if (AreaMetropolitana.esCercana(ciudadEstudiante, null)
+                && AreaMetropolitana.esCercana(v.getCiudad(), v.getUbicacion())) {
             return 1.0;
         }
         return Boolean.TRUE.equals(e.getDisponibilidadMovilidad()) ? 0.6 : 0.0;

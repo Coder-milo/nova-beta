@@ -33,6 +33,16 @@ public class ImportacionHistorial {
     @Column(columnDefinition = "TEXT")
     private String detalle;
 
+    /**
+     * Que importador la hizo: {@code ESTUDIANTES}, {@code CRM} o {@code LIBRO}.
+     *
+     * <p>Con tres escribiendo en la misma tabla, «se importaron 40 registros» no
+     * dice si eran participantes, empresas o vinculaciones — y son tres cosas
+     * que se corrigen de forma distinta.
+     */
+    @Column(nullable = false, length = 20)
+    private String origen = "ESTUDIANTES";
+
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 
@@ -58,6 +68,8 @@ public class ImportacionHistorial {
     public void setErrores(int errores) { this.errores = errores; }
     public String getDetalle() { return detalle; }
     public void setDetalle(String detalle) { this.detalle = detalle; }
+    public String getOrigen() { return origen; }
+    public void setOrigen(String origen) { this.origen = origen; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

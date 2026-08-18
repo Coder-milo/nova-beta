@@ -33,6 +33,17 @@ interface AuthUser extends UsuarioSesion {
 
 interface AuthContextValue {
   user: AuthUser | null
+  /**
+   * La sesión todavía no se ha leído del navegador.
+   *
+   * El usuario se recupera en un efecto —no se puede leer `localStorage`
+   * durante el render sin romper la hidratación—, así que entre el montaje y
+   * ese efecto `user` es `null` sin que eso signifique "no hay sesión". Quien
+   * ramifique por el rol tiene que esperar: durante esa ventana
+   * `soloEsEstudiante(undefined)` devuelve `false` y un estudiante pasa por
+   * administrador, que fue justo el origen de los 403 al montar la cabecera.
+   */
+  cargando: boolean
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<AuthUser>
   logout: () => Promise<void>
@@ -49,29 +60,45 @@ function parseUser(r: UsuarioSesion): AuthUser {
   return { ...r, iniciales }
 }
 
+function getInitialUser(): AuthUser | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const savedUser = localStorage.getItem(USER_KEY)
+    return savedUser ? JSON.parse(savedUser) : null
+  } catch {
+    return null
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(getInitialUser)
+  const [cargando, setCargando] = useState(false)
 
   useEffect(() => {
-    const savedUser = localStorage.getItem(USER_KEY)
-    if (!savedUser) return
     try {
-      setUser(JSON.parse(savedUser))
+      const savedUser = localStorage.getItem(USER_KEY)
+      if (savedUser) setUser(JSON.parse(savedUser))
+      else setUser(null)
     } catch {
       localStorage.removeItem(USER_KEY)
+      setUser(null)
     }
   }, [])
 
   const login = useCallback(async (email: string, password: string): Promise<AuthUser> => {
     const usuario = parseUser(await authApi.login({ email, password }))
     localStorage.setItem(USER_KEY, JSON.stringify(usuario))
+    window.dispatchEvent(new StorageEvent('storage', { key: USER_KEY, newValue: JSON.stringify(usuario) }))
     setUser(usuario)
+    setCargando(false)
     return usuario
   }, [])
 
   const logout = useCallback(async () => {
     localStorage.removeItem(USER_KEY)
+    window.dispatchEvent(new StorageEvent('storage', { key: USER_KEY, newValue: null }))
     setUser(null)
+    setCargando(false)
     // Solo el servidor puede borrar las cookies HttpOnly.
     try {
       await authApi.logout()
@@ -81,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout }}>
+    <AuthContext.Provider value={{ user, cargando, isAuthenticated: !!user, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

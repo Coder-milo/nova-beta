@@ -11,5 +11,12 @@ public interface ScrapingEjecucionRepository extends JpaRepository<ScrapingEjecu
     /** La ultima actualizacion terminada, que es la que se muestra en el panel. */
     Optional<ScrapingEjecucion> findFirstByFinIsNotNullOrderByInicioDesc();
 
-    List<ScrapingEjecucion> findTop10ByOrderByInicioDesc();
+    /**
+     * Las ultimas corridas, para el registro del panel.
+     *
+     * <p>Veinte y no diez: con la tarea diaria mas los escaneos manuales, diez
+     * filas no llegan a cubrir una semana, y la pregunta que se hace el equipo
+     * —«desde cuando no entra nada de este portal»— necesita ver varios dias.
+     */
+    List<ScrapingEjecucion> findTop20ByOrderByInicioDesc();
 }

@@ -35,15 +35,21 @@ public class ImportacionDeLibro {
     private final ImportacionDeParticipantes importacionDeParticipantes;
     private final ImportacionDePostulaciones importacionDePostulaciones;
     private final ReconocimientoConIa reconocimientoConIa;
+    private final com.novacrm.excel.RegistroDeImportaciones registro;
+    private final com.novacrm.excel.PlanesDeImportacion planes;
 
     public ImportacionDeLibro(ImportacionCrmService importacionCrmService,
                               ImportacionDeParticipantes importacionDeParticipantes,
                               ImportacionDePostulaciones importacionDePostulaciones,
-                              ReconocimientoConIa reconocimientoConIa) {
+                              ReconocimientoConIa reconocimientoConIa,
+                              com.novacrm.excel.RegistroDeImportaciones registro,
+                              com.novacrm.excel.PlanesDeImportacion planes) {
         this.importacionCrmService = importacionCrmService;
         this.importacionDeParticipantes = importacionDeParticipantes;
         this.importacionDePostulaciones = importacionDePostulaciones;
         this.reconocimientoConIa = reconocimientoConIa;
+        this.registro = registro;
+        this.planes = planes;
     }
 
     /**
@@ -67,7 +73,23 @@ public class ImportacionDeLibro {
      * habian reportado como importadas.
      */
     public ResultadoImportacionLibro importar(MultipartFile archivo, boolean simular, String autor) {
-        var clasificadas = LectorDeLibro.leer(archivo, reconocimientoConIa);
+        return importar(archivo, simular, autor, null);
+    }
+
+    /**
+     * @param planId análisis ya aprobado que hay que repetir tal cual. Con
+     *               {@code null} se analiza el archivo de nuevo, que es lo que
+     *               hace la previsualización
+     */
+    public ResultadoImportacionLibro importar(MultipartFile archivo, boolean simular, String autor,
+                                              java.util.UUID planId) {
+        // Con plan se repite el analisis aprobado; sin plan se hace uno. La
+        // previsualizacion guarda el suyo y devuelve su identificador: es lo
+        // que hace que confirmar ejecute lo que se reviso y no un reanalisis
+        // que la IA puede resolver distinto.
+        var clasificadas = planId == null
+                ? LectorDeLibro.leer(archivo, reconocimientoConIa)
+                : LectorDeLibro.releer(archivo, planes.recuperar(planId, archivo));
         var procesadas = new ArrayList<HojaProcesada>();
 
         // Los participantes primero, y las empresas antes que lo que las
@@ -109,7 +131,37 @@ public class ImportacionDeLibro {
                         .orElseGet(() -> HojaProcesada.omitida(c.nombre(), "No se proceso")))
                 .toList();
 
-        return new ResultadoImportacionLibro(simular, enOrdenDelLibro);
+        // La simulacion guarda su analisis para que la importacion real lo
+        // repita. Se guarda al final y no antes de importar porque un libro que
+        // revienta al leerse no deja plan que confirmar.
+        java.util.UUID plan = simular
+                ? planes.guardar(archivo, AnalisisDeLibro.de(clasificadas))
+                : planId;
+
+        // Una sola línea de historial para todo el libro, no una por pestaña.
+        // El libro se sube de una vez y se deshace de una vez; con una línea
+        // por hoja, una carga de seis pestañas parecerían seis importaciones
+        // distintas al revisar qué pasó.
+        if (!simular) {
+            int creados = 0;
+            int actualizados = 0;
+            var motivos = new java.util.ArrayList<String>();
+            for (var hoja : enOrdenDelLibro) {
+                if (hoja.detalle() != null) {
+                    creados += hoja.detalle().creados();
+                    actualizados += hoja.detalle().actualizados();
+                    hoja.detalle().errores().forEach(e ->
+                            motivos.add(hoja.nombre() + " · fila " + e.fila() + ": " + e.motivo()));
+                } else if (hoja.motivo() != null) {
+                    motivos.add(hoja.nombre() + ": " + hoja.motivo());
+                }
+            }
+            registro.anotar("LIBRO",
+                    archivo == null ? null : archivo.getOriginalFilename(),
+                    null, creados, actualizados, 0, motivos);
+        }
+
+        return new ResultadoImportacionLibro(simular, enOrdenDelLibro, plan);
     }
 
     /** Orden de dependencia: primero lo que las demas hojas referencian. */

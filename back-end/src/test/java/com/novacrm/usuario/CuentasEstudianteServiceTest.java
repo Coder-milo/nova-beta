@@ -100,9 +100,9 @@ class CuentasEstudianteServiceTest {
 
         when(estudianteRepository.findAllByActivoTrue())
                 .thenReturn(List.of(conCuenta, sinCuenta, sinCorreo));
-        when(usuarioRepository.findByEmail("ana@ejemplo.com"))
+        when(usuarioRepository.findByEmailIgnoreCase("ana@ejemplo.com"))
                 .thenReturn(Optional.of(new Usuario()));
-        when(usuarioRepository.findByEmail("luis@ejemplo.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByEmailIgnoreCase("luis@ejemplo.com")).thenReturn(Optional.empty());
     }
 
     @Test
@@ -154,7 +154,7 @@ class CuentasEstudianteServiceTest {
     @Test
     void laCuentaSigueContandoComoCreadaAunqueElCorreoFalle() {
         estudiante("hector@ejemplo.com");
-        when(usuarioRepository.findByEmail("hector@ejemplo.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByEmailIgnoreCase("hector@ejemplo.com")).thenReturn(Optional.empty());
         when(emailService.enviar(anyString(), anyString(), anyString()))
                 .thenReturn(EmailService.Resultado.fallo("Authentication failed"));
 
@@ -178,7 +178,7 @@ class CuentasEstudianteServiceTest {
     @Test
     void unEnvioCorrectoCuentaComoCreadaYComoEnviado() {
         estudiante("hector@ejemplo.com");
-        when(usuarioRepository.findByEmail("hector@ejemplo.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByEmailIgnoreCase("hector@ejemplo.com")).thenReturn(Optional.empty());
         when(emailService.enviar(anyString(), anyString(), anyString()))
                 .thenReturn(EmailService.Resultado.ok());
 
@@ -195,7 +195,7 @@ class CuentasEstudianteServiceTest {
         ReflectionTestUtils.setField(servicio, "destinatarios",
                 new com.novacrm.config.DestinatariosPermitidos("hectorluissuarezarroyo@gmail.com"));
         estudiante("otra.persona@ejemplo.com");
-        when(usuarioRepository.findByEmail("otra.persona@ejemplo.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByEmailIgnoreCase("otra.persona@ejemplo.com")).thenReturn(Optional.empty());
 
         var resumen = servicio.crearCuentas(List.of(ID), true, false);
 
@@ -212,7 +212,7 @@ class CuentasEstudianteServiceTest {
     @Test
     void laSimulacionNoGuardaNiEscribe() {
         estudiante("hector@ejemplo.com");
-        when(usuarioRepository.findByEmail("hector@ejemplo.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByEmailIgnoreCase("hector@ejemplo.com")).thenReturn(Optional.empty());
 
         var resumen = servicio.crearCuentas(List.of(ID), true, true);
 
@@ -240,7 +240,7 @@ class CuentasEstudianteServiceTest {
         ReflectionTestUtils.setField(servicio, "destinatarios",
                 new com.novacrm.config.DestinatariosPermitidos("hectorluissuarezarroyo@gmail.com"));
         estudiante("otra.persona@ejemplo.com");
-        when(usuarioRepository.findByEmail("otra.persona@ejemplo.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByEmailIgnoreCase("otra.persona@ejemplo.com")).thenReturn(Optional.empty());
 
         servicio.crearCuentas(List.of(ID), true, false);
 

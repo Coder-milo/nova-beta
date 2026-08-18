@@ -8,6 +8,7 @@ import com.novacrm.exception.ResourceNotFoundException;
 import com.novacrm.mensaje.dto.MensajeAdjuntoResponse;
 import com.novacrm.mensaje.dto.MensajeRequest;
 import com.novacrm.mensaje.dto.MensajeResponse;
+import com.novacrm.mensaje.dto.MensajeTurnoResponse;
 import com.novacrm.notificacion.NotificacionService;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,8 @@ public class MensajeEstudianteService {
 
     private final MensajeEstudianteRepository repository;
     private final MensajeAdjuntoRepository adjuntoRepository;
+    private final MensajeTurnoRepository turnoRepository;
+    private final MensajeReaccionRepository reaccionRepository;
     private final EstudianteRepository estudianteRepository;
     private final OwnershipService ownershipService;
     private final StorageService storageService;
@@ -44,12 +47,16 @@ public class MensajeEstudianteService {
 
     public MensajeEstudianteService(MensajeEstudianteRepository repository,
                                    MensajeAdjuntoRepository adjuntoRepository,
+                                   MensajeTurnoRepository turnoRepository,
+                                   MensajeReaccionRepository reaccionRepository,
                                    EstudianteRepository estudianteRepository,
                                    OwnershipService ownershipService,
                                    StorageService storageService,
                                    NotificacionService notificacionService) {
         this.repository = repository;
         this.adjuntoRepository = adjuntoRepository;
+        this.turnoRepository = turnoRepository;
+        this.reaccionRepository = reaccionRepository;
         this.estudianteRepository = estudianteRepository;
         this.ownershipService = ownershipService;
         this.storageService = storageService;
@@ -57,6 +64,9 @@ public class MensajeEstudianteService {
     }
 
     public List<MensajeResponse> mios(Authentication auth) {
+        if (gestiona(auth)) {
+            return listarTodos();
+        }
         return repository.findByEstudianteIdOrderByCreatedAtDesc(
                 ownershipService.obtenerEstudianteAutenticado(auth).getId()).stream().map(this::toResponse).toList();
     }
@@ -94,7 +104,32 @@ public class MensajeEstudianteService {
         for (MultipartFile archivo : adjuntos) {
             mensaje.getAdjuntos().add(crearAdjunto(mensaje, archivo, false));
         }
-        return toResponse(repository.save(mensaje));
+        var guardado = repository.save(mensaje);
+        var turno = new MensajeTurno();
+        turno.setMensaje(guardado);
+        turno.setAutorEmail(auth.getName());
+        turno.setAutorEsEstudiante(true);
+        turno.setContenido(contenidoLimpio);
+        var turnoGuardado = turnoRepository.save(turno);
+        for (var adjunto : guardado.getAdjuntos()) {
+            adjunto.setTurno(turnoGuardado);
+            adjuntoRepository.save(adjunto);
+        }
+        return toResponse(guardado);
+    }
+
+    /**
+     * Cuantos hilos esperan atencion de quien pregunta.
+     *
+     * <p>Para el equipo son los abiertos —alguien escribio y nadie contesto—;
+     * para el estudiante, los que ya tienen respuesta que no ha ido a leer.
+     */
+    public long pendientes(Authentication auth) {
+        if (!gestiona(auth)) {
+            var estudiante = ownershipService.obtenerEstudianteAutenticado(auth);
+            return repository.countByEstudianteIdAndEstado(estudiante.getId(), EstadoMensaje.RESPONDIDO);
+        }
+        return repository.countByEstado(EstadoMensaje.ABIERTO);
     }
 
     public List<MensajeResponse> listarTodos() {
@@ -138,6 +173,21 @@ public class MensajeEstudianteService {
             mensaje.getAdjuntos().add(crearAdjunto(mensaje, archivo, true));
         }
         var guardado = repository.save(mensaje);
+        var turno = new MensajeTurno();
+        turno.setMensaje(guardado);
+        turno.setAutorEmail(auth.getName());
+        turno.setAutorEsEstudiante(false);
+        turno.setContenido(respuestaLimpia);
+        var turnoGuardado = turnoRepository.save(turno);
+        for (var adjunto : guardado.getAdjuntos()) {
+            if (adjunto.isRespuesta()) {
+                adjunto.setTurno(turnoGuardado);
+                adjuntoRepository.save(adjunto);
+            }
+        }
+        // Sin esto la respuesta del equipo llega en silencio: el estudiante no
+        // ve nada en la campana y solo se entera si vuelve a abrir el hilo por
+        // su cuenta. Se perdio al pasar el mensaje a turnos.
         notificacionService.registrarMensajeDelEquipo(mensaje.getEstudiante(), guardado.getId());
         return toResponse(guardado);
     }
@@ -183,6 +233,16 @@ public class MensajeEstudianteService {
             mensaje.getAdjuntos().add(crearAdjunto(mensaje, archivo, true));
         }
         var guardado = repository.save(mensaje);
+        var turno = new MensajeTurno();
+        turno.setMensaje(guardado);
+        turno.setAutorEmail(auth.getName());
+        turno.setAutorEsEstudiante(false);
+        turno.setContenido(texto);
+        var turnoGuardado = turnoRepository.save(turno);
+        for (var adjunto : guardado.getAdjuntos()) {
+            adjunto.setTurno(turnoGuardado);
+            adjuntoRepository.save(adjunto);
+        }
         notificacionService.registrarMensajeDelEquipo(estudiante, guardado.getId());
         return toResponse(guardado);
     }
@@ -194,6 +254,264 @@ public class MensajeEstudianteService {
         ownershipService.verificarAccesoEstudiante(auth, adjunto.getMensaje().getEstudiante().getId());
         return new ArchivoAdjunto(adjunto.getNombre(), adjunto.getContentType(),
                 storageService.descargar(adjunto.getObjectKey()));
+    }
+
+    // ── Conversación por turnos ─────────────────────────────────────────────
+
+    /**
+     * Los emojis que se pueden poner.
+     *
+     * <p>Lista cerrada y no texto libre: la columna admite 16 caracteres y un
+     * campo abierto acaba llevando lo que sea —incluida una cadena que el
+     * navegador pinte como algo que no es—. Con una lista, la interfaz tiene
+     * ademas una paleta definida en vez de inventarse una por su cuenta.
+     */
+    private static final Set<String> EMOJIS = Set.of("👍", "❤️", "🎉", "👏", "😀", "😮", "😢", "🙏");
+
+    /** El hilo completo, en orden, con sus adjuntos y reacciones. */
+    public List<MensajeTurnoResponse> turnos(UUID mensajeId, Authentication auth) {
+        var mensaje = hiloAlQuePuedeAcceder(mensajeId, auth);
+        var listaTurnos = turnoRepository.findByMensajeIdOrderByCreatedAtAscSecuenciaAsc(mensaje.getId());
+        // Hilos anteriores a que cada envio se guardara como turno: se
+        // reconstruyen para poder leerlos, pero no existen como fila. Van
+        // marcados `historico` para que la pantalla no ofrezca reaccionar ni
+        // citar: no hay a que apuntar y la accion fallaria siempre. El id sale
+        // del propio mensaje y no de `randomUUID`, que cambiaba en cada
+        // consulta y hacia que React rehiciera el hilo entero cada vez.
+        if (listaTurnos.isEmpty()) {
+            List<MensajeTurnoResponse> sintetizados = new java.util.ArrayList<>();
+            var estudiante = mensaje.getEstudiante();
+            String nombreEstudiante = ((estudiante.getNombre() == null ? "" : estudiante.getNombre()) + " "
+                    + (estudiante.getApellido() == null ? "" : estudiante.getApellido())).trim();
+            if (nombreEstudiante.isBlank()) nombreEstudiante = "Estudiante";
+
+            if (mensaje.getContenido() != null && !mensaje.getContenido().isBlank()) {
+                sintetizados.add(new MensajeTurnoResponse(
+                        mensaje.getId(),
+                        nombreEstudiante,
+                        true,
+                        mensaje.getContenido(),
+                        mensaje.getCreatedAt(),
+                        null, null,
+                        mensaje.getAdjuntos().stream().filter(a -> !a.isRespuesta())
+                                .map(a -> new MensajeAdjuntoResponse(a.getId(), a.getNombre(), a.getContentType(), a.getTamano(), "/api/v1/mensajes/adjuntos/" + a.getId() + "/archivo")).toList(),
+                        List.of(),
+                        true
+                ));
+            }
+            if (mensaje.getRespuesta() != null && !mensaje.getRespuesta().isBlank()) {
+                sintetizados.add(new MensajeTurnoResponse(
+                        idDeRespuestaHistorica(mensaje.getId()),
+                        mensaje.getRespondidoPor() == null ? "CAC Academic" : mensaje.getRespondidoPor(),
+                        false,
+                        mensaje.getRespuesta(),
+                        mensaje.getRespondidoAt() == null ? mensaje.getCreatedAt() : mensaje.getRespondidoAt(),
+                        null, null,
+                        mensaje.getAdjuntos().stream().filter(MensajeAdjunto::isRespuesta)
+                                .map(a -> new MensajeAdjuntoResponse(a.getId(), a.getNombre(), a.getContentType(), a.getTamano(), "/api/v1/mensajes/adjuntos/" + a.getId() + "/archivo")).toList(),
+                        List.of(),
+                        true
+                ));
+            }
+            return sintetizados;
+        }
+        return listaTurnos.stream()
+                .map(turno -> aRespuesta(turno, auth.getName()))
+                .toList();
+    }
+
+    /**
+     * Un id estable para la respuesta reconstruida de un hilo antiguo.
+     *
+     * <p>Se deriva del id del mensaje invirtiendo los bits altos, asi que sale
+     * siempre el mismo y no choca con el del mensaje. Antes era
+     * {@code randomUUID()}: cambiaba en cada consulta, y como la pantalla lo
+     * usa de clave, rehacia el hilo entero cada vez que se refrescaba.
+     */
+    private static UUID idDeRespuestaHistorica(UUID mensajeId) {
+        return new UUID(~mensajeId.getMostSignificantBits(), mensajeId.getLeastSignificantBits());
+    }
+
+    /**
+     * Añade una intervención al hilo, opcionalmente citando otra.
+     *
+     * <p>Sustituye a {@code responder}, que sólo admitía un intercambio por
+     * mensaje. Sirve a las dos partes: quien escribe queda registrado en el
+     * turno, y de ahí sale de qué lado se pinta.
+     */
+    @Transactional
+    public MensajeTurnoResponse escribirEnHilo(UUID mensajeId, String contenido, UUID enRespuestaA,
+                                               List<MultipartFile> archivos, Authentication auth) {
+        var mensaje = hiloAlQuePuedeAcceder(mensajeId, auth);
+
+        String texto = contenido == null ? "" : contenido.trim();
+        List<MultipartFile> adjuntos = archivos == null ? List.of()
+                : archivos.stream().filter(a -> a != null && !a.isEmpty()).toList();
+        if (texto.length() > 5000) {
+            throw new BusinessException("El mensaje no puede superar 5000 caracteres.");
+        }
+        if (texto.isBlank() && adjuntos.isEmpty()) {
+            throw new BusinessException("Escribe un mensaje o adjunta un archivo.");
+        }
+        if (adjuntos.size() > MAX_ADJUNTOS) {
+            throw new BusinessException("Puedes adjuntar hasta " + MAX_ADJUNTOS + " archivos.");
+        }
+
+        boolean esEstudiante = esElEstudianteDelHilo(mensaje, auth);
+
+        var turno = new MensajeTurno();
+        turno.setMensaje(mensaje);
+        turno.setAutorEmail(auth.getName());
+        turno.setAutorEsEstudiante(esEstudiante);
+        turno.setContenido(texto);
+        if (enRespuestaA != null) {
+            var citado = turnoRepository.findById(enRespuestaA)
+                    .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado: " + enRespuestaA));
+            // Citar un turno de otra conversación dejaría ver texto de un hilo
+            // al que quien escribe no tiene acceso.
+            if (!citado.getMensaje().getId().equals(mensaje.getId())) {
+                throw new BusinessException("Sólo puedes responder a un mensaje de esta misma conversación.");
+            }
+            turno.setEnRespuestaA(citado);
+        }
+        var guardado = turnoRepository.save(turno);
+
+        for (MultipartFile archivo : adjuntos) {
+            var adjunto = crearAdjunto(mensaje, archivo, !esEstudiante);
+            adjunto.setTurno(guardado);
+            adjuntoRepository.save(adjunto);
+            guardado.getAdjuntos().add(adjunto);
+        }
+
+        // El estado sigue siendo del hilo: si contesta el equipo queda
+        // respondido, y si vuelve a escribir el estudiante vuelve a abrirse.
+        mensaje.setEstado(esEstudiante ? EstadoMensaje.ABIERTO : EstadoMensaje.RESPONDIDO);
+        if (!esEstudiante) {
+            mensaje.setRespondidoPor(auth.getName());
+            mensaje.setRespondidoAt(Instant.now());
+            notificacionService.registrarMensajeDelEquipo(mensaje.getEstudiante(), mensaje.getId());
+        }
+        repository.save(mensaje);
+
+        return aRespuesta(guardado, auth.getName());
+    }
+
+    /**
+     * Pone o quita un emoji sobre un turno.
+     *
+     * <p>Alterna: pulsar el mismo dos veces lo retira, que es como se comporta
+     * cualquier chat y lo que impide inflar un contador a base de pulsaciones.
+     * La unicidad la sostiene además el índice de la tabla.
+     */
+    @Transactional
+    public List<MensajeTurnoResponse.ReaccionResumen> alternarReaccion(UUID turnoId, String emoji,
+                                                                       Authentication auth) {
+        if (emoji == null || !EMOJIS.contains(emoji)) {
+            throw new BusinessException("Ese emoji no está disponible.");
+        }
+        var turno = turnoRepository.findById(turnoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado: " + turnoId));
+        hiloAlQuePuedeAcceder(turno.getMensaje().getId(), auth);
+
+        reaccionRepository.findByTurnoIdAndAutorEmailAndEmoji(turnoId, auth.getName(), emoji)
+                .ifPresentOrElse(reaccionRepository::delete, () -> {
+                    var reaccion = new MensajeReaccion();
+                    reaccion.setTurno(turno);
+                    reaccion.setAutorEmail(auth.getName());
+                    reaccion.setEmoji(emoji);
+                    reaccionRepository.save(reaccion);
+                });
+
+        // Desde la tabla y no desde la colección de la entidad: esa se cargó al
+        // principio de la transacción y no incluye lo que se acaba de guardar.
+        return resumirReacciones(
+                reaccionRepository.findByTurnoIdOrderByCreatedAtAsc(turnoId), auth.getName());
+    }
+
+    /**
+     * El hilo, si quien pregunta puede verlo.
+     *
+     * <p>Un estudiante sólo alcanza los suyos; el equipo, cualquiera. Se apoya
+     * en la misma comprobación que el resto del portal para no tener aquí una
+     * segunda idea de qué es "mío".
+     */
+    private MensajeEstudiante hiloAlQuePuedeAcceder(UUID mensajeId, Authentication auth) {
+        var mensaje = repository.findById(mensajeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mensaje no encontrado: " + mensajeId));
+        ownershipService.verificarAccesoEstudiante(auth, mensaje.getEstudiante().getId());
+        return mensaje;
+    }
+
+    /** Si quien escribe es el propio estudiante del hilo y no alguien del equipo. */
+    /** Quien puede ver la bandeja entera, frente a quien solo ve la suya. */
+    private static boolean gestiona(Authentication auth) {
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
+                        || a.getAuthority().equals("ROLE_COORDINADOR"));
+    }
+
+    private boolean esElEstudianteDelHilo(MensajeEstudiante mensaje, Authentication auth) {
+        if (gestiona(auth)) return false;
+        return mensaje.getEstudiante().getEmail() != null
+                && mensaje.getEstudiante().getEmail().equalsIgnoreCase(auth.getName());
+    }
+
+    private MensajeTurnoResponse aRespuesta(MensajeTurno turno, String quienMira) {
+        var citado = turno.getEnRespuestaA();
+        return new MensajeTurnoResponse(
+                turno.getId(),
+                nombreDelAutor(turno),
+                turno.isAutorEsEstudiante(),
+                turno.getContenido(),
+                turno.getCreatedAt(),
+                citado == null ? null : citado.getId(),
+                citado == null ? null : extracto(citado.getContenido()),
+                turno.getAdjuntos().stream()
+                        .sorted(java.util.Comparator.comparing(MensajeAdjunto::getCreatedAt,
+                                java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                        .map(a -> new MensajeAdjuntoResponse(a.getId(), a.getNombre(), a.getContentType(),
+                                a.getTamano(), "/api/v1/mensajes/adjuntos/" + a.getId() + "/archivo"))
+                        .toList(),
+                resumirReacciones(turno.getReacciones(), quienMira));
+    }
+
+    /**
+     * Con qué nombre se muestra quien escribió.
+     *
+     * <p>Del estudiante se usa su nombre; del equipo, el correo con el que
+     * responde. No se envía el correo del estudiante: quien lee el hilo puede
+     * ser el propio equipo, pero también el estudiante, y no hace falta.
+     */
+    private String nombreDelAutor(MensajeTurno turno) {
+        if (!turno.isAutorEsEstudiante()) return turno.getAutorEmail();
+        var estudiante = turno.getMensaje().getEstudiante();
+        String nombre = ((estudiante.getNombre() == null ? "" : estudiante.getNombre()) + " "
+                + (estudiante.getApellido() == null ? "" : estudiante.getApellido())).trim();
+        return nombre.isBlank() ? "Estudiante" : nombre;
+    }
+
+    private static String extracto(String texto) {
+        if (texto == null) return null;
+        String limpio = texto.strip().replaceAll("\\s+", " ");
+        return limpio.length() <= 90 ? limpio : limpio.substring(0, 90).trim() + "…";
+    }
+
+    private List<MensajeTurnoResponse.ReaccionResumen> resumirReacciones(
+            java.util.Collection<MensajeReaccion> reacciones, String quienMira) {
+        // Se ordena por fecha antes de agrupar: la colección de la entidad es un
+        // conjunto y no garantiza orden, así que sin esto los botones cambiarían
+        // de sitio entre recargas.
+        var porEmoji = new java.util.LinkedHashMap<String, java.util.List<MensajeReaccion>>();
+        reacciones.stream()
+                .sorted(java.util.Comparator.comparing(MensajeReaccion::getCreatedAt,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .forEach(r -> porEmoji.computeIfAbsent(r.getEmoji(), k -> new java.util.ArrayList<>()).add(r));
+        return porEmoji.entrySet().stream()
+                .map(e -> new MensajeTurnoResponse.ReaccionResumen(
+                        e.getKey(),
+                        e.getValue().size(),
+                        e.getValue().stream().anyMatch(r -> r.getAutorEmail().equalsIgnoreCase(quienMira))))
+                .toList();
     }
 
     private MensajeAdjunto crearAdjunto(MensajeEstudiante mensaje, MultipartFile archivo, boolean esRespuesta) {

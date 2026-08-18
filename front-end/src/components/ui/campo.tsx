@@ -9,7 +9,7 @@
  */
 
 import { Children, cloneElement, isValidElement, useId } from 'react'
-import { CheckCircleIcon as CheckCircle, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ── Campo ───────────────────────────────────────────────────────────────────

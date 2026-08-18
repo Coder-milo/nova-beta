@@ -8,14 +8,24 @@ import java.util.UUID;
 /**
  * Servicio Façade de WhatsApp. Delega las operaciones de envío
  * al {@link ProveedorWhatsapp} activo (Meta Cloud API, Simulado, etc.).
+ *
+ * <p>Aquí se aplica {@link CelularesPermitidos}, igual que el correo aplica su
+ * lista en {@code EmailService}: es la puerta por la que cruza todo lo que sale
+ * por este canal, así que es donde no se puede olvidar.
  */
 @Service
 public class WhatsappSender {
 
-    private final ProveedorWhatsapp proveedorWhatsapp;
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(WhatsappSender.class);
 
-    public WhatsappSender(ProveedorWhatsapp proveedorWhatsapp) {
+    private final ProveedorWhatsapp proveedorWhatsapp;
+    private final CelularesPermitidos celularesPermitidos;
+
+    public WhatsappSender(ProveedorWhatsapp proveedorWhatsapp,
+                          CelularesPermitidos celularesPermitidos) {
         this.proveedorWhatsapp = proveedorWhatsapp;
+        this.celularesPermitidos = celularesPermitidos;
     }
 
     /** Resultado de un envío. */
@@ -47,6 +57,9 @@ public class WhatsappSender {
 
     /** Envía un mensaje de texto. */
     public Resultado enviarTexto(UUID programaId, String celularDestino, String texto) {
+        if (fueraDeLaLista(celularDestino)) {
+            return Resultado.fallo("Numero fuera de la lista de pruebas permitida");
+        }
         return proveedorWhatsapp.enviarTexto(programaId, celularDestino, texto);
     }
 
@@ -54,7 +67,27 @@ public class WhatsappSender {
     public Resultado enviarPlantilla(UUID programaId, String celularDestino, String nombrePlantilla,
                                      List<String> parametrosCuerpo,
                                      List<BotonRapido> botones) {
+        if (fueraDeLaLista(celularDestino)) {
+            return Resultado.fallo("Numero fuera de la lista de pruebas permitida");
+        }
         return proveedorWhatsapp.enviarPlantilla(programaId, celularDestino, nombrePlantilla, parametrosCuerpo, botones);
+    }
+
+    /**
+     * Si hay lista de pruebas y este número no está en ella.
+     *
+     * <p>En producción la lista está vacía y esto no hace nada. En un entorno
+     * con datos copiados es lo único que impide que una corrida de matching le
+     * mande decenas de plantillas a los celulares reales de la cohorte —y una
+     * plantilla enviada ni se recoge ni se deja de pagar.
+     */
+    private boolean fueraDeLaLista(String celularDestino) {
+        if (!celularesPermitidos.hayRestriccion() || celularesPermitidos.permite(celularDestino)) {
+            return false;
+        }
+        log.info("WhatsApp a {} omitido: no está en app.whatsapp.destinatarios-permitidos",
+                celularDestino);
+        return true;
     }
 
     /**

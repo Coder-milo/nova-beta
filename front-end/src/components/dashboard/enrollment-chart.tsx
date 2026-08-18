@@ -17,6 +17,8 @@ import {
 import { SampleDataBadge } from '@/components/dashboard/sample-data-badge'
 import { enrollmentTrend } from '@/lib/mock-data'
 import type { PuntoDato } from '@/lib/types'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 const chartConfig = {
   ingresos: { label: 'Ingresos', color: 'var(--chart-1)' },
@@ -27,7 +29,30 @@ interface Props {
   data: PuntoDato[] | null
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        nuevosMatriculadosPor: 'New enrolments per month · current year',
+        sinRegistrosDe: 'No intake records this year.',
+        ingresoDeEstudiantes: 'Student intake',
+      }
+    : {
+        nuevosMatriculadosPor: 'Nuevos matriculados por mes · año actual',
+        sinRegistrosDe: 'Sin registros de ingreso este año.',
+        ingresoDeEstudiantes: 'Ingreso de estudiantes',
+      }
+}
+
 export function EnrollmentChart({ data }: Props) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   // El backend devuelve { label: "Ene", value: 24 } — mapeamos a { mes, ingresos }
   const chartData =
     data !== null
@@ -38,15 +63,15 @@ export function EnrollmentChart({ data }: Props) {
     <Card className="rounded-xl shadow-sm">
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
-          <CardTitle>Ingreso de estudiantes</CardTitle>
+          <CardTitle>{T.ingresoDeEstudiantes}</CardTitle>
           {data === null && <SampleDataBadge />}
         </div>
-        <CardDescription>Nuevos matriculados por mes · año actual</CardDescription>
+        <CardDescription>{T.nuevosMatriculadosPor}</CardDescription>
       </CardHeader>
       <CardContent>
         {chartData.length === 0 ? (
           <p className="py-16 text-center text-sm text-muted-foreground">
-            Sin registros de ingreso este año.
+            {T.sinRegistrosDe}
           </p>
         ) : (
           <ChartContainer config={chartConfig} className="h-[260px] w-full">

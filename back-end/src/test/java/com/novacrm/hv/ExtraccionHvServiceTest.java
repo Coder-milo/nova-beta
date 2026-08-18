@@ -102,6 +102,35 @@ class ExtraccionHvServiceTest {
         assertEquals("maria.lopez@example.com", resultado.datosEstructurados().email());
     }
 
+    /**
+     * Lo que sale del PDF alimenta un enlace, y quien lo construye antepone
+     * "https://" a lo que reciba. Con el identificador suelto salia
+     * {@code <a href="https://maria-lopez">}: un enlace roto en la hoja de vida
+     * que esa persona manda a las empresas.
+     */
+    @Test
+    void elPerfilDeLinkedinViajaComoDireccionCompleta() throws Exception {
+        var resultado = new ExtraccionHvService()
+                .extraer(pdfDe("Maria Fernanda Lopez", "linkedin.com/in/maria-lopez"));
+
+        var dto = resultado.datosEstructurados();
+        assertEquals("maria-lopez", dto.linkedinUserId(), "el identificador se queda como identificador");
+        assertEquals("linkedin.com/in/maria-lopez", dto.linkedinUrl());
+    }
+
+    /**
+     * El nivel educativo se imprime junto a la institucion —«SENA —
+     * Profesional»—. Ponerlo fijo era afirmar una titulacion que nadie escribio
+     * en el documento con el que alguien se presenta a un empleo.
+     */
+    @Test
+    void elNivelEducativoNoSeInventa() throws Exception {
+        var resultado = new ExtraccionHvService()
+                .extraer(pdfDe("Maria Fernanda Lopez", "maria.lopez@example.com"));
+
+        assertNull(resultado.datosEstructurados().nivelEducativo());
+    }
+
     private static MockMultipartFile pdfDe(String nombre, String email) throws Exception {
         byte[] pdfBytes;
         try (PDDocument doc = new PDDocument()) {

@@ -140,7 +140,7 @@ public class HvController {
                 + "-v" + hv.getNumeroVersion() + ".pdf";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + nombre.replaceAll("[^a-zA-Z0-9.\\-]", "_") + "\"")
+                        com.novacrm.shared.NombreDeDescarga.adjunto(nombre))
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(hvService.pdf(id));
     }
@@ -190,7 +190,31 @@ public class HvController {
     @Operation(summary = "Extraer campos de una hoja de vida en PDF (con confianza y DTO estructurado)")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public ExtraccionResponse extraer(@RequestParam("archivo") MultipartFile archivo) {
-        var resultado = extraccionService.extraer(archivo);
+        return aRespuesta(extraccionService.extraer(archivo));
+    }
+
+    /**
+     * Escanea la hoja de vida que el propio estudiante ya tenía hecha.
+     *
+     * <p>El portal solo dejaba llenar la hoja de vida campo por campo. Quien
+     * llega con un PDF suyo —que es casi todo el mundo— tenía que volver a
+     * teclearlo entero, así que la mitad de las fichas se quedaban a medias y
+     * el PDF de la plantilla CAC salía con secciones vacías.
+     *
+     * <p>No toca la base: devuelve lo leído para que el estudiante lo revise y
+     * decida qué se queda. Por eso no hay comprobación de propiedad —el archivo
+     * lo aporta quien llama— y por eso el rol ESTUDIANTE sí entra aquí, a
+     * diferencia de {@link #extraer}, que es la herramienta del equipo para
+     * cargar hojas de vida de terceros.
+     */
+    @PostMapping(value = "/mi-extraccion", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Escanear la propia hoja de vida en PDF y devolver los campos detectados")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public ExtraccionResponse extraerMia(@RequestParam("archivo") MultipartFile archivo) {
+        return aRespuesta(extraccionService.extraer(archivo));
+    }
+
+    private ExtraccionResponse aRespuesta(ExtraccionHvService.ResultadoExtraccion resultado) {
         return new ExtraccionResponse(
                 resultado.campos().stream()
                         .map(c -> new CampoExtraidoDto(c.campo(), c.valor(), c.confianza()))
@@ -208,10 +232,11 @@ public class HvController {
         byte[] pdfBytes = pdfService.generar(datos, "#1C315E", idioma, request.seccionesExcluidas(), request.camposExcluidos());
 
         String nombreNombre = datos != null && datos.nombre() != null ? datos.nombre() : "Candidato";
-        String nombreArchivo = "HV-CAC-" + nombreNombre.replaceAll("[^a-zA-Z0-9.\\-]", "_") + ".pdf";
+        String nombreArchivo = "HV-CAC-" + nombreNombre + ".pdf";
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nombreArchivo + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        com.novacrm.shared.NombreDeDescarga.adjunto(nombreArchivo))
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdfBytes);
     }

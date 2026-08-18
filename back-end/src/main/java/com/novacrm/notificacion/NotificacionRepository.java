@@ -11,4 +11,17 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, UUID
     Page<Notificacion> findByEstudianteIdOrderByCreatedAtDesc(UUID estudianteId, Pageable pageable);
     long countByEstudianteIdAndLeidaFalse(UUID estudianteId);
     List<Notificacion> findByEstudianteIdAndLeidaFalse(UUID estudianteId);
+
+    /**
+     * Si ya hay un aviso sin leer de ese mismo origen.
+     *
+     * <p>Sirve para no apilar uno por mensaje: en una conversacion de veinte
+     * frases seguidas, veinte avisos identicos no informan mas que uno y
+     * dejan la campana inservible para lo demas.
+     */
+    boolean existsByEstudianteIdAndTipoAndReferenciaIdAndLeidaFalse(
+            UUID estudianteId, String tipo, String referenciaId);
+
+    List<Notificacion> findByEstudianteIdAndTipoAndReferenciaIdAndLeidaFalse(
+            UUID estudianteId, String tipo, String referenciaId);
 }

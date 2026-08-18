@@ -73,10 +73,19 @@ public class ColumnMapper {
     public String map(String header) {
         if (header == null || header.isBlank()) return null;
         String normalized = normalize(header);
+        if (normalized.isBlank()) return null;
 
+        // Las preguntas de consentimiento, tratamiento de datos y texto libre auxiliar
+        // no corresponden a campos de perfil y no deben asignarse por coincidencia difusa.
+        if (esConsentimientoOTextoAuxiliar(header, normalized)) {
+            return null;
+        }
+
+        // 1. Coincidencia exacta normalizada
         String exact = invertedIndex.get(normalized);
         if (exact != null) return exact;
 
+        // 2. Coincidencia por contención completa de sinónimo
         SynonymEntry bestContains = null;
         for (SynonymEntry entry : synonymEntries) {
             if (normalized.contains(entry.normalized)) {
@@ -87,12 +96,18 @@ public class ColumnMapper {
         }
         if (bestContains != null) return bestContains.field;
 
+        // 3. Coincidencia difusa ponderada por palabras clave
         Set<String> headerWords = Arrays.stream(normalized.split("\\s+"))
                 .filter(w -> w.length() >= 2)
                 .collect(Collectors.toSet());
 
+        // Evitar falsos positivos en preguntas largas cuando solo coinciden 1 o 2 palabras genéricas
+        if (headerWords.size() > 15) {
+            return null;
+        }
+
         SynonymEntry best = null;
-        double bestRatio = 0.65;
+        double bestRatio = 0.70;
 
         for (SynonymEntry entry : synonymEntries) {
             if (entry.words.size() < 2) continue;
@@ -113,9 +128,19 @@ public class ColumnMapper {
 
     public Map<String, String> buildColumnMap(List<String> headers,
                                                Map<String, String> exactOverrides) {
+        Map<String, String> normalizedOverrides = new HashMap<>();
+        if (exactOverrides != null) {
+            for (var entry : exactOverrides.entrySet()) {
+                normalizedOverrides.put(normalize(entry.getKey()), entry.getValue());
+            }
+        }
+
         Map<String, String> result = new LinkedHashMap<>();
         for (String header : headers) {
-            String field = exactOverrides.get(header);
+            String field = exactOverrides != null ? exactOverrides.get(header) : null;
+            if (field == null && !normalizedOverrides.isEmpty()) {
+                field = normalizedOverrides.get(normalize(header));
+            }
             if (field == null) {
                 field = map(header);
             }
@@ -124,12 +149,13 @@ public class ColumnMapper {
         return result;
     }
 
-    private String normalize(String input) {
+    public String normalize(String input) {
         if (input == null) return "";
         String s = input.trim();
         s = s.replace('_', ' ');
 
-        s = s.replaceFirst("^\\d+(?:\\.\\d+)*\\s+", "");
+        // Quitar numeración inicial de pregunta si existe (ej. "3.9 ", "6.1")
+        s = s.replaceFirst("^\\d+(?:\\.\\d+)*\\s*", "");
 
         s = s.replaceAll("\\s*\\([^)]{1,60}\\)", "");
 
@@ -141,5 +167,22 @@ public class ColumnMapper {
         s = s.toLowerCase(Locale.ROOT);
         s = s.replaceAll("\\s+", " ");
         return s.trim();
+    }
+
+    private boolean esConsentimientoOTextoAuxiliar(String original, String norm) {
+        String origNorm = Normalizer.normalize(original.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}", "");
+
+        if (origNorm.contains("autorizas") || origNorm.contains("autorizacion")
+                || origNorm.contains("tratamiento de datos") || origNorm.contains("uso de datos")
+                || origNorm.contains("politica de seguridad") || origNorm.contains("politica de proteccion")
+                || origNorm.contains("tratamiento de informacion")
+                || origNorm.contains("si marco otro") || origNorm.contains("si marco otra")
+                || origNorm.contains("si marco si") || origNorm.contains("si tu respuesta fue otro")
+                || origNorm.contains("si marco no") || origNorm.contains("responda si no y a quien cuida")) {
+            return true;
+        }
+
+        return false;
     }
 }

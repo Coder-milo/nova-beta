@@ -2,6 +2,7 @@ package com.novacrm.matching.dto;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,6 +18,18 @@ public record MatchResponse(
         String vacanteRangoSalarial,
         String vacanteModalidadTrabajo,
         String vacanteRequisitos,
+
+        // Detalle para decidir si vale la pena postularse, sin salir de la ficha.
+        // Todos pueden venir nulos: una oferta de portal rara vez trae todo.
+        String vacanteDescripcion,
+        String vacanteCiudad,
+        String vacanteTipoContrato,
+        String vacanteJornada,
+        String vacanteNivelInglesRequerido,
+        Integer vacanteAniosExperienciaRequeridos,
+        LocalDateTime vacanteFechaExpiracion,
+        String vacanteFuente,
+
         BigDecimal puntaje,
         boolean notificado,
         boolean postulado,

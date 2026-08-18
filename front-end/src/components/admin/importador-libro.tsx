@@ -15,14 +15,53 @@
  */
 
 import { useRef, useState } from 'react'
-import { CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, FileXlsIcon as FileXls, InfoIcon as Info, SparkleIcon as Sparkle, UploadSimpleIcon as UploadSimple, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, FileSpreadsheet as FileXls, Info, LoaderCircle as CircleNotch, Sparkles as Sparkle, Upload as UploadSimple, X } from 'lucide-react'
 import { importarCrmApi } from '@/lib/api'
 import type { HojaProcesada, ResultadoImportacionLibro } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { errorDe } from '@/lib/errores'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
+
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        subeElArchivo: 'Upload the follow-up file with all its tabs. Each sheet is recognised by its headings and sent to its destination: participants, companies, applications and placements.',
+
+        estoEsUna: 'This is a review: nothing has been saved yet.',
+        elDestinoDe: 'The AI decided where this sheet goes',
+        verLasFilas: 'View the rows with problems',
+        importacionTerminada: 'Import finished.',
+        loReconocioLa: 'Recognised by the AI',
+        mapeadoPorIa: 'mapped by AI',
+        noSeImporto: 'not imported',
+        sinMapear: 'unmapped',
+      }
+    : {
+        subeElArchivo: 'Sube el archivo de seguimiento con todas sus pestañas. Cada hoja se reconoce por sus títulos y se manda a su destino: participantes, empresas, postulaciones y colocaciones.',
+
+        estoEsUna: 'Esto es una revisión: todavía no se ha guardado nada.',
+        elDestinoDe: 'El destino de la hoja lo decidió la IA',
+        verLasFilas: 'Ver las filas con problemas',
+        importacionTerminada: 'Importación terminada.',
+        loReconocioLa: 'Lo reconoció la IA',
+        mapeadoPorIa: 'mapeado por IA',
+        noSeImporto: 'no se importó',
+        sinMapear: 'sin mapear',
+      }
+}
 
 export function ImportadorLibro() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const entrada = useRef<HTMLInputElement>(null)
 
   const [archivo, setArchivo] = useState<File | null>(null)
@@ -51,7 +90,11 @@ export function ImportadorLibro() {
     setTrabajando(simular ? 'simular' : 'importar')
     setError(null)
     try {
-      const res = await importarCrmApi.libro(archivo, simular)
+      // Al importar de verdad se manda el plan de la simulación: escribe el
+      // mapeo que está en pantalla en vez de volver a analizar el archivo, que
+      // con la IA de por medio puede dar otro resultado. `elegir` borra la
+      // simulación, así que el plan es siempre el del archivo que hay puesto.
+      const res = await importarCrmApi.libro(archivo, simular, simular ? null : simulacion?.planId)
       if (simular) setSimulacion(res)
       else setResultado(res)
     } catch (err) {
@@ -68,9 +111,7 @@ export function ImportadorLibro() {
       <CardHeader>
         <CardTitle>Importar libro completo</CardTitle>
         <CardDescription>
-          Sube el archivo de seguimiento con todas sus pestañas. Cada hoja se reconoce
-          por sus títulos y se manda a su destino: participantes, empresas,
-          postulaciones y colocaciones.
+          {T.subeElArchivo}
         </CardDescription>
       </CardHeader>
 
@@ -131,13 +172,13 @@ export function ImportadorLibro() {
             {aMostrar.simulacion && (
               <p className="flex items-center gap-2 rounded-lg bg-amber-400/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
                 <Info className="size-4 shrink-0" />
-                Esto es una revisión: todavía no se ha guardado nada.
+                {T.estoEsUna}
               </p>
             )}
             {!aMostrar.simulacion && (
               <p className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
                 <CheckCircle className="size-4 shrink-0" />
-                Importación terminada.
+                {T.importacionTerminada}
               </p>
             )}
 
@@ -154,13 +195,15 @@ export function ImportadorLibro() {
 }
 
 function HojaResumen({ hoja }: { hoja: HojaProcesada }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   if (!hoja.detalle) {
     return (
       <li className="rounded-xl border border-border bg-muted/30 p-3">
         <p className="flex items-center gap-2 text-sm font-medium">
           <Info className="size-4 shrink-0 text-muted-foreground" />
           {hoja.nombre}
-          <span className="text-xs font-normal text-muted-foreground">no se importó</span>
+          <span className="text-xs font-normal text-muted-foreground">{T.noSeImporto}</span>
         </p>
         <p className="mt-1 pl-6 text-xs text-muted-foreground">{hoja.motivo}</p>
       </li>
@@ -180,13 +223,13 @@ function HojaResumen({ hoja }: { hoja: HojaProcesada }) {
           <span
             title={
               hoja.destinoPorIa
-                ? 'El destino de la hoja lo decidió la IA'
+                ? T.elDestinoDe
                 : `La IA reconoció: ${hoja.columnasPorIa.join(', ')}`
             }
             className="flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-xs font-normal text-violet-600 dark:text-violet-400"
           >
             <Sparkle className="size-3" />
-            mapeado por IA
+            {T.mapeadoPorIa}
           </span>
         )}
       </p>
@@ -207,10 +250,10 @@ function HojaResumen({ hoja }: { hoja: HojaProcesada }) {
           <ul className="mt-1 space-y-0.5">
             {d.columnasReconocidas.map((c) => (
               <li key={c.cabecera} className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                «{c.cabecera}» → {c.campo ?? 'sin mapear'}
+                «{c.cabecera}» → {c.campo ?? T.sinMapear}
                 {c.campo && (hoja.columnasPorIa ?? []).includes(c.cabecera) && (
                   <span
-                    title="Lo reconoció la IA"
+                    title={T.loReconocioLa}
                     className="flex items-center gap-0.5 rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[10px] text-violet-600 dark:text-violet-400"
                   >
                     <Sparkle className="size-2.5" />
@@ -226,7 +269,7 @@ function HojaResumen({ hoja }: { hoja: HojaProcesada }) {
       {d.errores.length > 0 && (
         <details className="mt-2 pl-6">
           <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-            Ver las filas con problemas
+            {T.verLasFilas}
           </summary>
           {/* Se citan hasta 20: la lista completa de un archivo mal armado no
               cabe en pantalla y las primeras ya dicen qué corregir. */}

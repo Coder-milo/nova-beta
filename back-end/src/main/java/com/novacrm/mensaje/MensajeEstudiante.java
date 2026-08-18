@@ -42,6 +42,20 @@ public class MensajeEstudiante extends BaseEntity {
     @OrderBy("createdAt ASC")
     private List<MensajeAdjunto> adjuntos = new ArrayList<>();
 
+    /**
+     * Lo que se ha dicho en esta conversacion, en orden.
+     *
+     * <p>Esta fila es la cabecera del hilo —de quien es, sobre que, en que
+     * estado—; el texto vive en los turnos. {@code contenido} y
+     * {@code respuesta} siguen ahi mientras quede codigo que los lea, pero lo
+     * que se escribe a partir de ahora entra por aqui.
+     */
+    @OneToMany(mappedBy = "mensaje", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("createdAt ASC")
+    private List<MensajeTurno> turnos = new ArrayList<>();
+
+    public List<MensajeTurno> getTurnos() { return turnos; }
+
     public Estudiante getEstudiante() { return estudiante; }
     public void setEstudiante(Estudiante estudiante) { this.estudiante = estudiante; }
     public String getAsunto() { return asunto; }

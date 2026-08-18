@@ -18,14 +18,45 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, CopyIcon as Copy, PlugsIcon as Plugs, PlugsConnectedIcon as PlugsConnected, ShieldWarningIcon as ShieldWarning, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
-import { configuracionApi } from '@/lib/api'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Copy, LoaderCircle as CircleNotch, Plug as PlugsConnected, ShieldAlert as ShieldWarning, Unplug as Plugs } from 'lucide-react'
+import { ApiCallError, configuracionApi } from '@/lib/api'
 import type { EstadoIntegracion } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { errorDe } from '@/lib/errores'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
+
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        conectada: 'Connected',
+        consultandoElEstado: 'Checking the status of the integrations…',
+        lasCredencialesNo: 'Credentials are not edited here',
+        seConfiguraEn: 'Set in:',
+        sinConfigurar: 'Not configured',
+        soloAdmin: 'Only an ADMIN account can see the state of the integrations. Ask an administrator; a coordinator cannot enable this.',
+      }
+    : {
+        conectada: 'Conectada',
+        consultandoElEstado: 'Consultando el estado de las integraciones…',
+        lasCredencialesNo: 'Las credenciales no se editan desde aquí',
+        seConfiguraEn: 'Se configura en:',
+        sinConfigurar: 'Sin configurar',
+        soloAdmin: 'El estado de las integraciones solo lo ve una cuenta ADMIN. Pídeselo a un administrador: no es algo que un coordinador pueda habilitarse.',
+      }
+}
 
 export function PanelIntegraciones() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [estados, setEstados] = useState<EstadoIntegracion[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -38,11 +69,15 @@ export function PanelIntegraciones() {
     try {
       setEstados(await configuracionApi.integraciones())
     } catch (err) {
-      setError(errorDe(err))
+      // El endpoint es solo de ADMIN. Un coordinador que abra esta pestana
+      // recibia el "acceso denegado" crudo del servidor, que parece un fallo
+      // del sistema en vez de un permiso que no tiene. Se dice cual es.
+      const esDePermisos = err instanceof ApiCallError && (err.status === 401 || err.status === 403)
+      setError(esDePermisos ? T.soloAdmin : errorDe(err))
     } finally {
       setCargando(false)
     }
-  }, [])
+  }, [T.soloAdmin])
 
   useEffect(() => {
     void cargar()
@@ -64,7 +99,7 @@ export function PanelIntegraciones() {
     return (
       <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
         <CircleNotch className="size-5 animate-spin" />
-        Consultando el estado de las integraciones…
+        {T.consultandoElEstado}
       </div>
     )
   }
@@ -87,7 +122,7 @@ export function PanelIntegraciones() {
         <ShieldWarning className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
         <div className="text-xs leading-relaxed text-muted-foreground">
           <span className="mb-0.5 block text-sm font-semibold text-foreground">
-            Las credenciales no se editan desde aquí
+            {T.lasCredencialesNo}
           </span>
           Viven en variables de entorno del servidor, que es donde tienen que estar: nunca
           se envían al navegador, ni siquiera enmascaradas. Esta pantalla dice qué está
@@ -136,6 +171,8 @@ function TarjetaIntegracion({
   probando: boolean
   onProbar: () => void
 }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-3">
@@ -158,7 +195,7 @@ function TarjetaIntegracion({
                 : 'bg-muted text-muted-foreground'
             }`}
           >
-            {estado.configurada ? 'Conectada' : 'Sin configurar'}
+            {estado.configurada ? T.conectada : T.sinConfigurar}
           </span>
         </div>
       </CardHeader>
@@ -186,7 +223,7 @@ function TarjetaIntegracion({
 
         {estado.variablesEntorno.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Se configura en:</span>
+            <span className="text-xs text-muted-foreground">{T.seConfiguraEn}</span>
             {estado.variablesEntorno.map((v) => (
               <VariableEntorno key={v} nombre={v} />
             ))}
@@ -224,6 +261,8 @@ function TarjetaIntegracion({
 
 /** Nombre de variable, copiable: se va a pegar en el panel del despliegue. */
 function VariableEntorno({ nombre }: { nombre: string }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   const [copiado, setCopiado] = useState(false)
 
   const copiar = async () => {

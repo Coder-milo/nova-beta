@@ -33,9 +33,49 @@ import java.util.UUID;
 public class EmpresaController {
 
     private final EmpresaService empresaService;
+    private final FusionDeEmpresas fusionDeEmpresas;
 
-    public EmpresaController(EmpresaService empresaService) {
+    public EmpresaController(EmpresaService empresaService,
+                             FusionDeEmpresas fusionDeEmpresas) {
         this.empresaService = empresaService;
+        this.fusionDeEmpresas = fusionDeEmpresas;
+    }
+
+    /**
+     * Fichas activas que parecen la misma empresa.
+     *
+     * <p>Es una sugerencia y no una decision: dos fichas con nombres casi
+     * iguales pueden ser dos empresas distintas del mismo grupo, y fusionar no
+     * se puede deshacer.
+     */
+    @GetMapping("/posibles-duplicados")
+    @Operation(summary = "Fichas activas que parecen la misma empresa")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public java.util.List<FusionDeEmpresas.PosibleDuplicado> posiblesDuplicados() {
+        return fusionDeEmpresas.posiblesDuplicados();
+    }
+
+    /** Que colgaria de esta ficha si se fusionara. Para enseñarlo antes. */
+    @GetMapping("/{id}/registros")
+    @Operation(summary = "Cuantos registros cuelgan de una ficha")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public FusionDeEmpresas.Resumen registrosDe(@PathVariable UUID id) {
+        return fusionDeEmpresas.queSeMoveria(id);
+    }
+
+    /**
+     * Une dos fichas de la misma empresa.
+     *
+     * <p>{@code id} es la que se queda; {@code origenId}, la que se absorbe y se
+     * desactiva. No se borra nada y no se pisa ningun dato: la que se queda solo
+     * se rellena donde estaba vacia.
+     */
+    @PostMapping("/{id}/fusionar/{origenId}")
+    @Operation(summary = "Absorber otra ficha de empresa dentro de esta")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public FusionDeEmpresas.Resumen fusionar(@PathVariable UUID id,
+                                             @PathVariable UUID origenId) {
+        return fusionDeEmpresas.fusionar(id, origenId);
     }
 
     @GetMapping
@@ -108,7 +148,8 @@ public class EmpresaController {
     @Operation(summary = "Registrar un acercamiento y mover el estado de la relacion")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public EmpresaResponse registrarContacto(@PathVariable UUID id,
-                                             @RequestBody Map<String, String> cuerpo) {
+                                             @RequestBody Map<String, String> cuerpo,
+                                             org.springframework.security.core.Authentication auth) {
         EstadoRelacion estado = null;
         String valor = cuerpo.get("estado");
         if (valor != null && !valor.isBlank()) {
@@ -119,6 +160,22 @@ public class EmpresaController {
             }
         }
         return empresaService.registrarContacto(id, estado,
-                cuerpo.get("proximoPaso"), cuerpo.get("nota"));
+                cuerpo.get("proximoPaso"), cuerpo.get("nota"),
+                auth != null ? auth.getName() : "sistema");
+    }
+
+    /**
+     * El historial de acercamientos a una empresa.
+     *
+     * <p>La tabla existia desde la migracion V9 y nadie la leia ni la escribia:
+     * cada nota se concatenaba al campo de texto de la ficha, con lo que no se
+     * sabia quien habia escrito cada linea.
+     */
+    @GetMapping("/{id}/contactos")
+    @Operation(summary = "Historial de acercamientos a una empresa")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public java.util.List<com.novacrm.empresa.dto.ContactoEmpresaResponse> contactos(
+            @PathVariable UUID id) {
+        return empresaService.contactosDe(id);
     }
 }

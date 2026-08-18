@@ -22,7 +22,7 @@
  */
 
 import { useState } from 'react'
-import { CircleNotchIcon as CircleNotch } from '@phosphor-icons/react'
+import { LoaderCircle as CircleNotch } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -33,6 +33,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Confirmar } from '@/components/ui/confirmar'
 import { cn } from '@/lib/utils'
+import { usePreferences } from '@/lib/preferences'
 
 export interface FormSheetProps {
   open: boolean
@@ -64,6 +65,31 @@ const ANCHOS = {
   '2xl': 'sm:max-w-2xl',
 } as const
 
+/** Textos propios de este componente, en los dos idiomas. */
+function textos(english: boolean) {
+  return english
+    ? {
+        guardar: 'Save',
+        cerrar: 'Close',
+        guardando: 'Saving…',
+        cancelar: 'Cancel',
+        descartarCambios: 'Discard the changes?',
+        loQueEscribiste: 'What you typed in this form will be lost.',
+        descartar: 'Discard',
+        seguirEditando: 'Keep editing',
+      }
+    : {
+        guardar: 'Guardar',
+        cerrar: 'Cerrar',
+        guardando: 'Guardando…',
+        cancelar: 'Cancelar',
+        descartarCambios: '¿Descartar los cambios?',
+        loQueEscribiste: 'Lo que escribiste en este formulario se perderá.',
+        descartar: 'Descartar',
+        seguirEditando: 'Seguir editando',
+      }
+}
+
 export function FormSheet({
   open,
   onOpenChange,
@@ -72,11 +98,13 @@ export function FormSheet({
   sucio = false,
   guardando = false,
   puedeGuardar = true,
-  textoGuardar = 'Guardar',
+  textoGuardar,
   onGuardar,
   ancho = 'xl',
   children,
 }: FormSheetProps) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   const [confirmandoDescarte, setConfirmandoDescarte] = useState(false)
 
   /** Punto único de cierre: Escape, click fuera, la X y «Cancelar» pasan por aquí. */
@@ -118,7 +146,7 @@ export function FormSheet({
             type="button"
             onClick={intentarCerrar}
             disabled={guardando}
-            aria-label="Cerrar"
+            aria-label={T.cerrar}
             className="absolute right-4 top-4 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
           >
             <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
@@ -134,15 +162,15 @@ export function FormSheet({
           <div className="shrink-0 border-t border-border bg-card p-4">
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={intentarCerrar} disabled={guardando}>
-                Cancelar
+                {T.cancelar}
               </Button>
               <Button onClick={onGuardar} disabled={!puedeGuardar || guardando}>
                 {guardando ? (
                   <>
-                    <CircleNotch className="size-4 animate-spin" /> Guardando…
+                    <CircleNotch className="size-4 animate-spin" /> {T.guardando}
                   </>
                 ) : (
-                  textoGuardar
+                  textoGuardar ?? T.guardar
                 )}
               </Button>
             </div>
@@ -153,10 +181,10 @@ export function FormSheet({
       <Confirmar
         open={confirmandoDescarte}
         onOpenChange={setConfirmandoDescarte}
-        titulo="¿Descartar los cambios?"
-        descripcion="Lo que escribiste en este formulario se perderá."
-        textoConfirmar="Descartar"
-        textoCancelar="Seguir editando"
+        titulo={T.descartarCambios}
+        descripcion={T.loQueEscribiste}
+        textoConfirmar={T.descartar}
+        textoCancelar={T.seguirEditando}
         onConfirmar={() => {
           setConfirmandoDescarte(false)
           onOpenChange(false)

@@ -1,6 +1,7 @@
 package com.novacrm.chat.dto;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record ChatDirectoMensajeResponse(
@@ -9,4 +10,10 @@ public record ChatDirectoMensajeResponse(
         String remitenteNombre,
         String contenido,
         Instant createdAt,
-        boolean enviadoPorMi) { }
+        boolean enviadoPorMi,
+        Instant leidoAt,
+        boolean editado,
+        UUID enRespuestaA,
+        boolean reenviado,
+        /** Vacia si el mensaje es solo texto. */
+        List<ChatAdjuntoResponse> adjuntos) { }

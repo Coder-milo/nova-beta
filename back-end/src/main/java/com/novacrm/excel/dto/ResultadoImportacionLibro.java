@@ -1,6 +1,7 @@
 package com.novacrm.excel.dto;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Lo que paso con cada hoja de un libro importado.
@@ -12,10 +13,18 @@ import java.util.List;
  *
  * @param simulacion si fue una pasada en seco, sin escribir nada
  * @param hojas      resultado por hoja, en el orden del libro
+ * @param planId     identificador del análisis que produjo esto. La simulacion
+ *                   lo devuelve y la importacion real lo trae de vuelta, para
+ *                   ejecutar el mapeo que se reviso y no uno recalculado
  */
 public record ResultadoImportacionLibro(
         boolean simulacion,
-        List<HojaProcesada> hojas) {
+        List<HojaProcesada> hojas,
+        UUID planId) {
+
+    public ResultadoImportacionLibro(boolean simulacion, List<HojaProcesada> hojas) {
+        this(simulacion, hojas, null);
+    }
 
     /**
      * @param nombre          nombre de la pestaña, tal cual

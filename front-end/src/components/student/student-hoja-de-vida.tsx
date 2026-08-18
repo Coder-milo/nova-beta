@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { BriefcaseIcon as Briefcase, CheckIcon as Check, CircleNotchIcon as CircleNotch, GraduationCapIcon as GraduationCap, PlusIcon as Plus, TrashIcon as Trash, UserIcon as User, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { Briefcase, Check, CircleAlert as WarningCircle, GraduationCap, LoaderCircle as CircleNotch, Plus, Trash2 as Trash, User, X } from 'lucide-react'
 import { ApiCallError, estudiantesApi, hvApi, perfilApi } from '@/lib/api'
 import type {
   EstudianteRequest,
@@ -35,29 +35,174 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { usePreferences } from '@/lib/preferences'
 import { Campo, Selector, Aviso } from '@/components/ui/campo'
 import { VistaPreviaPdf } from '@/components/ui/vista-previa-pdf'
+import { useConfirmar } from '@/components/ui/confirmar'
+import { StudentEscaneoHv } from './student-escaneo-hv'
+
+/**
+ * Los textos de esta pantalla, en los dos idiomas.
+ *
+ * Cada subcomponente del archivo la llama por su cuenta en vez de recibir los
+ * textos como propiedad: son cuatro niveles y enhebrar una prop por todos
+ * ellos solo para traducir es mas ruido que provecho.
+ */
+export function textosHv(english: boolean) {
+  return english
+    ? {
+        todaviaNoHas: 'You have not added any experience yet. If you have never worked, you can leave it empty: the section will not appear in the PDF.',
+        empiezaPorEl: 'Start with the most recent job. Each line of duties comes out as a bullet.',
+        completaElCargo: 'Fill in the target role and the professional summary: they are the first thing a recruiter reads.',
+        eligeElDiseno: 'Choose the design and language of your résumé. Your choice is saved automatically.',
+        anadeAquiLos: 'Add here the courses and certificates you have taken, inside or outside the programme.',
+        estoEsLo: 'This is what appears in the header and the professional summary of the PDF.',
+        datosGuardadosActualiza: 'Details saved. Refresh the preview to see them in the PDF.',
+        experienciaRelacionadaCon: 'Experience related to my profile / degree',
+        educacionYCertificaciones: 'Education and certificates',
+        datosDeTu: 'Your résumé details',
+        sigoTrabajandoAqui: 'I still work here',
+        disenoDePlantilla: 'Template design',
+        idiomaDelPdf: 'PDF language',
+        eliminarCorto: 'Delete',
+        eliminarExperienciaTitulo: 'Delete this experience?',
+        eliminarFormacionTitulo: 'Delete this education record?',
+        seEliminaraExperiencia: (c: string) => `“${c}” will be removed from your résumé. This cannot be undone.`,
+        seEliminaraFormacion: (p: string) => `“${p}” will be removed from your résumé. This cannot be undone.`,
+        anadir: 'Add',
+        editar: 'Edit',
+        opcionalApareceComo: 'Optional. Shows as “Portfolio” next to your contact details.',
+        describeTuExperiencia: 'Describe your experience, your strengths and your career goal…',
+        unaPorLinea: 'One per line, or separated by commas. You can group them as “Office: Excel, Word”.',
+        ejemploCompetencias: 'Advanced Excel\nCustomer service\nLanguages: English B2',
+        tuNivelDe: 'Your recorded English level is added automatically if you do not mention it here.',
+        unaPorLineaVerbo: 'One per line. Start with a verb: “Handled…”, “Coordinated…”.',
+        ejemploLogros: 'Handled around 60 customers a day\nTrained 4 new team members',
+        quinceDias: '15 days',
+        treintaDias: '30 days',
+        sesentaDias: '60 days',
+
+        educacionFormal: 'Formal education', curso: 'Course', certificacion: 'Certificate',
+        inmediata: 'Immediate', noDisponible: 'Not available',
+        perfilProfesional: 'Professional summary',
+        perfilAyuda: 'Three or four lines: what you can do and what you are looking for.',
+        perfilPie: 'It is the headline shown under your name.',
+        cargoObjetivo: 'Target role', habilidades: 'Skills and competencies',
+        idiomas: 'Languages', idiomasEjemplo: 'Native Spanish, English B2',
+        celular: 'Mobile / WhatsApp', ciudad: 'City of residence', ciudadEjemplo: 'Barranquilla',
+        ciudadPie: 'It appears on the contact line.',
+        pais: 'Country', paisPie: 'If you leave it empty only the city is printed.',
+        linkedin: 'LinkedIn link', portafolio: 'Portfolio or work folder',
+        disponibilidad: 'Availability', nivelEducativo: 'Education level',
+        nivelEducativoEjemplo: 'Technical, Technologist, Professional\u2026',
+        tituloPrincipal: 'Main academic qualification',
+        tituloEjemplo: 'Systems Technician',
+        guardarDatos: 'Save details', guardarCambios: 'Save changes', guardando: 'Saving\u2026',
+        anadirExperiencia: 'Add experience', anadirFormacion: 'Add education',
+        empresa: 'Company', cargo: 'Role', cargoEjemplo: 'Data analyst',
+        funciones: 'Duties and achievements',
+        funcionesAyuda: 'One per line. Start with a verb.',
+        fechaInicio: 'Start date', fechaFin: 'End date', fechaFinalizacion: 'Completion date',
+        empleoActual: 'Not applicable: this is your current job.',
+        institucion: 'Institution', institucionEducativa: 'Educational institution',
+        programa: 'Programme or course name',
+        selecciona: 'Choose\u2026', cargando: 'Loading\u2026',
+        vistaPrevia: 'Preview of your r\u00e9sum\u00e9', comoQueda: 'How it will look',
+        descargarAviso: 'Downloading saves a new version in your history.',
+        anoImpreso: 'This is where the printed year comes from.',
+        errorExperiencia: 'Company and role are required.',
+        errorFormacion: 'Institution and programme are required.',
+        errorConexion: 'Could not reach the server.',
+      }
+    : {
+        todaviaNoHas: 'Todavía no has registrado experiencia. Si nunca has trabajado, puedes dejarlo vacío: la sección no aparecerá en el PDF.',
+        empiezaPorEl: 'Empieza por el empleo más reciente. Cada línea de funciones sale como una viñeta.',
+        completaElCargo: 'Completa el cargo objetivo y el perfil profesional: son lo primero que lee un reclutador.',
+        eligeElDiseno: 'Elige el diseño y el idioma de tu hoja de vida. Tu selección se guardará automáticamente.',
+        anadeAquiLos: 'Añade aquí los cursos y certificaciones que hayas hecho, dentro o fuera del programa.',
+        estoEsLo: 'Esto es lo que aparece en la cabecera y en el perfil profesional del PDF.',
+        datosGuardadosActualiza: 'Datos guardados. Actualiza la vista previa para verlos en el PDF.',
+        experienciaRelacionadaCon: 'Experiencia relacionada con mi perfil / carrera',
+        educacionYCertificaciones: 'Educación y certificaciones',
+        datosDeTu: 'Datos de tu hoja de vida',
+        sigoTrabajandoAqui: 'Sigo trabajando aquí',
+        disenoDePlantilla: 'Diseño de plantilla',
+        idiomaDelPdf: 'Idioma del PDF',
+        eliminarCorto: 'Eliminar',
+        eliminarExperienciaTitulo: '¿Eliminar esta experiencia?',
+        eliminarFormacionTitulo: '¿Eliminar esta formación?',
+        seEliminaraExperiencia: (c: string) => `«${c}» saldrá de tu hoja de vida. No se puede deshacer.`,
+        seEliminaraFormacion: (p: string) => `«${p}» saldrá de tu hoja de vida. No se puede deshacer.`,
+        anadir: 'Añadir',
+        editar: 'Editar',
+        opcionalApareceComo: 'Opcional. Aparece como «Portafolio» junto a tus datos de contacto.',
+        describeTuExperiencia: 'Describe tu experiencia, tus fortalezas y tu objetivo profesional…',
+        unaPorLinea: 'Una por línea, o separadas por comas. Puedes agrupar con «Ofimática: Excel, Word».',
+        ejemploCompetencias: 'Excel avanzado\nAtención al cliente\nIdiomas: inglés B2',
+        tuNivelDe: 'Tu nivel de inglés registrado se añade solo si no lo mencionas aquí.',
+        unaPorLineaVerbo: 'Una por línea. Empieza con un verbo: «Atendí…», «Coordiné…».',
+        ejemploLogros: 'Atendí en promedio 60 clientes diarios\nCapacité a 4 personas nuevas del equipo',
+        quinceDias: '15 días',
+        treintaDias: '30 días',
+        sesentaDias: '60 días',
+
+        educacionFormal: 'Educaci\u00f3n formal', curso: 'Curso', certificacion: 'Certificaci\u00f3n',
+        inmediata: 'Inmediata', noDisponible: 'No disponible',
+        perfilProfesional: 'Perfil profesional',
+        perfilAyuda: 'Tres o cuatro l\u00edneas: qu\u00e9 sabes hacer y qu\u00e9 buscas.',
+        perfilPie: 'Es el titular que se lee bajo tu nombre.',
+        cargoObjetivo: 'Cargo objetivo', habilidades: 'Habilidades y competencias',
+        idiomas: 'Idiomas', idiomasEjemplo: 'Espa\u00f1ol nativo, Ingl\u00e9s B2',
+        celular: 'Celular / WhatsApp', ciudad: 'Ciudad de residencia', ciudadEjemplo: 'Barranquilla',
+        ciudadPie: 'Sale en la l\u00ednea de contacto.',
+        pais: 'Pa\u00eds', paisPie: 'Si lo dejas vac\u00edo solo se imprime la ciudad.',
+        linkedin: 'Enlace de LinkedIn', portafolio: 'Portafolio o carpeta de trabajos',
+        disponibilidad: 'Disponibilidad laboral', nivelEducativo: 'Nivel educativo',
+        nivelEducativoEjemplo: 'T\u00e9cnico, Tecn\u00f3logo, Profesional\u2026',
+        tituloPrincipal: 'T\u00edtulo acad\u00e9mico principal',
+        tituloEjemplo: 'T\u00e9cnico en Sistemas',
+        guardarDatos: 'Guardar datos', guardarCambios: 'Guardar cambios', guardando: 'Guardando\u2026',
+        anadirExperiencia: 'A\u00f1adir experiencia', anadirFormacion: 'A\u00f1adir formaci\u00f3n',
+        empresa: 'Empresa', cargo: 'Cargo', cargoEjemplo: 'Analista de datos',
+        funciones: 'Funciones y logros',
+        funcionesAyuda: 'Una por l\u00ednea. Empieza con un verbo.',
+        fechaInicio: 'Fecha de inicio', fechaFin: 'Fecha de fin', fechaFinalizacion: 'Fecha de finalizaci\u00f3n',
+        empleoActual: 'No aplica: es tu empleo actual.',
+        institucion: 'Instituci\u00f3n', institucionEducativa: 'Instituci\u00f3n educativa',
+        programa: 'Programa o nombre del curso',
+        selecciona: 'Selecciona\u2026', cargando: 'Cargando\u2026',
+        vistaPrevia: 'Vista previa de tu hoja de vida', comoQueda: 'C\u00f3mo va a quedar',
+        descargarAviso: 'Descargar guarda una versi\u00f3n nueva en tu historial.',
+        anoImpreso: 'De aqu\u00ed sale el a\u00f1o que se imprime.',
+        errorExperiencia: 'La empresa y el cargo son obligatorios.',
+        errorFormacion: 'La instituci\u00f3n y el programa son obligatorios.',
+        errorConexion: 'No se pudo conectar con el servidor.',
+      }
+}
+
+export type TextosHv = ReturnType<typeof textosHv>
 
 /** Tipos de formación que entiende el generador de la plantilla CAC. */
-const TIPOS_FORMACION = [
-  { valor: 'EDUCACION', etiqueta: 'Educación formal' },
-  { valor: 'CURSO', etiqueta: 'Curso' },
-  { valor: 'CERTIFICACION', etiqueta: 'Certificación' },
-] as const
+const tiposFormacion = (T: TextosHv) => [
+  { valor: 'EDUCACION', etiqueta: T.educacionFormal },
+  { valor: 'CURSO', etiqueta: T.curso },
+  { valor: 'CERTIFICACION', etiqueta: T.certificacion },
+]
 
-const DISPONIBILIDAD = [
-  { valor: 'INMEDIATA', etiqueta: 'Inmediata' },
-  { valor: '15_DIAS', etiqueta: '15 días' },
-  { valor: '30_DIAS', etiqueta: '30 días' },
-  { valor: '60_DIAS', etiqueta: '60 días' },
-  { valor: 'NO_DISPONIBLE', etiqueta: 'No disponible' },
-] as const
+const disponibilidades = (T: TextosHv) => [
+  { valor: 'INMEDIATA', etiqueta: T.inmediata },
+  { valor: '15_DIAS', etiqueta: T.quinceDias },
+  { valor: '30_DIAS', etiqueta: T.treintaDias },
+  { valor: '60_DIAS', etiqueta: T.sesentaDias },
+  { valor: 'NO_DISPONIBLE', etiqueta: T.noDisponible },
+]
 
-function mensajeDe(error: unknown): string {
+/** @param respaldo texto para cuando el error no trae mensaje propio. */
+function mensajeDe(error: unknown, respaldo: string): string {
   if (error instanceof ApiCallError) {
     return error.body.message ?? `Error del servidor (HTTP ${error.status}).`
   }
-  return error instanceof Error ? error.message : 'No se pudo conectar con el servidor.'
+  return error instanceof Error ? error.message : respaldo
 }
 
 // ── Datos personales y profesionales ────────────────────────────────────────
@@ -107,6 +252,7 @@ function DatosHv({
   onUpdate: (p: EstudianteResponse) => void
   onGuardado: () => void
 }) {
+  const T = textosHv(usePreferences().locale === 'en')
   const [form, setForm] = useState<CamposHv>(() => camposDe(perfil))
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -140,7 +286,7 @@ function DatosHv({
       setOk(true)
       onGuardado()
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     } finally {
       setGuardando(false)
     }
@@ -150,16 +296,16 @@ function DatosHv({
     <Card className="shadow-none">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <User className="size-5 text-primary" weight="duotone" />
-          Datos de tu hoja de vida
+          <User className="size-5 text-primary" />
+          {T.datosDeTu}
         </CardTitle>
         <CardDescription>
-          Esto es lo que aparece en la cabecera y en el perfil profesional del PDF.
+          {T.estoEsLo}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Campo etiqueta="Celular / WhatsApp" ayuda="Sale en la línea de contacto.">
+          <Campo etiqueta={T.celular} ayuda={T.ciudadPie}>
             <Input
               type="tel"
               placeholder="+57 300 000 0000"
@@ -168,15 +314,15 @@ function DatosHv({
             />
           </Campo>
 
-          <Campo etiqueta="Ciudad de residencia">
+          <Campo etiqueta={T.ciudad}>
             <Input
-              placeholder="Barranquilla"
+              placeholder={T.ciudadEjemplo}
               value={form.ciudad}
               onChange={(e) => cambiar('ciudad', e.target.value)}
             />
           </Campo>
 
-          <Campo etiqueta="País" ayuda="Si lo dejas vacío solo se imprime la ciudad.">
+          <Campo etiqueta={T.pais} ayuda={T.paisPie}>
             <Input
               placeholder="Colombia"
               value={form.nacionalidad}
@@ -184,16 +330,16 @@ function DatosHv({
             />
           </Campo>
 
-          <Campo etiqueta="Disponibilidad laboral">
+          <Campo etiqueta={T.disponibilidad}>
             <Selector
               value={form.disponibilidadLaboral}
               onChange={(valor) => cambiar('disponibilidadLaboral', valor)}
-              opciones={DISPONIBILIDAD}
-              vacio="Selecciona…"
+              opciones={disponibilidades(T)}
+              vacio={T.selecciona}
             />
           </Campo>
 
-          <Campo etiqueta="Enlace de LinkedIn" ancho>
+          <Campo etiqueta={T.linkedin} ancho>
             <Input
               type="url"
               placeholder="https://www.linkedin.com/in/tu-perfil"
@@ -203,9 +349,9 @@ function DatosHv({
           </Campo>
 
           <Campo
-            etiqueta="Portafolio o carpeta de trabajos"
+            etiqueta={T.portafolio}
             ancho
-            ayuda="Opcional. Aparece como «Portafolio» junto a tus datos de contacto."
+            ayuda={T.opcionalApareceComo}
           >
             <Input
               type="url"
@@ -215,58 +361,58 @@ function DatosHv({
             />
           </Campo>
 
-          <Campo etiqueta="Cargo objetivo" ancho requerido ayuda="Es el titular que se lee bajo tu nombre.">
+          <Campo etiqueta={T.cargoObjetivo} ancho requerido ayuda={T.perfilPie}>
             <Input
-              placeholder="Analista de datos"
+              placeholder={T.cargoEjemplo}
               value={form.cargoObjetivo}
               onChange={(e) => cambiar('cargoObjetivo', e.target.value)}
             />
           </Campo>
 
           <Campo
-            etiqueta="Perfil profesional"
+            etiqueta={T.perfilProfesional}
             ancho
             requerido
-            ayuda="Tres o cuatro líneas: qué sabes hacer y qué buscas."
+            ayuda={T.perfilAyuda}
           >
             <Textarea
               minRows={4}
-              placeholder="Describe tu experiencia, tus fortalezas y tu objetivo profesional…"
+              placeholder={T.describeTuExperiencia}
               value={form.perfilProfesional}
               onChange={(e) => cambiar('perfilProfesional', e.target.value)}
             />
           </Campo>
 
           <Campo
-            etiqueta="Habilidades y competencias"
+            etiqueta={T.habilidades}
             ancho
-            ayuda="Una por línea, o separadas por comas. Puedes agrupar con «Ofimática: Excel, Word»."
+            ayuda={T.unaPorLinea}
           >
             <Textarea
               minRows={3}
-              placeholder={'Excel avanzado\nAtención al cliente\nIdiomas: inglés B2'}
+              placeholder={T.ejemploCompetencias}
               value={form.competencias}
               onChange={(e) => cambiar('competencias', e.target.value)}
             />
           </Campo>
 
-          <Campo etiqueta="Idiomas" ancho ayuda="Tu nivel de inglés registrado se añade solo si no lo mencionas aquí.">
+          <Campo etiqueta={T.idiomas} ancho ayuda={T.tuNivelDe}>
             <Input
-              placeholder="Español nativo, Inglés B2"
+              placeholder={T.idiomasEjemplo}
               value={form.idiomas}
               onChange={(e) => cambiar('idiomas', e.target.value)}
             />
           </Campo>
 
-          <Campo etiqueta="Título académico principal">
+          <Campo etiqueta={T.tituloPrincipal}>
             <Input
-              placeholder="Técnico en Sistemas"
+              placeholder={T.tituloEjemplo}
               value={form.titulo}
               onChange={(e) => cambiar('titulo', e.target.value)}
             />
           </Campo>
 
-          <Campo etiqueta="Institución educativa">
+          <Campo etiqueta={T.institucionEducativa}>
             <Input
               placeholder="SENA"
               value={form.institucionEducativa}
@@ -274,9 +420,9 @@ function DatosHv({
             />
           </Campo>
 
-          <Campo etiqueta="Nivel educativo" ancho>
+          <Campo etiqueta={T.nivelEducativo} ancho>
             <Input
-              placeholder="Técnico, Tecnólogo, Profesional…"
+              placeholder={T.nivelEducativoEjemplo}
               value={form.nivelEducativo}
               onChange={(e) => cambiar('nivelEducativo', e.target.value)}
             />
@@ -284,12 +430,12 @@ function DatosHv({
         </div>
 
         {error && <Aviso tipo="error">{error}</Aviso>}
-        {ok && <Aviso tipo="ok">Datos guardados. Actualiza la vista previa para verlos en el PDF.</Aviso>}
+        {ok && <Aviso tipo="ok">{T.datosGuardadosActualiza}</Aviso>}
 
         <div className="flex justify-end">
           <Button onClick={guardar} disabled={guardando}>
             {guardando ? <CircleNotch className="size-4 animate-spin" /> : <Check className="size-4" />}
-            {guardando ? 'Guardando…' : 'Guardar datos'}
+            {guardando ? T.guardando : T.guardarDatos}
           </Button>
         </div>
       </CardContent>
@@ -313,10 +459,15 @@ const EXPERIENCIA_VACIA: ExperienciaRequest = {
 function Experiencias({
   estudianteId,
   onCambio,
+  refresco = 0,
 }: {
   estudianteId: string
   onCambio: () => void
+  /** Cambia cuando algo de fuera —el escaneo del PDF— añade registros. */
+  refresco?: number
 }) {
+  const T = textosHv(usePreferences().locale === 'en')
+  const { confirmar, dialogo } = useConfirmar()
   const [items, setItems] = useState<ExperienciaResponse[]>([])
   const [cargando, setCargando] = useState(true)
   const [form, setForm] = useState<ExperienciaRequest>(EXPERIENCIA_VACIA)
@@ -330,11 +481,12 @@ function Experiencias({
     try {
       setItems(await perfilApi.experiencias(estudianteId))
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     } finally {
       setCargando(false)
     }
-  }, [estudianteId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estudianteId, refresco])
 
   useEffect(() => {
     void recargar()
@@ -364,7 +516,7 @@ function Experiencias({
 
   const guardar = async () => {
     if (!form.empresa.trim() || !form.cargo.trim()) {
-      setError('La empresa y el cargo son obligatorios.')
+      setError(T.errorExperiencia)
       return
     }
     setGuardando(true)
@@ -387,38 +539,52 @@ function Experiencias({
       await recargar()
       onCambio()
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     } finally {
       setGuardando(false)
     }
   }
 
-  const eliminar = async (id: string) => {
+  /**
+   * Borra una experiencia, preguntando primero.
+   *
+   * Es la hoja de vida de quien mira y no hay deshacer: un clic de mas borraba
+   * lo que habia escrito. En el resto de la aplicacion todo borrado confirma;
+   * este era el unico que no.
+   */
+  const eliminar = async (item: { id: string; cargo: string }) => {
+    if (!(await confirmar({
+      titulo: T.eliminarExperienciaTitulo,
+      descripcion: T.seEliminaraExperiencia(item.cargo),
+      textoConfirmar: T.eliminarCorto,
+      destructivo: true,
+    }))) return
     setError(null)
     try {
-      await perfilApi.eliminarExperiencia(estudianteId, id)
+      await perfilApi.eliminarExperiencia(estudianteId, item.id)
       await recargar()
       onCambio()
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     }
   }
 
   return (
+    <>
     <Card className="shadow-none">
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <Briefcase className="size-5 text-primary" weight="duotone" />
+            <Briefcase className="size-5 text-primary" />
             Experiencia laboral
           </CardTitle>
           <CardDescription>
-            Empieza por el empleo más reciente. Cada línea de funciones sale como una viñeta.
+            {T.empiezaPorEl}
           </CardDescription>
         </div>
         {!abierto && (
           <Button variant="outline" size="sm" onClick={() => setAbierto(true)}>
-            <Plus className="size-4" /> Añadir
+            <Plus className="size-4" /> {T.anadir}
           </Button>
         )}
       </CardHeader>
@@ -427,23 +593,23 @@ function Experiencias({
 
         {abierto && (
           <div className="grid gap-4 rounded-xl border border-border bg-secondary/20 p-4 sm:grid-cols-2">
-            <Campo etiqueta="Empresa" requerido>
+            <Campo etiqueta={T.empresa} requerido>
               <Input value={form.empresa} onChange={(e) => setForm({ ...form, empresa: e.target.value })} />
             </Campo>
             <Campo etiqueta="Cargo" requerido>
               <Input value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
             </Campo>
             <Campo etiqueta="Ciudad">
-              <Input value={form.ciudad ?? ''} onChange={(e) => setForm({ ...form, ciudad: e.target.value })} placeholder="Ej: Bogotá" />
+              <Input value={form.ciudad ?? ''} onChange={(e) => setForm({ ...form, ciudad: e.target.value })} placeholder={T.ciudadEjemplo} />
             </Campo>
-            <Campo etiqueta="Fecha de inicio">
+            <Campo etiqueta={T.fechaInicio}>
               <Input
                 type="date"
                 value={form.fechaInicio ?? ''}
                 onChange={(e) => setForm({ ...form, fechaInicio: e.target.value })}
               />
             </Campo>
-            <Campo etiqueta="Fecha de fin" ayuda={form.actual ? 'No aplica: es tu empleo actual.' : undefined}>
+            <Campo etiqueta={T.fechaFin} ayuda={form.actual ? T.empleoActual : undefined}>
               <Input
                 type="date"
                 disabled={form.actual}
@@ -459,7 +625,7 @@ function Experiencias({
                   checked={form.actual ?? false}
                   onChange={(e) => setForm({ ...form, actual: e.target.checked })}
                 />
-                Sigo trabajando aquí
+                {T.sigoTrabajandoAqui}
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -468,19 +634,19 @@ function Experiencias({
                   checked={form.relacionada ?? false}
                   onChange={(e) => setForm({ ...form, relacionada: e.target.checked })}
                 />
-                Experiencia relacionada con mi perfil / carrera
+                {T.experienciaRelacionadaCon}
               </label>
             </div>
             <Campo
-              etiqueta="Funciones y logros"
+              etiqueta={T.funciones}
               ancho
-              ayuda="Una por línea. Empieza con un verbo: «Atendí…», «Coordiné…»."
+              ayuda={T.unaPorLineaVerbo}
             >
               <Textarea
                 minRows={4}
                 value={form.funciones ?? ''}
                 onChange={(e) => setForm({ ...form, funciones: e.target.value })}
-                placeholder={'Atendí en promedio 60 clientes diarios\nCapacité a 4 personas nuevas del equipo'}
+                placeholder={T.ejemploLogros}
               />
             </Campo>
             <div className="flex justify-end gap-2 sm:col-span-2">
@@ -489,18 +655,17 @@ function Experiencias({
               </Button>
               <Button onClick={guardar} disabled={guardando}>
                 {guardando ? <CircleNotch className="size-4 animate-spin" /> : <Check className="size-4" />}
-                {editandoId ? 'Guardar cambios' : 'Añadir experiencia'}
+                {editandoId ? T.guardarCambios : T.anadirExperiencia}
               </Button>
             </div>
           </div>
         )}
 
         {cargando ? (
-          <p className="text-sm text-muted-foreground">Cargando…</p>
+          <p className="text-sm text-muted-foreground">{T.cargando}</p>
         ) : items.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-            Todavía no has registrado experiencia. Si nunca has trabajado, puedes dejarlo vacío:
-            la sección no aparecerá en el PDF.
+            {T.todaviaNoHas}
           </p>
         ) : (
           <ul className="space-y-2">
@@ -517,11 +682,11 @@ function Experiencias({
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="sm" onClick={() => editar(item)}>
-                      Editar
+                      {T.editar}
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => eliminar(item.id)}>
+                    <Button variant="ghost" size="sm" onClick={() => void eliminar(item)}>
                       <Trash className="size-4 text-destructive" />
-                      <span className="sr-only">Eliminar {item.cargo}</span>
+                      <span className="sr-only">{T.eliminarCorto} {item.cargo}</span>
                     </Button>
                   </div>
                 </div>
@@ -534,6 +699,8 @@ function Experiencias({
         )}
       </CardContent>
     </Card>
+    {dialogo}
+    </>
   )
 }
 
@@ -551,10 +718,15 @@ const FORMACION_VACIA: FormacionRequest = {
 function Formaciones({
   estudianteId,
   onCambio,
+  refresco = 0,
 }: {
   estudianteId: string
   onCambio: () => void
+  /** Igual que en experiencias: el escaneo del PDF añade por su cuenta. */
+  refresco?: number
 }) {
+  const T = textosHv(usePreferences().locale === 'en')
+  const { confirmar, dialogo } = useConfirmar()
   const [items, setItems] = useState<FormacionResponse[]>([])
   const [cargando, setCargando] = useState(true)
   const [form, setForm] = useState<FormacionRequest>(FORMACION_VACIA)
@@ -568,11 +740,12 @@ function Formaciones({
     try {
       setItems(await perfilApi.formaciones(estudianteId))
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     } finally {
       setCargando(false)
     }
-  }, [estudianteId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estudianteId, refresco])
 
   useEffect(() => {
     void recargar()
@@ -600,7 +773,7 @@ function Formaciones({
 
   const guardar = async () => {
     if (!form.institucion.trim() || !form.programa.trim()) {
-      setError('La institución y el programa son obligatorios.')
+      setError(T.errorFormacion)
       return
     }
     setGuardando(true)
@@ -620,30 +793,38 @@ function Formaciones({
       await recargar()
       onCambio()
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     } finally {
       setGuardando(false)
     }
   }
 
-  const eliminar = async (id: string) => {
+  /** Igual que en experiencias: sin deshacer, se pregunta antes. */
+  const eliminar = async (item: { id: string; programa: string }) => {
+    if (!(await confirmar({
+      titulo: T.eliminarFormacionTitulo,
+      descripcion: T.seEliminaraFormacion(item.programa),
+      textoConfirmar: T.eliminarCorto,
+      destructivo: true,
+    }))) return
     setError(null)
     try {
-      await perfilApi.eliminarFormacion(estudianteId, id)
+      await perfilApi.eliminarFormacion(estudianteId, item.id)
       await recargar()
       onCambio()
     } catch (e) {
-      setError(mensajeDe(e))
+      setError(mensajeDe(e, T.errorConexion))
     }
   }
 
   return (
+    <>
     <Card className="shadow-none">
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <GraduationCap className="size-5 text-primary" weight="duotone" />
-            Educación y certificaciones
+            <GraduationCap className="size-5 text-primary" />
+            {T.educacionYCertificaciones}
           </CardTitle>
           <CardDescription>
             Lo marcado como curso o certificación va a su propia sección del PDF; el resto
@@ -652,7 +833,7 @@ function Formaciones({
         </div>
         {!abierto && (
           <Button variant="outline" size="sm" onClick={() => setAbierto(true)}>
-            <Plus className="size-4" /> Añadir
+            <Plus className="size-4" /> {T.anadir}
           </Button>
         )}
       </CardHeader>
@@ -665,26 +846,26 @@ function Formaciones({
               <Selector
                 value={form.tipo}
                 onChange={(valor) => setForm({ ...form, tipo: valor })}
-                opciones={TIPOS_FORMACION}
+                opciones={tiposFormacion(T)}
               />
             </Campo>
-            <Campo etiqueta="Institución" requerido>
+            <Campo etiqueta={T.institucion} requerido>
               <Input
                 value={form.institucion}
                 onChange={(e) => setForm({ ...form, institucion: e.target.value })}
               />
             </Campo>
-            <Campo etiqueta="Programa o nombre del curso" ancho requerido>
+            <Campo etiqueta={T.programa} ancho requerido>
               <Input value={form.programa} onChange={(e) => setForm({ ...form, programa: e.target.value })} />
             </Campo>
-            <Campo etiqueta="Fecha de inicio">
+            <Campo etiqueta={T.fechaInicio}>
               <Input
                 type="date"
                 value={form.fechaInicio ?? ''}
                 onChange={(e) => setForm({ ...form, fechaInicio: e.target.value })}
               />
             </Campo>
-            <Campo etiqueta="Fecha de finalización" ayuda="De aquí sale el año que se imprime.">
+            <Campo etiqueta={T.fechaFinalizacion} ayuda={T.anoImpreso}>
               <Input
                 type="date"
                 value={form.fechaFin ?? ''}
@@ -697,17 +878,17 @@ function Formaciones({
               </Button>
               <Button onClick={guardar} disabled={guardando}>
                 {guardando ? <CircleNotch className="size-4 animate-spin" /> : <Check className="size-4" />}
-                {editandoId ? 'Guardar cambios' : 'Añadir formación'}
+                {editandoId ? T.guardarCambios : T.anadirFormacion}
               </Button>
             </div>
           </div>
         )}
 
         {cargando ? (
-          <p className="text-sm text-muted-foreground">Cargando…</p>
+          <p className="text-sm text-muted-foreground">{T.cargando}</p>
         ) : items.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-            Añade aquí los cursos y certificaciones que hayas hecho, dentro o fuera del programa.
+            {T.anadeAquiLos}
           </p>
         ) : (
           <ul className="space-y-2">
@@ -718,16 +899,16 @@ function Formaciones({
                   <p className="text-sm text-muted-foreground">
                     {item.institucion}
                     {item.fechaFin ? ` · ${item.fechaFin.slice(0, 4)}` : ''}
-                    {` · ${TIPOS_FORMACION.find((t) => t.valor === item.tipo)?.etiqueta ?? item.tipo}`}
+                    {` · ${tiposFormacion(T).find((t) => t.valor === item.tipo)?.etiqueta ?? item.tipo}`}
                   </p>
                 </div>
                 <div className="flex gap-1">
                   <Button variant="ghost" size="sm" onClick={() => editar(item)}>
-                    Editar
+                    {T.editar}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => eliminar(item.id)}>
+                  <Button variant="ghost" size="sm" onClick={() => void eliminar(item)}>
                     <Trash className="size-4 text-destructive" />
-                    <span className="sr-only">Eliminar {item.programa}</span>
+                    <span className="sr-only">{T.eliminarCorto} {item.programa}</span>
                   </Button>
                 </div>
               </li>
@@ -736,6 +917,8 @@ function Formaciones({
         )}
       </CardContent>
     </Card>
+    {dialogo}
+    </>
   )
 }
 
@@ -748,27 +931,52 @@ export function StudentHojaDeVida({
   perfil: EstudianteResponse
   onUpdate: (p: EstudianteResponse) => void
 }) {
+  const T = textosHv(usePreferences().locale === 'en')
   const [revision, setRevision] = useState(0)
+  /** Sube cuando el escaneo del PDF mete datos, para releer las listas. */
+  const [importado, setImportado] = useState(0)
   const [idioma, setIdioma] = useState<'es' | 'en'>('es')
   const [plantillas, setPlantillas] = useState<PlantillaResponse[]>([])
   const [plantillaId, setPlantillaId] = useState<string | undefined>(perfil.plantillaPreferidaId ?? undefined)
+  const [errorPlantilla, setErrorPlantilla] = useState<string | null>(null)
 
   useEffect(() => {
+    // El catálogo de plantillas no cambia porque el estudiante elija una, y
+    // antes `plantillaId` estaba entre las dependencias: cada clic volvía a
+    // pedir la lista entera para dejarla igual. La preselección se hace ahora
+    // con la forma funcional, que es lo que hacía falta de esa dependencia:
+    // rellenar el hueco sólo si sigue vacío.
+    let vigente = true
     hvApi.plantillas().then((res) => {
+      if (!vigente) return
       setPlantillas(res)
-      if (!plantillaId && res.length > 0) {
+      if (res.length > 0) {
         const pred = res.find((p) => p.predeterminada) ?? res[0]
-        setPlantillaId(pred.id)
+        setPlantillaId((actual) => actual || pred.id)
       }
-    }).catch(() => {})
-  }, [plantillaId])
+    }).catch((e) => { if (vigente) setErrorPlantilla(mensajeDe(e, T.errorConexion)) })
+    return () => { vigente = false }
+  }, [T.errorConexion])
 
+  /**
+   * Guarda la plantilla elegida.
+   *
+   * Se marca antes de guardar para que la seleccion responda al instante, pero
+   * si el servidor la rechaza hay que deshacerla: dejarla marcada sin haberse
+   * guardado es peor que no marcarla, porque al volver aparece la anterior y
+   * nada explica por que.
+   */
   const seleccionarPlantilla = async (id: string) => {
+    const anterior = plantillaId
     setPlantillaId(id)
+    setErrorPlantilla(null)
     try {
       const nov = await estudiantesApi.guardarPlantillaPreferida(id)
       onUpdate(nov)
-    } catch {}
+    } catch (e) {
+      setPlantillaId(anterior)
+      setErrorPlantilla(mensajeDe(e, T.errorConexion))
+    }
   }
 
   const cargar = useCallback(
@@ -792,26 +1000,42 @@ export function StudentHojaDeVida({
         {faltan && (
           <p className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
             <WarningCircle className="size-4 shrink-0" />
-            Completa el cargo objetivo y el perfil profesional: son lo primero que lee un reclutador.
+            {T.completaElCargo}
           </p>
         )}
-        <DatosHv perfil={perfil} onUpdate={onUpdate} onGuardado={() => setRevision((n) => n + 1)} />
-        <Experiencias estudianteId={perfil.id} onCambio={() => setRevision((n) => n + 1)} />
-        <Formaciones estudianteId={perfil.id} onCambio={() => setRevision((n) => n + 1)} />
+        <StudentEscaneoHv
+          perfil={perfil}
+          onUpdate={onUpdate}
+          onAplicado={() => {
+            setImportado((n) => n + 1)
+            setRevision((n) => n + 1)
+          }}
+        />
+        <DatosHv
+          // Rehace el formulario cuando el escaneo cambia la ficha: sus campos
+          // se inicializan una sola vez desde `perfil`, asi que sin esto lo
+          // aplicado se veia en el PDF pero no en las casillas de arriba.
+          key={`datos-${importado}`}
+          perfil={perfil}
+          onUpdate={onUpdate}
+          onGuardado={() => setRevision((n) => n + 1)}
+        />
+        <Experiencias estudianteId={perfil.id} refresco={importado} onCambio={() => setRevision((n) => n + 1)} />
+        <Formaciones estudianteId={perfil.id} refresco={importado} onCambio={() => setRevision((n) => n + 1)} />
       </div>
 
       <Card className="h-fit shadow-none xl:sticky xl:top-24">
         <CardHeader>
-          <CardTitle>Cómo va a quedar</CardTitle>
+          <CardTitle>{T.comoQueda}</CardTitle>
           <CardDescription>
-            Elige el diseño y el idioma de tu hoja de vida. Tu selección se guardará automáticamente.
+            {T.eligeElDiseno}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {plantillas.length > 0 && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Diseño de plantilla
+                {T.disenoDePlantilla}
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {plantillas.map((p) => {
@@ -835,9 +1059,14 @@ export function StudentHojaDeVida({
             </div>
           )}
 
+          {/* Fuera del bloque de arriba a proposito: si las plantillas no se
+              pudieron cargar, ese bloque no se pinta y el aviso se habria ido
+              con el, que es justo cuando hace falta. */}
+          {errorPlantilla && <p className="text-xs text-destructive">{errorPlantilla}</p>}
+
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Idioma del PDF
+              {T.idiomaDelPdf}
             </label>
             <div className="flex gap-2">
               {(
@@ -866,8 +1095,8 @@ export function StudentHojaDeVida({
           <VistaPreviaPdf
             cargar={cargar}
             onDescargar={descargar}
-            titulo="Vista previa de tu hoja de vida"
-            descripcion="Descargar guarda una versión nueva en tu historial."
+            titulo={T.vistaPrevia}
+            descripcion={T.descargarAviso}
             altura="32rem"
           />
         </CardContent>

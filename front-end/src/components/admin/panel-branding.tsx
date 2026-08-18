@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowsClockwiseIcon as ArrowsClockwise, CheckCircleIcon as CheckCircle, CircleNotchIcon as CircleNotch, FloppyDiskIcon as FloppyDisk, ImageIcon as ImageIcon, PaletteIcon as Palette, UploadIcon as Upload, WarningCircleIcon as WarningCircle } from '@phosphor-icons/react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Image as ImageIcon, LoaderCircle as CircleNotch, Palette, RefreshCw as ArrowsClockwise, Save as FloppyDisk, Upload } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -36,21 +36,28 @@ import { paletaDesde, textoSobre } from '@/lib/paleta'
 import { notificarIdentidadActualizada } from '@/lib/branding'
 import type { BrandingResponse, MedidaExigida, ProgramaResponse } from '@/lib/types'
 import { errorDe } from '@/lib/errores'
+import { usePreferences } from '@/lib/preferences'
+import { textosAdmin } from '@/lib/textos-admin'
 
 /** Colores de arranque. Ahorran abrir el selector para lo más habitual. */
-const SUGERENCIAS = [
-  { hex: '#1268E8', nombre: 'Azul institucional' },
-  { hex: '#E8621C', nombre: 'Naranja corporativo' },
-  { hex: '#0F7B5A', nombre: 'Verde esmeralda' },
-  { hex: '#7C3AED', nombre: 'Morado moderno' },
-  { hex: '#C81E5B', nombre: 'Magenta vibrante' },
-  { hex: '#0284C7', nombre: 'Cian turquesa' },
-  { hex: '#D97706', nombre: 'Ámbar dorado' },
-  { hex: '#0F172A', nombre: 'Azul noche' },
-]
+function sugerencias(T: ReturnType<typeof textos>) {
+  return [
+    { hex: '#1268E8', nombre: T.azulInstitucional },
+    { hex: '#E8621C', nombre: T.naranjaCorporativo },
+    { hex: '#0F7B5A', nombre: T.verdeEsmeralda },
+    { hex: '#7C3AED', nombre: T.moradoModerno },
+    { hex: '#C81E5B', nombre: T.magentaVibrante },
+    { hex: '#0284C7', nombre: T.cianTurquesa },
+    { hex: '#D97706', nombre: T.ambarDorado },
+    { hex: '#0F172A', nombre: T.azulNoche },
+  ]
+}
 
 // Permite editar y previsualizar aun si el backend se está actualizando. Al
 // volver a estar disponible, sus medidas reemplazan estas mismas referencias.
+// La etiqueta y el porqué van en español a propósito: llegan así del backend y
+// `CampoImagen` los sustituye por los del diccionario para las claves que
+// conoce. Traducirlos aquí solo taparía el caso de una clave nueva.
 const MEDIDAS_POR_DEFECTO: MedidaExigida[] = [
   { clave: 'bannerPanel', etiqueta: 'Banner de bienvenida', ancho: 2400, alto: 300, anchoVista: 1200, porque: 'Es el fondo del cuadro de bienvenida del portal del estudiante; no se muestra en el panel administrador, la barra superior ni el menú lateral.' },
   { clave: 'correoHeader', etiqueta: 'Cabecera del correo', ancho: 1200, alto: 400, anchoVista: 600, porque: 'Se muestra en los correos enviados.' },
@@ -154,18 +161,25 @@ function CampoImagen({
   estado: EstadoImagen
   onCambio: (url: string) => void
 }) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   const fileInputId = `file-input-${medida.clave}`
   const esBannerBienvenida = medida.clave === 'bannerPanel'
-  const etiqueta = esBannerBienvenida ? 'Banner de bienvenida' : medida.etiqueta
-  const descripcion = esBannerBienvenida
-    ? 'Es el fondo del cuadro de bienvenida del portal del estudiante. No aparece en el panel administrador, la barra superior ni el menú lateral.'
-    : medida.porque
+  // El backend manda `etiqueta` y `porque` en espanol. Para las tres claves
+  // conocidas mandan los textos propios; el respaldo solo cubre una clave nueva.
+  const propios: Record<string, { etiqueta: string; descripcion: string }> = {
+    bannerPanel:  { etiqueta: T.bannerDeBienvenida, descripcion: T.esElFondoX },
+    correoHeader: { etiqueta: T.cabeceraDelCorreo,  descripcion: T.seMuestraEn },
+    correoPie:    { etiqueta: T.pieDelCorreo,       descripcion: T.cierraLosCorreos },
+  }
+  const etiqueta = propios[medida.clave]?.etiqueta ?? medida.etiqueta
+  const descripcion = propios[medida.clave]?.descripcion ?? medida.porque
 
   return (
     <div className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-secondary/10 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-foreground">
-          <ImageIcon className="size-4 text-primary" weight="duotone" />
+          <ImageIcon className="size-4 text-primary" />
           {etiqueta}
         </h4>
         <span className="rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-semibold text-primary">
@@ -227,7 +241,7 @@ function CampoImagen({
       {!estado.midiendo && !estado.problema && estado.ancho && (
         <div className="flex items-center justify-between gap-3 pt-1">
           <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
-            <CheckCircle className="size-3.5 shrink-0" weight="fill" />
+            <CheckCircle className="size-3.5 shrink-0" />
             {estado.ancho} × {estado.alto} px (Válida)
           </p>
           <div className="flex items-center gap-2">
@@ -255,7 +269,102 @@ function CampoImagen({
   )
 }
 
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        azulInstitucional: 'Institutional blue',
+        naranjaCorporativo: 'Corporate orange',
+        verdeEsmeralda: 'Emerald green',
+        moradoModerno: 'Modern purple',
+        magentaVibrante: 'Vivid magenta',
+        cianTurquesa: 'Turquoise cyan',
+        azulNoche: 'Night blue',
+        holaEjemplo: 'Hi, Héctor! 👋',
+        tienesVacantes: 'You have 3 recommended vacancies.',
+
+        colorEncabezadoBanner: "Colour, header, banner and the email images. Each project has its own identity, visible on its students' portal even in dark mode.",
+        identidadGuardadaLos: 'Identity saved. Students on this project will now see this palette, its banner and its own emails.',
+        esteProyectoAun: "This project has no identity of its own yet: it is being painted with the panel's global palette.",
+        elProyectoVolvera: "The project will go back to the panel's global palette instead of a custom one.",
+        noSePudo: 'The image could not be loaded to measure it. Check that the URL is public;',
+        esElFondo: 'It is the background of the welcome panel on the student portal; it does not appear in the admin panel, the top bar or the side menu.',
+        esElFondoX: 'It is the background of the welcome panel on the student portal. It does not appear in the admin panel, the top bar or the side menu.',
+        tieneQueSer: 'It must be a six-digit hex value, like #1268E8.',
+        corrigeLasImagenes: 'Fix the flagged images before saving.',
+        elServidorVolvera: 'the server will validate it again on save.',
+        fundacionSantoDomingo: 'Fundación Santo Domingo · GitLab Foundation · CAC Eurocentres',
+        seMuestraEn: 'It appears on the emails that are sent.',
+        cierraLosCorreos: "It closes the project's emails.",
+        identidadVisualDel: 'Project visual identity',
+        cuandoSabesIngles: 'Knowing English shows',
+        elegirUnColor: 'Pick a custom colour',
+        textoDelPie: 'Email footer text',
+        volverALa: 'Back to the global palette',
+        bannerDeBienvenida: 'Welcome banner',
+        encabezadoDelPanel: 'Panel header',
+        portalDelEstudiante: 'Student portal',
+        cabeceraDelCorreo: 'Email header',
+        sinColorPropio: 'No colour of its own',
+        miHojaDe: 'My résumé',
+        verVacantes: 'View vacancies',
+        pieDelCorreo: 'Email footer',
+        ambarDorado: 'Golden amber',
+        subtitulo: 'Subtitle',
+        titulo: 'Title',
+      }
+    : {
+        azulInstitucional: 'Azul institucional',
+        naranjaCorporativo: 'Naranja corporativo',
+        verdeEsmeralda: 'Verde esmeralda',
+        moradoModerno: 'Morado moderno',
+        magentaVibrante: 'Magenta vibrante',
+        cianTurquesa: 'Cian turquesa',
+        azulNoche: 'Azul noche',
+        holaEjemplo: '¡Hola, Héctor! 👋',
+        tienesVacantes: 'Tienes 3 vacantes recomendadas.',
+
+        colorEncabezadoBanner: 'Color, encabezado, banner y las imágenes de los correos. Cada proyecto tiene su propia identidad, visible en el portal de sus estudiantes incluso en modo oscuro.',
+        identidadGuardadaLos: 'Identidad guardada. Los estudiantes de este proyecto ya verán esta gama, su banner y sus correos personalizados.',
+        esteProyectoAun: 'Este proyecto aún no tiene identidad propia: se está pintando con la gama global del panel.',
+        elProyectoVolvera: 'El proyecto volverá a usar la gama de colores global del panel en lugar de una personalizada.',
+        noSePudo: 'No se pudo cargar la imagen para medirla. Comprueba que la URL sea pública;',
+        esElFondo: 'Es el fondo del cuadro de bienvenida del portal del estudiante; no se muestra en el panel administrador, la barra superior ni el menú lateral.',
+        esElFondoX: 'Es el fondo del cuadro de bienvenida del portal del estudiante. No aparece en el panel administrador, la barra superior ni el menú lateral.',
+        tieneQueSer: 'Tiene que ser un hexadecimal de seis dígitos, tipo #1268E8.',
+        corrigeLasImagenes: 'Corrige las imágenes marcadas antes de guardar.',
+        elServidorVolvera: 'el servidor volverá a validarla al guardar.',
+        fundacionSantoDomingo: 'Fundación Santo Domingo · GitLab Foundation · CAC Eurocentres',
+        seMuestraEn: 'Se muestra en los correos enviados.',
+        cierraLosCorreos: 'Cierra los correos del proyecto.',
+        identidadVisualDel: 'Identidad visual del proyecto',
+        cuandoSabesIngles: 'Cuando sabes inglés se nota',
+        elegirUnColor: 'Elegir un color a medida',
+        textoDelPie: 'Texto del pie del correo',
+        volverALa: 'Volver a la gama global',
+        bannerDeBienvenida: 'Banner de bienvenida',
+        encabezadoDelPanel: 'Encabezado del panel',
+        portalDelEstudiante: 'Portal del estudiante',
+        cabeceraDelCorreo: 'Cabecera del correo',
+        sinColorPropio: 'Sin color propio',
+        miHojaDe: 'Mi hoja de vida',
+        verVacantes: 'Ver vacantes',
+        pieDelCorreo: 'Pie del correo',
+        ambarDorado: 'Ámbar dorado',
+        subtitulo: 'Subtítulo',
+        titulo: 'Título',
+      }
+}
+
 export function PanelBranding({ programaIdInicial }: { programaIdInicial?: string } = {}) {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
+  const C = textosAdmin(locale === 'en')
   const [programas, setProgramas] = useState<ProgramaResponse[]>([])
   const [programaId, setProgramaId] = useState(programaIdInicial ?? '')
   const [branding, setBranding] = useState<BrandingResponse | null>(null)
@@ -395,8 +504,7 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
             alto: null,
             midiendo: false,
             problema:
-              'No se pudo cargar la imagen para medirla. Comprueba que la URL sea pública; ' +
-              'el servidor volverá a validarla al guardar.',
+              `${T.noSePudo} ${T.elServidorVolvera}`,
           },
         }
       }
@@ -500,12 +608,11 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Palette className="size-5 text-primary" weight="duotone" />
-              Identidad visual del proyecto
+              <Palette className="size-5 text-primary" />
+              {T.identidadVisualDel}
             </CardTitle>
             <CardDescription>
-              Color, encabezado, banner y las imágenes de los correos. Cada proyecto tiene
-              su propia identidad, visible en el portal de sus estudiantes incluso en modo oscuro.
+              {T.colorEncabezadoBanner}
             </CardDescription>
           </div>
           <Button
@@ -548,8 +655,7 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
           <>
             {!branding.personalizado && (
               <p className="rounded-xl border border-border bg-secondary/30 px-3 py-2.5 text-xs text-muted-foreground">
-                Este proyecto aún no tiene identidad propia: se está pintando con la
-                gama global del panel.
+                {T.esteProyectoAun}
               </p>
             )}
 
@@ -560,7 +666,7 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
               </legend>
 
               <div className="flex flex-wrap items-center gap-2">
-                {SUGERENCIAS.map((s) => (
+                {sugerencias(T).map((s) => (
                   <button
                     key={s.hex}
                     type="button"
@@ -579,7 +685,7 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
                   className="size-9 cursor-pointer rounded-full border border-border bg-transparent"
                   value={/^#[0-9a-fA-F]{6}$/.test(color) ? color : '#1268E8'}
                   onChange={(e) => cambiarColor(e.target.value.toUpperCase())}
-                  aria-label="Elegir un color a medida"
+                  aria-label={T.elegirUnColor}
                 />
                 <Input
                   className="h-9 w-32 font-mono"
@@ -589,14 +695,14 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
                 />
                 {color && (
                   <Button variant="outline" size="sm" onClick={() => cambiarColor('')}>
-                    Sin color propio
+                    {T.sinColorPropio}
                   </Button>
                 )}
               </div>
 
               {!colorValido && (
                 <p className="text-xs text-destructive">
-                  Tiene que ser un hexadecimal de seis dígitos, tipo #1268E8.
+                  {T.tieneQueSer}
                 </p>
               )}
 
@@ -625,7 +731,7 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
                           {titulo || branding.programaNombre}
                         </p>
                         <p className="truncate text-[9px] uppercase tracking-wider text-muted-foreground">
-                          {subtitulo || 'Portal del estudiante'}
+                          {subtitulo || T.portalDelEstudiante}
                         </p>
                       </div>
                     </div>
@@ -645,7 +751,7 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
                           Mis vacantes
                         </span>
                         <span className="px-2 py-1.5 text-[11px] text-muted-foreground">
-                          Mi hoja de vida
+                          {T.miHojaDe}
                         </span>
                       </div>
 
@@ -655,10 +761,10 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
                           style={{ background: 'var(--primary-soft)' }}
                         >
                           <p className="text-[11px] font-semibold text-foreground">
-                            ¡Hola, Héctor! 👋
+                            {T.holaEjemplo}
                           </p>
                           <p className="text-[10px] text-muted-foreground">
-                            Tienes 3 vacantes recomendadas.
+                            {T.tienesVacantes}
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
@@ -669,7 +775,7 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
                               color: 'var(--primary-foreground)',
                             }}
                           >
-                            Ver vacantes
+                            {T.verVacantes}
                           </span>
                           <span
                             className="rounded-md border px-3 py-1.5 text-[11px] font-medium"
@@ -702,10 +808,10 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
             {/* ── Encabezado ────────────────────────────────────────────── */}
             <fieldset className="grid gap-4 rounded-xl border border-border/60 bg-secondary/10 p-4 sm:grid-cols-2">
               <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Encabezado del panel
+                {T.encabezadoDelPanel}
               </legend>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-semibold text-foreground/85">Título</label>
+                <label className="text-[13px] font-semibold text-foreground/85">{T.titulo}</label>
                 <Input
                   className="h-10"
                   placeholder="Ruta Accelerator"
@@ -718,10 +824,10 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-semibold text-foreground/85">Subtítulo</label>
+                <label className="text-[13px] font-semibold text-foreground/85">{T.subtitulo}</label>
                 <Input
                   className="h-10"
-                  placeholder="Cuando sabes inglés se nota"
+                  placeholder={T.cuandoSabesIngles}
                   maxLength={200}
                   value={subtitulo}
                   onChange={(e) => {
@@ -746,11 +852,11 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
 
             <div className="flex flex-col gap-1.5">
               <label className="text-[13px] font-semibold text-foreground/85">
-                Texto del pie del correo
+                {T.textoDelPie}
               </label>
               <Input
                 className="h-10"
-                placeholder="Fundación Santo Domingo · GitLab Foundation · CAC Eurocentres"
+                placeholder={T.fundacionSantoDomingo}
                 value={textoPie}
                 onChange={(e) => {
                   setTextoPie(e.target.value)
@@ -775,9 +881,8 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
 
             {guardado && (
               <p className="flex items-center gap-2 rounded-xl border border-green-500/25 bg-green-500/10 px-3 py-2.5 text-sm font-medium text-green-700 dark:text-green-300">
-                <CheckCircle className="size-4 shrink-0" weight="fill" />
-                Identidad guardada. Los estudiantes de este proyecto ya verán esta gama,
-                su banner y sus correos personalizados.
+                <CheckCircle className="size-4 shrink-0" />
+                {T.identidadGuardadaLos}
               </p>
             )}
 
@@ -792,12 +897,12 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
               </Button>
               {branding.personalizado && (
                 <Button variant="outline" onClick={() => setShowResetConfirmModal(true)} disabled={guardando}>
-                  Volver a la gama global
+                  {T.volverALa}
                 </Button>
               )}
               {hayProblemas && (
                 <span className="text-xs text-destructive">
-                  Corrige las imágenes marcadas antes de guardar.
+                  {T.corrigeLasImagenes}
                 </span>
               )}
             </div>
@@ -806,7 +911,7 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
               open={showResetConfirmModal}
               onOpenChange={setShowResetConfirmModal}
               titulo="Restablecer gama global"
-              descripcion="El proyecto volverá a usar la gama de colores global del panel en lugar de una personalizada."
+              descripcion={T.elProyectoVolvera}
               textoConfirmar="Restablecer"
               destructivo={true}
               onConfirmar={volverAGamaGlobal}

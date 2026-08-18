@@ -63,7 +63,7 @@ class CodigoDeFalloDeLoginTest {
 
     @Test
     void unaContrasenaIncorrectaEsCredencialInvalida() {
-        when(usuarios.findByEmail("admin@novacrm.com")).thenReturn(Optional.of(usuario(true)));
+        when(usuarios.findByEmailIgnoreCase("admin@novacrm.com")).thenReturn(Optional.of(usuario(true)));
         when(encoder.matches(anyString(), anyString())).thenReturn(false);
 
         assertThrows(CredencialesInvalidasException.class,
@@ -72,7 +72,7 @@ class CodigoDeFalloDeLoginTest {
 
     @Test
     void unCorreoQueNoExisteEsCredencialInvalida() {
-        when(usuarios.findByEmail(anyString())).thenReturn(Optional.empty());
+        when(usuarios.findByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
 
         assertThrows(CredencialesInvalidasException.class,
                 () -> authService.login(new LoginRequest("nadie@novacrm.com", "cualquiera")));
@@ -80,7 +80,7 @@ class CodigoDeFalloDeLoginTest {
 
     @Test
     void unaCuentaDesactivadaEsCredencialInvalida() {
-        when(usuarios.findByEmail(anyString())).thenReturn(Optional.of(usuario(false)));
+        when(usuarios.findByEmailIgnoreCase(anyString())).thenReturn(Optional.of(usuario(false)));
         when(encoder.matches(anyString(), anyString())).thenReturn(true);
 
         assertThrows(CredencialesInvalidasException.class,
@@ -94,16 +94,16 @@ class CodigoDeFalloDeLoginTest {
      */
     @Test
     void losTresFracasosDicenLoMismo() {
-        when(usuarios.findByEmail("admin@novacrm.com")).thenReturn(Optional.of(usuario(true)));
+        when(usuarios.findByEmailIgnoreCase("admin@novacrm.com")).thenReturn(Optional.of(usuario(true)));
         when(encoder.matches(anyString(), anyString())).thenReturn(false);
         String porContrasena = assertThrows(CredencialesInvalidasException.class,
                 () -> authService.login(new LoginRequest("admin@novacrm.com", "mala"))).getMessage();
 
-        when(usuarios.findByEmail("nadie@novacrm.com")).thenReturn(Optional.empty());
+        when(usuarios.findByEmailIgnoreCase("nadie@novacrm.com")).thenReturn(Optional.empty());
         String porInexistente = assertThrows(CredencialesInvalidasException.class,
                 () -> authService.login(new LoginRequest("nadie@novacrm.com", "mala"))).getMessage();
 
-        when(usuarios.findByEmail("apagado@novacrm.com")).thenReturn(Optional.of(usuario(false)));
+        when(usuarios.findByEmailIgnoreCase("apagado@novacrm.com")).thenReturn(Optional.of(usuario(false)));
         when(encoder.matches(anyString(), anyString())).thenReturn(true);
         String porInactivo = assertThrows(CredencialesInvalidasException.class,
                 () -> authService.login(new LoginRequest("apagado@novacrm.com", "buena"))).getMessage();
@@ -136,7 +136,7 @@ class CodigoDeFalloDeLoginTest {
     /** Un login correcto sigue devolviendo los dos tokens. */
     @Test
     void elLoginCorrectoSigueFuncionando() {
-        when(usuarios.findByEmail("admin@novacrm.com")).thenReturn(Optional.of(usuario(true)));
+        when(usuarios.findByEmailIgnoreCase("admin@novacrm.com")).thenReturn(Optional.of(usuario(true)));
         when(encoder.matches(anyString(), anyString())).thenReturn(true);
 
         var respuesta = authService.login(new LoginRequest("admin@novacrm.com", "la-buena"));

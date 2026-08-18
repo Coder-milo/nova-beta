@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:novacrmtest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: false
+    show-sql: false
+  flyway:
+    enabled: false
+
+app:
+  jwt:
+    secret: dGVzdHNlY3JldGtleWZvcm5vdmFjcm1hdXRoZW50aWNhdGlvbnRlc3RzMTIzNDU2Nzg5MA==
+    allow-ephemeral-secret: true
+  scraping:
+    remotive:
+      enabled: false
+    smartrecruiters:
+      enabled: false
+    jsearch:
+      enabled: false
+    arbeitnow:
+      enabled: false
+    elempleo:
+      enabled: false
+    computrabajo:
+      enabled: false
+    magneto:
+      enabled: false

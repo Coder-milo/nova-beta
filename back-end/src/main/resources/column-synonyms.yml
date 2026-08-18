@@ -1,17 +1,21 @@
 email:
   - "3.9 Correo electronico"
+  - "3.9 Correo electrónico"
   - Correo
   - correo
   - email
   - Email
   - Correo_Electronico
   - "correo electronico"
+  - "correo electrónico"
   - mail
   - "e-mail"
   - "direccion de correo"
+  - "correo del estudiante"
 
 nombre:
   - "3.1 Nombre (s)"
+  - "3.1 Nombres"
   - nombre
   - Nombre
   - nombres
@@ -19,14 +23,27 @@ nombre:
   - Nombre_Completo
   - nombre_completo
   - "nombre completo"
+  - "nombre y apellidos"
   - "first name"
+
+numeroParticipante:
+  - "N°"
+  - "N° Participante"
+  - "ID_Participante"
+  - "id_participante"
+  - "id participante"
+  - "numero participante"
+  - "número de participante"
+  - "numero de participante"
 
 apellido:
   - "3.2 Apellido (s)"
+  - "3.2 Apellidos"
   - apellido
   - Apellido
   - apellidos
   - Apellidos
+  - "last name"
 
 tipoDocumento:
   - "3.3 Tipo de documento"
@@ -38,14 +55,19 @@ tipoDocumento:
 
 numeroDocumento:
   - "3.4 Numero de documento"
+  - "3.4 Número de documento"
   - Documento
+  - documento
   - "numero documento"
+  - "número de documento"
   - "Numero Documento"
   - "numero de documento"
   - numero_documento
   - cedula
+  - Cédula
   - CC
   - identificacion
+  - identificación
   - "num documento"
   - num_documento
 
@@ -57,10 +79,18 @@ fechaNacimiento:
   - "fecha de nacimiento"
   - "birth date"
 
+edad:
+  - Edad
+  - edad
+  - age
+
 genero:
   - "3.7 Genero"
+  - "3.7 Género"
   - genero
   - Genero
+  - género
+  - Género
   - sexo
   - Sexo
 
@@ -70,8 +100,10 @@ celular:
   - Celular
   - WhatsApp
   - movil
+  - móvil
   - telefono_movil
   - "telefono movil"
+  - "teléfono móvil"
 
 ciudad:
   - "3.10 Ciudad de residencia"
@@ -79,6 +111,7 @@ ciudad:
   - ciudad
   - city
   - ciudad_residencia
+  - "ciudad de residencia"
 
 barrio:
   - "3.12 Barrio"
@@ -94,43 +127,58 @@ nacionalidad:
 
 clasificacionSisben:
   - "4.1 Cual es tu clasificacion en SISBEN IV?"
+  - "4.1 ¿Cuál es tu clasificación en SISBEN IV?"
   - "clasificacion sisben"
+  - "clasificación sisben"
   - SISBEN
   - sisben
   - clasificacion_sisben
 
 situacionLaboral:
   - "4.2 Actualmente, Cual es tu situacion laboral?"
+  - "4.2 Actualmente, ¿Cuál es tu situación laboral?"
   - "situacion laboral"
+  - "situación laboral"
   - "Situacion Laboral"
   - situacion_laboral
 
 aniosExperiencia:
   - "4.3 Cuanto tiempo de experiencia laboral tienes en total?"
+  - "4.3 ¿Cuánto tiempo de experiencia laboral tienes en total?"
   - Anos_Experiencia
   - "anos experiencia"
   - "anios experiencia"
+  - "años experiencia"
   - "anios de experiencia"
   - anios_experiencia
   - "anos de experiencia"
+  - "tiempo de experiencia"
+  - "tiempo experiencia"
 
 sectorExperiencia:
   - "4.4 En cual de los siguientes sectores tienes mayor experiencia laboral o formacion principal?"
+  - "4.4 ¿En cuál de los siguientes sectores tienes mayor experiencia laboral o formación principal?"
   - "experiencia laboral"
   - Sector_Experiencia
   - "sector experiencia"
   - "sector de experiencia"
   - sector_experiencia
+  - "Sector / Área"
+  - "sector / area"
+  - "sector area"
 
 ingresoMensual:
   - "4.6 Si trabajas actualmente, cual es tu ingreso?"
+  - "4.6 Si trabajas actualmente, ¿Cuál es tu ingreso mensual promedio?"
   - "ingreso mensual"
   - "Ingreso Mensual"
   - ingreso_mensual
 
 responsableEconomico:
   - "4.7 Eres responsable economicamente de otros?"
+  - "4.7 ¿Eres responsable económicamente de otras personas?"
   - "responsable economico"
+  - "responsable económicamente"
   - "Responsable Economico"
   - responsable_economico
 
@@ -139,15 +187,20 @@ nivelEducativo:
   - Nivel_Educativo
   - "nivel educativo"
   - "nivel de educacion"
+  - "nivel de educación"
   - nivel_educativo
 
 titulo:
   - "5.2 Mencione el titulo obtenido..."
+  - "5.2 Mencione el titulo obtenido,  certificaciones de educación para el trabajo o no formal."
   - titulo
   - Titulo
+  - título
+  - Título
 
 haTrabajado:
   - "5.3 Has trabajado antes?"
+  - "5.3 ¿Has trabajado antes?"
   - Tiene_Experiencia
   - "ha trabajado"
   - "tiene experiencia"
@@ -156,6 +209,7 @@ haTrabajado:
 
 perfilProfesional:
   - "5.4 Describe brevemente tu experiencia laboral"
+  - "5.4 Si respondiste “Sí”, describe brevemente tu experiencia laboral (cargo, sector y tiempo)"
   - Perfil_Profesional_Sintesis
   - "perfil profesional"
   - perfil
@@ -163,37 +217,50 @@ perfilProfesional:
 
 nivelIngles:
   - "6.1 Cual consideras que es tu nivel actual de ingles?"
+  - "6.1¿Cuál consideras que es tu nivel actual de inglés?"
+  - "6.1 ¿Cuál consideras que es tu nivel actual de inglés?"
   - Nivel_Ingles
   - "nivel ingles"
+  - "nivel inglés"
   - "nivel de ingles"
+  - "nivel de inglés"
   - nivel_ingles
   - "english level"
 
 motivacion:
   - "7.1 Cual es tu principal motivacion..."
+  - "7.1 ¿Cuál es tu principal motivación para aplicar a este programa?"
   - motivacion
   - Motivacion
+  - motivación
+  - Motivación
 
 tieneComputador:
   - "7.3 Tienes computador funcional?"
+  - "7.3 ¿Tienes computador funcional para clases virtuales?"
   - "tiene computador"
   - computador
   - tiene_computador
 
 tieneInternet:
   - "7.4 Cuentas con conexion a internet estable?"
+  - "7.4 ¿Cuentas con conexión a internet estable?"
   - "tiene internet"
   - "conexion internet"
+  - "conexión internet"
   - tiene_internet
 
 tipoOportunidad:
   - "8.1 En que tipo de oportunidades laborales..."
+  - "8.1 ¿En qué tipo de oportunidades laborales te gustaría trabajar?"
   - "tipo oportunidad"
   - "tipo de oportunidad"
 
 interesMigratorio:
   - "9.1 Te interesaria migrar a otro pais?"
+  - "9.1 ¿Te interesaría migrar y trabajar en otro país si se presenta una oportunidad formal y acompañada?"
   - "interes migratorio"
+  - "interés migratorio"
   - migratorio
   - interes_migratorio
 
@@ -212,6 +279,7 @@ resultadoPruebaOral:
 ultimoCargo:
   - Ultimo_Cargo
   - "ultimo cargo"
+  - "último cargo"
   - "cargo anterior"
   - ultimo_cargo
 
@@ -219,6 +287,7 @@ sectorObjetivo:
   - Sector_Objetivo
   - "sector objetivo"
   - "sector de interes"
+  - "sector de interés"
   - sector_objetivo
 
 cargoObjetivo:
@@ -226,17 +295,21 @@ cargoObjetivo:
   - "cargo objetivo"
   - "cargo deseado"
   - cargo_objetivo
+  - "Cargos que puede aplicar"
+  - "cargos que puede aplicar"
+  - "cargos aplicables"
 
 disponibilidadLaboral:
   - Disponibilidad_Laboral
   - "disponibilidad laboral"
   - disponibilidad_laboral
-  - "laboral"
 
 estadoBusqueda:
   - Estado_Busqueda
   - "estado busqueda"
+  - "estado búsqueda"
   - "estado de busqueda"
+  - "estado de búsqueda"
   - estado_busqueda
 
 postulacionesEnviadas:
@@ -257,30 +330,123 @@ estadoPrograma:
 programaAcademico:
   - Programa_Academico
   - "programa academico"
+  - "programa académico"
   - programa_academico
 
 institucionEducativa:
   - Institucion_Educativa
   - "institucion educativa"
+  - "institución educativa"
   - institucion_educativa
 
 areaFormacion:
   - Area_Formacion
   - "area formacion"
+  - "área formación"
+  - "area de formacion"
+  - "área de formación"
   - area_formacion
+  - "Carrera / Título"
+  - "Carrera / Titulo"
+  - "carrera / titulo"
+  - carrera
+  - Carrera
 
 estadoFormacion:
   - Estado_Formacion
   - "estado formacion"
+  - "estado formación"
   - estado_formacion
 
 telefono:
   - telefono
   - Telefono
+  - teléfono
+  - Teléfono
   - phone
   - telefono_contacto
+  - "numero de contacto"
+  - "número de contacto"
 
 disponibilidadMovilidad:
+  - "9.4 ¿Cuentas actualmente con pasaporte vigente y en condiciones aptas para iniciar un proceso de movilidad laboral internacional?"
   - "disponibilidad movilidad"
+  - "disponibilidad de movilidad"
   - disponibilidad_movilidad
-  - movilidad
+  - "movilidad laboral"
+  - "movilidad internacional"
+  - "pasaporte vigente"
+
+cvListo:
+  - "CV listo"
+  - "cv listo"
+  - "CV_Listo"
+  - "HV_Revisada"
+  - "HV Revisada"
+  - "hv revisada"
+  - "Hoja de vida lista"
+  - "Hoja de vida revisada"
+  - "hoja de vida lista"
+
+cvEnIngles:
+  - "CV en inglés"
+  - "CV en ingles"
+  - "cv en ingles"
+  - "cv en inglés"
+  - "CV_En_Ingles"
+  - "Hoja de vida en inglés"
+  - "hoja de vida en ingles"
+
+linkedinCreado:
+  - "LinkedIn creado"
+  - "linkedin creado"
+  - "LinkedIn_Creado"
+
+linkedinOptimizado:
+  - "LinkedIn optimizado"
+  - "linkedin optimizado"
+  - "LinkedIn_Optimizado"
+  - "Linkedin Optimizado"
+  - "linkedin_optimizado"
+
+perfilOcupacional:
+  - "Perfil ocupacional"
+  - "perfil ocupacional"
+  - "Perfil_Ocupacional"
+  - "perfil_ocupacional"
+
+competencias:
+  - "Habilidades técnicas"
+  - "Habilidades tecnicas"
+  - "habilidades técnicas"
+  - "habilidades tecnicas"
+  - competencias
+  - Competencias
+
+carpetaUrl:
+  - "LINK CARPETA"
+  - "Link Carpeta"
+  - "link carpeta"
+  - carpetaUrl
+  - "carpeta drive"
+
+linkedinUrl:
+  - "LINK LINKDLN"
+  - "LINK LINKEDIN"
+  - "Link LinkedIn"
+  - "link linkdln"
+  - "link linkedin"
+  - linkedinUrl
+
+observaciones:
+  - Observaciones
+  - observaciones
+  - Notas
+  - notas
+  - "Empresas bilingües en Barranquilla"
+  - "Empresas bilingues en Barranquilla"
+  - "Empresas que puede aplicar"
+  - "empresas que puede aplicar"
+  - "Empresas objetivo"
+  - "empresas objetivo"
+  - "empresas de interes"

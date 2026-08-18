@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { WifiSlashIcon as WifiSlash } from '@phosphor-icons/react'
+import { Gauge, RefreshCw as ArrowsClockwise, WifiOff as WifiSlash } from 'lucide-react'
 /**
  * Dashboard principal — Server Component.
  *
@@ -18,11 +18,16 @@ import { StatCard } from '@/components/dashboard/stat-card'
 import { StudentsStatusChart } from '@/components/dashboard/students-status-chart'
 import { StudentsProjectChart } from '@/components/dashboard/students-project-chart'
 import { EnrollmentChart } from '@/components/dashboard/enrollment-chart'
+import { MapaDelAtlantico } from '@/components/admin/mapa-del-atlantico'
+import { EmployabilityChart } from '@/components/dashboard/employability-chart'
 import { AlertsCard } from '@/components/dashboard/alerts-card'
 import { ActivitiesCard } from '@/components/dashboard/activities-card'
 import { QuickAccess } from '@/components/dashboard/quick-access'
 import { PageSpinner } from '@/components/ui/page-spinner'
+import { PageHeader } from '@/components/admin/page-header'
+import { Button } from '@/components/ui/button'
 import { dashboardApi, ApiCallError } from '@/lib/api'
+import { usePreferences } from '@/lib/preferences'
 import type {
   DashboardSummaryResponse,
   DashboardChartsResponse,
@@ -33,104 +38,189 @@ import type { StatCard as StatCardType } from '@/lib/mock-data'
 import { primaryStats, secondaryStats } from '@/lib/mock-data'
 // ─── Mapeo de datos del backend a la forma que espera StatCard ───────────────
 
-function buildPrimaryStats(s: DashboardSummaryResponse): StatCardType[] {
+/**
+ * Textos propios de esta pantalla.
+ *
+ * Lo que se repite en varias pantallas de gestion sale de
+ * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
+ */
+function textos(english: boolean) {
+  return english
+    ? {
+        totalEstudiantes: 'Total students',
+        estudiantesActivos: 'Active students',
+        graduados: 'Graduates',
+        retirados: 'Withdrawn',
+        docsPendientes: 'Docs. pending',
+        requierenAtencion: 'Need attention',
+        sinPendientes: 'Nothing pending',
+        sinIngresosEste: 'No new entries this month',
+        enProceso: 'In progress',
+        estadoAcademico: 'Academic status',
+        proyectosActivos: 'Active projects',
+        enEjecucion: 'Running',
+        hvPorGenerar: 'Résumés to generate',
+        pendientes: 'Pending',
+        almacenados: 'Stored',
+        cargandoDashboard: 'Loading dashboard…',
+        panelAdministrativo: 'Administrative panel',
+        dashboard: 'Dashboard',
+        actualizar: 'Refresh',
+        sinAutenticacion: 'Not signed in. Sign in to see real data.',
+        backendNoDisponible: 'Backend unavailable. Showing sample data.',
+        errorDelBackend: (s: number) => `Backend error (HTTP ${s}). Showing sample data.`,
+        esteMes: 'This month',
+        nuevosEsteMes: (n: number, pct: string) => `+${n} this month (${pct})`,
+        pctDelTotal: (pct: string) => `${pct}% of the total`,
+      }
+    : {
+        totalEstudiantes: 'Total estudiantes',
+        estudiantesActivos: 'Estudiantes activos',
+        graduados: 'Graduados',
+        retirados: 'Retirados',
+        docsPendientes: 'Docs. pendientes',
+        requierenAtencion: 'Requieren atención',
+        sinPendientes: 'Sin pendientes',
+        sinIngresosEste: 'Sin ingresos este mes',
+        enProceso: 'En proceso',
+        estadoAcademico: 'Estado académico',
+        proyectosActivos: 'Proyectos activos',
+        enEjecucion: 'En ejecución',
+        hvPorGenerar: 'HV por generar',
+        pendientes: 'Pendientes',
+        almacenados: 'Almacenados',
+        cargandoDashboard: 'Cargando dashboard…',
+        panelAdministrativo: 'Panel administrativo',
+        dashboard: 'Dashboard',
+        actualizar: 'Actualizar',
+        sinAutenticacion: 'Sin autenticación. Inicia sesión para ver datos reales.',
+        backendNoDisponible: 'Backend no disponible. Mostrando datos de ejemplo.',
+        errorDelBackend: (s: number) => `Error del backend (HTTP ${s}). Mostrando datos de ejemplo.`,
+        esteMes: 'Este mes',
+        nuevosEsteMes: (n: number, pct: string) => `+${n} este mes (${pct})`,
+        pctDelTotal: (pct: string) => `${pct}% del total`,
+      }
+}
+
+type Textos = ReturnType<typeof textos>
+
+
+function buildPrimaryStats(s: DashboardSummaryResponse, T: Textos, locale: string): StatCardType[] {
   return [
     {
       id: 'total',
-      label: 'Total estudiantes',
-      value: s.totalEstudiantes.toLocaleString('es-CO'),
-      helper:
+      label: T.totalEstudiantes,
+      value: s.totalEstudiantes.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
+      // La variación sale del texto de apoyo y pasa a su propia píldora, que es
+      // la que lleva el color. El texto se queda solo con el periodo.
+      helper: s.nuevosEsteMes > 0 ? T.esteMes : T.sinIngresosEste,
+      delta:
         s.nuevosEsteMes > 0
-          ? `+${s.nuevosEsteMes} este mes (${s.variacionMesPct > 0 ? '+' : ''}${s.variacionMesPct}%)`
-          : 'Sin ingresos este mes',
+          ? {
+              texto: `+${s.nuevosEsteMes} (${s.variacionMesPct > 0 ? '+' : ''}${s.variacionMesPct}%)`,
+              signo: s.variacionMesPct < 0 ? 'baja' : s.variacionMesPct > 0 ? 'sube' : 'neutro',
+            }
+          : undefined,
       icon: 'users',
       tone: 'blue',
     },
     {
       id: 'activos',
-      label: 'Estudiantes activos',
-      value: s.activos.toLocaleString('es-CO'),
+      label: T.estudiantesActivos,
+      value: s.activos.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
       helper:
         s.totalEstudiantes > 0
-          ? `${((s.activos / s.totalEstudiantes) * 100).toFixed(1)}% del total`
+          ? T.pctDelTotal(((s.activos / s.totalEstudiantes) * 100).toFixed(1))
           : undefined,
       icon: 'active',
       tone: 'green',
     },
     {
       id: 'graduados',
-      label: 'Graduados',
-      value: s.graduados.toLocaleString('es-CO'),
+      label: T.graduados,
+      value: s.graduados.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
       icon: 'graduated',
       tone: 'purple',
     },
     {
       id: 'retirados',
-      label: 'Retirados',
-      value: s.retirados.toLocaleString('es-CO'),
+      label: T.retirados,
+      value: s.retirados.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
       helper:
         s.totalEstudiantes > 0
-          ? `${((s.retirados / s.totalEstudiantes) * 100).toFixed(1)}% del total`
+          ? T.pctDelTotal(((s.retirados / s.totalEstudiantes) * 100).toFixed(1))
           : undefined,
       icon: 'retired',
       tone: 'red',
     },
     {
       id: 'docs-pendientes',
-      label: 'Docs. pendientes',
-      value: s.documentosPendientes.toLocaleString('es-CO'),
-      helper: s.documentosPendientes > 0 ? 'Requieren atención' : 'Sin pendientes',
+      label: T.docsPendientes,
+      value: s.documentosPendientes.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
+      helper: s.documentosPendientes > 0 ? T.requierenAtencion : T.sinPendientes,
       icon: 'pending',
       tone: 'amber',
     },
   ]
 }
 
-function buildSecondaryStats(s: DashboardSummaryResponse): StatCardType[] {
+function buildSecondaryStats(s: DashboardSummaryResponse, T: Textos, locale: string): StatCardType[] {
   return [
     {
       id: 'en-proceso',
-      label: 'En proceso',
-      value: s.enProceso.toLocaleString('es-CO'),
-      helper: 'Estado académico',
+      label: T.enProceso,
+      value: s.enProceso.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
+      helper: T.estadoAcademico,
       icon: 'active',
       tone: 'teal',
     },
     {
       id: 'proyectos-activos',
-      label: 'Proyectos activos',
-      value: s.totalProyectos.toLocaleString('es-CO'),
-      helper: 'En ejecución',
+      label: T.proyectosActivos,
+      value: s.totalProyectos.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
+      helper: T.enEjecucion,
       icon: 'projects',
       tone: 'blue',
     },
     {
       id: 'hv-pendientes',
-      label: 'HV por generar',
-      value: s.hvsPorGenerar.toLocaleString('es-CO'),
-      helper: 'Pendientes',
+      label: T.hvPorGenerar,
+      value: s.hvsPorGenerar.toLocaleString(locale === 'en' ? 'en-GB' : 'es-CO'),
+      helper: T.pendientes,
       icon: 'resumes',
       tone: 'teal',
     },
-    {
-      id: 'documentos',
-      label: 'Docs. pendientes',
-      value: s.documentosPendientes.toLocaleString('es-CO'),
-      helper: 'Almacenados',
-      icon: 'documents',
-      tone: 'purple',
-    },
+    // Aquí había una segunda tarjeta de «Docs. pendientes» con el mismo campo
+    // (`documentosPendientes`) y el mismo rótulo que la de arriba: solo cambiaba
+    // el texto de apoyo, «Almacenados» en vez de «Requieren atención». Eran dos
+    // tarjetas enseñando el mismo 108 y dando a entender que se contaban dos
+    // cosas distintas. Con ocho indicadores la rejilla además cierra en dos
+    // filas de cuatro, sin el hueco que quedaba al final.
   ]
 }
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const { locale } = usePreferences()
+  const T = textos(locale === 'en')
   const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null)
   const [charts, setCharts] = useState<DashboardChartsResponse | null>(null)
   const [alerts, setAlerts] = useState<AlertaResponse[] | null>(null)
   const [backendError, setBackendError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  /**
+   * Contador de recargas.
+   *
+   * El botón de la cabecera lo incrementa y el efecto vuelve a pedir los tres
+   * endpoints. Se hace con un contador y no sacando la función del efecto
+   * porque `T` se reconstruye en cada render: un `useCallback` que dependa de
+   * él se invalidaría siempre, y sin la dependencia el mensaje de error se
+   * quedaría en el idioma que estuviera puesto al montar.
+   */
+  const [recarga, setRecarga] = useState(0)
+  /** La primera carga ocupa la pantalla; las siguientes no la vacían. */
+  const [primeraCarga, setPrimeraCarga] = useState(true)
 
   useEffect(() => {
     let active = true
@@ -156,20 +246,23 @@ export default function DashboardPage() {
         if (err instanceof ApiCallError) {
           if (err.status === 401 || err.status === 403) {
             setBackendError(
-              'Sin autenticación. Inicia sesión para ver datos reales.',
+              T.sinAutenticacion,
             )
           } else {
             setBackendError(
-              `Error del backend (HTTP ${err.status}). Mostrando datos de ejemplo.`,
+              T.errorDelBackend(err.status),
             )
           }
         } else {
           setBackendError(
-            'Backend no disponible. Mostrando datos de ejemplo.',
+            T.backendNoDisponible,
           )
         }
       } finally {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+          setPrimeraCarga(false)
+        }
       }
     }
 
@@ -177,43 +270,60 @@ export default function DashboardPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [recarga]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading) {
-    return <PageSpinner label="Cargando dashboard…" />
+  if (loading && primeraCarga) {
+    return <PageSpinner label={T.cargandoDashboard} />
   }
 
   // Si hay datos reales, los usamos; si no, mostramos el mock.
   const useLive = summary !== null && charts !== null && alerts !== null
-  const pStats  = useLive ? buildPrimaryStats(summary!) : primaryStats
-  const sStats  = useLive ? buildSecondaryStats(summary!) : secondaryStats
+  const pStats  = useLive ? buildPrimaryStats(summary!, T, locale) : primaryStats
+  const sStats  = useLive ? buildSecondaryStats(summary!, T, locale) : secondaryStats
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
+      <PageHeader
+        antetitulo={T.panelAdministrativo}
+        titulo={T.dashboard}
+        icono={Gauge}
+        acciones={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setRecarga((n) => n + 1)}
+            disabled={loading}
+          >
+            <ArrowsClockwise className={loading ? 'animate-spin' : undefined} />
+            {T.actualizar}
+          </Button>
+        }
+      />
+
       {/* Aviso de backend no disponible */}
       {backendError && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+        <div className="flex items-center gap-2 rounded-(--radius) border border-amber-300/70 bg-amber-50 px-3 py-2 text-[13px] text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
           <WifiSlash className="size-4 shrink-0" />
           <span>{backendError}</span>
         </div>
       )}
 
-      {/* Estadísticas principales */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {/* Los ocho indicadores van en una sola rejilla y no en dos: partirlos
+          en principales y secundarios obligaba a saltar un hueco entre filas
+          que no significaba nada, porque todos se leen igual. Cuatro columnas
+          y no cinco: con ocho tarjetas, cinco columnas dejan la última fila con
+          un hueco al final que parece una tarjeta que no cargó. */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {pStats.map((stat) => (
           <StatCard key={stat.id} stat={stat} />
         ))}
-      </div>
-
-      {/* Estadísticas secundarias */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {sStats.map((stat) => (
           <StatCard key={stat.id} stat={stat} />
         ))}
       </div>
 
       {/* Gráficos */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
         <StudentsStatusChart
           data={useLive ? charts!.distribucionEstado : null}
         />
@@ -224,15 +334,30 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
         <StudentsProjectChart
           data={useLive ? charts!.estudiantesPorProyecto : null}
         />
+        {/* `charts.empleabilidad` lo calculaba el backend desde hacía tiempo y
+            no lo pintaba nadie. Va junto a «por proyecto» porque las dos
+            responden a «cómo va la cohorte», mientras que la de estado dice
+            quién sigue dentro. */}
+        <EmployabilityChart data={useLive ? charts!.empleabilidad : null} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-2">
         <AlertsCard alerts={useLive ? alerts! : null} />
       </div>
 
+      {/* El mapa va después de las barras por proyecto y no antes: aquellas
+          dicen cuánta gente hay, y este, dónde está. La pregunta de dónde solo
+          aparece cuando ya se sabe cuántos. Trae su propio selector de proyecto
+          porque se mira al revés que el resto del panel —se entra por el sitio,
+          no por el programa—. */}
+      <MapaDelAtlantico />
+
       {/* Actividades y accesos rápidos */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
         <ActivitiesCard />
         <QuickAccess />
       </div>

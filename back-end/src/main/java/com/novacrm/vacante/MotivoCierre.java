@@ -17,7 +17,20 @@ public enum MotivoCierre {
     CUBIERTA("Ya cubierta"),
 
     /** La retiro el portal de origen o el coordinador. */
-    RETIRADA("Retirada");
+    RETIRADA("Retirada"),
+
+    /**
+     * No pide ingles, y este es un programa bilingue.
+     *
+     * <p>Motivo propio y no {@code RETIRADA} porque no se retiro: sigue abierta
+     * en su portal y es una oferta perfectamente buena para otra persona. Lo
+     * que dice es que no le sirve a esta poblacion.
+     *
+     * <p>Separarla importa para medir: contarlas como retiradas inflaria las
+     * ofertas que «se perdieron» y haria pensar que el programa llega tarde,
+     * cuando lo que paso es que nunca fueron suyas.
+     */
+    FUERA_DE_PERFIL("No exige ingles");
 
     private final String etiqueta;
 

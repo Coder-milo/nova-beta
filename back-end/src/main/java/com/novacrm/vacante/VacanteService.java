@@ -37,9 +37,9 @@ public class VacanteService {
     }
 
     /** Ofertas que se pueden mostrar hoy: abiertas y sin vencer. */
-    public Page<VacanteResponse> listarActivas(Pageable pageable) {
+    public Page<VacanteResponse> listarActivas(Pageable pageable, boolean paraGestion) {
         return vacanteRepository.findVigentes(LocalDateTime.now(), pageable)
-                .map(this::toResponse);
+                .map(v -> toResponse(v, paraGestion));
     }
 
     public VacanteResponse obtener(UUID id) {
@@ -184,7 +184,42 @@ public class VacanteService {
     public VacanteResponse marcarRevisada(UUID id) {
         var vacante = buscar(id);
         vacante.setRevisada(true);
+        // Aprobar borra el rechazo anterior: si no, una oferta corregida y ya
+        // publicada seguiria enseñando el motivo por el que se rechazo la
+        // primera vez.
+        vacante.olvidarRechazo();
+        if (vacante.getFechaPublicacion() == null) {
+            vacante.setFechaPublicacion(java.time.LocalDateTime.now());
+        }
         return toResponse(vacanteRepository.save(vacante));
+    }
+
+    /**
+     * Rechaza una oferta dejando dicho por que.
+     *
+     * <p>No la cierra ni la borra: quien la publico la sigue viendo, con el
+     * motivo, y puede corregirla y reenviarla. Cerrarla le obligaria a
+     * escribirla otra vez desde cero, que es la forma segura de que no la
+     * corrija nadie.
+     *
+     * <p>El motivo es obligatorio. Un rechazo sin explicacion deja a quien
+     * publico exactamente igual que antes de publicar: no sabe que cambiar, asi
+     * que vuelve a mandar lo mismo.
+     */
+    @Transactional
+    public VacanteResponse rechazar(UUID id, String motivo, String autor) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new com.novacrm.exception.BusinessException(
+                    "Hace falta decir por que se rechaza; quien la publico tiene que poder corregirla");
+        }
+        var vacante = buscar(id);
+        vacante.rechazar(motivo.trim(), autor, java.time.LocalDateTime.now());
+        return toResponse(vacanteRepository.save(vacante));
+    }
+
+    /** La cola de revision: lo que espera a que alguien la mire. */
+    public java.util.List<VacanteResponse> colaDeRevision() {
+        return vacanteRepository.enColaDeRevision().stream().map(this::toResponse).toList();
     }
 
     @Transactional
@@ -267,6 +302,21 @@ public class VacanteService {
     }
 
     private VacanteResponse toResponse(Vacante v) {
+        return toResponse(v, true);
+    }
+
+    /**
+     * @param paraGestion si quien pregunta puede ver los campos internos
+     *
+     * <p>Dos de ellos no son del anuncio sino de como lo gestiona el equipo:
+     * {@code creadaPor} —el correo de quien la registro— y {@code motivoCierre}.
+     * El detalle por identificador ya estaba restringido a gestion justo por
+     * eso, pero el listado devolvia los mismos campos y si lo alcanza el
+     * estudiante. En una oferta sugerida, {@code creadaPor} es el correo de
+     * <em>otro participante</em>: filtrar por vigencia no basta, hay que
+     * filtrar tambien por campo.
+     */
+    private VacanteResponse toResponse(Vacante v, boolean paraGestion) {
         return new VacanteResponse(
                 v.getId(), v.getTitulo(), v.getDescripcion(), v.getRequisitos(),
                 v.getUbicacion(), v.getRangoSalarial(), v.getTipoContrato(), v.getModalidadTrabajo(),
@@ -276,7 +326,14 @@ public class VacanteService {
                 v.getFechaPublicacion(), v.getCreatedAt(),
                 v.isActivo(),
                 v.getFechaExpiracion(),
-                v.getMotivoCierre() == null ? null : v.getMotivoCierre().name(),
-                v.getCiudad(), v.getJornada(), v.isRevisada(), v.getCreadaPor());
+                paraGestion && v.getMotivoCierre() != null ? v.getMotivoCierre().name() : null,
+                v.getCiudad(), v.getJornada(), v.isRevisada(),
+                paraGestion ? v.getCreadaPor() : null,
+                // Datos de contacto de una persona: solo hacia gestion, por lo
+                // mismo que `creadaPor`.
+                paraGestion ? v.getEmpresaDeclarada() : null,
+                paraGestion ? v.getContactoDeclarado() : null,
+                paraGestion ? v.getEmailDeclarado() : null,
+                paraGestion ? v.getTelefonoDeclarado() : null);
     }
 }

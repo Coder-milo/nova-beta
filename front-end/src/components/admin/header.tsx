@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowBendDownLeftIcon as ArrowBendDownLeft, ArrowsClockwiseIcon as ArrowsClockwise, BellIcon as Bell, ChatCircleIcon as ChatCircle, CheckCircleIcon as CheckCircle, ClockIcon as Clock, EnvelopeSimpleIcon as EnvelopeSimple, FileTextIcon as FileText, FolderSimpleIcon as FolderSimple, GraduationCapIcon as GraduationCap, GlobeIcon as Globe, ListIcon as List, MagnifyingGlassIcon as MagnifyingGlass, PaperclipIcon as Paperclip, PaperPlaneTiltIcon as PaperPlaneTilt, UserCircleIcon as UserCircle, WarningCircleIcon as WarningCircle, XIcon as X } from '@phosphor-icons/react'
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Bell, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, CircleUser as UserCircle, Clock, CornerDownLeft as ArrowBendDownLeft, FileText, Folder as FolderSimple, Globe, GraduationCap, List, Mail as EnvelopeSimple, MessageCircle as ChatCircle, Paperclip, Plus, RefreshCw as ArrowsClockwise, Search as MagnifyingGlass, Send as PaperPlaneTilt, X } from 'lucide-react'
 import { usePathname, useRouter } from '@/compat/next-navigation'
+import Link from '@/compat/next-link'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -21,13 +22,20 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { busquedaApi, chatsApi, estudiantesApi, mensajesApi, notificacionesApi } from '@/lib/api'
-import type { BusquedaResponse, ChatContactoResponse, ChatDirectoMensajeResponse, EstudianteResponse, MensajeResponse, NotificacionResponse, ResultadoBusqueda } from '@/lib/types'
+import { busquedaApi, chatsApi, dashboardApi, estudiantesApi, mensajesApi, notificacionesApi } from '@/lib/api'
+import type { AlertaResponse, BusquedaResponse, ChatContactoResponse, ChatConversacionResponse, ChatDirectoMensajeResponse, EstudianteResponse, MensajeResponse, NotificacionResponse, ResultadoBusqueda } from '@/lib/types'
 import { getNavItemsForRoles, soloEsEstudiante } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { useBranding } from '@/lib/branding'
 import { usePreferences } from '@/lib/preferences'
+import { intervaloVisible } from '@/lib/sondeo'
+// Renombrado: en este archivo ya hay un `type Conversacion` para los
+// grupos de la bandeja, y dos cosas distintas con el mismo nombre en el
+// mismo fichero se prestan a confusion aunque el compilador las tolere.
+import { Conversacion as HiloConversacion } from '@/components/ui/conversacion'
+import { MessengerChatHub } from '@/components/student/messenger-chat-hub'
+import { FloatingChatPopup } from '@/components/student/floating-chat-popup'
 import { Textarea } from '@/components/ui/textarea'
 
 type HeaderProps = {
@@ -43,6 +51,16 @@ const BUSQUEDA_VACIA: BusquedaResponse = {
 function formatNotificationTime(value: string, locale: 'es' | 'en') {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return locale === 'es' ? 'Ahora' : 'Now'
+  const diffMs = Date.now() - date.getTime()
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffMins < 1) return locale === 'es' ? 'Hace un momento' : 'Just now'
+  if (diffMins < 60) return locale === 'es' ? `Hace ${diffMins}m` : `${diffMins}m ago`
+  if (diffHours < 24) return locale === 'es' ? `Hace ${diffHours}h` : `${diffHours}h ago`
+  if (diffDays < 7) return locale === 'es' ? `Hace ${diffDays}d` : `${diffDays}d ago`
+
   return new Intl.DateTimeFormat(locale === 'es' ? 'es-CO' : 'en-US', {
     day: 'numeric',
     month: 'short',
@@ -63,19 +81,6 @@ function formatFileSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
-
-function isImageAttachment(contentType: string) {
-  return contentType.startsWith('image/')
-}
-
-type Conversacion = {
-  id: string
-  asunto: string
-  mensajes: MensajeResponse[]
-  ultimo: MensajeResponse
-  pendiente: boolean
-}
-
 type HeaderNotification = {
   id: string
   titulo: string
@@ -84,59 +89,52 @@ type HeaderNotification = {
   leida: boolean
   mediaUrl?: string | null
   mediaTipo?: string | null
+  /** A donde se va para resolverlo. Solo lo traen los avisos del equipo. */
+  ruta?: string | null
 }
 
 /** Los envíos antiguos usaban "Seguimiento:" en cada respuesta. Al quitar
  * todos esos prefijos, una conversación conserva el mismo hilo incluso si se
  * creó antes de que existiera la bandeja tipo chat. */
-function asuntoConversacion(asunto: string): string {
+function asuntoConversacion(asunto: string, respaldo: string): string {
   let limpio = asunto.trim()
   const prefijo = /^(seguimiento|follow-up)\s*:\s*/i
   while (prefijo.test(limpio)) limpio = limpio.replace(prefijo, '').trim()
-  return limpio || 'Consulta al equipo de acompañamiento'
+  return limpio || respaldo
 }
-
-function agruparConversaciones(mensajes: MensajeResponse[], esChatAcademy = false): Conversacion[] {
-  const grupos = new Map<string, { asunto: string; mensajes: MensajeResponse[] }>()
-  for (const mensaje of mensajes) {
-    const asunto = esChatAcademy ? 'CAC Academy' : (mensaje.estudianteNombre || asuntoConversacion(mensaje.asunto))
-    const id = esChatAcademy ? `${mensaje.estudianteId}:cac-academy` : mensaje.estudianteId
-    const grupo = grupos.get(id) ?? { asunto, mensajes: [] }
-    grupo.mensajes.push(mensaje)
-    grupos.set(id, grupo)
+/**
+ * Botón redondo de la barra superior.
+ *
+ * <p>Reenvía todo lo que le llegue, incluida la ref. Es la parte que faltaba:
+ * varios de estos botones se usan como disparador de un menú
+ * (`<DropdownMenuTrigger render={<IconButton …/>} />`), y el menú les pasa su
+ * `onClick`, su `ref` y sus `aria-*` como props. Al quedarse solo con
+ * `label`, `children`, `badge` y `onClick`, todo lo demás se perdía: sin la ref
+ * el menú no sabe cuál es su ancla, así que ni pulsar fuera ni volver a pulsar
+ * el icono lo cerraban. Pasaba en mensajes, notificaciones e idioma a la vez,
+ * porque el fallo estaba aquí y no en cada menú.
+ */
+const IconButton = forwardRef<
+  HTMLButtonElement,
+  React.ComponentPropsWithoutRef<'button'> & {
+    label: string
+    badge?: number
   }
-  return Array.from(grupos.entries()).map(([id, grupo]) => {
-    const mensajesOrdenados = [...grupo.mensajes].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    )
-    return {
-      id,
-      asunto: grupo.asunto,
-      mensajes: mensajesOrdenados,
-      ultimo: mensajesOrdenados[mensajesOrdenados.length - 1],
-      pendiente: mensajesOrdenados.some((mensaje) => mensaje.estado === 'ABIERTO'),
-    }
-  }).sort((a, b) => new Date(b.ultimo.createdAt).getTime() - new Date(a.ultimo.createdAt).getTime())
-}
-
-function IconButton({
-  label,
-  children,
-  badge,
-  onClick,
-}: {
-  label: string
-  children: React.ReactNode
-  badge?: number
-  onClick?: () => void
-}) {
+>(function IconButton(
+  { label, children, badge, className, ...props },
+  ref,
+) {
   return (
     <button
+      ref={ref}
       type="button"
-      onClick={onClick}
       aria-label={label}
       title={label}
-      className="relative flex size-9 items-center justify-center rounded-xl border border-border/50 bg-card/95 text-foreground shadow-sm backdrop-blur-xl transition-all duration-200 hover:border-primary/30 hover:bg-card hover:text-primary hover:scale-105 active:scale-95"
+      {...props}
+      className={cn(
+        'relative flex size-9 items-center justify-center rounded-xl border border-border/50 bg-card/95 text-foreground shadow-sm backdrop-blur-xl transition-all duration-200 hover:border-primary/30 hover:bg-card hover:text-primary hover:scale-105 active:scale-95',
+        className,
+      )}
     >
       {children}
       {!!badge && (
@@ -146,21 +144,90 @@ function IconButton({
       )}
     </button>
   )
-}
+})
 
 export function Header({ onOpenMobile }: HeaderProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, cargando: cargandoSesion } = useAuth()
   const { branding } = useBranding()
   const { locale, setLocale, t } = usePreferences()
+  /** Avisos sueltos del encabezado. */
+  const avisos = locale === 'es'
+    ? {
+        consultaAlEquipo: 'Consulta al equipo de acompañamiento',
+        noSePudoAbrir: 'No se pudo abrir la conversación.',
+        noSePudieronCargar: 'No se pudieron cargar los mensajes.',
+        noSePudoEnviarRespuesta: 'No se pudo enviar la respuesta.',
+        noSePudoEnviarMensaje: 'No se pudo enviar el mensaje.',
+        subtituloPorDefecto: 'NOVA · Gestión académica',
+        materialDelAnuncio: 'Material del anuncio',
+        abrirInformacion: 'Abrir información del anuncio',
+        marcarTodasLeidas: 'Marcar todas como leídas',
+        enviado: 'Enviado',
+        visto: 'Visto',
+        tuPrefijo: 'Tú:',
+      }
+    : {
+        consultaAlEquipo: 'Question for the support team',
+        noSePudoAbrir: 'The conversation could not be opened.',
+        noSePudieronCargar: 'The messages could not be loaded.',
+        noSePudoEnviarRespuesta: 'The reply could not be sent.',
+        noSePudoEnviarMensaje: 'The message could not be sent.',
+        subtituloPorDefecto: 'NOVA · Academic management',
+        materialDelAnuncio: 'Announcement material',
+        abrirInformacion: 'Open announcement details',
+        marcarTodasLeidas: 'Mark all as read',
+        enviado: 'Sent',
+        visto: 'Seen',
+        tuPrefijo: 'You:',
+      }
+
   const esEstudiante = soloEsEstudiante(user?.roles)
 
+  /**
+   * De dónde se saca la cara de alguien.
+   *
+   * `fotoUrl` no es una dirección: es la clave con la que el archivo está
+   * guardado. Pintarla tal cual en un `<img src>` da una imagen rota siempre, y
+   * eso era lo que pasaba aquí — sólo se veía bien la inicial de quien no tiene
+   * foto, que es el caso en que no se intenta cargar nada.
+   *
+   * La ruta depende de quién mira: el equipo puede pedir la foto de cualquier
+   * ficha, y un estudiante sólo las de su chat, con la regla del chat. Cada uno
+   * por su puerta, en vez de abrir la del equipo para todos.
+   */
+  const fotoDe = (id: string, clave: string | null | undefined) => {
+    if (!clave) return undefined
+    if (clave.startsWith('http')) return clave
+    return esEstudiante
+      ? `/api/v1/chats/directos/${id}/foto`
+      : `/api/v1/estudiantes/${id}/foto`
+  }
+  /**
+   * Solo entonces `esEstudiante` significa algo. Antes de que la sesión se
+   * lea, un estudiante todavía no tiene roles y pasa por gestor: llamar aquí
+   * a un endpoint de administración le devuelve un 403 legítimo.
+   */
+  const sesionLista = !cargandoSesion && user !== null
+
+  /** Avisos del equipo. Vacio para el estudiante, que tiene los suyos. */
+  const [alertas, setAlertas] = useState<AlertaResponse[]>([])
   const [studentNotifications, setStudentNotifications] = useState<NotificacionResponse[]>([])
   const [studentUnreadNotifications, setStudentUnreadNotifications] = useState(0)
+  // Se guarda al cargar las notificaciones: marcarlas todas necesita el id, y
+  // pedir el perfil otra vez sólo para eso sería una llamada de más.
   const [messages, setMessages] = useState<MensajeResponse[]>([])
+  const [pendientesServidor, setPendientesServidor] = useState<number | null>(null)
   const [messageSheetOpen, setMessageSheetOpen] = useState(false)
+  const [floatingChat, setFloatingChat] = useState<{
+    id: string
+    nombre: string
+    foto?: string | null
+    esGrupo?: boolean
+  } | null>(null)
   const [selectedMessage, setSelectedMessage] = useState<MensajeResponse | null>(null)
+  const [filtroNotificacion, setFiltroNotificacion] = useState<'todas' | 'no_leidas'>('todas')
   const [reply, setReply] = useState('')
   const [replyAttachments, setReplyAttachments] = useState<File[]>([])
   const [sendingReply, setSendingReply] = useState(false)
@@ -175,6 +242,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const [sendingStudentMessage, setSendingStudentMessage] = useState(false)
   const [directContact, setDirectContact] = useState<ChatContactoResponse | null>(null)
   const [directMessages, setDirectMessages] = useState<ChatDirectoMensajeResponse[]>([])
+  const [conversaciones, setConversaciones] = useState<ChatConversacionResponse[]>([])
   const [directLoading, setDirectLoading] = useState(false)
   const [contactQuery, setContactQuery] = useState('')
   const [contactResults, setContactResults] = useState<ChatContactoResponse[]>([])
@@ -183,27 +251,68 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const replyFileInputRef = useRef<HTMLInputElement>(null)
 
   const [searchOpen, setSearchOpen] = useState(false)
+  /** En móvil no cabe la caja: el icono la despliega en una fila propia. */
+  const [busquedaMovilAbierta, setBusquedaMovilAbierta] = useState(false)
+  const cajaBusqueda = useRef<HTMLDivElement>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<BusquedaResponse>(BUSQUEDA_VACIA)
 
-  const conversaciones = useMemo(() => agruparConversaciones(messages, esEstudiante), [messages, esEstudiante])
-  const conversacionSeleccionada = useMemo(
-    () => selectedMessage
-      ? conversaciones.find((conversacion) => conversacion.mensajes.some((mensaje) => mensaje.id === selectedMessage.id)) ?? null
-      : null,
-    [conversaciones, selectedMessage],
+  /**
+   * Un hilo por mensaje, del mas reciente al mas antiguo.
+   *
+   * La bandeja agrupaba por estudiante y mostraba una entrada por persona; con
+   * el modelo de turnos, la conversacion es el asunto y sus intervenciones, asi
+   * que la lista los enumera directamente.
+   */
+  /**
+   * Cuándo se movió el hilo por última vez.
+   *
+   * `createdAt` es cuando se abrió, no cuando ocurrió lo último. Una bandeja
+   * ordenada por eso deja abajo la conversación que se acaba de responder y
+   * arriba una de hace un mes, y la fecha que enseña cada fila no corresponde
+   * a lo que se lee justo al lado.
+   */
+  const ultimaActividad = (m: MensajeResponse) => {
+    const abierto = new Date(m.createdAt).getTime()
+    const respondido = m.respondidoAt ? new Date(m.respondidoAt).getTime() : 0
+    return Math.max(abierto, respondido)
+  }
+
+  const hilos = useMemo(
+    () => [...messages].sort((a, b) => ultimaActividad(b) - ultimaActividad(a)),
+    [messages],
   )
 
+
+
+  // Los avisos del equipo se refrescan con la misma cadencia que el resto de
+  // la cabecera. Un estudiante no los pide: el endpoint es de gestion y le
+  // devolveria un 403.
   useEffect(() => {
+    if (!sesionLista || esEstudiante) return
+    let activo = true
+    const cargarAlertas = () => {
+      void dashboardApi.alerts()
+        .then((data) => { if (activo) setAlertas(data) })
+        .catch(() => { if (activo) setAlertas([]) })
+    }
+    cargarAlertas()
+    const detener = intervaloVisible(cargarAlertas, 60_000)
+    return () => { activo = false; detener() }
+  }, [sesionLista, esEstudiante])
+
+  useEffect(() => {
+    if (!sesionLista) return
     let active = true
     const cargarNotificaciones = async () => {
       try {
         if (esEstudiante) {
-          const profile = await estudiantesApi.obtenerMiPerfil()
+          // Sin el id: el servidor sabe quién pregunta. Antes este bloque
+          // pedía la ficha entera del estudiante sólo para sacarlo.
           const [response, unread] = await Promise.all([
-            notificacionesApi.listarPorEstudiante(profile.id, 0, 8),
-            notificacionesApi.contarNoLeidas(profile.id),
+            notificacionesApi.mias(0, 8),
+            notificacionesApi.misNoLeidas(),
           ])
           if (active) {
             setStudentNotifications(response.content)
@@ -222,9 +331,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
       }
     }
     void cargarNotificaciones()
-    const refreshId = window.setInterval(() => { void cargarNotificaciones() }, 45_000)
-    return () => { active = false; window.clearInterval(refreshId) }
-  }, [esEstudiante])
+    const detener = intervaloVisible(() => { void cargarNotificaciones() }, 45_000)
+    return () => { active = false; detener() }
+  }, [sesionLista, esEstudiante])
 
   useEffect(() => {
     if (!esEstudiante) return
@@ -276,11 +385,24 @@ export function Header({ onOpenMobile }: HeaderProps) {
     setDirectLoading(true)
     setMessageError('')
     void chatsApi.conversacion(directContact.id)
-      .then((data) => { if (active) setDirectMessages(data) })
+      .then((data) => {
+        if (!active) return
+        setDirectMessages(data)
+        // El nombre real sale de la propia conversación. Al abrirla desde un
+        // aviso sólo se conoce el id, y ponerlo a mano recortando el título del
+        // aviso ataría la pantalla a cómo está redactado ese texto.
+        const suyo = data.find((mensaje) => !mensaje.enviadoPorMi)
+        if (suyo && suyo.remitenteNombre) {
+          setDirectContact((actual) =>
+            actual && actual.nombre !== suyo.remitenteNombre
+              ? { ...actual, nombre: suyo.remitenteNombre }
+              : actual)
+        }
+      })
       .catch((error) => {
         if (active) {
           setDirectMessages([])
-          setMessageError(error instanceof Error ? error.message : 'No se pudo abrir la conversación.')
+          setMessageError(error instanceof Error ? error.message : avisos.noSePudoAbrir)
         }
       })
       .finally(() => { if (active) setDirectLoading(false) })
@@ -288,6 +410,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   }, [directContact, esEstudiante])
 
   const cargarMensajes = useCallback(async () => {
+    if (!sesionLista) return
     setMessagesLoading(true)
     setMessageError('')
     try {
@@ -302,27 +425,65 @@ export function Header({ onOpenMobile }: HeaderProps) {
     } catch (error) {
       setMessages([])
       setSelectedMessage(null)
-      setMessageError(error instanceof Error ? error.message : 'No se pudieron cargar los mensajes.')
+      setMessageError(error instanceof Error ? error.message : avisos.noSePudieronCargar)
     } finally { setMessagesLoading(false) }
+  }, [sesionLista, esEstudiante])
+
+  /**
+   * Con quién ha hablado el estudiante.
+   *
+   * Sin esta lista sólo se llegaba a un chat buscando el nombre de la persona
+   * o pinchando un aviso: no había forma de ver las conversaciones abiertas,
+   * ni de volver a una de la que se recuerda a medias con quién fue. Se
+   * recarga al abrir la bandeja y al enviar, que es cuando cambia.
+   */
+  const cargarConversaciones = useCallback(() => {
+    if (!esEstudiante) return
+    void chatsApi.conversaciones()
+      .then(setConversaciones)
+      .catch(() => setConversaciones([]))
   }, [esEstudiante])
+
+  useEffect(() => { cargarConversaciones() }, [cargarConversaciones])
+  useEffect(() => { if (messageSheetOpen) cargarConversaciones() }, [messageSheetOpen, cargarConversaciones])
 
   useEffect(() => { void cargarMensajes() }, [cargarMensajes])
   useEffect(() => { if (messageSheetOpen) void cargarMensajes() }, [messageSheetOpen, cargarMensajes])
+  /**
+   * El contador de la campana, por su cuenta.
+   *
+   * Antes este intervalo recargaba la bandeja entera cada 45 segundos sólo
+   * para que el número estuviera al día: cada coordinador con la aplicación
+   * abierta pedía todos los hilos que existen, con sus adjuntos, un millar de
+   * veces al día. La lista completa se carga al abrir la bandeja, que es
+   * cuando alguien va a leerla.
+   */
   useEffect(() => {
-    if (esEstudiante) return
-    const refreshId = window.setInterval(() => {
-      void mensajesApi.listar().then(setMessages).catch(() => undefined)
-    }, 45_000)
-    return () => window.clearInterval(refreshId)
-  }, [esEstudiante])
+    if (!sesionLista) return
+    let activo = true
+    const contar = () => {
+      void mensajesApi.pendientes()
+        .then((n) => { if (activo) setPendientesServidor(n) })
+        .catch(() => undefined)
+    }
+    contar()
+    const detener = intervaloVisible(contar, 45_000)
+    return () => { activo = false; detener() }
+  }, [sesionLista])
   useEffect(() => {
     const abrirBandeja = () => setMessageSheetOpen(true)
     window.addEventListener('nova:open-messages', abrirBandeja)
     return () => window.removeEventListener('nova:open-messages', abrirBandeja)
   }, [])
 
+  /**
+   * Busca mientras se escribe, con un retardo de 250 ms.
+   *
+   * Ya no espera a que se abra ningún panel: el panel es consecuencia de que
+   * haya algo escrito, no al revés.
+   */
   useEffect(() => {
-    if (!searchOpen || esEstudiante || searchQuery.trim().length < 2) {
+    if (esEstudiante || searchQuery.trim().length < 2) {
       setSearching(false)
       if (searchQuery.trim().length < 2) setSearchResults(BUSQUEDA_VACIA)
       return
@@ -336,7 +497,26 @@ export function Header({ onOpenMobile }: HeaderProps) {
         .finally(() => { if (active) setSearching(false) })
     }, 250)
     return () => { active = false; window.clearTimeout(timer) }
-  }, [esEstudiante, searchOpen, searchQuery])
+  }, [esEstudiante, searchQuery])
+
+  /**
+   * Cierra los resultados al pulsar fuera.
+   *
+   * Sin esto el desplegable se queda encima del contenido y hay que volver al
+   * campo para quitarlo, que es justo la molestia por la que se quitó la hoja
+   * lateral.
+   */
+  useEffect(() => {
+    if (!searchOpen) return
+    const fuera = (evento: MouseEvent) => {
+      if (!cajaBusqueda.current?.contains(evento.target as Node)) setSearchOpen(false)
+    }
+    document.addEventListener('mousedown', fuera)
+    return () => document.removeEventListener('mousedown', fuera)
+  }, [searchOpen])
+
+  const panelBusquedaVisible = searchOpen && (searchQuery.trim().length > 0 || searching)
+
 
   const availableNavItems = getNavItemsForRoles(user?.roles, locale)
   const current = availableNavItems.find((item) => {
@@ -345,22 +525,34 @@ export function Header({ onOpenMobile }: HeaderProps) {
   }) ?? availableNavItems[0]
   // El banner del proyecto vive exclusivamente en la bienvenida del portal
   // estudiantil. La cabecera no usa imágenes de marca.
+  // La identidad de la organización vive en el panel lateral; aquí va el
+  // nombre de la pantalla, que es lo que hace Zoho en esta posición.
   const tituloHeader = (esEstudiante ? branding?.tituloHeader : null) || current?.title || 'NOVA CRM'
-  const subtituloHeader = (esEstudiante ? branding?.subtituloHeader : null) || 'NOVA · Gestión académica'
+  const subtituloHeader = (esEstudiante ? branding?.subtituloHeader : null) || avisos.subtituloPorDefecto
 
-  const adminNotificationItems = useMemo<HeaderNotification[]>(() => messages
-    .filter((message) => message.estado === 'ABIERTO')
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 8)
-    .map((message) => ({
-      id: message.id,
-      titulo: locale === 'es'
-        ? `Mensaje de ${message.estudianteNombre || 'un estudiante'}`
-        : `Message from ${message.estudianteNombre || 'a student'}`,
-      detalle: message.contenido || (locale === 'es' ? 'Envió un archivo adjunto.' : 'Sent an attachment.'),
-      tiempo: formatNotificationTime(message.createdAt, locale),
-      leida: false,
-    })), [messages, locale])
+  /**
+   * Lo que el equipo tiene pendiente de verdad.
+   *
+   * Antes esta lista se fabricaba a partir de los mensajes abiertos, con
+   * `leida: false` fijo: el contador nunca bajaba —no habia nada que marcar— y
+   * repetia el dato del icono de mensajes, que ya esta al lado.
+   *
+   * Ahora sale de `/dashboard/alerts`, que existia desde antes y nadie
+   * consumia desde aqui: estudiantes sin datos de contacto, programas por
+   * finalizar, seguimientos vencidos y ofertas sin validar. Cada aviso trae la
+   * ruta donde se resuelve, y desaparece solo cuando el trabajo esta hecho,
+   * que es lo que un pendiente deberia hacer.
+   */
+  const adminNotificationItems = useMemo<HeaderNotification[]>(() => alertas.map((alerta, indice) => ({
+    id: `${alerta.tipo}-${alerta.referenciaId ?? indice}`,
+    titulo: alerta.titulo,
+    detalle: alerta.detalle,
+    tiempo: alerta.severidad === 'ALTA' ? (locale === 'es' ? 'Prioritario' : 'High priority') : '',
+    // No se marcan como leidos: se resuelven. Mientras el aviso siga ahi, el
+    // trabajo sigue sin hacer.
+    leida: false,
+    ruta: alerta.ruta,
+  })), [alertas, locale])
   const notificationItems: HeaderNotification[] = esEstudiante
     ? studentNotifications.map((notification) => ({
         id: notification.id,
@@ -375,9 +567,31 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const unreadNotifications = esEstudiante
     ? studentUnreadNotifications
     : notificationItems.filter((notification) => !notification.leida).length
-  const pendingMessages = conversaciones.filter((conversacion) =>
-    esEstudiante ? conversacion.mensajes.some((mensaje) => mensaje.estado === 'RESPONDIDO') : conversacion.pendiente,
+  // Por hilo y no por estudiante: dos asuntos abiertos de la misma persona son
+  // dos cosas que atender, y agrupados contaban como una.
+  // El servidor lo cuenta. Antes salía de `hilos`, que es lo cargado: si algún
+  // día se acota esa lista, el número dejaría de ser el total sin avisar.
+  const pendingMessages = pendientesServidor ?? hilos.filter((hilo) =>
+    esEstudiante ? hilo.estado === 'RESPONDIDO' : hilo.estado === 'ABIERTO',
   ).length
+
+  /**
+   * Deja el contador a cero de una vez.
+   *
+   * Sólo para el estudiante: lo que ve el equipo en la campana son alertas
+   * calculadas del panel, no filas de `notificacion`, y no hay nada que marcar.
+   */
+  const marcarTodasLeidas = async () => {
+    if (!esEstudiante || studentUnreadNotifications === 0) return
+    try {
+      await notificacionesApi.marcarMisLeidas()
+      setStudentNotifications((items) => items.map((item) => ({ ...item, leida: true })))
+      setStudentUnreadNotifications(0)
+      window.dispatchEvent(new CustomEvent('nova:notifications-updated', { detail: 0 }))
+    } catch {
+      // Si falla la red el contador se queda como estaba y se puede reintentar.
+    }
+  }
 
   const openNotification = async (id: string) => {
     if (esEstudiante) {
@@ -397,11 +611,22 @@ export function Header({ onOpenMobile }: HeaderProps) {
           // La bandeja permite volver a intentar la acción si falla la red.
         }
       }
+      // Un aviso de chat abre esa conversación, no la lista de avisos. La
+      // referencia es quien escribió, que es lo único que hace falta para
+      // llegar; el nombre sale del propio título. Sin esto el aviso decía
+      // «Mensaje de María» y llevaba a una lista donde había que volver a
+      // buscar a María.
+      if (notification?.tipo === 'CHAT' && notification.referenciaId) {
+        // El nombre se corrige solo al cargar la conversación, que lo trae en
+        // cada mensaje; el título del aviso sólo sirve de rótulo mientras tanto.
+        abrirChatDirecto({ id: notification.referenciaId, nombre: notification.titulo, fotoUrl: null })
+        return
+      }
       router.push('/mis-notificaciones')
       return
     }
-    const message = messages.find((item) => item.id === id)
-    if (message) abrirMensaje(message)
+    const alerta = adminNotificationItems.find((item) => item.id === id)
+    if (alerta?.ruta) router.push(alerta.ruta)
   }
 
   const abrirMensaje = (message: MensajeResponse) => {
@@ -429,9 +654,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
   }
 
   const abrirChatConEstudiante = (estudiante: EstudianteResponse) => {
-    const existente = conversaciones.find((conversacion) => conversacion.ultimo.estudianteId === estudiante.id)
+    const existente = hilos.find((hilo) => hilo.estudianteId === estudiante.id)
     if (existente) {
-      abrirMensaje(existente.ultimo)
+      abrirMensaje(existente)
       return
     }
     setDirectContact(null)
@@ -445,6 +670,27 @@ export function Header({ onOpenMobile }: HeaderProps) {
     setMessageError('')
     setMessageSheetOpen(true)
   }
+
+  /** Textos del hilo. El componente no traduce por su cuenta. */
+  const textosConversacion = locale === 'es'
+    ? {
+        escribir: 'Escribe un mensaje…', enviar: 'Enviar', adjuntar: 'Adjuntar un archivo',
+        responder: 'Responder a este mensaje', reaccionar: 'Reaccionar', cancelar: 'Quitar',
+        vacio: 'Todavía no hay mensajes en esta conversación.', cargando: 'Cargando conversación…',
+        respondiendoA: 'Respondiendo a', maxArchivos: 'Hasta 5 archivos',
+        errorCargar: 'No se pudo cargar la conversación.',
+        errorEnviar: 'No se pudo enviar el mensaje.',
+        errorReaccionar: 'No se pudo reaccionar.',
+      }
+    : {
+        escribir: 'Write a message…', enviar: 'Send', adjuntar: 'Attach a file',
+        responder: 'Reply to this message', reaccionar: 'React', cancelar: 'Remove',
+        vacio: 'No messages in this conversation yet.', cargando: 'Loading conversation…',
+        respondiendoA: 'Replying to', maxArchivos: 'Up to 5 files',
+        errorCargar: 'The conversation could not be loaded.',
+        errorEnviar: 'The message could not be sent.',
+        errorReaccionar: 'The reaction could not be saved.',
+      }
 
   const messageCopy = locale === 'es'
     ? {
@@ -484,7 +730,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
       setReply('')
       setReplyAttachments([])
     } catch (error) {
-      setMessageError(error instanceof Error ? error.message : 'No se pudo enviar la respuesta.')
+      setMessageError(error instanceof Error ? error.message : avisos.noSePudoEnviarRespuesta)
     } finally {
       setSendingReply(false)
     }
@@ -499,6 +745,9 @@ export function Header({ onOpenMobile }: HeaderProps) {
         const nuevo = await chatsApi.enviar(directContact.id, studentBody.trim())
         setDirectMessages((actual) => [...actual, nuevo])
         setStudentBody('')
+        // La lista de la izquierda muestra lo último de cada conversación: sin
+        // esto, la que acaba de moverse seguiría enseñando el mensaje anterior.
+        cargarConversaciones()
         return
       }
       const asunto = 'CAC Academic'
@@ -508,7 +757,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
       setStudentBody('')
       setStudentAttachments([])
     } catch (error) {
-      setMessageError(error instanceof Error ? error.message : 'No se pudo enviar el mensaje.')
+      setMessageError(error instanceof Error ? error.message : avisos.noSePudoEnviarMensaje)
     } finally { setSendingStudentMessage(false) }
   }
 
@@ -563,16 +812,66 @@ export function Header({ onOpenMobile }: HeaderProps) {
     { titulo: t('projects'), icon: FolderSimple, items: searchResults.programas },
     { titulo: t('documents'), icon: FileText, items: searchResults.documentos },
   ].filter((group) => group.items.length > 0)
+
+  /**
+   * La lista de resultados. Se arma una sola vez y la usan el desplegable de
+   * escritorio y la fila de búsqueda de móvil: dos copias del mismo marcado
+   * acaban divergiendo en cuanto alguien toca una.
+   */
+  const resultadosBusqueda = (
+    searching ? (
+      <p className="py-6 text-center text-xs text-muted-foreground">{t('searching')}</p>
+    ) : searchQuery.trim().length < 2 ? (
+      <p className="py-6 text-center text-xs text-muted-foreground">{t('searchStart')}</p>
+    ) : gruposBusqueda.length === 0 ? (
+      <p className="py-6 text-center text-xs text-muted-foreground">{t('searchEmpty', { query: searchQuery.trim() })}</p>
+    ) : gruposBusqueda.map((group) => {
+      const GroupIcon = group.icon
+      return (
+        <section key={group.titulo} className="mb-2 last:mb-0">
+          <p className="mb-1 flex items-center gap-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <GroupIcon className="size-3.5" />{group.titulo}
+          </p>
+          {group.items.map((result) => (
+            <button
+              key={result.id}
+              type="button"
+              onClick={() => {
+                abrirResultado(result)
+                setSearchOpen(false)
+                setBusquedaMovilAbierta(false)
+                setSearchQuery('')
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-muted"
+            >
+              <GroupIcon className="size-4 shrink-0 text-primary" />
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-medium text-foreground">{result.titulo}</span>
+                {result.subtitulo && <span className="block truncate text-[11px] text-muted-foreground">{result.subtitulo}</span>}
+              </span>
+            </button>
+          ))}
+        </section>
+      )
+    })
+  )
+  // La cabecera describe el hilo abierto. Para el equipo, de quien es; para el
+  // estudiante, siempre el equipo. El asunto va debajo, que es lo que ahora
+  // distingue una conversacion de otra del mismo estudiante.
   const nombreChatActivo = esEstudiante
     ? 'CAC Academy'
-    : (conversacionSeleccionada?.ultimo.estudianteNombre ?? adminTarget?.nombre ?? '')
+    : (selectedMessage?.estudianteNombre ?? adminTarget?.nombre ?? '')
   const correoChatActivo = !esEstudiante
-    ? (conversacionSeleccionada?.ultimo.estudianteEmail ?? adminTarget?.email ?? '')
+    ? (selectedMessage?.estudianteEmail ?? adminTarget?.email ?? '')
     : ''
 
   return (
     <>
-      <header className="glass-chrome sticky top-0 z-30 flex h-18 shrink-0 items-center gap-3 overflow-hidden border-b border-border border-t-2 border-t-primary px-4 shadow-[0_8px_28px_-24px_rgba(15,23,42,0.45)] transition-all md:px-7">
+      {/* La barra superior baja de 72 a 52 px. Es cromo: cada píxel que ocupa
+          se lo quita a la tabla que hay debajo, y a lo largo de una jornada
+          eso son filas que no se ven. El filete de marca se queda porque es lo
+          que identifica el proyecto de un vistazo. */}
+      <header className="glass-chrome sticky top-0 z-30 flex h-13 shrink-0 items-center gap-2 overflow-hidden border-b border-border border-t-2 border-t-primary px-3 transition-all md:px-4">
         <button
           type="button"
           onClick={onOpenMobile}
@@ -581,54 +880,222 @@ export function Header({ onOpenMobile }: HeaderProps) {
         >
           <List className="size-5" />
         </button>
-        <div className="relative z-10 min-w-0">
-          <h1 className="truncate text-base font-semibold tracking-tight text-foreground md:text-lg">{tituloHeader}</h1>
-          <p className="truncate text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground md:text-[11px]">{subtituloHeader}</p>
+        <div className="relative z-10 min-w-0 shrink-0">
+          <h1 className="truncate text-[15px] font-semibold tracking-tight text-foreground">{tituloHeader}</h1>
+          <p className="truncate text-[11px] font-medium text-muted-foreground">{subtituloHeader}</p>
         </div>
 
+        {/*
+          Buscador global, en el centro y siempre visible.
+          Antes era un icono de lupa: una función que se usa constantemente
+          —encontrar a un estudiante por nombre desde cualquier pantalla—
+          escondida detrás de un clic y sin nada que dijera qué se puede buscar.
+          El campo lo anuncia y ofrece la caja directamente. Abre la misma hoja
+          lateral de siempre, así que la búsqueda en sí no cambia.
+        */}
+        {!esEstudiante && (
+          <div ref={cajaBusqueda} className="relative z-30 mx-auto hidden w-full max-w-sm md:block">
+            <MagnifyingGlass className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(event) => { setSearchQuery(event.target.value); setSearchOpen(true) }}
+              onFocus={() => setSearchOpen(true)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') { setSearchOpen(false); event.currentTarget.blur() }
+              }}
+              placeholder={t('generalSearch')}
+              aria-label={t('generalSearch')}
+              className="h-8 w-full rounded-(--radius) border border-input bg-card pl-8 pr-8 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => { setSearchQuery(''); setSearchOpen(false) }}
+                aria-label={locale === 'es' ? 'Limpiar búsqueda' : 'Clear search'}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+
+            {/* Los resultados caen debajo de la caja, no en un panel lateral.
+                Buscar es una acción de un segundo: abrir una hoja que tapa media
+                pantalla obligaba a cerrarla para volver a lo que se estaba
+                haciendo, aunque no se hubiera encontrado nada. */}
+            {panelBusquedaVisible && (
+              <div className="absolute left-0 right-0 top-[calc(100%+6px)] max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-popover p-2 shadow-[0_20px_50px_rgba(0,0,0,0.25)]">
+                {resultadosBusqueda}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="relative z-10 ml-auto flex items-center gap-2">
-          <IconButton label={t('generalSearch')} onClick={() => setSearchOpen(true)}>
-            <MagnifyingGlass className="size-5" />
-          </IconButton>
+          {/* La búsqueda general es de gestión: el endpoint sólo responde a
+              COORDINADOR y ADMIN. Se pintaba para todos, así que un estudiante
+              abría el panel, escribía y no ocurría nada nunca —el efecto que
+              consulta sale antes por su rol—. Un botón que no hace nada es peor
+              que uno que no está. */}
+          {/* Por debajo de `md` no cabe el campo de búsqueda y vuelve el icono. */}
+          {!esEstudiante && (
+            <span className="md:hidden">
+              <IconButton
+                label={t('generalSearch')}
+                onClick={() => setBusquedaMovilAbierta((v) => !v)}
+              >
+                <MagnifyingGlass className="size-5" />
+              </IconButton>
+            </span>
+          )}
+
+          {/*
+            Creación rápida.
+            Dar de alta algo obligaba a navegar primero al módulo y buscar allí
+            su botón; desde aquí se hace desde cualquier pantalla.
+
+            Solo «Estudiante» tiene ruta propia de alta. Empresa y Vacante crean
+            desde un panel dentro de su propia pantalla, así que estas entradas
+            llevan hasta ella: es un atajo de navegación, no un formulario que
+            se abra aquí, y por eso no prometen más de lo que hacen.
+          */}
+          {!esEstudiante && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button size="icon-sm" aria-label={locale === 'en' ? 'Create' : 'Crear'}>
+                    <Plus className="size-4" />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                  {locale === 'en' ? 'Create' : 'Crear'}
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  render={<Link href="/estudiantes/nuevo">{locale === 'en' ? 'Student' : 'Estudiante'}</Link>}
+                />
+                <DropdownMenuItem
+                  render={<Link href="/empresas">{locale === 'en' ? 'Company' : 'Empresa'}</Link>}
+                />
+                <DropdownMenuItem
+                  render={<Link href="/vacantes">{locale === 'en' ? 'Job opening' : 'Vacante'}</Link>}
+                />
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  render={<Link href="/importaciones">{locale === 'en' ? 'Import data' : 'Importar datos'}</Link>}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
                 <IconButton label={t('notifications')} badge={unreadNotifications}>
-                <Bell className="size-5" />
+                  <Bell className="size-5" />
                 </IconButton>
               }
             />
-            <DropdownMenuContent align="end" className="w-80 rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-[0_20px_50px_rgba(0,0,0,0.25)]">
-              <DropdownMenuLabel className="font-semibold text-foreground">{t('notifications')}</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-border/50" />
-              <DropdownMenuGroup>
-                {notificationItems.length === 0 ? (
-                  <div className="px-3 py-7 text-center text-sm text-muted-foreground">{t('noNotifications')}</div>
-                ) : notificationItems.map((notification) => (
-                  <DropdownMenuItem
-                    key={notification.id}
-                    onClick={() => void openNotification(notification.id)}
-                    className="flex-col items-start gap-0.5 rounded-xl py-2.5 hover:bg-primary/10 focus:bg-primary/10"
+            <DropdownMenuContent align="end" className="w-[min(92vw,24rem)] rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-[0_20px_50px_rgba(0,0,0,0.25)]">
+              <div className="flex items-center justify-between px-1 pb-2">
+                <span className="text-sm font-bold text-foreground">{t('notifications')}</span>
+                {esEstudiante && studentUnreadNotifications > 0 && (
+                  <button
+                    type="button"
+                    onClick={(event) => { event.preventDefault(); void marcarTodasLeidas() }}
+                    className="text-[11px] font-semibold text-primary transition hover:underline"
                   >
-                    <div className="flex w-full items-center gap-2">
-                      <span className={cn('size-1.5 shrink-0 rounded-full', notification.leida ? 'bg-transparent' : 'bg-destructive')} />
-                      <span className="text-sm font-medium text-foreground">{notification.titulo}</span>
-                      <span className="ml-auto text-xs text-muted-foreground">{notification.tiempo}</span>
-                    </div>
-                     <span className="pl-3.5 text-xs text-muted-foreground">{notification.detalle}</span>
-                     {notification.mediaUrl && (
-                       notification.mediaTipo === 'IMAGE' ? <img src={notification.mediaUrl} alt="Material del anuncio" className="mt-2 max-h-36 w-full rounded-lg border border-border/60 object-cover" />
-                         : notification.mediaTipo === 'VIDEO' ? <video src={notification.mediaUrl} controls className="mt-2 max-h-36 w-full rounded-lg border border-border/60" />
-                           : <a href={notification.mediaUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="mt-2 pl-3.5 text-xs font-medium text-primary hover:underline">Abrir información del anuncio</a>
-                     )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
+                    {avisos.marcarTodasLeidas}
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 pb-1.5">
+                <button
+                  type="button"
+                  onClick={() => setFiltroNotificacion('todas')}
+                  className={cn(
+                    'rounded-lg px-3 py-1 text-xs font-semibold transition',
+                    filtroNotificacion === 'todas'
+                      ? 'bg-primary/15 text-primary'
+                      : 'text-muted-foreground hover:bg-muted/60',
+                  )}
+                >
+                  {locale === 'es' ? 'Todas' : 'All'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroNotificacion('no_leidas')}
+                  className={cn(
+                    'rounded-lg px-3 py-1 text-xs font-semibold transition',
+                    filtroNotificacion === 'no_leidas'
+                      ? 'bg-primary/15 text-primary'
+                      : 'text-muted-foreground hover:bg-muted/60',
+                  )}
+                >
+                  {locale === 'es' ? 'No leídas' : 'Unread'} ({unreadNotifications})
+                </button>
+              </div>
+
+              <DropdownMenuSeparator className="my-1 bg-border/50" />
+
+              <div className="max-h-80 space-y-1 overflow-y-auto py-1">
+                {(filtroNotificacion === 'no_leidas'
+                  ? notificationItems.filter((n) => !n.leida)
+                  : notificationItems
+                ).length === 0 ? (
+                  <div className="px-3 py-8 text-center text-xs text-muted-foreground">
+                    {filtroNotificacion === 'no_leidas'
+                      ? (locale === 'es' ? 'No tienes notificaciones sin leer.' : 'No unread notifications.')
+                      : t('noNotifications')}
+                  </div>
+                ) : (
+                  (filtroNotificacion === 'no_leidas'
+                    ? notificationItems.filter((n) => !n.leida)
+                    : notificationItems
+                  ).map((notification) => (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      onClick={() => void openNotification(notification.id)}
+                      className={cn(
+                        'flex items-start gap-3 rounded-xl p-2.5 transition cursor-pointer',
+                        !notification.leida
+                          ? 'bg-primary/[0.08] dark:bg-primary/15 border-l-2 border-primary'
+                          : 'hover:bg-muted/50',
+                      )}
+                    >
+                      <span className={cn(
+                        'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-xs transition',
+                        !notification.leida
+                          ? 'bg-primary text-primary-foreground font-bold shadow-sm'
+                          : 'bg-muted text-muted-foreground',
+                      )}>
+                        <Bell className="size-4" />
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className={cn('text-xs leading-4 truncate', !notification.leida ? 'font-bold text-foreground' : 'font-medium text-foreground/80')}>
+                            {notification.titulo}
+                          </span>
+                          <span className="text-[10px] shrink-0 text-muted-foreground font-medium">{notification.tiempo}</span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground line-clamp-2">{notification.detalle}</p>
+                        {notification.mediaUrl && (
+                          notification.mediaTipo === 'IMAGE' ? <img src={notification.mediaUrl} alt={avisos.materialDelAnuncio} className="mt-2 max-h-36 w-full rounded-lg border border-border/60 object-cover" />
+                            : notification.mediaTipo === 'VIDEO' ? <video src={notification.mediaUrl} controls className="mt-2 max-h-36 w-full rounded-lg border border-border/60" />
+                              : <span className="mt-1 block text-xs font-medium text-primary hover:underline">{avisos.abrirInformacion}</span>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </div>
+
               {esEstudiante && (
                 <>
-                  <DropdownMenuSeparator className="bg-border/50" />
-                  <DropdownMenuItem onClick={() => router.push('/mis-notificaciones')} className="justify-center rounded-xl font-medium text-primary focus:bg-primary/10 focus:text-primary">
+                  <DropdownMenuSeparator className="my-1 bg-border/50" />
+                  <DropdownMenuItem onClick={() => router.push('/mis-notificaciones')} className="justify-center rounded-xl font-semibold text-xs text-primary focus:bg-primary/10 focus:text-primary">
                     {t('viewAllNotifications')}
                   </DropdownMenuItem>
                 </>
@@ -636,9 +1103,90 @@ export function Header({ onOpenMobile }: HeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <IconButton label={t('messages')} badge={pendingMessages} onClick={() => setMessageSheetOpen(true)}>
-            <ChatCircle className="size-5" />
-          </IconButton>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <IconButton label={t('messages')} badge={pendingMessages}>
+                  <ChatCircle className="size-5" />
+                </IconButton>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-[min(92vw,22rem)] rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-2xl">
+              <div className="px-1 pb-2 border-b border-border/40">
+                <span className="text-sm font-bold text-foreground">
+                  {esEstudiante ? 'Chats' : messageCopy.title}
+                </span>
+              </div>
+
+              {/* Para el equipo, aquí van las solicitudes del portal y no una
+                  lista de chats: el chat directo cuelga de la ficha de
+                  estudiante, así que para un coordinador esta lista estaba
+                  siempre vacía y sólo decía «No tienes conversaciones
+                  recientes» encima de un contador que sí marcaba pendientes. */}
+              <div className="max-h-80 space-y-1 overflow-y-auto py-1">
+                {!esEstudiante ? (
+                  messages.length === 0 ? (
+                    <p className="py-6 text-center text-xs text-muted-foreground">{messageCopy.empty}</p>
+                  ) : (
+                    messages.slice(0, 8).map((m) => (
+                      <DropdownMenuItem
+                        key={m.id}
+                        onClick={() => { setSelectedMessage(m); setReply(m.respuesta ?? ''); setMessageSheetOpen(true) }}
+                        className="flex cursor-pointer items-center gap-3 rounded-xl p-2 transition hover:bg-muted"
+                      >
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-bold text-primary">
+                          {m.estudianteNombre.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-bold text-foreground">{m.estudianteNombre}</p>
+                          <p className="truncate text-[11px] text-muted-foreground">{m.asunto}</p>
+                        </div>
+                        {m.estado === 'ABIERTO' && (
+                          <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                            {messageCopy.open}
+                          </span>
+                        )}
+                      </DropdownMenuItem>
+                    ))
+                  )
+                ) : conversaciones.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-muted-foreground">No tienes conversaciones recientes.</p>
+                ) : (
+                  conversaciones.map((conv) => (
+                    <DropdownMenuItem
+                      key={conv.contactoId}
+                      onClick={() => setFloatingChat({ id: conv.contactoId, nombre: conv.nombre, foto: conv.fotoUrl })}
+                      className="flex cursor-pointer items-center gap-3 rounded-xl p-2 transition hover:bg-muted"
+                    >
+                      {conv.fotoUrl ? (
+                        <img src={fotoDe(conv.contactoId, conv.fotoUrl)} alt="" className="size-10 rounded-full object-cover" />
+                      ) : (
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 font-bold text-primary">
+                          {conv.nombre[0]}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-bold text-foreground">{conv.nombre}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {conv.mioElUltimo ? 'Tú: ' : ''}{conv.ultimoMensaje}
+                        </p>
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </div>
+
+              <DropdownMenuSeparator className="my-2 bg-border/40" />
+              <DropdownMenuItem
+                onClick={() => router.push('/mis-mensajes')}
+                className="justify-center rounded-xl py-2 text-center text-xs font-bold text-primary focus:bg-muted"
+              >
+                {esEstudiante
+                  ? 'Ver todo en Messenger'
+                  : locale === 'es' ? 'Ver todos los mensajes' : 'View all messages'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -662,60 +1210,64 @@ export function Header({ onOpenMobile }: HeaderProps) {
         </div>
       </header>
 
-      <Sheet open={searchOpen} onOpenChange={setSearchOpen}>
-        <SheetContent side="right" className="w-full border-l border-border bg-popover p-0 sm:max-w-md">
-          <SheetHeader className="border-b border-border/60 pr-12">
-            <SheetTitle>{t('searchTitle')}</SheetTitle>
-            <SheetDescription>{t('searchDescription')}</SheetDescription>
-          </SheetHeader>
-          <div className="p-4">
-            <div className="relative">
-              <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input autoFocus value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t('searchPlaceholder')} className="pl-9" />
+      {/* En móvil no cabe el campo en la barra, así que el icono lo despliega
+          en su propia fila. Antes esto abría una hoja lateral: en una pantalla
+          de teléfono eso es la pantalla entera, y para volver a lo que se
+          estaba haciendo había que cerrarla. */}
+      {!esEstudiante && busquedaMovilAbierta && (
+        <div className="relative z-30 border-b border-border bg-card p-2 md:hidden">
+          <div className="relative">
+            <MagnifyingGlass className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              autoFocus
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Escape') setBusquedaMovilAbierta(false) }}
+              placeholder={t('generalSearch')}
+              aria-label={t('generalSearch')}
+              className="h-9 w-full rounded-(--radius) border border-input bg-background pl-8 pr-8 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50"
+            />
+            <button
+              type="button"
+              onClick={() => { setBusquedaMovilAbierta(false); setSearchQuery('') }}
+              aria-label={locale === 'es' ? 'Cerrar búsqueda' : 'Close search'}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          {searchQuery.trim().length > 0 && (
+            <div className="mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-border bg-popover p-2">
+              {resultadosBusqueda}
             </div>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5">
-            {esEstudiante ? (
-              <p className="rounded-xl border border-border/70 bg-muted/30 p-4 text-sm leading-6 text-muted-foreground">{t('searchAdminOnly')}</p>
-            ) : searching ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">{t('searching')}</p>
-            ) : searchQuery.trim().length < 2 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">{t('searchStart')}</p>
-            ) : gruposBusqueda.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">{t('searchEmpty', { query: searchQuery.trim() })}</p>
-            ) : gruposBusqueda.map((group) => {
-              const GroupIcon = group.icon
-              return (
-                <section key={group.titulo} className="mb-5">
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><GroupIcon className="size-4" />{group.titulo}</p>
-                  <div className="overflow-hidden rounded-xl border border-border/70">
-                    {group.items.map((result) => (
-                      <button key={result.id} type="button" onClick={() => abrirResultado(result)} className="flex w-full items-center gap-3 border-b border-border/60 px-3 py-3 text-left last:border-b-0 hover:bg-muted/50">
-                        <GroupIcon className="size-4 shrink-0 text-primary" />
-                        <span className="min-w-0"><span className="block truncate text-sm font-medium text-foreground">{result.titulo}</span>{result.subtitulo && <span className="block truncate text-xs text-muted-foreground">{result.subtitulo}</span>}</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              )
-            })}
-          </div>
-        </SheetContent>
-      </Sheet>
+          )}
+        </div>
+      )}
+
 
       <Sheet open={messageSheetOpen} onOpenChange={setMessageSheetOpen}>
-        <SheetContent side="right" className="h-dvh w-full max-w-none gap-0 border-l border-border bg-popover p-0 dark:bg-[#0c1714] sm:w-[min(92vw,840px)] sm:!max-w-none">
-          <SheetHeader className="shrink-0 border-b border-border/60 bg-[linear-gradient(115deg,color-mix(in_srgb,var(--primary)_17%,transparent),transparent_58%)] pr-14 dark:bg-[#13221d]">
-            <SheetTitle>{messageCopy.title}</SheetTitle>
-            <SheetDescription>{messageCopy.subtitle}</SheetDescription>
-          </SheetHeader>
-          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(190px,0.68fr)_minmax(0,1.9fr)]">
-            <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 dark:bg-[#101d19] lg:max-h-none lg:border-b-0 lg:border-r">
+        {/* Centrado y no pegado al borde: la bandeja no es un panel auxiliar
+            para asomarse, es la tarea en sí. De lado dejaba media pantalla de
+            fondo inservible y la conversación en una columna estrecha. */}
+        <SheetContent side="center" className="h-dvh w-full max-w-none gap-0 border-border bg-popover p-0 sm:h-[min(92dvh,900px)] sm:w-[min(96vw,1100px)] sm:!max-w-none">
+          {esEstudiante ? (
+            <div className="h-full p-2">
+              <MessengerChatHub locale={locale} />
+            </div>
+          ) : (
+            <>
+              <SheetHeader className="shrink-0 border-b border-border/60 bg-[linear-gradient(115deg,color-mix(in_srgb,var(--primary)_17%,transparent),transparent_58%)] pr-14">
+                <SheetTitle>{messageCopy.title}</SheetTitle>
+                <SheetDescription>{messageCopy.subtitle}</SheetDescription>
+              </SheetHeader>
+              <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(190px,0.68fr)_minmax(0,1.9fr)]">
+                <div className="max-h-56 overflow-y-auto border-b border-border/60 bg-muted/[0.18] p-2 lg:max-h-none lg:border-b-0 lg:border-r">
               {!esEstudiante && (
                 <div className="mb-2 border-b border-border/60 pb-2">
                   <div className="relative">
                     <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input value={adminStudentQuery} onChange={(event) => setAdminStudentQuery(event.target.value)} placeholder={locale === 'es' ? 'Buscar estudiante…' : 'Search student…'} className="h-9 rounded-xl bg-background pl-9 text-xs dark:bg-[#0a1512]" />
+                    <Input value={adminStudentQuery} onChange={(event) => setAdminStudentQuery(event.target.value)} placeholder={locale === 'es' ? 'Buscar estudiante…' : 'Search student…'} className="h-9 rounded-xl bg-background pl-9 text-xs" />
                   </div>
                   {adminStudentQuery.trim().length >= 2 && (
                     <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">
@@ -723,7 +1275,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                         : adminStudentResults.length === 0 ? <p className="px-2 py-2 text-xs text-muted-foreground">{locale === 'es' ? 'No encontramos estudiantes.' : 'No students found.'}</p>
                           : adminStudentResults.map((estudiante) => (
                             <button key={estudiante.id} type="button" onClick={() => abrirChatConEstudiante(estudiante)} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-background">
-                              {estudiante.fotoUrl ? <img src={estudiante.fotoUrl} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{`${estudiante.nombre[0] ?? ''}${estudiante.apellido[0] ?? ''}`.toUpperCase()}</span>}
+                              {estudiante.fotoUrl ? <img src={fotoDe(estudiante.id, estudiante.fotoUrl)} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{`${estudiante.nombre[0] ?? ''}${estudiante.apellido[0] ?? ''}`.toUpperCase()}</span>}
                               <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{estudiante.nombre} {estudiante.apellido}</span><span className="block truncate text-[10px] text-muted-foreground">{estudiante.email}</span></span>
                             </button>
                           ))}
@@ -735,7 +1287,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                 <div className="mb-2 border-b border-border/60 pb-2">
                   <div className="relative">
                     <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input value={contactQuery} onChange={(event) => setContactQuery(event.target.value)} placeholder={locale === 'es' ? 'Buscar compañeros…' : 'Search classmates…'} className="h-9 rounded-xl bg-background pl-9 text-xs dark:bg-[#0a1512]" />
+                    <Input value={contactQuery} onChange={(event) => setContactQuery(event.target.value)} placeholder={locale === 'es' ? 'Buscar compañeros…' : 'Search classmates…'} className="h-9 rounded-xl bg-background pl-9 text-xs" />
                   </div>
                   {contactQuery.trim().length >= 2 && (
                     <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">
@@ -743,7 +1295,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                         : contactResults.length === 0 ? <p className="px-2 py-2 text-xs text-muted-foreground">{locale === 'es' ? 'No hay compañeros con ese nombre.' : 'No classmates found.'}</p>
                           : contactResults.map((contacto) => (
                             <button key={contacto.id} type="button" onClick={() => abrirChatDirecto(contacto)} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-background">
-                              {contacto.fotoUrl ? <img src={contacto.fotoUrl} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{contacto.nombre.slice(0, 2).toUpperCase()}</span>}
+                              {contacto.fotoUrl ? <img src={fotoDe(contacto.id, contacto.fotoUrl)} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{contacto.nombre.slice(0, 2).toUpperCase()}</span>}
                               <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{contacto.nombre}</span><span className="block text-[10px] text-muted-foreground">{locale === 'es' ? 'Iniciar chat' : 'Start chat'}</span></span>
                             </button>
                           ))}
@@ -751,25 +1303,87 @@ export function Header({ onOpenMobile }: HeaderProps) {
                   )}
                 </div>
               )}
+              {esEstudiante && conversaciones.length > 0 && (
+                <div className="mb-2 space-y-0.5">
+                  {conversaciones.map((conversacion) => (
+                    <button
+                      key={conversacion.contactoId}
+                      type="button"
+                      onClick={() => abrirChatDirecto({
+                        id: conversacion.contactoId,
+                        nombre: conversacion.nombre,
+                        fotoUrl: conversacion.fotoUrl,
+                      })}
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-primary/10',
+                        directContact?.id === conversacion.contactoId && 'bg-primary/10',
+                      )}
+                    >
+                      {conversacion.fotoUrl
+                        ? <img src={fotoDe(conversacion.contactoId, conversacion.fotoUrl)} alt="" className="size-7 shrink-0 rounded-full object-cover" />
+                        : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                            {conversacion.nombre.slice(0, 2).toUpperCase()}
+                          </span>}
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1.5">
+                          <span className="truncate text-xs font-semibold text-foreground">{conversacion.nombre}</span>
+                          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                            {formatMessageTime(conversacion.ultimaFecha, locale)}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                          {conversacion.mioElUltimo && <span className="text-foreground/70">{avisos.tuPrefijo} </span>}
+                          {conversacion.ultimoMensaje}
+                        </span>
+                      </span>
+                      {conversacion.sinLeer > 0 && (
+                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                          {conversacion.sinLeer}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
               {directContact && esEstudiante && (
-                <button type="button" onClick={() => abrirChatDirecto(directContact)} className="mb-1 flex w-full items-center gap-2.5 rounded-xl border border-primary/20 bg-background px-3 py-3 text-left shadow-sm dark:bg-[#13221d]">
-                  {directContact.fotoUrl ? <img src={directContact.fotoUrl} alt="" className="size-8 rounded-full object-cover" /> : <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{directContact.nombre.slice(0, 2).toUpperCase()}</span>}
+                <button type="button" onClick={() => abrirChatDirecto(directContact)} className="mb-1 flex w-full items-center gap-2.5 rounded-xl border border-primary/20 bg-background px-3 py-3 text-left shadow-sm">
+                  {directContact.fotoUrl ? <img src={fotoDe(directContact.id, directContact.fotoUrl)} alt="" className="size-8 rounded-full object-cover" /> : <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{directContact.nombre.slice(0, 2).toUpperCase()}</span>}
                   <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{directContact.nombre}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{directMessages[directMessages.length - 1]?.contenido || (locale === 'es' ? 'Conversación nueva' : 'New conversation')}</span></span>
                 </button>
               )}
               {adminTarget && !esEstudiante && (
-                <button type="button" onClick={() => abrirChatConEstudiante(adminTarget)} className="mb-1 flex w-full items-center gap-2 rounded-xl border border-primary/20 bg-background px-2.5 py-2.5 text-left shadow-sm dark:bg-[#13221d]">
-                  {adminTarget.fotoUrl ? <img src={adminTarget.fotoUrl} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{`${adminTarget.nombre[0] ?? ''}${adminTarget.apellido[0] ?? ''}`.toUpperCase()}</span>}
+                <button type="button" onClick={() => abrirChatConEstudiante(adminTarget)} className="mb-1 flex w-full items-center gap-2 rounded-xl border border-primary/20 bg-background px-2.5 py-2.5 text-left shadow-sm">
+                  {adminTarget.fotoUrl ? <img src={fotoDe(adminTarget.id, adminTarget.fotoUrl)} alt="" className="size-7 rounded-full object-cover" /> : <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{`${adminTarget.nombre[0] ?? ''}${adminTarget.apellido[0] ?? ''}`.toUpperCase()}</span>}
                   <span className="min-w-0"><span className="block truncate text-xs font-semibold text-foreground">{adminTarget.nombre} {adminTarget.apellido}</span><span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{locale === 'es' ? 'Conversación nueva' : 'New conversation'}</span></span>
                 </button>
               )}
-              {conversaciones.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : conversaciones.map((conversacion) => (
-                <button key={conversacion.id} type="button" onClick={() => abrirMensaje(conversacion.ultimo)} className={cn('mb-0.5 w-full rounded-xl border border-transparent px-2.5 py-2 text-left transition-all hover:border-primary/15 hover:bg-background dark:hover:bg-[#13221d]', conversacionSeleccionada?.id === conversacion.id && 'border-primary/20 bg-background shadow-sm dark:bg-[#13221d]')}>
-                  <div className="flex items-start gap-2"><span className={cn('mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', conversacion.pendiente ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>{(esEstudiante ? 'AC' : conversacion.ultimo.estudianteNombre || 'E').slice(0, 2).toUpperCase()}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? conversacion.asunto : conversacion.ultimo.estudianteNombre}</span>{conversacion.pendiente && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}</span><span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{esEstudiante ? (conversacion.ultimo.respuesta || conversacion.ultimo.contenido || ((conversacion.ultimo.respuestaAdjuntos?.length ?? 0) > 0 || (conversacion.ultimo.adjuntos?.length ?? 0) > 0 ? '📎 Archivo adjunto' : '')) : (conversacion.ultimo.respuesta || conversacion.ultimo.contenido || 'Sin mensajes')}</span><span className="mt-0.5 block text-[10px] text-muted-foreground">{formatMessageTime(conversacion.ultimo.createdAt, locale)}</span></span></div>
+              {/* Un hilo por asunto. Antes la lista fundia todos los mensajes de un
+                  mismo estudiante en una sola entrada, asi que abrirla solo
+                  ensenaba el ultimo asunto y los anteriores quedaban fuera de
+                  alcance. Ahora cada asunto es su propia conversacion, que es
+                  lo que el modelo de turnos guarda de verdad. */}
+              {hilos.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{messageCopy.empty}</p> : hilos.map((hilo) => (
+                <button key={hilo.id} type="button" onClick={() => abrirMensaje(hilo)} className={cn('mb-0.5 w-full rounded-xl border border-transparent px-2.5 py-2 text-left transition-all hover:border-primary/15 hover:bg-background', selectedMessage?.id === hilo.id && 'border-primary/20 bg-background shadow-sm')}>
+                  <div className="flex items-start gap-2">
+                    <span className={cn('mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', hilo.estado === 'ABIERTO' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground')}>
+                      {(esEstudiante ? 'AC' : hilo.estudianteNombre || 'E').slice(0, 2).toUpperCase()}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5">
+                        <span className="truncate text-xs font-semibold text-foreground">{esEstudiante ? asuntoConversacion(hilo.asunto, avisos.consultaAlEquipo) : hilo.estudianteNombre}</span>
+                        {hilo.estado === 'ABIERTO' && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}
+                      </span>
+                      {/* Para el equipo el asunto es la segunda linea: primero de
+                          quien es, luego sobre que. */}
+                      {!esEstudiante && <span className="mt-0.5 block truncate text-[11px] font-medium text-foreground/80">{asuntoConversacion(hilo.asunto, avisos.consultaAlEquipo)}</span>}
+                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{hilo.respuesta || hilo.contenido || ((hilo.adjuntos?.length ?? 0) > 0 ? '📎' : '')}</span>
+                      <span className="mt-0.5 block text-[10px] text-muted-foreground">{formatMessageTime(new Date(ultimaActividad(hilo)).toISOString(), locale)}</span>
+                    </span>
+                  </div>
                 </button>
               ))}
             </div>
-            <div className="flex min-h-0 min-w-0 flex-col bg-muted/[0.12] dark:bg-[#0d1815]">
+            <div className="flex min-h-0 min-w-0 flex-col bg-muted/[0.12]">
               <div className="min-h-0 flex-1 overflow-y-auto p-3.5 sm:p-4">
                 {directContact ? (
                   <div className="mx-auto flex h-full max-w-xl flex-col">
@@ -782,79 +1396,51 @@ export function Header({ onOpenMobile }: HeaderProps) {
                         : directMessages.length === 0 ? <p className="py-10 text-center text-sm text-muted-foreground">{locale === 'es' ? ('Aún no hay mensajes con ' + directContact.nombre + '.') : ('There are no messages with ' + directContact.nombre + ' yet.')}</p>
                           : directMessages.map((mensaje) => (
                             <div key={mensaje.id} className={cn('flex', mensaje.enviadoPorMi ? 'justify-end' : 'justify-start')}>
-                              <div className={cn('w-fit max-w-[68%] break-words rounded-2xl px-3 py-2 text-[13px] leading-5 shadow-sm whitespace-pre-wrap sm:max-w-[64%]', mensaje.enviadoPorMi ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground dark:bg-[#13221d]')}>
+                              <div className={cn('w-fit max-w-[68%] break-words rounded-2xl px-3 py-2 text-[13px] leading-5 shadow-sm whitespace-pre-wrap sm:max-w-[64%]', mensaje.enviadoPorMi ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground')}>
                                 {!mensaje.enviadoPorMi && <p className="mb-1 text-[10px] font-semibold text-muted-foreground">{mensaje.remitenteNombre}</p>}
                                 <p>{mensaje.contenido}</p>
-                                <p className={cn('mt-1 text-[10px]', mensaje.enviadoPorMi ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{formatMessageTime(mensaje.createdAt, locale)}</p>
+                                <p className={cn('mt-1 flex items-center gap-1 text-[10px]', mensaje.enviadoPorMi ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
+                                  {formatMessageTime(mensaje.createdAt, locale)}
+                                  {/* Sólo en los propios: si el otro leyó lo que le
+                                      escribí es información mía. Al revés no aporta
+                                      nada, porque quien lo lee ya sabe que lo leyó. */}
+                                  {mensaje.enviadoPorMi && (
+                                    <span title={mensaje.leidoAt ? avisos.visto : avisos.enviado}>
+                                      {mensaje.leidoAt ? '✓✓' : '✓'}
+                                    </span>
+                                  )}
+                                </p>
                               </div>
                             </div>
                           ))}
                     </div>
                   </div>
-                ) : !conversacionSeleccionada && !adminTarget ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
+                ) : !selectedMessage && !adminTarget ? <p className="py-12 text-center text-sm text-muted-foreground">{messageCopy.select}</p> : (
                   <div className="mx-auto max-w-xl space-y-4">
                   <div>
-                    <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{nombreChatActivo}</h2>{conversacionSeleccionada && <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', conversacionSeleccionada.pendiente ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{conversacionSeleccionada.pendiente ? messageCopy.open : messageCopy.answered}</span>}</div>
+                    <div className="mb-2 flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-foreground">{nombreChatActivo}</h2>{selectedMessage && <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', selectedMessage.estado === 'ABIERTO' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{selectedMessage.estado === 'ABIERTO' ? messageCopy.open : messageCopy.answered}</span>}</div>
+                    {!esEstudiante && selectedMessage && selectedMessage.asunto !== nombreChatActivo && <p className="text-sm font-medium text-foreground">{asuntoConversacion(selectedMessage.asunto, avisos.consultaAlEquipo)}</p>}
                     {!esEstudiante && <p className="text-xs text-muted-foreground">{correoChatActivo}</p>}
-                    {conversacionSeleccionada && <p className="mt-1 text-xs text-muted-foreground">{formatMessageTime(conversacionSeleccionada.ultimo.createdAt, locale)}</p>}
+                    {selectedMessage && <p className="mt-1 text-xs text-muted-foreground">{formatMessageTime(selectedMessage.createdAt, locale)}</p>}
                   </div>
                   <div className="space-y-3">
-                    {conversacionSeleccionada ? conversacionSeleccionada.mensajes.map((mensaje) => (
-                      <div key={mensaje.id} className="space-y-1.5">
-                        {(mensaje.contenido || (mensaje.adjuntos ?? []).length > 0) && <div className={cn('flex', esEstudiante ? 'justify-end' : 'justify-start')}>
-                          <div className={cn('w-fit max-w-[68%] break-words rounded-2xl px-3 py-2 text-[13px] leading-5 shadow-sm whitespace-pre-wrap sm:max-w-[64%]', esEstudiante ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-tl-md border border-border/70 bg-background text-foreground dark:bg-[#13221d]')}>
-                            <p className={cn('mb-1 text-[10px] font-semibold', esEstudiante ? 'text-primary-foreground/75' : 'text-muted-foreground')}>{esEstudiante ? (locale === 'es' ? 'Tú' : 'You') : mensaje.estudianteNombre}</p>
-                            {mensaje.contenido && <p>{mensaje.contenido}</p>}
-                            {(mensaje.adjuntos ?? []).length > 0 && (
-                              <div className="mt-2 grid gap-2">
-                                {mensaje.adjuntos.map((adjunto) => (
-                                  <a
-                                    key={adjunto.id}
-                                    href={adjunto.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className={cn('block overflow-hidden rounded-xl border text-left transition hover:brightness-95', esEstudiante ? 'border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground' : 'border-border/70 bg-muted/35 text-foreground')}
-                                  >
-                                    {isImageAttachment(adjunto.contentType) ? (
-                                      <><img src={adjunto.url} alt={adjunto.nombre} loading="lazy" className="max-h-64 w-full rounded-t-[11px] object-cover" /><span className="flex items-center gap-2 px-3 py-2 text-xs font-medium"><Paperclip className="size-3.5 shrink-0" />{adjunto.nombre}</span></>
-                                    ) : (
-                                      <span className="flex items-center gap-2 px-3 py-2.5 text-xs font-medium"><FileText className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{adjunto.nombre}</span><span className="shrink-0 opacity-70">{formatFileSize(adjunto.tamano)}</span></span>
-                                    )}
-                                  </a>
-                                ))}
-                              </div>
-                            )}
-                            <p className={cn('mt-1 text-[10px]', esEstudiante ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{formatMessageTime(mensaje.createdAt, locale)}</p>
-                          </div>
-                        </div>}
-                        {(mensaje.respuesta || (mensaje.respuestaAdjuntos ?? []).length > 0) && (
-                          <div className={cn('flex', esEstudiante ? 'justify-start' : 'justify-end')}>
-                            <div className={cn('w-fit max-w-[68%] break-words rounded-2xl px-3 py-2 text-[13px] leading-5 shadow-sm whitespace-pre-wrap sm:max-w-[64%]', esEstudiante ? 'rounded-tl-md border border-primary/20 bg-primary/5 text-foreground dark:bg-[#13221d]' : 'rounded-br-md bg-primary text-primary-foreground')}>
-                              <p className={cn('mb-1 text-[10px] font-semibold', esEstudiante ? 'text-primary' : 'text-primary-foreground/75')}>{messageCopy.response}</p>
-                              {mensaje.respuesta && <p>{mensaje.respuesta}</p>}
-                              {(mensaje.respuestaAdjuntos ?? []).length > 0 && (
-                                <div className="mt-2 grid gap-2">
-                                  {mensaje.respuestaAdjuntos.map((adjunto) => (
-                                    <a key={adjunto.id} href={adjunto.url} target="_blank" rel="noreferrer" className={cn('block overflow-hidden rounded-xl border text-left transition hover:brightness-95', esEstudiante ? 'border-primary/20 bg-background text-foreground' : 'border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground')}>
-                                      {isImageAttachment(adjunto.contentType) ? (
-                                        <><img src={adjunto.url} alt={adjunto.nombre} loading="lazy" className="max-h-64 w-full rounded-t-[11px] object-cover" /><span className="flex items-center gap-2 px-3 py-2 text-xs font-medium"><Paperclip className="size-3.5 shrink-0" />{adjunto.nombre}</span></>
-                                      ) : (
-                                        <span className="flex items-center gap-2 px-3 py-2.5 text-xs font-medium"><FileText className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{adjunto.nombre}</span><span className="shrink-0 opacity-70">{formatFileSize(adjunto.tamano)}</span></span>
-                                      )}
-                                    </a>
-                                  ))}
-                                </div>
-                              )}
-                              <p className={cn('mt-1 text-[10px]', esEstudiante ? 'text-muted-foreground' : 'text-primary-foreground/70')}>{mensaje.respondidoAt ? formatMessageTime(mensaje.respondidoAt, locale) : ''}</p>
-                            </div>
-                          </div>
-                        )}
+                    {selectedMessage ? (
+                      /* El hilo completo: turnos, citas, adjuntos y reacciones.
+                         Sustituye al par pregunta/respuesta, que solo sabia
+                         pintar un intercambio por mensaje. */
+                      <div className="h-[30rem] overflow-hidden rounded-2xl border border-border/70 bg-background">
+                        <HiloConversacion
+                          mensajeId={selectedMessage.id}
+                          soyEstudiante={esEstudiante}
+                          locale={locale}
+                          textos={textosConversacion}
+                          onTurnoNuevo={() => { void cargarMensajes() }}
+                        />
                       </div>
-                    )) : <div className="rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-8 text-center text-sm text-muted-foreground">{locale === 'es' ? 'Escribe el primer mensaje para iniciar la conversación.' : 'Write the first message to start the conversation.'}</div>}
+                    ) : <div className="rounded-2xl border border-dashed border-border/80 bg-background/70 px-4 py-8 text-center text-sm text-muted-foreground">{locale === 'es' ? 'Escribe el primer mensaje para iniciar la conversación.' : 'Write the first message to start the conversation.'}</div>}
                   </div>
-                  {esEstudiante && conversacionSeleccionada && !conversacionSeleccionada.mensajes.some((mensaje) => mensaje.respuesta) && <p className="text-sm text-muted-foreground">{messageCopy.waiting}</p>}
-                  {!esEstudiante && (
-                    <div className="space-y-2 rounded-2xl border border-border/70 bg-background p-3 dark:bg-[#13221d]">
+                  {!esEstudiante && !selectedMessage && (
+                    <div className="space-y-2 rounded-2xl border border-border/70 bg-background p-3">
                       <label htmlFor="respuesta-mensaje" className="text-sm font-medium text-foreground">{messageCopy.reply}</label>
                       {replyAttachments.length > 0 && <div className="flex flex-wrap gap-2">{replyAttachments.map((archivo, indice) => (
                         <span key={`${archivo.name}-${archivo.lastModified}-${indice}`} className="inline-flex max-w-full items-center gap-2 rounded-xl border border-border/70 bg-muted/25 px-2.5 py-1.5 text-xs text-foreground"><Paperclip className="size-3.5 shrink-0 text-primary" /><span className="max-w-40 truncate font-medium">{archivo.name}</span><span className="text-muted-foreground">{formatFileSize(archivo.size)}</span><button type="button" onClick={() => quitarAdjuntoRespuesta(indice)} aria-label={`${locale === 'es' ? 'Quitar' : 'Remove'} ${archivo.name}`} className="rounded p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"><X className="size-3.5" /></button></span>
@@ -862,8 +1448,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
                       <input ref={replyFileInputRef} type="file" multiple accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx" className="sr-only" onChange={(event) => { agregarAdjuntosRespuesta(Array.from(event.target.files ?? [])); event.target.value = '' }} />
                       <div className="flex items-end gap-2">
                         <button type="button" onClick={() => replyFileInputRef.current?.click()} disabled={sendingReply} aria-label={locale === 'es' ? 'Adjuntar archivo' : 'Attach file'} title={locale === 'es' ? 'Adjuntar archivo o imagen' : 'Attach a file or image'} className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-input bg-background text-muted-foreground transition hover:border-primary/35 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"><Paperclip className="size-5" /></button>
-                        <Textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} onPaste={(event) => { const imagenes = Array.from(event.clipboardData.files).filter((archivo) => archivo.type.startsWith('image/')); if (imagenes.length > 0) { event.preventDefault(); agregarAdjuntosRespuesta(imagenes) } }} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void responderMensaje() } }} minRows={3} maxLength={5000} className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" placeholder={messageCopy.replyPlaceholder} />
-                        <Button type="button" className="h-11 shrink-0 rounded-xl" onClick={() => void responderMensaje()} disabled={sendingReply || (!reply.trim() && replyAttachments.length === 0)}>{sendingReply ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}<span className="hidden sm:inline">{sendingReply ? messageCopy.sending : messageCopy.send}</span></Button>
+                        <Textarea id="respuesta-mensaje" value={reply} onChange={(event) => setReply(event.target.value)} onPaste={(event) => { const imagenes = Array.from(event.clipboardData.files).filter((archivo) => archivo.type.startsWith('image/')); if (imagenes.length > 0) { event.preventDefault(); agregarAdjuntosRespuesta(imagenes) } }} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void responderMensaje() } }} minRows={1} maxRows={4} maxLength={5000} className="max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15" placeholder={messageCopy.replyPlaceholder} />
+                        <Button type="button" className="h-11 shrink-0 rounded-xl" onClick={() => void responderMensaje()} disabled={sendingReply || (!reply.trim() && replyAttachments.length === 0)}>{sendingReply ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" />}<span className="hidden sm:inline">{sendingReply ? messageCopy.sending : messageCopy.send}</span></Button>
                       </div>
                       {messageError && <p className="text-xs text-destructive">{messageError}</p>}
                     </div>
@@ -871,8 +1457,8 @@ export function Header({ onOpenMobile }: HeaderProps) {
                   </div>
                 )}
               </div>
-              {esEstudiante && (
-                <div className="shrink-0 border-t border-border/60 bg-card px-4 py-3 dark:bg-[#13221d] sm:px-5">
+              {esEstudiante && !selectedMessage && (
+                <div className="shrink-0 border-t border-border/60 bg-card px-4 py-3 sm:px-5">
                   <div className="mx-auto max-w-xl">
                     {!directContact && studentAttachments.length > 0 && (
                       <div className="mb-2 flex flex-wrap gap-2">
@@ -917,23 +1503,40 @@ export function Header({ onOpenMobile }: HeaderProps) {
                             void enviarMensajeEstudiante()
                           }
                         }}
-                        minRows={2}
+                        minRows={1}
+                        maxRows={4}
                         maxLength={5000}
                         placeholder={directContact ? (locale === 'es' ? ('Escribe a ' + directContact.nombre + '…') : ('Write to ' + directContact.nombre + '…')) : (locale === 'es' ? 'Escribe un mensaje o pega una imagen…' : 'Write a message or paste an image…')}
-                        className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
+                        className="max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-2xl border border-input bg-background px-4 py-2.5 text-sm leading-5 outline-none transition focus:border-primary focus:ring-3 focus:ring-primary/15"
                       />
                       <Button className="h-11 shrink-0 rounded-xl" onClick={() => void enviarMensajeEstudiante()} disabled={sendingStudentMessage || (directContact ? !studentBody.trim() : (!studentBody.trim() && studentAttachments.length === 0))}>
-                        {sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" weight="fill" />}
+                        {sendingStudentMessage ? <ArrowsClockwise className="size-4 animate-spin" /> : <PaperPlaneTilt className="size-4" />}
                         <span className="hidden sm:inline">{locale === 'es' ? 'Enviar' : 'Send'}</span>
                       </Button>
                     </div>
                   </div>
                 </div>
               )}
+              </div>
             </div>
-          </div>
-        </SheetContent>
+          </>
+        )}
+      </SheetContent>
       </Sheet>
+
+      {floatingChat && (
+        <FloatingChatPopup
+          contactoId={floatingChat.id}
+          contactoNombre={floatingChat.nombre}
+          contactoFoto={floatingChat.foto}
+          esGrupo={floatingChat.esGrupo}
+          // Sin esto la ventanita se quedaba en español aunque la aplicación
+          // entera estuviera en inglés: el componente ya traducía, pero nadie
+          // le decía en qué idioma.
+          locale={locale}
+          onClose={() => setFloatingChat(null)}
+        />
+      )}
     </>
   )
 }

@@ -24,23 +24,36 @@ public class ActividadController {
         this.actividadService = actividadService;
     }
 
+    /**
+     * Las tres consultas de abajo cruzan programas o dejan elegir cual mirar,
+     * y por eso son de gestion.
+     *
+     * <p>Estaban abiertas al rol ESTUDIANTE sin que ninguna pantalla suya las
+     * usara: el portal lee su agenda por {@code /actividades/mias}, que ya viene
+     * acotada a quien la pide. Mientras tanto, un estudiante podia listar las
+     * actividades de cualquier otro programa pasando su identificador, y las
+     * respuestas traen el nombre del programa y el del responsable. Es la misma
+     * fuga que la configuracion de seguridad cerro para programas y vacantes
+     * —«exponian el catalogo de proyectos, sus clientes»— y que aqui habia
+     * quedado abierta.
+     */
     @GetMapping("/programas/{programaId}/actividades")
     @Operation(summary = "Listar actividades de un programa")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
     public List<ActividadResponse> listar(@PathVariable UUID programaId) {
         return actividadService.listar(programaId);
     }
 
     @GetMapping("/actividades/proximas")
     @Operation(summary = "Próximas 10 actividades desde hoy en todos los programas")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
     public List<ActividadResponse> proximas() {
         return actividadService.proximas();
     }
 
     @GetMapping("/actividades")
     @Operation(summary = "Listar agenda completa")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
     public List<ActividadResponse> agenda() {
         return actividadService.listarAgenda();
     }
