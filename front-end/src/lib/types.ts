@@ -1115,6 +1115,8 @@ export interface UsuarioResponse {
   roles: string[]
   activo: boolean
   createdAt: string
+  empresaId?: string | null
+  empresaNombre?: string | null
 }
 
 export interface ResultadoBusqueda {

@@ -1,7 +1,10 @@
 package com.novacrm.usuario;
 
+import com.novacrm.auth.Rol;
 import com.novacrm.auth.Usuario;
 import com.novacrm.auth.UsuarioRepository;
+import com.novacrm.empresa.Empresa;
+import com.novacrm.empresa.EmpresaRepository;
 import com.novacrm.exception.BusinessException;
 import com.novacrm.exception.ResourceNotFoundException;
 import com.novacrm.usuario.dto.UsuarioRequest;
@@ -22,11 +25,14 @@ import java.util.stream.Collectors;
 public class UsuarioAdminService {
 
     private final UsuarioRepository usuarioRepository;
+    private final EmpresaRepository empresaRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UsuarioAdminService(UsuarioRepository usuarioRepository,
+                               EmpresaRepository empresaRepository,
                                PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
+        this.empresaRepository = empresaRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -47,6 +53,20 @@ public class UsuarioAdminService {
         usuario.setPassword(passwordEncoder.encode(request.password()));
         usuario.setRoles(request.roles());
         usuario.setActivo(true);
+
+        if (request.roles() != null && request.roles().contains(Rol.EMPRESA)) {
+            if (request.empresaId() == null) {
+                throw new BusinessException("Debe seleccionar una empresa para una cuenta con rol EMPRESA");
+            }
+            Empresa empresa = empresaRepository.findById(request.empresaId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada: " + request.empresaId()));
+            usuario.setEmpresa(empresa);
+        } else if (request.empresaId() != null) {
+            Empresa empresa = empresaRepository.findById(request.empresaId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada: " + request.empresaId()));
+            usuario.setEmpresa(empresa);
+        }
+
         return toResponse(usuarioRepository.save(usuario));
     }
 
@@ -58,6 +78,14 @@ public class UsuarioAdminService {
         }
         if (request.roles() != null && !request.roles().isEmpty()) {
             usuario.setRoles(request.roles());
+            if (request.roles().contains(Rol.EMPRESA) && usuario.getEmpresa() == null && request.empresaId() == null) {
+                throw new BusinessException("Debe asignar una empresa a la cuenta con rol EMPRESA");
+            }
+        }
+        if (request.empresaId() != null) {
+            Empresa empresa = empresaRepository.findById(request.empresaId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Empresa no encontrada: " + request.empresaId()));
+            usuario.setEmpresa(empresa);
         }
         if (request.activo() != null) {
             usuario.setActivo(request.activo());
@@ -94,7 +122,10 @@ public class UsuarioAdminService {
             usuario.getNombre(),
             usuario.getRoles(),
             usuario.isActivo(),
-            usuario.getCreatedAt()
+            usuario.getCreatedAt(),
+            usuario.getEmpresa() != null ? usuario.getEmpresa().getId() : null,
+            usuario.getEmpresa() != null ? usuario.getEmpresa().getNombre() : null
         );
     }
 }
+

@@ -12,5 +12,7 @@ public record UsuarioResponse(
     String nombre,
     Set<Rol> roles,
     boolean activo,
-    Instant createdAt
+    Instant createdAt,
+    UUID empresaId,
+    String empresaNombre
 ) {}
