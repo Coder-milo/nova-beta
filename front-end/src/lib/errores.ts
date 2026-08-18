@@ -1,4 +1,4 @@
-import { ApiCallError } from './api-error'
+import { ApiCallError } from './api-error.ts'
 
 /**
  * Traduce un fallo de la API a algo que el usuario pueda leer.
@@ -11,7 +11,8 @@ import { ApiCallError } from './api-error'
  *   intercepta `api.ts`, que cierra la sesión y manda a `/login`.
  * - **403** es "estás dentro pero esto no es para ti". Nunca sugerir volver a
  *   iniciar sesión: hacerlo empujaba a la gente a salirse sin motivo.
- * - **503** es pasajero. Merece "reintenta", no "algo salió mal".
+ * - **502/503** suelen ser pasajeros cuando Render despierta una instancia
+ *   gratuita. Merecen "reintenta", no un código técnico.
  */
 export function errorDe(err: unknown, respaldo = 'No se pudo completar la acción.'): string {
   if (err instanceof ApiCallError) {
@@ -21,6 +22,8 @@ export function errorDe(err: unknown, respaldo = 'No se pudo completar la acció
     if (delServidor) return delServidor
 
     switch (err.status) {
+      case 502:
+        return 'El servidor se está iniciando. Espera un minuto y vuelve a intentarlo.'
       case 400:
         return 'Hay datos incompletos o con formato inválido.'
       case 403:

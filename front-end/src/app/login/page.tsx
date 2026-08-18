@@ -29,6 +29,7 @@ function textos(english: boolean) {
   return english
     ? {
         noFuePosible: 'Could not reach the server. Check that the backend is running.',
+        servidorSeEstaIniciando: 'The server is starting up. Wait a minute and try again.',
         demasiadosIntentosEspera: 'Too many attempts. Wait a few minutes and try again.',
         credencialesIncorrectasVerifica: 'Wrong credentials. Check your email and password.',
         tuSesionExpiro: 'Your session expired. Sign in again to continue.',
@@ -48,6 +49,7 @@ function textos(english: boolean) {
       }
     : {
         noFuePosible: 'No fue posible conectar con el servidor. Verifica que el backend esté activo.',
+        servidorSeEstaIniciando: 'El servidor se está iniciando. Espera un minuto e inténtalo nuevamente.',
         demasiadosIntentosEspera: 'Demasiados intentos. Espera unos minutos e inténtalo nuevamente.',
         credencialesIncorrectasVerifica: 'Credenciales incorrectas. Verifica tu correo y contraseña.',
         tuSesionExpiro: 'Tu sesión expiró. Inicia sesión nuevamente para continuar.',
@@ -128,6 +130,8 @@ export default function LoginPage() {
             setError(
               T.demasiadosIntentosEspera,
             )
+          } else if (err.status === 502 || err.status === 503) {
+            setError(T.servidorSeEstaIniciando)
           } else {
             // El mensaje del backend antes de inventar uno. Decir "error del
             // servidor" ante cualquier código que no fuera 401/403/429 convertía
