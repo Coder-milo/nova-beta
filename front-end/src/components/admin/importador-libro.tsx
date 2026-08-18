@@ -33,28 +33,28 @@ import { textosAdmin } from '@/lib/textos-admin'
 function textos(english: boolean) {
   return english
     ? {
-        subeElArchivo: 'Upload the follow-up file with all its tabs. Each sheet is recognised by its headings and sent to its destination: participants, companies, applications and placements.',
+        subeElArchivo: 'Upload the follow-up file with all its tabs. Each sheet is recognized by its headings and mapped to its destination: participants, companies, applications and placements.',
 
-        estoEsUna: 'This is a review: nothing has been saved yet.',
-        elDestinoDe: 'The AI decided where this sheet goes',
-        verLasFilas: 'View the rows with problems',
-        importacionTerminada: 'Import finished.',
-        loReconocioLa: 'Recognised by the AI',
+        estoEsUna: 'Preview mode: changes have not been applied yet.',
+        elDestinoDe: 'Destination assigned automatically by AI',
+        verLasFilas: 'View records with observations',
+        importacionTerminada: 'Import completed.',
+        loReconocioLa: 'Recognised by AI',
         mapeadoPorIa: 'mapped by AI',
-        noSeImporto: 'not imported',
-        sinMapear: 'unmapped',
+        noSeImporto: 'skipped',
+        sinMapear: 'unassigned',
       }
     : {
-        subeElArchivo: 'Sube el archivo de seguimiento con todas sus pestañas. Cada hoja se reconoce por sus títulos y se manda a su destino: participantes, empresas, postulaciones y colocaciones.',
+        subeElArchivo: 'Sube el archivo de seguimiento con todas sus pestañas. Cada hoja se reconoce por sus títulos y se dirige a su destino: participantes, empresas, postulaciones y colocaciones.',
 
-        estoEsUna: 'Esto es una revisión: todavía no se ha guardado nada.',
-        elDestinoDe: 'El destino de la hoja lo decidió la IA',
-        verLasFilas: 'Ver las filas con problemas',
-        importacionTerminada: 'Importación terminada.',
-        loReconocioLa: 'Lo reconoció la IA',
+        estoEsUna: 'Vista previa: los cambios no han sido aplicados aún.',
+        elDestinoDe: 'Destino asignado automáticamente por IA',
+        verLasFilas: 'Ver registros con observaciones',
+        importacionTerminada: 'Importación completada.',
+        loReconocioLa: 'Reconocido por IA',
         mapeadoPorIa: 'mapeado por IA',
-        noSeImporto: 'no se importó',
-        sinMapear: 'sin mapear',
+        noSeImporto: 'omitida',
+        sinMapear: 'sin asignar',
       }
 }
 

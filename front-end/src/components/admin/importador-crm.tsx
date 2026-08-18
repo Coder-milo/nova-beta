@@ -67,6 +67,8 @@ function textos(english: boolean) {
         filasLeidas: 'Rows read:',
         conError: 'With errors:',
         validas: 'Valid:',
+        confirmarImportacion: 'Confirm import',
+        importacionCompletada: 'Import completed:',
       }
     : {
         importarEmpresas: 'Importar empresas',
@@ -84,6 +86,8 @@ function textos(english: boolean) {
         filasLeidas: 'Filas leídas:',
         conError: 'Con error:',
         validas: 'Válidas:',
+        confirmarImportacion: 'Confirmar importación',
+        importacionCompletada: 'Importación completada:',
       }
 }
 
@@ -276,12 +280,12 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
             {resultado ? (
               <p className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
                 <CheckCircle className="size-4 shrink-0" />
-                Importación terminada: {resultado.creados} creado(s) y {resultado.actualizados} actualizado(s).
+                {T.importacionCompletada} {resultado.creados} creado(s) y {resultado.actualizados} actualizado(s).
               </p>
             ) : (
               <div className="flex flex-wrap justify-end gap-2">
                 <Button variant="outline" onClick={limpiar} disabled={trabajando !== null}>
-                  Cancelar
+                  {C.cancelar}
                 </Button>
                 <Button onClick={importar} disabled={trabajando !== null || informe.filasLeidas === 0}>
                   {trabajando === 'importar' ? (
@@ -289,7 +293,7 @@ export function ImportadorCrm({ entidad }: { entidad: EntidadImportable }) {
                   ) : (
                     <UploadSimple className="size-4" />
                   )}
-                  Importar de verdad
+                  {T.confirmarImportacion}
                 </Button>
               </div>
             )}

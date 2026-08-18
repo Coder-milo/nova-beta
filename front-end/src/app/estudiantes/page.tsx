@@ -366,7 +366,7 @@ function textos(english: boolean) {
         buscarEnEstaPagina: 'Filtrar lo que hay en esta página…',
         exportarSeleccion: 'Exportar selección',
         seleccionados: (n: number) => `${n} estudiante(s) seleccionado(s)`,
-        restauradosParcialmente: (ok: number, mal: number) => `Se restauraron ${ok} y fallaron ${mal}. La lista muestra cómo quedó de verdad.`,
+        restauradosParcialmente: (ok: number, mal: number) => `Se restauraron ${ok} participante(s) (${mal} no pudieron restaurarse).`,
         soloEstaPagina: (p: number, total: number) => `Esta vista no tiene búsqueda propia: se está filtrando sólo la página ${p} de ${total}. Recorre las páginas para ver el resto.`,
         cargandoEstudiantes: 'Cargando estudiantes…',
         cargandoMatches: 'Cargando matches…',

@@ -44,6 +44,9 @@ class SubirPorLaConversacionTest {
     @Autowired
     private ProgramaRepository programaRepository;
 
+    @Autowired
+    private jakarta.persistence.EntityManager entityManager;
+
     private Estudiante ana;
     private Estudiante luis;
 
@@ -64,6 +67,7 @@ class SubirPorLaConversacionTest {
             repository.save(mensaje);
         }
         repository.flush();
+        entityManager.clear();
     }
 
     private Estudiante guardarEstudiante(Programa programa, String nombre) {
