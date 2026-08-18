@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, CircleUser as UserCircle, Clock, CornerDownLeft as ArrowBendDownLeft, FileText, Folder as FolderSimple, Globe, GraduationCap, List, Mail as EnvelopeSimple, MessageCircle as ChatCircle, Paperclip, Plus, RefreshCw as ArrowsClockwise, Search as MagnifyingGlass, Send as PaperPlaneTilt, X } from 'lucide-react'
+import { Bell, Briefcase, Building2, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, CircleUser as UserCircle, Clock, CornerDownLeft as ArrowBendDownLeft, FileText, Folder as FolderSimple, Globe, GraduationCap, Handshake, List, Mail as EnvelopeSimple, MessageCircle as ChatCircle, Paperclip, Plus, RefreshCw as ArrowsClockwise, Search as MagnifyingGlass, Send as PaperPlaneTilt, X } from 'lucide-react'
 import { usePathname, useRouter } from '@/compat/next-navigation'
 import Link from '@/compat/next-link'
 import { Button } from '@/components/ui/button'
@@ -44,8 +44,11 @@ type HeaderProps = {
 
 const BUSQUEDA_VACIA: BusquedaResponse = {
   estudiantes: [],
+  empresas: [],
+  vacantes: [],
   programas: [],
   documentos: [],
+  colocaciones: [],
 }
 
 function formatNotificationTime(value: string, locale: 'es' | 'en') {
@@ -803,14 +806,20 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const abrirResultado = (resultado: ResultadoBusqueda) => {
     setSearchOpen(false)
     if (resultado.tipo === 'ESTUDIANTE') router.push(`/estudiantes/${resultado.id}`)
+    else if (resultado.tipo === 'EMPRESA') router.push(`/empresas`)
+    else if (resultado.tipo === 'VACANTE') router.push(`/vacantes`)
     else if (resultado.tipo === 'PROGRAMA') router.push(`/proyectos/${resultado.id}`)
+    else if (resultado.tipo === 'COLOCACION') router.push(`/colocaciones`)
     else router.push(`/documentos?q=${encodeURIComponent(resultado.titulo)}`)
   }
 
   const gruposBusqueda = [
-    { titulo: t('students'), icon: GraduationCap, items: searchResults.estudiantes },
-    { titulo: t('projects'), icon: FolderSimple, items: searchResults.programas },
-    { titulo: t('documents'), icon: FileText, items: searchResults.documentos },
+    { titulo: t('students'), icon: GraduationCap, items: searchResults.estudiantes ?? [] },
+    { titulo: locale === 'es' ? 'Empresas' : 'Companies', icon: Building2, items: searchResults.empresas ?? [] },
+    { titulo: locale === 'es' ? 'Vacantes' : 'Vacancies', icon: Briefcase, items: searchResults.vacantes ?? [] },
+    { titulo: t('projects'), icon: FolderSimple, items: searchResults.programas ?? [] },
+    { titulo: t('documents'), icon: FileText, items: searchResults.documentos ?? [] },
+    { titulo: locale === 'es' ? 'Colocaciones' : 'Placements', icon: Handshake, items: searchResults.colocaciones ?? [] },
   ].filter((group) => group.items.length > 0)
 
   /**

@@ -27,7 +27,7 @@ public class BusquedaController {
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
     public BusquedaResponse buscar(@RequestParam String q) {
         if (q == null || q.trim().length() < 2) {
-            return new BusquedaResponse(List.of(), List.of(), List.of());
+            return new BusquedaResponse(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
         }
         return busquedaService.buscar(q.trim());
     }

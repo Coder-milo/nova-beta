@@ -1526,6 +1526,7 @@ import type {
   CanalDeSoporteResponse,
   MensajeWhatsappResponse,
   CitaRequest,
+  CrearPostulacionRequest,
   HitoDeLaLinea,
   ModalidadEntrevista,
   ModuloDeVista,
@@ -1578,6 +1579,9 @@ export const pipelineApi = {
 }
 
 export const postulacionesApi = {
+  /** Registra una postulación por parte de la coordinación o administración. */
+  crear: (body: CrearPostulacionRequest, token?: string) =>
+    apiFetch<PostulacionResponse>('/api/v1/postulaciones', { method: 'POST', data: body, token }),
   /**
    * Lo del propio estudiante, recortado: sin los campos de gestión del equipo.
    * Ver `MiPostulacion`.
