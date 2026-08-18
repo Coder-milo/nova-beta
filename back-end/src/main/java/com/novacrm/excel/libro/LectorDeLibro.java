@@ -225,9 +225,7 @@ public final class LectorDeLibro {
         }
 
         var porIndice = destino.mapear(cabecera.get().titulos());
-        var faltan = destino.camposObligatorios().stream()
-                .filter(campo -> !porIndice.containsValue(campo))
-                .toList();
+        var faltan = destino.camposFaltantes(porIndice);
         if (!faltan.isEmpty()) {
             return HojaClasificada.omitida(nombre,
                     "Parece " + destino.getEtiqueta().toLowerCase(Locale.ROOT)

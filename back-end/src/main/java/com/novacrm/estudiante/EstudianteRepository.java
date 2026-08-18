@@ -141,6 +141,9 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     long countByProgramaIdAndActivoFalse(UUID programaId);
     long countByActivoFalse();
 
+    /** Los que siguen en el programa. Para poner «X de Y» en los avisos. */
+    long countByActivoTrue();
+
     @Modifying
     @Query("UPDATE Estudiante e SET e.activo = false, e.deletedAt = CURRENT_INSTANT WHERE e.programa.id = :programaId AND e.activo = true")
     int softDeleteByProgramaId(@Param("programaId") UUID programaId);
@@ -349,4 +352,25 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
         String getCiudad();
         long getTotal();
     }
+
+    /**
+     * Activos con correo que todavia no pueden entrar al sistema.
+     *
+     * <p>Sin cuenta no hay portal, y sin portal no se ve ni una oferta: es el
+     * primer eslabon de la cadena y el mas facil de no mirar, porque no falla
+     * nada —simplemente no pasa nada—.
+     *
+     * <p>Excluye a quien no tiene correo: a esos no se les puede crear cuenta
+     * aunque se quiera, y ya salen en el aviso de datos incompletos. Meterlos
+     * aqui daria un numero que no se puede bajar.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT COUNT(e) FROM Estudiante e
+            WHERE e.activo = true
+              AND e.email IS NOT NULL AND e.email <> ''
+              AND NOT EXISTS (
+                  SELECT 1 FROM Usuario u WHERE LOWER(u.email) = LOWER(e.email))
+            """)
+    long contarActivosSinCuenta();
+
 }
