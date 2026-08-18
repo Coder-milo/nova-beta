@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Dónde vive la gente del programa, sobre el mapa del Atlántico.
+ * Dónde viven los estudiantes del programa, sobre el mapa del Atlántico.
  *
  * De los 108 activos, 104 están en el área metropolitana de Barranquilla.
  * Repartido en una tabla eso no dice nada; sobre el mapa se ve de un golpe, y
@@ -85,7 +85,7 @@ function textos(english: boolean) {
         concentracion: (pct: number, m: string) => `${pct}% in ${m}`,
       }
     : {
-        titulo: 'Dónde vive la gente del programa',
+        titulo: 'Dónde viven los estudiantes del programa',
         desc: 'Participantes activos por municipio del Atlántico.',
         todos: 'Todos los proyectos',
         proyecto: 'Proyecto',
