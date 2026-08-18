@@ -871,7 +871,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
           se lo quita a la tabla que hay debajo, y a lo largo de una jornada
           eso son filas que no se ven. El filete de marca se queda porque es lo
           que identifica el proyecto de un vistazo. */}
-      <header className="glass-chrome sticky top-0 z-30 flex h-13 shrink-0 items-center gap-2 overflow-hidden border-b border-border border-t-2 border-t-primary px-3 transition-all md:px-4">
+      <header className="glass-chrome sticky top-0 z-40 flex h-13 shrink-0 items-center gap-2 border-b border-border border-t-2 border-t-primary px-3 transition-all md:px-4">
         <button
           type="button"
           onClick={onOpenMobile}
@@ -894,7 +894,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
           lateral de siempre, así que la búsqueda en sí no cambia.
         */}
         {!esEstudiante && (
-          <div ref={cajaBusqueda} className="relative z-30 mx-auto hidden w-full max-w-sm md:block">
+          <div ref={cajaBusqueda} className="relative z-50 mx-auto hidden w-full max-w-sm md:block">
             <MagnifyingGlass className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
@@ -924,7 +924,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                 pantalla obligaba a cerrarla para volver a lo que se estaba
                 haciendo, aunque no se hubiera encontrado nada. */}
             {panelBusquedaVisible && (
-              <div className="absolute left-0 right-0 top-[calc(100%+6px)] max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-popover p-2 shadow-[0_20px_50px_rgba(0,0,0,0.25)]">
+              <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-[70vh] overflow-y-auto rounded-2xl border border-border/80 bg-popover p-2.5 text-popover-foreground shadow-[0_20px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl">
                 {resultadosBusqueda}
               </div>
             )}
