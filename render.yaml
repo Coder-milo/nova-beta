@@ -10,6 +10,12 @@ services:
     plan: free
     dockerfilePath: ./back-end/Dockerfile
     dockerContext: ./back-end
+    # Es un monorepo: una corrección visual del frontend no debe reconstruir la
+    # API Java ni dejar las importaciones sin servicio durante su arranque.
+    # Los cambios a este render.yaml se sincronizan siempre por Render.
+    buildFilter:
+      paths:
+        - back-end/**
     healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
