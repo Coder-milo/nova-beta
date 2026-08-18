@@ -157,9 +157,13 @@ public class PostulacionService {
             throw new BusinessException("Ya hay una postulacion registrada a esta vacante");
         }
 
-        registrarEnSeguimiento(guardada, autor,
-                "Postulacion registrada en " + guardada.nombreEmpresa()
-                        + " para " + guardada.getCargo() + ".");
+        String origenTexto = laRegistraElEstudiante
+                ? "Postulación registrada directamente por el estudiante en " + guardada.nombreEmpresa() + " para " + guardada.getCargo() + "."
+                : "Postulación gestionada por coordinación (" + autor + ") en " + guardada.nombreEmpresa() + " para " + guardada.getCargo() + ".";
+        if (guardada.getFechaHoraEntrevista() != null) {
+            origenTexto += " Entrevista agendada para el " + guardada.getFechaHoraEntrevista().toLocalDate() + " (" + (guardada.getModalidadEntrevista() != null ? guardada.getModalidadEntrevista().getEtiqueta() : "Cita") + ").";
+        }
+        registrarEnSeguimiento(guardada, autor, origenTexto);
         propagarAlTablero(guardada, autor);
 
         return guardada;

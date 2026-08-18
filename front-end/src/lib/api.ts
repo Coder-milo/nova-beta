@@ -1416,9 +1416,9 @@ import type { UsuarioResponse } from './types'
 
 export const usuariosApi = {
   listar: (token?: string) => apiFetch<UsuarioResponse[]>('/api/v1/usuarios', { token }),
-  crear: (body: { email: string; nombre: string; password: string; roles: string[] }, token?: string) =>
+  crear: (body: { email: string; nombre: string; password: string; roles: string[]; empresaId?: string | null }, token?: string) =>
     apiFetch<UsuarioResponse>('/api/v1/usuarios', { method: 'POST', data: body, token }),
-  actualizar: (id: string, body: { nombre?: string; roles?: string[]; activo?: boolean; password?: string }, token?: string) =>
+  actualizar: (id: string, body: { nombre?: string; roles?: string[]; activo?: boolean; password?: string; empresaId?: string | null }, token?: string) =>
     apiFetch<UsuarioResponse>(`/api/v1/usuarios/${id}`, { method: 'PUT', data: body, token }),
   desactivar: (id: string, token?: string) =>
     apiFetch<void>(`/api/v1/usuarios/${id}`, { method: 'DELETE', token }),
@@ -1526,6 +1526,7 @@ import type {
   CanalDeSoporteResponse,
   MensajeWhatsappResponse,
   CitaRequest,
+  CrearPostulacionRequest,
   HitoDeLaLinea,
   ModalidadEntrevista,
   ModuloDeVista,
@@ -1578,6 +1579,9 @@ export const pipelineApi = {
 }
 
 export const postulacionesApi = {
+  /** Registra una postulación por parte de la coordinación o administración. */
+  crear: (body: CrearPostulacionRequest, token?: string) =>
+    apiFetch<PostulacionResponse>('/api/v1/postulaciones', { method: 'POST', data: body, token }),
   /**
    * Lo del propio estudiante, recortado: sin los campos de gestión del equipo.
    * Ver `MiPostulacion`.

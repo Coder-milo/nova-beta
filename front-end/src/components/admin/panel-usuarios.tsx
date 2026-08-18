@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Key, LoaderCircle as CircleNotch, Plus, RefreshCw as ArrowsClockwise, Shield, User, Users, X } from 'lucide-react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Key, LoaderCircle as CircleNotch, Plus, RefreshCw as ArrowsClockwise, Shield, User, Users, X, Building2 } from 'lucide-react'
 import { Dialog } from '@base-ui/react/dialog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,12 +22,12 @@ import { Badge } from '@/components/ui/badge'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { useAuth } from '@/lib/auth'
-import { usuariosApi, ApiCallError } from '@/lib/api'
-import type { UsuarioResponse } from '@/lib/types'
+import { usuariosApi, empresasApi, ApiCallError } from '@/lib/api'
+import type { UsuarioResponse, EmpresaResponse } from '@/lib/types'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
 
-const ROLES_DISPONIBLES = ['ADMIN', 'COORDINADOR'] as const
+const ROLES_DISPONIBLES = ['ADMIN', 'COORDINADOR', 'EMPRESA'] as const
 
 /**
  * Textos propios de esta pantalla.
@@ -58,12 +58,17 @@ function textos(english: boolean) {
         contrasenaMin8: 'Password * (min. 8)',
         seleccionaAlMenos: 'Choose at least one role.',
         elEmailEs: 'The email is required.',
-        cuentasConAcceso: 'Accounts with access to the CRM.',
+        cuentasConAcceso: 'Manage accounts for administrators, coordinators and partner companies.',
         crearNuevoUsuario: 'Create a new user',
         nombreYApellido: 'First and last name',
         noSePudo: 'Could not connect.',
         idDeUsuario: 'User ID',
         crearUsuario: 'Create user',
+        empresaVinculada: 'Linked company',
+        empresaVinculadaDesc: 'Corporate portal user will only access job postings and applicants for this company.',
+        seleccionaUnaEmpresa: '— Select a company —',
+        faltaEmpresa: 'Please select a company for this corporate account.',
+        cuentasDelEquipo: 'User accounts and portal access',
       }
     : {
         elTokenSe: '• El token se guarda en una cookie HttpOnly, inaccesible desde el navegador.',
@@ -86,12 +91,17 @@ function textos(english: boolean) {
         contrasenaMin8: 'Contraseña * (mín. 8)',
         seleccionaAlMenos: 'Selecciona al menos un rol.',
         elEmailEs: 'El email es obligatorio.',
-        cuentasConAcceso: 'Cuentas con acceso al CRM.',
+        cuentasConAcceso: 'Gestiona las cuentas de administradores, coordinadores y empresas aliadas.',
         crearNuevoUsuario: 'Crear nuevo usuario',
         nombreYApellido: 'Nombre y apellido',
         noSePudo: 'No se pudo conectar.',
         idDeUsuario: 'ID de usuario',
         crearUsuario: 'Crear usuario',
+        empresaVinculada: 'Empresa vinculada',
+        empresaVinculadaDesc: 'El usuario del portal corporativo solo accederá a las ofertas y candidatos de esta empresa.',
+        seleccionaUnaEmpresa: '— Selecciona una empresa —',
+        faltaEmpresa: 'Selecciona la empresa vinculada para esta cuenta corporativa.',
+        cuentasDelEquipo: 'Cuentas de usuario y accesos al portal',
       }
 }
 
@@ -115,6 +125,7 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
   const { user } = useAuth()
 
   const [usuarios, setUsuarios] = useState<UsuarioResponse[]>([])
+  const [empresas, setEmpresas] = useState<EmpresaResponse[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sinPermiso, setSinPermiso] = useState(false)
@@ -124,6 +135,7 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
     email: '',
     password: '',
     roles: ['COORDINADOR'] as string[],
+    empresaId: '',
   })
   const [creando, setCreando] = useState(false)
   const [errorForm, setErrorForm] = useState<string | null>(null)
@@ -140,7 +152,12 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
     setError(null)
     setSinPermiso(false)
     try {
-      setUsuarios(await usuariosApi.listar())
+      const [listaUsuarios, listaEmpresas] = await Promise.all([
+        usuariosApi.listar(),
+        empresasApi.buscar({ page: 0, size: 250 }).catch(() => ({ content: [] as EmpresaResponse[] })),
+      ])
+      setUsuarios(listaUsuarios)
+      setEmpresas(listaEmpresas.content ?? [])
     } catch (err) {
       if (err instanceof ApiCallError && (err.status === 401 || err.status === 403)) {
         setSinPermiso(true)
@@ -152,7 +169,7 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
     } finally {
       setCargando(false)
     }
-  }, [])
+  }, [C.errorConexion])
 
   useEffect(() => {
     cargar()
@@ -177,6 +194,10 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
       setErrorForm(T.seleccionaAlMenos)
       return
     }
+    if (nuevoUsuario.roles.includes('EMPRESA') && !nuevoUsuario.empresaId) {
+      setErrorForm(T.faltaEmpresa)
+      return
+    }
     setCreando(true)
     try {
       await usuariosApi.crear({
@@ -184,8 +205,9 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
         email: nuevoUsuario.email.trim(),
         password: nuevoUsuario.password,
         roles: nuevoUsuario.roles,
+        empresaId: nuevoUsuario.roles.includes('EMPRESA') ? nuevoUsuario.empresaId : null,
       })
-      setNuevoUsuario({ nombre: '', email: '', password: '', roles: ['COORDINADOR'] })
+      setNuevoUsuario({ nombre: '', email: '', password: '', roles: ['COORDINADOR'], empresaId: '' })
       cargar()
     } catch (err) {
       if (err instanceof ApiCallError) {
@@ -202,12 +224,17 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
   }
 
   const alternarRol = (rol: string) => {
-    setNuevoUsuario((previo) => ({
-      ...previo,
-      roles: previo.roles.includes(rol)
+    setNuevoUsuario((previo) => {
+      const tieneRol = previo.roles.includes(rol)
+      const nuevosRoles = tieneRol
         ? previo.roles.filter((r) => r !== rol)
-        : [...previo.roles, rol],
-    }))
+        : [...previo.roles, rol]
+      return {
+        ...previo,
+        roles: nuevosRoles,
+        empresaId: nuevosRoles.includes('EMPRESA') ? previo.empresaId : '',
+      }
+    })
   }
 
   const alternarActivo = async (u: UsuarioResponse) => {
@@ -321,7 +348,7 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Users className="size-5 text-primary" /> Cuentas del equipo
+                <Users className="size-5 text-primary" /> {T.cuentasDelEquipo}
               </CardTitle>
               <CardDescription>{T.cuentasConAcceso}</CardDescription>
             </div>
@@ -383,6 +410,30 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
                       disabled={creando}
                     />
                   </div>
+                  {nuevoUsuario.roles.includes('EMPRESA') && (
+                    <div className="flex flex-col gap-1.5 sm:col-span-3">
+                      <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <Building2 className="size-3.5 text-primary" /> {T.empresaVinculada} *
+                      </label>
+                      <select
+                        required
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
+                        value={nuevoUsuario.empresaId}
+                        onChange={(e) => setNuevoUsuario((p) => ({ ...p, empresaId: e.target.value }))}
+                        disabled={creando}
+                      >
+                        <option value="">{T.seleccionaUnaEmpresa}</option>
+                        {empresas.map((emp) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.nombre} {emp.sector ? `· ${emp.sector}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-muted-foreground">
+                        {T.empresaVinculadaDesc}
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-4 pt-1">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -440,7 +491,7 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
                       <tr className="border-b border-border bg-secondary/50">
                         <th className="px-4 py-3 text-left font-medium uppercase tracking-wider text-muted-foreground">Nombre</th>
                         <th className="px-4 py-3 text-left font-medium uppercase tracking-wider text-muted-foreground">Email</th>
-                        <th className="px-4 py-3 text-left font-medium uppercase tracking-wider text-muted-foreground">Roles</th>
+                        <th className="px-4 py-3 text-left font-medium uppercase tracking-wider text-muted-foreground">Roles / Entidad</th>
                         <th className="px-4 py-3 text-left font-medium uppercase tracking-wider text-muted-foreground">Estado</th>
                         <th className="px-4 py-3 text-right font-medium uppercase tracking-wider text-muted-foreground">Acciones</th>
                       </tr>
@@ -448,13 +499,27 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
                     <tbody className="divide-y divide-border">
                       {usuarios.map((u) => (
                         <tr key={u.id} className="transition-colors hover:bg-secondary/30">
-                          <td className="px-4 py-3 font-semibold text-foreground">{u.nombre}</td>
+                          <td className="px-4 py-3 font-semibold text-foreground">
+                            {u.nombre}
+                          </td>
                           <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
                           <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               {u.roles.map((r) => (
-                                <Badge key={r} variant="outline" className="text-[10px]">{r}</Badge>
+                                <Badge
+                                  key={r}
+                                  variant={r === 'ADMIN' ? 'default' : r === 'EMPRESA' ? 'secondary' : 'outline'}
+                                  className="text-[10px]"
+                                >
+                                  {r}
+                                </Badge>
                               ))}
+                              {u.empresaNombre && (
+                                <span className="flex items-center gap-1 text-[11px] font-medium text-foreground/80">
+                                  <Building2 className="size-3 text-primary" />
+                                  {u.empresaNombre}
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="px-4 py-3">

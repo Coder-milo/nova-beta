@@ -10,17 +10,9 @@ import java.util.TreeMap;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Mapeo de columnas contra los encabezados reales de los dos archivos que usa
+ * Mapeo de columnas contra los encabezados reales de los archivos que usa
  * el programa: la BBDD cruda del formulario de admision y la Base Maestra de
  * empleabilidad.
- *
- * <p>Solo se incluyen los <em>encabezados</em>. Los archivos reales contienen
- * datos personales de los participantes (nombre, documento, celular, correo) y
- * no deben versionarse en el repositorio.
- *
- * <p>Los encabezados estan copiados literalmente, con sus tildes, signos de
- * apertura, dobles espacios y saltos de linea: justamente esas variaciones son
- * las que rompen el mapeo cuando se comparan cadenas sin normalizar.
  */
 class MapeoColumnasRealesTest {
 
@@ -125,6 +117,7 @@ class MapeoColumnasRealesTest {
         assertEquals("clasificacionSisben", resultado.get("4.1 ¿Cuál es tu clasificación en SISBEN IV? \n  "));
         assertEquals("situacionLaboral", resultado.get("4.2 Actualmente, ¿Cuál es tu situación laboral?"));
         assertEquals("aniosExperiencia", resultado.get("4.3 ¿Cuánto tiempo de experiencia laboral tienes en total?  "));
+        assertEquals("disponibilidadMovilidad", resultado.get("9.4 ¿Cuentas actualmente con pasaporte vigente y en condiciones aptas para iniciar un proceso de movilidad laboral internacional?"));
         assertEquals("resultadoPruebaEscrita", resultado.get("Resultado Prueba Escrita"));
         assertEquals("resultadoPruebaOral", resultado.get("Resultado Prueba oral"));
     }
@@ -138,9 +131,20 @@ class MapeoColumnasRealesTest {
         assertEquals("numeroDocumento", resultado.get("Documento"));
         assertEquals("email", resultado.get("Correo"));
         assertEquals("nivelIngles", resultado.get("Nivel_Ingles"));
+        assertEquals("programaAcademico", resultado.get("Programa_Academico"));
+        assertEquals("institucionEducativa", resultado.get("Institucion_Educativa"));
+        assertEquals("areaFormacion", resultado.get("Area_Formacion"));
+        assertEquals("estadoFormacion", resultado.get("Estado_Formacion"));
+        assertEquals("haTrabajado", resultado.get("Tiene_Experiencia"));
+        assertEquals("aniosExperiencia", resultado.get("Anos_Experiencia"));
+        assertEquals("ultimoCargo", resultado.get("Ultimo_Cargo"));
+        assertEquals("sectorExperiencia", resultado.get("Sector_Experiencia"));
         assertEquals("perfilProfesional", resultado.get("Perfil_Profesional_Sintesis"));
         assertEquals("sectorObjetivo", resultado.get("Sector_Objetivo"));
         assertEquals("cargoObjetivo", resultado.get("Cargo_Objetivo"));
+        assertEquals("disponibilidadLaboral", resultado.get("Disponibilidad_Laboral"));
+        assertEquals("cvListo", resultado.get("HV_Revisada"));
+        assertEquals("linkedinOptimizado", resultado.get("LinkedIn_Optimizado"));
         assertEquals("postulacionesEnviadas", resultado.get("Postulaciones_Enviadas"));
         assertEquals("empresasContactadas", resultado.get("Empresas_Contactadas"));
         assertEquals("estadoBusqueda", resultado.get("Estado_Busqueda"));
@@ -148,7 +152,7 @@ class MapeoColumnasRealesTest {
 
     /**
      * Las columnas de consentimiento y las de texto libre "Si marco otro..." no
-     * deben caer por error en un campo del estudiante.
+     * deben caer por error en un campo del estudiante (falsos positivos).
      */
     @Test
     void noAsignaLasColumnasQueDebenIgnorarse() {
@@ -162,6 +166,21 @@ class MapeoColumnasRealesTest {
                 "los campos 'si marco otra' son texto libre auxiliar");
         assertNull(resultado.get("4.13 Si marcó SI, indique cuál."),
                 "los campos 'si marco SI' son texto libre auxiliar");
+
+        // Validar que las autorizaciones no se asignen a nivelIngles
+        String authEurocentres = "2.1 ¿Autorizas a CAC Eurocentres, al uso de tus datos para los fines de contacto, seguimiento y evaluación dentro del programa Cuando sabes inglés se nota?  \n\nSi deseas conocer más sobre las políticas de tratamiento de datos de la entidad, puedes consultarlas en los enlaces a continuación: POLÍTICA DE SEGURIDAD Y TRATAMIENTO DE DATOS PERSONALES Y USO DE IMAGEN CAC-EUROCENTRES";
+        String authFsd = "2.2  ¿Autorizas a Fundación Santo Domingo - FSD , al uso de tus datos para los fines de contacto, seguimiento y evaluación dentro del programa Cuando sabes inglés se nota?\nSi deseas conocer más sobre las políticas de tratamiento de datos de la entidad, puedes consultarlas en los enlaces a continuación:\nPOLITICA DE PROTECCIÓN DE DATOS PERSONALES FSD";
+        String authCcc = "2.3 ¿Autorizas a Compartamos con Colombia - CCC, al uso de tus datos para los fines de contacto, seguimiento y evaluación dentro del programa Cuando sabes inglés se nota?  \nSi deseas conocer más sobre las políticas de tratamiento de datos de la entidad, puedes consultarlas en los enlaces a continuación:\nPOLÍTICA DE TRATAMIENTO DE INFORMACIÓN PERSONAL CCC";
+
+        assertNull(resultado.get(authEurocentres), "consentimiento CAC Eurocentres debe ser null");
+        assertNull(resultado.get(authFsd), "consentimiento FSD debe ser null");
+        assertNull(resultado.get(authCcc), "consentimiento CCC debe ser null");
+
+        // Validar que preguntas familiares/medicas no se asignen a disponibilidadLaboral
+        String fam = "9.3 ¿Actualmente cuentas con núcleo familiar (pareja, hijos u otras personas a cargo) que debería migrar contigo en caso de acceder a una oportunidad laboral en otro país?";
+        String med = "9.5 ¿Estarías dispuesto(a) a realizar los exámenes médicos requeridos para validar tu estado de salud, en el marco de un proceso de selección y vinculación laboral en el exterior?";
+        assertNull(resultado.get(fam), "pregunta 9.3 no debe mapear a disponibilidadLaboral");
+        assertNull(resultado.get(med), "pregunta 9.5 no debe mapear a disponibilidadLaboral");
     }
 
     /**

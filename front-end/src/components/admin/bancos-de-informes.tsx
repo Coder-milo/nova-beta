@@ -27,26 +27,26 @@ function textos(english: boolean) {
     ? {
         paraEmpresas: 'Candidate profile bank',
         paraEmpresasDesc:
-          'What you send to a company that asks for candidates: education, experience, English and skills.',
-        sinDatos: 'Carries no ID number, email, phone or address — the same rule as the company portal. If a company wants to reach someone, it goes through the team.',
-        interno: 'Cohort overview',
+          'Standardized report for partner employers: education, professional experience, English proficiency, and skills.',
+        sinDatos: 'Anonymized document: Excludes national ID, email, phone, and address to safeguard participant privacy under data protection regulations.',
+        interno: 'Executive cohort overview',
         internoDesc:
-          'Everything about the cohort in one document. The PDF comes with charts; the spreadsheet, with the same figures in a table.',
-        soloEquipo: 'Figures only: counts by city, English level, status and month. No names — it does not identify anyone.',
+          'Consolidated management report with programme progress metrics and outcomes. PDF includes graphs; spreadsheet contains data tables.',
+        soloEquipo: 'Aggregated analytics: counts by municipality, English level, academic status, and time evolution.',
         conGraficos: 'PDF with charts',
-        descargando: 'Preparing…',
+        descargando: 'Generating report…',
       }
     : {
         paraEmpresas: 'Banco de perfiles laborales',
         paraEmpresasDesc:
-          'Lo que se le manda a una empresa que pide candidatos: formación, experiencia, inglés y habilidades.',
-        sinDatos: 'No lleva documento, correo, teléfono ni dirección —la misma regla que el portal de empresas—. Si una empresa quiere contactar a alguien, pasa por el equipo.',
-        interno: 'Panorama de la cohorte',
+          'Reporte estandarizado para empresas aliadas: formación, experiencia laboral, nivel de inglés y habilidades clave.',
+        sinDatos: 'Documento anonimizado: No incluye documento de identidad, correo, teléfono ni dirección para proteger la privacidad del participante.',
+        interno: 'Panorama ejecutivo de la cohorte',
         internoDesc:
-          'Todo sobre la cohorte en un solo documento. El PDF sale con gráficos; la hoja, con las mismas cifras en tabla.',
-        soloEquipo: 'Solo cifras: conteos por ciudad, nivel de inglés, estado y mes. Sin nombres — no identifica a nadie.',
+          'Reporte gerencial consolidado con métricas de avance y resultados del programa. El PDF incluye gráficos; la hoja contiene tablas de datos.',
+        soloEquipo: 'Estadísticas agregadas por municipio, nivel de inglés, estado académico y evolución temporal.',
         conGraficos: 'PDF con gráficos',
-        descargando: 'Preparando…',
+        descargando: 'Generando reporte…',
       }
 }
 

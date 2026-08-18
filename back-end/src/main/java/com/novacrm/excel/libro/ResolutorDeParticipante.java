@@ -16,31 +16,34 @@ import java.util.Set;
  *
  * <p>Las tres hojas de participantes del libro de seguimiento —perfiles,
  * postulaciones y colocaciones— identifican a la persona por su nombre
- * completo y un numero de orden. Ninguna trae correo ni documento, que es por
- * lo unico que sabian buscar los importadores: exigian una columna que el
- * archivo real no tiene, asi que las tres hojas habrian fallado fila por fila.
+ * completo y un numero de orden. Las hojas de admision y matrices maestras
+ * tambien traen correo o documento.
  *
- * <p>Buscar por nombre es menos fiable que por documento, y por eso esta clase
- * no adivina. Compara nombres normalizados —sin tildes, sin mayusculas, sin
- * espacios de sobra— y cuando un nombre corresponde a mas de un participante
- * devuelve ambiguedad en vez de elegir: asignarle a la persona equivocada una
- * colocacion o una postulacion es peor que dejar la fila sin importar y
- * decirlo.
- *
- * <p>Tampoco crea participantes. {@code Estudiante.email} es obligatorio y
- * unico, y estas hojas no traen correo; inventar uno para poder insertar
- * romperia el acceso del estudiante y sus avisos. Los nombres que no existan se
- * informan para que alguien los d de alta con sus datos de contacto reales.
+ * <p>Se prioriza la busqueda por documento y correo cuando estan disponibles,
+ * y se recurre a la coincidencia por nombre normalizado cuando no.
  */
 public class ResolutorDeParticipante {
 
     /** Nombre normalizado → participantes que responden a el. */
     private final Map<String, List<Estudiante>> porNombre = new HashMap<>();
+    /** Documento normalizado → participante. */
+    private final Map<String, Estudiante> porDocumento = new HashMap<>();
+    /** Correo en minúsculas → participante. */
+    private final Map<String, Estudiante> porEmail = new HashMap<>();
 
     public ResolutorDeParticipante(EstudianteRepository repositorio) {
         for (Estudiante e : repositorio.findAllByActivoTrue()) {
             for (String clave : clavesDe(e)) {
                 porNombre.computeIfAbsent(clave, k -> new java.util.ArrayList<>()).add(e);
+            }
+            if (e.getNumeroDocumento() != null && !e.getNumeroDocumento().isBlank()) {
+                String docNorm = normalizarDocumento(e.getNumeroDocumento());
+                if (!docNorm.isBlank()) {
+                    porDocumento.putIfAbsent(docNorm, e);
+                }
+            }
+            if (e.getEmail() != null && !e.getEmail().isBlank()) {
+                porEmail.putIfAbsent(e.getEmail().trim().toLowerCase(Locale.ROOT), e);
             }
         }
     }
@@ -54,6 +57,23 @@ public class ResolutorDeParticipante {
         record Ambiguo(int cuantos) implements Resultado {}
 
         record NoExiste() implements Resultado {}
+    }
+
+    public Resultado buscar(String nombreCompleto, String email, String documento) {
+        if (documento != null && !documento.isBlank()) {
+            String docNorm = normalizarDocumento(documento);
+            var e = porDocumento.get(docNorm);
+            if (e != null) {
+                return new Resultado.Encontrado(e);
+            }
+        }
+        if (email != null && !email.isBlank()) {
+            var e = porEmail.get(email.trim().toLowerCase(Locale.ROOT));
+            if (e != null) {
+                return new Resultado.Encontrado(e);
+            }
+        }
+        return buscar(nombreCompleto);
     }
 
     public Resultado buscar(String nombreCompleto) {
@@ -111,6 +131,11 @@ public class ResolutorDeParticipante {
      */
     static String normalizar(String texto) {
         return com.novacrm.shared.ClaveNormalizada.de(texto);
+    }
+
+    static String normalizarDocumento(String doc) {
+        if (doc == null) return "";
+        return doc.replaceAll("[^a-zA-Z0-9]", "").toLowerCase(Locale.ROOT);
     }
 
     /** Cuantos participantes activos se cargaron. Util para el informe. */

@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from '@/compat/next-navigation'
 import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Globe, Landmark as Bank, LayoutGrid as SquaresFour, LoaderCircle as CircleNotch, Monitor, Moon, Palette, Settings as Gear, Search as MagnifyingGlass, Share2 as ShareNetwork, Shield, ShieldAlert as ShieldWarning, SlidersHorizontal as Sliders, Sun, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -138,7 +139,17 @@ export default function ConfiguracionPage() {
   const { theme, setTheme, locale, setLocale, t } = usePreferences()
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
-  const [activeTab, setActiveTab] = useState<TabKey>('institucion')
+  /**
+   * La sección abierta, con `?seccion=` para poder enlazarla desde fuera.
+   *
+   * Un aviso del panel que dice «106 participantes sin cuenta» tiene que poder
+   * llevar a donde se arregla. Dejarlo en la portada de Configuración obliga a
+   * adivinar cuál de las siete secciones es, que es justo lo que hace que un
+   * aviso se ignore.
+   */
+  const parametrosConfiguracion = useSearchParams()
+  const seccionPedida = parametrosConfiguracion.get('seccion') as TabKey | null
+  const [activeTab, setActiveTab] = useState<TabKey>(seccionPedida ?? 'institucion')
   const [buscarAjuste, setBuscarAjuste] = useState('')
 
   const [programas, setProgramas] = useState<{ id: string; nombre: string }[]>([])

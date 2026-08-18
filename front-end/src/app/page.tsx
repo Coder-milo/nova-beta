@@ -302,7 +302,7 @@ export default function DashboardPage() {
 
       {/* Aviso de backend no disponible */}
       {backendError && (
-        <div className="flex items-center gap-2 rounded-(--radius) border border-amber-300/70 bg-amber-50 px-3 py-2 text-[13px] text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+        <div className="flex items-center gap-2 rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-2 text-[13px] text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
           <WifiSlash className="size-4 shrink-0" />
           <span>{backendError}</span>
         </div>
@@ -313,7 +313,7 @@ export default function DashboardPage() {
           que no significaba nada, porque todos se leen igual. Cuatro columnas
           y no cinco: con ocho tarjetas, cinco columnas dejan la última fila con
           un hueco al final que parece una tarjeta que no cargó. */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {pStats.map((stat) => (
           <StatCard key={stat.id} stat={stat} />
         ))}
@@ -323,7 +323,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Gráficos */}
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-3">
         <StudentsStatusChart
           data={useLive ? charts!.distribucionEstado : null}
         />
@@ -334,7 +334,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <StudentsProjectChart
           data={useLive ? charts!.estudiantesPorProyecto : null}
         />
@@ -345,7 +345,7 @@ export default function DashboardPage() {
         <EmployabilityChart data={useLive ? charts!.empleabilidad : null} />
       </div>
 
-      <div className="grid grid-cols-1 gap-2">
+      <div className="grid grid-cols-1 gap-3.5">
         <AlertsCard alerts={useLive ? alerts! : null} />
       </div>
 
@@ -357,7 +357,7 @@ export default function DashboardPage() {
       <MapaDelAtlantico />
 
       {/* Actividades y accesos rápidos */}
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <ActivitiesCard />
         <QuickAccess />
       </div>

@@ -6,10 +6,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.util.Set;
+import java.util.UUID;
 
 public record UsuarioRequest(
     @Email @NotBlank String email,
     @NotBlank String nombre,
     @NotBlank @Size(min = 8) String password,
-    Set<Rol> roles
+    Set<Rol> roles,
+    UUID empresaId
 ) {}

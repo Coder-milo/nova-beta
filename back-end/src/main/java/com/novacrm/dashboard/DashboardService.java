@@ -187,6 +187,23 @@ public class DashboardService {
                     referencia, ruta));
         }
 
+        // Participantes que no pueden entrar todavia.
+        //
+        // Es el primer eslabon de la cadena y el mas facil de no mirar, porque
+        // no falla nada: simplemente no pasa nada. Sin cuenta no hay portal, y
+        // sin portal la persona no ve ni una oferta ni puede postularse, por
+        // muchas que traiga el rastreo. Severidad alta y no media: con esto sin
+        // resolver, medio sistema esta apagado para esa gente.
+        long sinCuenta = estudianteRepository.contarActivosSinCuenta();
+        if (sinCuenta > 0) {
+            long activos = estudianteRepository.countByActivoTrue();
+            alertas.add(new AlertaResponse(
+                    "ESTUDIANTES_SIN_CUENTA", "ALTA",
+                    "Participantes sin acceso al portal",
+                    sinCuenta + " de " + activos + " participante(s) activo(s) no cuentan con acceso habilitado al portal de empleo.",
+                    null, "/configuracion?seccion=personas"));
+        }
+
         // Ofertas que registro un participante y nadie ha validado. Mientras
         // esperan no se le recomiendan a nadie, asi que una que se quede sin
         // mirar no es una tarea pendiente: es una oportunidad que se pierde en
@@ -195,9 +212,8 @@ public class DashboardService {
         if (sinRevisar > 0) {
             alertas.add(new AlertaResponse(
                     "VACANTE_SIN_REVISAR", "ALTA",
-                    "Ofertas pendientes de validar",
-                    sinRevisar + " oferta(s) registrada(s) por participantes esperan revisión. "
-                            + "Hasta validarlas no entran al matching.",
+                    "Vacantes pendientes de validación",
+                    sinRevisar + " vacante(s) registrada(s) pendientes de validación para ser incluidas en el sistema de coincidencia.",
                     null, "/vacantes"));
         }
 
@@ -209,8 +225,8 @@ public class DashboardService {
                 .filter(e -> e.getError() != null && !e.getError().isBlank())
                 .ifPresent(e -> alertas.add(new AlertaResponse(
                         "SCRAPING_CON_ERRORES", "MEDIA",
-                        "El ultimo escaneo de vacantes fallo",
-                        "Fuentes con problemas: " + e.getError(),
+                        "Incidencia en la sincronización de vacantes",
+                        "Fuentes con novedades: " + e.getError(),
                         null, "/vacantes")));
 
         // ── Las entrevistas ─────────────────────────────────────────────────
@@ -228,8 +244,8 @@ public class DashboardService {
             var primera = citasDeHoy.get(0);
             alertas.add(new AlertaResponse(
                     "ENTREVISTA_HOY", "ALTA",
-                    citasDeHoy.size() == 1 ? "Hay una entrevista hoy" : "Hay entrevistas hoy",
-                    citasDeHoy.size() + " cita(s) hoy. La primera, a las "
+                    citasDeHoy.size() == 1 ? "Entrevista programada para hoy" : "Entrevistas programadas para hoy",
+                    citasDeHoy.size() + " cita(s) programada(s) para hoy. Primera sesión a las "
                             + primera.getFechaHoraEntrevista().toLocalTime().withSecond(0).withNano(0)
                             + " con " + primera.getEstudiante().getNombre() + " "
                             + primera.getEstudiante().getApellido() + ".",

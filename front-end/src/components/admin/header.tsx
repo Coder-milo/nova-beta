@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, CircleUser as UserCircle, Clock, CornerDownLeft as ArrowBendDownLeft, FileText, Folder as FolderSimple, Globe, GraduationCap, List, Mail as EnvelopeSimple, MessageCircle as ChatCircle, Paperclip, Plus, RefreshCw as ArrowsClockwise, Search as MagnifyingGlass, Send as PaperPlaneTilt, X } from 'lucide-react'
+import { Bell, Briefcase, Building2, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, CircleUser as UserCircle, Clock, CornerDownLeft as ArrowBendDownLeft, FileText, Folder as FolderSimple, Globe, GraduationCap, Handshake, List, Mail as EnvelopeSimple, MessageCircle as ChatCircle, Paperclip, Plus, RefreshCw as ArrowsClockwise, Search as MagnifyingGlass, Send as PaperPlaneTilt, X } from 'lucide-react'
 import { usePathname, useRouter } from '@/compat/next-navigation'
 import Link from '@/compat/next-link'
 import { Button } from '@/components/ui/button'
@@ -44,8 +44,11 @@ type HeaderProps = {
 
 const BUSQUEDA_VACIA: BusquedaResponse = {
   estudiantes: [],
+  empresas: [],
+  vacantes: [],
   programas: [],
   documentos: [],
+  colocaciones: [],
 }
 
 function formatNotificationTime(value: string, locale: 'es' | 'en') {
@@ -803,14 +806,20 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const abrirResultado = (resultado: ResultadoBusqueda) => {
     setSearchOpen(false)
     if (resultado.tipo === 'ESTUDIANTE') router.push(`/estudiantes/${resultado.id}`)
+    else if (resultado.tipo === 'EMPRESA') router.push(`/empresas`)
+    else if (resultado.tipo === 'VACANTE') router.push(`/vacantes`)
     else if (resultado.tipo === 'PROGRAMA') router.push(`/proyectos/${resultado.id}`)
+    else if (resultado.tipo === 'COLOCACION') router.push(`/colocaciones`)
     else router.push(`/documentos?q=${encodeURIComponent(resultado.titulo)}`)
   }
 
   const gruposBusqueda = [
-    { titulo: t('students'), icon: GraduationCap, items: searchResults.estudiantes },
-    { titulo: t('projects'), icon: FolderSimple, items: searchResults.programas },
-    { titulo: t('documents'), icon: FileText, items: searchResults.documentos },
+    { titulo: t('students'), icon: GraduationCap, items: searchResults.estudiantes ?? [] },
+    { titulo: locale === 'es' ? 'Empresas' : 'Companies', icon: Building2, items: searchResults.empresas ?? [] },
+    { titulo: locale === 'es' ? 'Vacantes' : 'Vacancies', icon: Briefcase, items: searchResults.vacantes ?? [] },
+    { titulo: t('projects'), icon: FolderSimple, items: searchResults.programas ?? [] },
+    { titulo: t('documents'), icon: FileText, items: searchResults.documentos ?? [] },
+    { titulo: locale === 'es' ? 'Colocaciones' : 'Placements', icon: Handshake, items: searchResults.colocaciones ?? [] },
   ].filter((group) => group.items.length > 0)
 
   /**
@@ -871,7 +880,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
           se lo quita a la tabla que hay debajo, y a lo largo de una jornada
           eso son filas que no se ven. El filete de marca se queda porque es lo
           que identifica el proyecto de un vistazo. */}
-      <header className="glass-chrome sticky top-0 z-30 flex h-13 shrink-0 items-center gap-2 overflow-hidden border-b border-border border-t-2 border-t-primary px-3 transition-all md:px-4">
+      <header className="glass-chrome sticky top-0 z-40 flex h-13 shrink-0 items-center gap-2 border-b border-border border-t-2 border-t-primary px-3 transition-all md:px-4">
         <button
           type="button"
           onClick={onOpenMobile}
@@ -894,7 +903,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
           lateral de siempre, así que la búsqueda en sí no cambia.
         */}
         {!esEstudiante && (
-          <div ref={cajaBusqueda} className="relative z-30 mx-auto hidden w-full max-w-sm md:block">
+          <div ref={cajaBusqueda} className="relative z-50 mx-auto hidden w-full max-w-sm md:block">
             <MagnifyingGlass className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
@@ -906,7 +915,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
               }}
               placeholder={t('generalSearch')}
               aria-label={t('generalSearch')}
-              className="h-8 w-full rounded-(--radius) border border-input bg-card pl-8 pr-8 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50"
+              className="h-8.5 w-full rounded-xl border border-input/70 bg-card/80 pl-8 pr-8 text-xs text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
             />
             {searchQuery && (
               <button
@@ -924,7 +933,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
                 pantalla obligaba a cerrarla para volver a lo que se estaba
                 haciendo, aunque no se hubiera encontrado nada. */}
             {panelBusquedaVisible && (
-              <div className="absolute left-0 right-0 top-[calc(100%+6px)] max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-popover p-2 shadow-[0_20px_50px_rgba(0,0,0,0.25)]">
+              <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-[70vh] overflow-y-auto rounded-2xl border border-border/80 bg-popover p-2.5 text-popover-foreground shadow-[0_20px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl">
                 {resultadosBusqueda}
               </div>
             )}
@@ -1226,7 +1235,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
               onKeyDown={(event) => { if (event.key === 'Escape') setBusquedaMovilAbierta(false) }}
               placeholder={t('generalSearch')}
               aria-label={t('generalSearch')}
-              className="h-9 w-full rounded-(--radius) border border-input bg-background pl-8 pr-8 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50"
+              className="h-9 w-full rounded-xl border border-input/70 bg-background pl-8 pr-8 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
             />
             <button
               type="button"

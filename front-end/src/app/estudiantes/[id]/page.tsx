@@ -39,6 +39,8 @@ import type {
   AuditoriaResponse, PipelineEmpleabilidadResponse, PostulacionResponse, ColocacionResponse,
   PreparacionEstudianteRequest, EstadoHito, EstudianteRequest, PlataformaResponse,
 } from '@/lib/types'
+import { ModalPostularEstudiante } from '@/components/admin/modal-postular-estudiante'
+import { PipelinePostulacionesSalesforce } from '@/components/admin/pipeline-postulaciones-salesforce'
 import { Textarea } from '@/components/ui/textarea'
 import { errorDe } from '@/lib/errores'
 import { usePreferences } from '@/lib/preferences'
@@ -544,6 +546,7 @@ function FichaEstudiante({ id }: { id: string }) {
   const [editandoPreparacion, setEditandoPreparacion] = useState(false)
   const [guardandoPreparacion, setGuardandoPreparacion] = useState(false)
   const [preparacion, setPreparacion] = useState<PreparacionEstudianteRequest>({})
+  const [modalPostularAbierto, setModalPostularAbierto] = useState(false)
 
   // Historial (auditoría)
   const [historial, setHistorial]     = useState<AuditoriaResponse[]>([])
@@ -1692,30 +1695,39 @@ function FichaEstudiante({ id }: { id: string }) {
                 </Card>
               )}
 
-              <Card className="rounded-lg border-border shadow-none">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Postulaciones a vacantes ({postulaciones.length})</CardTitle>
-                  <CardDescription>{T.registroYEstado}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {postulaciones.length === 0 ? <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">{T.elEstudianteAun}</p> : (
-                    <div className="divide-y divide-border/70 rounded-xl border border-border/70">
-                      {postulaciones.map((postulacion) => (
-                        <div key={postulacion.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2"><p className="font-semibold text-foreground">{postulacion.cargo}</p><Badge variant="outline" className="text-[10px]">{postulacion.estadoEtiqueta}</Badge>{postulacion.registradaPorEstudiante && <span className="text-[10px] text-muted-foreground">{T.reportadaPorEl}</span>}</div>
-                            <p className="mt-1 text-sm text-muted-foreground">{postulacion.empresaNombre} · Postulación: {fechaCorta(postulacion.fechaPostulacion, locale === 'en')}</p>
-                            {postulacion.diasEsperando !== null && <p className="mt-1 text-xs text-muted-foreground">{postulacion.diasEsperando} día(s) esperando respuesta</p>}
-                            {postulacion.resultado && <p className="mt-2 text-sm leading-6 text-foreground">{postulacion.resultado}</p>}
-                            {postulacion.observaciones && <p className="mt-1 text-xs leading-5 text-muted-foreground">{postulacion.observaciones}</p>}
-                          </div>
-                          {postulacion.urlOferta && <a href={postulacion.urlOferta} target="_blank" rel="noreferrer" className="shrink-0 text-xs font-medium text-primary hover:underline">{T.verVacante}</a>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Pipeline de Postulaciones y Entrevistas Estilo Salesforce */}
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                      <Briefcase className="size-4 text-primary" />
+                      {locale === 'es' ? `Pipeline de Postulaciones y Entrevistas (${postulaciones.length})` : `Applications & Interviews Pipeline (${postulaciones.length})`}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {locale === 'es'
+                        ? 'Seguimiento de procesos de selección y citas de entrevista estilo CRM Salesforce con trazabilidad de autoría.'
+                        : 'Tracking selection processes and interview appointments in Salesforce CRM style with author audit.'}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setModalPostularAbierto(true)}
+                    className="gap-2 rounded-xl"
+                  >
+                    <Plus className="size-3.5" />
+                    {locale === 'es' ? 'Postular a vacante / entrevista' : 'Apply to vacancy / interview'}
+                  </Button>
+                </div>
+
+                <PipelinePostulacionesSalesforce
+                  postulaciones={postulaciones}
+                  onActualizado={() => {
+                    void loadEmpleabilidad()
+                    void loadSeguimientos()
+                  }}
+                />
+              </div>
 
               <Card className="rounded-lg border-emerald-500/20 shadow-none">
                 <CardHeader className="pb-3">
@@ -1871,6 +1883,19 @@ function FichaEstudiante({ id }: { id: string }) {
             </Card>
           )}
         </div>
+      )}
+      {estudiante && (
+        <ModalPostularEstudiante
+          open={modalPostularAbierto}
+          onOpenChange={setModalPostularAbierto}
+          estudianteId={id}
+          estudianteNombre={`${estudiante.nombre} ${estudiante.apellido}`}
+          onGuardado={() => {
+            void loadEmpleabilidad()
+            void loadSeguimientos()
+            flash('ok', locale === 'es' ? 'Postulación registrada con éxito' : 'Application registered successfully')
+          }}
+        />
       )}
       {dialogo}
     </div>

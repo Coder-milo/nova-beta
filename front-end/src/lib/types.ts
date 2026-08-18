@@ -1115,6 +1115,8 @@ export interface UsuarioResponse {
   roles: string[]
   activo: boolean
   createdAt: string
+  empresaId?: string | null
+  empresaNombre?: string | null
 }
 
 export interface ResultadoBusqueda {
@@ -1126,8 +1128,30 @@ export interface ResultadoBusqueda {
 
 export interface BusquedaResponse {
   estudiantes: ResultadoBusqueda[]
+  empresas: ResultadoBusqueda[]
+  vacantes: ResultadoBusqueda[]
   programas: ResultadoBusqueda[]
   documentos: ResultadoBusqueda[]
+  colocaciones: ResultadoBusqueda[]
+}
+
+export interface CrearPostulacionRequest {
+  estudianteId?: string
+  vacanteId?: string | null
+  empresaNombre: string
+  cargo: string
+  canal?: string | null
+  fechaPostulacion?: string | null
+  estado?: string | null
+  urlOferta?: string | null
+  observaciones?: string | null
+  fechaHoraEntrevista?: string | null
+  modalidadEntrevista?: ModalidadEntrevista | null
+  lugarEntrevista?: string | null
+  contactoNombre?: string | null
+  contactoEmail?: string | null
+  contactoTelefono?: string | null
+  proximoSeguimiento?: string | null
 }
 
 // ─── Comunicaciones ──────────────────────────────────────────────────────────
