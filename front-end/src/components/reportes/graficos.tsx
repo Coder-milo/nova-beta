@@ -58,13 +58,14 @@ export function GraficoCategorias({
           layout="vertical"
           data={chartData}
           margin={{ top: 10, right: 30, left: 40, bottom: 10 }}
+          barCategoryGap="25%"
         >
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border, rgba(0,0,0,0.1))" />
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border) / 0.5)" />
           <XAxis
             type="number"
             tickLine={false}
             axisLine={false}
-            stroke="var(--muted-foreground, #667382)"
+            stroke="hsl(var(--muted-foreground))"
             fontSize={11}
           />
           <YAxis
@@ -72,16 +73,17 @@ export function GraficoCategorias({
             dataKey="categoria"
             tickLine={false}
             axisLine={false}
-            stroke="var(--muted-foreground, #667382)"
+            stroke="hsl(var(--muted-foreground))"
             fontSize={11}
-            width={110}
+            width={120}
           />
           <Tooltip
+            cursor={{ fill: 'hsl(var(--muted) / 0.18)', radius: 4 }}
             content={({ active, payload }) => {
               if (!active || !payload || !payload.length) return null
               const item = payload[0].payload
               return (
-                <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-md">
+                <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-lg backdrop-blur-md">
                   <span className="font-semibold text-foreground">{item.categoria}</span>
                   <div className="mt-1 flex items-center justify-between gap-4 text-muted-foreground">
                     <span>{etiquetaEjeX}:</span>
@@ -93,7 +95,12 @@ export function GraficoCategorias({
               )
             }}
           />
-          <Bar dataKey="cantidad" radius={[0, 4, 4, 0]}>
+          <Bar
+            dataKey="cantidad"
+            maxBarSize={28}
+            radius={[0, 6, 6, 0]}
+            isAnimationActive={false}
+          >
             {chartData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.color} />
             ))}
@@ -128,7 +135,7 @@ export function GraficoSerieMensual({
     }))
   }, [datos])
 
-  const colorPrincipal = 'var(--primary, #206BC4)'
+  const colorPrincipal = 'hsl(var(--primary))'
 
   return (
     <div className="w-full" style={{ height: altura }} aria-label={descripcion}>
@@ -139,30 +146,31 @@ export function GraficoSerieMensual({
         >
           <defs>
             <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={colorPrincipal} stopOpacity={0.3} />
+              <stop offset="5%" stopColor={colorPrincipal} stopOpacity={0.35} />
               <stop offset="95%" stopColor={colorPrincipal} stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border, rgba(0,0,0,0.1))" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
           <XAxis
             dataKey="mes"
             tickLine={false}
             axisLine={false}
-            stroke="var(--muted-foreground, #667382)"
+            stroke="hsl(var(--muted-foreground))"
             fontSize={11}
           />
           <YAxis
             tickLine={false}
             axisLine={false}
-            stroke="var(--muted-foreground, #667382)"
+            stroke="hsl(var(--muted-foreground))"
             fontSize={11}
           />
           <Tooltip
+            cursor={{ stroke: 'hsl(var(--primary) / 0.4)', strokeWidth: 1, strokeDasharray: '3 3' }}
             content={({ active, payload }) => {
               if (!active || !payload || !payload.length) return null
               const item = payload[0].payload
               return (
-                <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-md">
+                <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-lg backdrop-blur-md">
                   <span className="font-semibold text-foreground">{item.mes}</span>
                   <div className="mt-1 flex items-center justify-between gap-4 text-muted-foreground">
                     <span>{etiquetaEjeY}:</span>
@@ -179,6 +187,7 @@ export function GraficoSerieMensual({
             strokeWidth={2.5}
             fillOpacity={1}
             fill="url(#colorIngresos)"
+            isAnimationActive={false}
           />
         </AreaChart>
       </ResponsiveContainer>
