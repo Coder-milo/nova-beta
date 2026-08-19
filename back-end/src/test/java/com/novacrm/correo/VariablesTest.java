@@ -116,7 +116,7 @@ class VariablesTest {
 
     @Test
     void todasLasVariablesPertenecenAUnaCategoriaValida() {
-        var categoriasValidas = java.util.Set.of("Estudiante", "Empleo", "Entrevista", "Sistema");
+        var categoriasValidas = java.util.Set.of("Estudiante", "Empleo", "Entrevista", "Coordinador", "Proyecto", "Sistema");
         for (var v : Variables.values()) {
             assertTrue(categoriasValidas.contains(v.categoria()),
                     v + " tiene una categoria no permitida: " + v.categoria());

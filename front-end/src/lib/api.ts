@@ -1360,12 +1360,12 @@ export const plantillasCorreoApi = {
       token,
     }),
   /**
-   * Envío masivo.
+   * Envío masivo o segmentado.
    *
    * `simulacion` va explícito y en true por defecto, igual que en el backend:
    * mandar un correo a 108 personas no debe ser el efecto de un clic distraído.
    */
-  enviar: (id: string, opciones: { estudianteIds?: string[]; simulacion: boolean }, token?: string) =>
+  enviar: (id: string, opciones: { estudianteIds?: string[]; programaId?: string; cohorte?: string; simulacion: boolean }, token?: string) =>
     apiFetch<ResumenEnvioCorreo>(`/api/v1/plantillas-correo/${id}/enviar`, {
       method: 'POST', data: opciones, token,
     }),

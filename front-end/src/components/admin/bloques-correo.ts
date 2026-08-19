@@ -94,8 +94,47 @@ export const BLOQUES_PREDISENADOS: BloqueCorreo[] = [
 </table>`,
   },
   {
+    id: 'cabecera_proyecto',
+    nombre: 'Cabecera de Proyecto / Ruta',
+    descripcion: 'Título del proyecto con lema dinámico adaptable por iniciativa',
+    categoria: 'cabecera',
+    html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border-collapse:collapse;">
+  <tr>
+    <td align="center" style="padding:16px 0 8px 0;">
+      <h1 style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;color:#1E293B;letter-spacing:-0.02em;">
+        {{proyecto_nombre}}
+      </h1>
+      <p style="margin:6px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#1B6DF5;font-weight:600;">
+        {{lema_proyecto}}
+      </p>
+    </td>
+  </tr>
+</table>`,
+  },
+  {
+    id: 'firma_coordinador',
+    nombre: 'Firma de Coordinador(a)',
+    descripcion: 'Firma personalizada con nombre, cargo/rol del emisor y canal de contacto',
+    categoria: 'pie',
+    html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;border-top:1px solid #E2E8F0;padding-top:16px;border-collapse:collapse;">
+  <tr>
+    <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#334155;line-height:1.6;">
+      <p style="margin:0 0 2px 0;font-weight:700;color:#0F172A;font-size:14px;">
+        {{coordinador_nombre}}
+      </p>
+      <p style="margin:0 0 4px 0;color:#64748B;font-size:12px;font-weight:500;">
+        {{coordinador_cargo}} &bull; {{proyecto_nombre}}
+      </p>
+      <p style="margin:0;font-size:12px;color:#1B6DF5;">
+        Contacto: <a href="mailto:{{coordinador_contacto}}" style="color:#1B6DF5;text-decoration:none;">{{coordinador_contacto}}</a>
+      </p>
+    </td>
+  </tr>
+</table>`,
+  },
+  {
     id: 'firma_institucional',
-    nombre: 'Firma Institucional',
+    nombre: 'Firma Institucional Global',
     descripcion: 'Pie de página formal con remitente, datos de contacto y confidencialidad',
     categoria: 'pie',
     html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:32px;border-top:1px solid #E2E8F0;padding-top:16px;border-collapse:collapse;">
@@ -138,14 +177,42 @@ export const PERFILES_SIMULACION_PREDETERMINADOS: PerfilSimulacion[] = [
       nombre: 'María Fernanda',
       apellido: 'Gómez Castro',
       email: 'maria.gomez@ejemplo.com',
-      programa: 'Ruta Bilingüe BPO & Tech',
-      empresa: 'Konecta Colombia',
-      cargo: 'Bilingual Customer Representative',
-      fecha_entrevista: 'Jueves, 28 de Agosto a las 10:00 AM',
+      empresa: 'Teleperformance',
+      cargo: 'Bilingual Customer Service Specialist',
+      programa: 'Ruta BPO Bilingüe',
+      proyecto_nombre: 'Ruta Accelerator',
+      lema_proyecto: 'Cuando sabes inglés se nota',
+      coordinador_nombre: 'Lic. Claudia Mendoza',
+      coordinador_cargo: 'Coordinadora de Empleabilidad Bilingüe',
+      coordinador_contacto: 'empleabilidad@novacrm.org',
+      fecha_entrevista: '22 de Agosto, 09:30 AM',
       modalidad_entrevista: 'Virtual (Microsoft Teams)',
-      lugar_entrevista: 'https://teams.microsoft.com/l/meetup-join/ejemplo-entrevista',
-      enlace_boton: 'https://portal.novacrm.org/postulaciones',
-      link: 'https://portal.novacrm.org/auth/activar?token=sim-token-12345',
+      lugar_entrevista: 'https://teams.microsoft.com/l/meetup-join/ejemplo',
+      enlace_boton: 'https://panel.novacrm.org/estudiantes/postulaciones',
+      link: 'https://panel.novacrm.org/recuperar-contrasena?token=demo',
+    },
+  },
+  {
+    id: 'candidato_entrevista',
+    nombrePerfil: 'Candidato con Entrevista (Andrés Silva)',
+    descripcion: 'Simulación de cita programada para vacante bilingüe',
+    variables: {
+      nombre: 'Andrés Felipe',
+      apellido: 'Silva Pacheco',
+      email: 'andres.silva@ejemplo.com',
+      empresa: 'Foundever',
+      cargo: 'Tech Support Representative',
+      programa: 'Ruta Talento Tech',
+      proyecto_nombre: 'Formación Tecnológica 2026',
+      lema_proyecto: 'Impulsando tu futuro profesional',
+      coordinador_nombre: 'Ing. Roberto Gómez',
+      coordinador_cargo: 'Líder de Intermediación Laboral',
+      coordinador_contacto: 'roberto.gomez@novacrm.org',
+      fecha_entrevista: '25 de Agosto, 02:00 PM',
+      modalidad_entrevista: 'Presencial (Sede Prado)',
+      lugar_entrevista: 'Cra 54 # 72-142, Piso 4, Barranquilla',
+      enlace_boton: 'https://panel.novacrm.org/estudiantes/agenda',
+      link: 'https://panel.novacrm.org/recuperar-contrasena?token=demo',
     },
   },
   {

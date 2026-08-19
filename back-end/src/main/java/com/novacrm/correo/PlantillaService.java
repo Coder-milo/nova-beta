@@ -194,13 +194,19 @@ public class PlantillaService {
         var plantilla = buscar(plantillaId);
         boolean simulacion = peticion.simulacion() == null || peticion.simulacion();
 
-        List<Estudiante> estudiantes =
-                (peticion.estudianteIds() == null || peticion.estudianteIds().isEmpty())
-                        ? estudianteRepository.findAllByActivoTrue()
-                        : estudianteRepository.findAllById(peticion.estudianteIds());
+        List<Estudiante> estudiantes;
+        if (peticion.estudianteIds() != null && !peticion.estudianteIds().isEmpty()) {
+            estudiantes = estudianteRepository.findAllById(peticion.estudianteIds());
+        } else if (peticion.programaId() != null) {
+            estudiantes = estudianteRepository.findAllByProgramaIdAndActivoTrue(peticion.programaId());
+        } else if (peticion.cohorte() != null && !peticion.cohorte().isBlank()) {
+            estudiantes = estudianteRepository.findByCohorteAndActivoTrue(peticion.cohorte().trim());
+        } else {
+            estudiantes = estudianteRepository.findAllByActivoTrue();
+        }
 
         if (estudiantes.isEmpty()) {
-            throw new BusinessException("No hay estudiantes a los que enviar");
+            throw new BusinessException("No hay estudiantes que cumplan los criterios seleccionados.");
         }
 
         var resultados = new ArrayList<PlantillaDtos.ResultadoEnvio>();
@@ -296,7 +302,14 @@ public class PlantillaService {
             });
         }
 
-        var marca = marcaDe(peticion.programaId());
+        var marcaBase = marcaDe(peticion.programaId());
+        var marca = peticion.textoCabecera() != null && !peticion.textoCabecera().isBlank()
+                ? new MarcaCorreo(
+                        marcaBase.logoUrl(), marcaBase.logoAncho(), marcaBase.logoAlto(),
+                        marcaBase.bannerUrl(), marcaBase.bannerAncho(), marcaBase.bannerAlto(),
+                        marcaBase.textoPie(), marcaBase.colorPrimario(), peticion.textoCabecera(), null)
+                : marcaBase;
+
         String asunto = Variables.aplicar(peticion.asunto(), valores);
         String cuerpo = Variables.aplicar(peticion.cuerpo(), valores);
         String botonUrl = peticion.botonUrl() != null ? Variables.aplicar(peticion.botonUrl(), valores) : null;

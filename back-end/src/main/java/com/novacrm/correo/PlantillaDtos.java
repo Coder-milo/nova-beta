@@ -69,7 +69,14 @@ public final class PlantillaDtos {
             String botonTexto,
             String botonUrl,
             UUID programaId,
+            String textoCabecera,
             java.util.Map<String, String> variablesSimuladas) {
+
+        public EnviarPruebaRequest(String destinatario, String asunto, String cuerpo,
+                                   String botonTexto, String botonUrl, UUID programaId,
+                                   java.util.Map<String, String> variablesSimuladas) {
+            this(destinatario, asunto, cuerpo, botonTexto, botonUrl, programaId, null, variablesSimuladas);
+        }
 
         public String emailDestino() {
             return destinatario == null ? "" : destinatario.trim();
@@ -91,9 +98,16 @@ public final class PlantillaDtos {
 
     /** Lo que se pide al enviar. */
     public record EnviarRequest(
-            /** Ids concretos; vacio = todos los estudiantes activos. */
+            /** Ids concretos; vacio = todos los estudiantes activos o segun programa/cohorte. */
             List<UUID> estudianteIds,
-            Boolean simulacion) {}
+            UUID programaId,
+            String cohorte,
+            Boolean simulacion) {
+
+        public EnviarRequest(List<UUID> estudianteIds, Boolean simulacion) {
+            this(estudianteIds, null, null, simulacion);
+        }
+    }
 
     public record ResultadoEnvio(
             UUID estudianteId,

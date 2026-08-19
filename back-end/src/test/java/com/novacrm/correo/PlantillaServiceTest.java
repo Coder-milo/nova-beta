@@ -530,6 +530,6 @@ class PlantillaServiceTest {
 
         assertThat(vars).hasSize(Variables.values().length);
         assertThat(vars.stream().map(PlantillaDtos.VariableDisponible::categoria).distinct())
-                .containsExactlyInAnyOrder("Estudiante", "Empleo", "Entrevista", "Sistema");
+                .containsExactlyInAnyOrder("Estudiante", "Empleo", "Entrevista", "Coordinador", "Proyecto", "Sistema");
     }
 }

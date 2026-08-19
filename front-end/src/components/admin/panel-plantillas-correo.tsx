@@ -39,7 +39,8 @@ import { Badge } from '@/components/ui/badge'
 import { EditorTexto } from '@/components/ui/editor-texto'
 import { PanelVistaPreviaEmail } from '@/components/admin/panel-vista-previa-email'
 import { ModalEnvioPrueba } from '@/components/admin/modal-envio-prueba'
-import { plantillasCorreoApi, mensajeDeError } from '@/lib/api'
+import { SelectorAudiencia, type AudienciaSeleccionada } from '@/components/admin/selector-audiencia'
+import { plantillasCorreoApi, programasApi, mensajeDeError } from '@/lib/api'
 import { useAvisos } from '@/components/ui/avisos'
 import { useConfirmar } from '@/components/ui/confirmar'
 import { useAuth } from '@/lib/auth'
@@ -52,6 +53,7 @@ import type {
   PlantillaCorreoRequest,
   PlantillaDefecto,
   PrevisualizacionCorreo,
+  ProgramaResponse,
   ResumenEnvioCorreo,
   VariableDisponible,
 } from '@/lib/types'
@@ -209,6 +211,12 @@ export function PanelPlantillasCorreo() {
   const [plantillas, setPlantillas] = useState<PlantillaCorreo[]>([])
   const [defaultsSistema, setDefaultsSistema] = useState<PlantillaDefecto[]>([])
   const [variables, setVariables] = useState<VariableDisponible[]>([])
+  const [programas, setProgramas] = useState<ProgramaResponse[]>([])
+  const [audienciaEnvio, setAudienciaEnvio] = useState<AudienciaSeleccionada>({
+    tipo: 'TODOS',
+    estudianteIds: [],
+    estudiantes: [],
+  })
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -232,14 +240,16 @@ export function PanelPlantillasCorreo() {
     setCargando(true)
     setError(null)
     try {
-      const [lista, vars, defaults] = await Promise.all([
+      const [lista, vars, defaults, progs] = await Promise.all([
         plantillasCorreoApi.listar(),
         plantillasCorreoApi.variables(),
         plantillasCorreoApi.obtenerDefaults().catch(() => []),
+        programasApi.listar().catch(() => []),
       ])
       setPlantillas(lista)
       setVariables(vars)
       setDefaultsSistema(defaults)
+      setProgramas(progs)
     } catch (e) {
       setError(mensajeDeError(e, T.noSePudoCargar))
     } finally {
@@ -426,7 +436,12 @@ export function PanelPlantillasCorreo() {
     }
     setEnviando(true)
     try {
-      const nuevo = await plantillasCorreoApi.enviar(editandoId, { simulacion })
+      const nuevo = await plantillasCorreoApi.enviar(editandoId, {
+        simulacion,
+        programaId: audienciaEnvio.programaId,
+        cohorte: audienciaEnvio.cohorte,
+        estudianteIds: audienciaEnvio.estudianteIds.length > 0 ? audienciaEnvio.estudianteIds : undefined,
+      })
       setResumen(nuevo)
       setSimuladoPara(simulacion ? editandoId : null)
     } catch (e) {
@@ -759,6 +774,21 @@ export function PanelPlantillasCorreo() {
                   />
                   <span className="text-xs font-medium text-foreground">{T.activa}</span>
                 </label>
+
+                {/* Selección de Audiencia de Envío */}
+                {!esPlantillaSistema && (
+                  <div className="sm:col-span-2 pt-2 border-t border-border">
+                    <span className="text-xs font-semibold text-foreground mb-2 block">
+                      Audiencia de Destino para Envío / Simulación Masiva
+                    </span>
+                    <SelectorAudiencia
+                      programas={programas}
+                      valorInicial={audienciaEnvio}
+                      onChange={setAudienciaEnvio}
+                      mostrarCohortes={true}
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               // Modo 2: Vista Previa Responsive Interactiva

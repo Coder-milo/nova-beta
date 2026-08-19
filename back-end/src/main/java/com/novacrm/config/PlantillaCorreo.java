@@ -98,9 +98,7 @@ public final class PlantillaCorreo {
                           <tr>
                             <td style="background-color:%4$s;padding:16px 32px;">
                               <p style="margin:0;font-size:12px;color:#9AA4BF;line-height:1.6;">
-                                Este mensaje forma parte del programa de empleabilidad
-                                "Cuando sabes ingles se nota".
-                                Si no esperabas este correo, puedes ignorarlo.
+                                %8$s
                               </p>
                             </td>
                           </tr>
@@ -117,37 +115,49 @@ public final class PlantillaCorreo {
                 OSCURO,
                 TEXTO,
                 cuerpoHtml,
-                pieHtml(marca));
+                pieHtml(marca),
+                textoLegal(marca));
+    }
+
+    private static String textoLegal(MarcaCorreo marca) {
+        if (marca != null && marca.textoLegal() != null && !marca.textoLegal().isBlank()) {
+            return escapar(marca.textoLegal());
+        }
+        return "Este mensaje forma parte de los programas de formación y empleabilidad. Si no esperabas este correo, puedes ignorarlo.";
     }
 
     /**
-     * Cabecera con el logo. Si no hay URL configurada se escribe el lema como
+     * Cabecera con el logo. Si no hay URL configurada se escribe el lema o titulo como
      * texto, para que el correo no salga sin identidad.
      */
     private static String cabeceraHtml(MarcaCorreo marca, String colorAcento) {
         String urlLogo = marca.logoUrl();
+        String lemaCabecera = marca.textoCabecera() == null || marca.textoCabecera().isBlank()
+                ? "Programa de Formación y Empleabilidad"
+                : escapar(marca.textoCabecera());
+
         if (urlLogo == null || urlLogo.isBlank()) {
             return """
                     <tr>
                       <td style="padding:28px 32px 4px 32px;">
                         <p style="margin:0;font-size:15px;font-weight:bold;letter-spacing:0.5px;
                                   color:%s;text-transform:uppercase;">
-                          Cuando sabes ingles se nota
+                          %s
                         </p>
                       </td>
                     </tr>
-                    """.formatted(colorAcento);
+                    """.formatted(colorAcento, lemaCabecera);
         }
         int ancho = marca.anchoLogoVisible();
         return """
                 <tr>
                   <td align="center" style="padding:26px 32px 10px 32px;">
-                    <img src="%s" alt="Cuando sabes ingles se nota"
+                    <img src="%s" alt="%s"
                          width="%d"%s
                          style="display:block;width:%dpx;max-width:80%%;height:auto;border:0;">
                   </td>
                 </tr>
-                """.formatted(escapar(urlLogo), ancho, atributoAlto(marca.altoLogoVisible()), ancho);
+                """.formatted(escapar(urlLogo), lemaCabecera, ancho, atributoAlto(marca.altoLogoVisible()), ancho);
     }
 
     /**

@@ -21,7 +21,7 @@ class PlantillaCorreoTest {
     void incluyeElLemaYLosAliadosDelPrograma() {
         String html = correo("Tu acceso esta listo", "Hola Ana,", "<p>Contenido</p>");
 
-        assertTrue(html.contains("Cuando sabes ingles se nota"));
+        assertTrue(html.contains("Programa de Formación y Empleabilidad"));
         assertTrue(html.contains("Fundacion Santo Domingo"));
         assertTrue(html.contains("GitLab Foundation"));
         assertTrue(html.contains("CAC Eurocentres"));
@@ -38,8 +38,8 @@ class PlantillaCorreoTest {
         String sinBanner = PlantillaCorreo.construir("Titulo", "Hola,", "<p>Cuerpo</p>", null, null);
 
         assertFalse(sinBanner.contains("<img"), "sin banner no debe haber imagenes");
-        assertTrue(sinBanner.contains("Cuando sabes ingles se nota"),
-                "el lema debe ir tambien como texto");
+        assertTrue(sinBanner.contains("Programa de Formación y Empleabilidad"),
+                "el titulo o lema institucional debe ir tambien como texto");
         assertTrue(sinBanner.contains("Titulo"));
     }
 

@@ -88,9 +88,8 @@ class MarcaCorreoTest {
         String html = PlantillaCorreo.construir("T", "Hola,", "<p>Cuerpo</p>",
                 MarcaCorreo.global(null, null));
 
-        // Sin imagenes, el lema y los aliados van como texto: es el compromiso
-        // con las entidades que financian el programa.
-        assertTrue(html.contains("Cuando sabes ingles se nota"));
+        // Sin imagenes, el lema institucional y los aliados van como texto
+        assertTrue(html.contains("Programa de Formación y Empleabilidad"));
         assertTrue(html.contains("Fundacion Santo Domingo"));
     }
 

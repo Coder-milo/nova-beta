@@ -45,6 +45,15 @@ public enum Variables {
     MODALIDAD_ENTREVISTA("modalidad_entrevista", "Modalidad de la entrevista (Presencial / Virtual)", "Virtual (Microsoft Teams)", "Entrevista"),
     LUGAR_ENTREVISTA("lugar_entrevista", "Lugar físico o enlace de conexión", "https://teams.microsoft.com/l/meetup-join/ejemplo", "Entrevista"),
 
+    // Coordinador y Emisor
+    COORDINADOR_NOMBRE("coordinador_nombre", "Nombre del coordinador emisor", "Lic. Carlos Mendoza", "Coordinador"),
+    COORDINADOR_CARGO("coordinador_cargo", "Cargo o rol del coordinador", "Coordinador de Empleabilidad", "Coordinador"),
+    COORDINADOR_CONTACTO("coordinador_contacto", "Canal o correo del coordinador", "empleabilidad@novacrm.org", "Coordinador"),
+
+    // Proyecto e Iniciativa
+    PROYECTO_NOMBRE("proyecto_nombre", "Nombre del proyecto o iniciativa", "Ruta Accelerator", "Proyecto"),
+    LEMA_PROYECTO("lema_proyecto", "Lema o eslogan del proyecto", "Impulsando el talento bilingüe", "Proyecto"),
+
     // Sistema
     ENLACE_BOTON("enlace_boton", "Enlace de destino para botón de acción", "https://panel.ejemplo.com/accion", "Sistema"),
     LINK("link", "Enlace personal de activación o recuperación",
