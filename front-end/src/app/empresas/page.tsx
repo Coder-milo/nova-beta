@@ -448,7 +448,87 @@ export default function EmpresasPage() {
 
     {error && <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"><WarningCircle className="size-5 shrink-0" />{error}</div>}
 
-    {cargando ? <PageSpinner label={T.cargandoEmpresas} /> : empresas.length === 0 ? <Card className="border-dashed shadow-none"><CardContent className="py-14 text-center"><Buildings className="mx-auto size-8 text-muted-foreground" /><p className="mt-3 font-medium">{T.noHayEmpresas}</p><p className="mt-1 text-sm text-muted-foreground">{T.pruebaOtroSector}</p></CardContent></Card> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{empresas.map((empresa) => <button type="button" key={empresa.id} onClick={() => abrir(empresa)} className="text-left"><Card className="h-full border-border shadow-none transition hover:border-primary/50 hover:shadow-sm"><CardHeader className="pb-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><CardTitle className="flex items-center gap-2 text-base"><Buildings className="size-5 shrink-0 text-primary" /> <span className="truncate">{empresa.nombre}</span></CardTitle><CardDescription className="mt-1">{empresa.sector || T.sectorPorDefinir}{empresa.ciudad ? ` · ${empresa.ciudad}` : ''}</CardDescription></div><Badge variant={empresa.estadoRelacion === 'ALIADA' ? 'default' : 'outline'} className="shrink-0">{empresa.estadoRelacionEtiqueta}</Badge></div></CardHeader><CardContent className="space-y-4"><div className="grid grid-cols-3 gap-2 border-y border-border py-3 text-center"><div><p className="text-sm font-semibold">{empresa.vacantesAbiertas}</p><p className="text-[10px] text-muted-foreground">{T.vacantes}</p></div><div><p className="text-sm font-semibold">{empresa.participantesEnviados}</p><p className="text-[10px] text-muted-foreground">{T.perfiles}</p></div><div><p className="text-sm font-semibold">{empresa.contratados}</p><p className="text-[10px] text-muted-foreground">{T.colocados}</p></div></div><p className="line-clamp-2 text-sm text-muted-foreground">{empresa.proximoPaso ? T.siguientePaso(empresa.proximoPaso) : T.sinProximoPaso}</p>{empresa.contactoNombre && <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><UsersThree className="size-3.5" />{empresa.contactoNombre}</p>}</CardContent></Card></button>)}</div>}
+    {cargando ? (
+      <PageSpinner label={T.cargandoEmpresas} />
+    ) : empresas.length === 0 ? (
+      <Card className="border-dashed shadow-none">
+        <CardContent className="py-14 text-center">
+          <Buildings className="mx-auto size-8 text-muted-foreground" />
+          <p className="mt-3 font-medium">{T.noHayEmpresas}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{T.pruebaOtroSector}</p>
+        </CardContent>
+      </Card>
+    ) : (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {empresas.map((empresa) => (
+          <button
+            type="button"
+            key={empresa.id}
+            onClick={() => abrir(empresa)}
+            className="group w-full text-left focus:outline-none"
+          >
+            <Card className="h-full border-border shadow-none transition hover:border-primary/50 hover:shadow-sm">
+              <CardHeader className="space-y-2 pb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                    <Buildings className="size-3.5 shrink-0 text-primary" />
+                    <span className="truncate max-w-[170px]">
+                      {empresa.sector || T.sectorPorDefinir}
+                    </span>
+                    {empresa.ciudad && <span className="shrink-0">· {empresa.ciudad}</span>}
+                  </span>
+                  <Badge
+                    variant={
+                      empresa.estadoRelacion === 'ALIADA'
+                        ? 'default'
+                        : empresa.estadoRelacion === 'DESCARTADA'
+                        ? 'destructive'
+                        : empresa.estadoRelacion === 'SIN_CONTACTAR'
+                        ? 'outline'
+                        : 'secondary'
+                    }
+                    className="shrink-0 text-[11px] font-normal"
+                  >
+                    {empresa.estadoRelacionEtiqueta}
+                  </Badge>
+                </div>
+                <CardTitle
+                  className="text-base font-semibold leading-snug line-clamp-2 text-foreground transition-colors group-hover:text-primary"
+                  title={empresa.nombre}
+                >
+                  {empresa.nombre}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-2 border-y border-border py-3 text-center">
+                  <div>
+                    <p className="text-sm font-semibold">{empresa.vacantesAbiertas}</p>
+                    <p className="text-[10px] text-muted-foreground">{T.vacantes}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">{empresa.participantesEnviados}</p>
+                    <p className="text-[10px] text-muted-foreground">{T.perfiles}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">{empresa.contratados}</p>
+                    <p className="text-[10px] text-muted-foreground">{T.colocados}</p>
+                  </div>
+                </div>
+                <p className="line-clamp-2 text-sm text-muted-foreground">
+                  {empresa.proximoPaso ? T.siguientePaso(empresa.proximoPaso) : T.sinProximoPaso}
+                </p>
+                {empresa.contactoNombre && (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <UsersThree className="size-3.5 shrink-0" />
+                    <span className="truncate">{empresa.contactoNombre}</span>
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </button>
+        ))}
+      </div>
+    )}
 
     {datos && datos.totalPages > 1 && <div className="flex items-center justify-between text-sm text-muted-foreground"><span>Página {datos.number + 1} de {datos.totalPages} · {datos.totalElements} empresas</span><div className="flex gap-2"><Button variant="outline" size="icon" disabled={pagina === 0} onClick={() => void cargar(pagina - 1)}><CaretLeft /></Button><Button variant="outline" size="icon" disabled={pagina >= datos.totalPages - 1} onClick={() => void cargar(pagina + 1)}><CaretRight /></Button></div></div>}
 
