@@ -52,16 +52,16 @@ public final class ElegibilidadPorSegmento {
      * si aún no tiene prueba oral registrada, se permite que el motor de afinidad lo evalúe.
      */
     private static boolean puedeTrabajarRemotoEnIngles(Estudiante estudiante) {
-        if (Boolean.FALSE.equals(estudiante.getTieneComputador())
-                || Boolean.FALSE.equals(estudiante.getTieneInternet())) {
+        if (!Boolean.TRUE.equals(estudiante.getTieneComputador())
+                || !Boolean.TRUE.equals(estudiante.getTieneInternet())) {
             return false;
         }
         var perfil = PerfilIngles.de(estudiante);
-        if (perfil.tieneMedicion()) {
-            return perfil.efectivo()
-                    .filter(nivel -> nivel.getOrden() >= MINIMO_REMOTO.getOrden())
-                    .isPresent();
+        if (!perfil.tieneMedicion()) {
+            return false;
         }
-        return true;
+        return perfil.efectivo()
+                .filter(nivel -> nivel.getOrden() >= MINIMO_REMOTO.getOrden())
+                .isPresent();
     }
 }

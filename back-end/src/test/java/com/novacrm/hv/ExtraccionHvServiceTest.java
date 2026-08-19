@@ -131,6 +131,71 @@ class ExtraccionHvServiceTest {
         assertNull(resultado.datosEstructurados().nivelEducativo());
     }
 
+    @Test
+    void extraeCvEnInglesFormatoTecnico() throws Exception {
+        byte[] pdfBytes;
+        try (PDDocument doc = new PDDocument()) {
+            PDPage page = new PDPage();
+            doc.addPage(page);
+            try (PDPageContentStream contents = new PDPageContentStream(doc, page)) {
+                contents.beginText();
+                contents.setFont(PDType1Font.HELVETICA_BOLD, 14);
+                contents.newLineAtOffset(50, 700);
+                contents.showText("HECTOR LUIS SUAREZ ARROYO");
+                contents.setFont(PDType1Font.HELVETICA, 10);
+                contents.newLineAtOffset(0, -15);
+                contents.showText("BACKEND DEVELOPER");
+                contents.newLineAtOffset(0, -15);
+                contents.showText("Soledad, Atlantico | hector.suarez.contac@gmail.com | https://github.com/TheHector2614");
+                contents.newLineAtOffset(0, -25);
+                contents.showText("SUMMARY");
+                contents.newLineAtOffset(0, -15);
+                contents.showText("Junior Backend Developer with hands-on experience building RESTful APIs using Java and Spring Boot.");
+                contents.newLineAtOffset(0, -25);
+                contents.showText("TECHNICAL SKILL");
+                contents.newLineAtOffset(0, -15);
+                contents.showText("Programming Languages: Java, Python, JavaScript");
+                contents.newLineAtOffset(0, -15);
+                contents.showText("Backend: Spring Boot, PostgreSQL, Git");
+                contents.newLineAtOffset(0, -25);
+                contents.showText("PROFESSIONAL EXPERIENCE");
+                contents.newLineAtOffset(0, -15);
+                contents.showText("Backend Developer - No Country Simulation Project 2025");
+                contents.newLineAtOffset(0, -15);
+                contents.showText("- Contributed to backend development and RESTful APIs.");
+                contents.newLineAtOffset(0, -25);
+                contents.showText("EDUCATION");
+                contents.newLineAtOffset(0, -15);
+                contents.showText("Bachelor's Degree in Social Sciences");
+                contents.newLineAtOffset(0, -15);
+                contents.showText("Universidad del Atlantico - 2025");
+                contents.endText();
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            doc.save(out);
+            pdfBytes = out.toByteArray();
+        }
+
+        MockMultipartFile file = new MockMultipartFile("archivo", "hector_cv.pdf", "application/pdf", pdfBytes);
+        ExtraccionHvService service = new ExtraccionHvService();
+        var resultado = service.extraer(file);
+
+        assertNotNull(resultado);
+        var dto = resultado.datosEstructurados();
+        assertEquals("Hector Luis", dto.nombre());
+        assertEquals("Suarez Arroyo", dto.apellido());
+        assertEquals("Backend Developer", dto.cargoObjetivo());
+        assertEquals("hector.suarez.contac@gmail.com", dto.email());
+        assertEquals("Soledad", dto.ciudad());
+        assertTrue(dto.perfilProfesional().contains("Junior Backend Developer"));
+        assertTrue(dto.competencias().contains("Java"));
+        assertFalse(dto.experiencias().isEmpty(), "Debe extraer experiencia");
+        assertEquals("Backend Developer", dto.experiencias().get(0).cargo());
+        assertEquals("No Country Simulation Project", dto.experiencias().get(0).empresa());
+        assertEquals("2025", dto.experiencias().get(0).fechaInicio());
+        assertFalse(dto.formaciones().isEmpty(), "Debe extraer educacion");
+    }
+
     private static MockMultipartFile pdfDe(String nombre, String email) throws Exception {
         byte[] pdfBytes;
         try (PDDocument doc = new PDDocument()) {

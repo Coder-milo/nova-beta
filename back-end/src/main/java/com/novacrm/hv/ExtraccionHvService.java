@@ -35,10 +35,11 @@ public class ExtraccionHvService {
     private static final Pattern CELULAR = Pattern.compile("(?<!\\d)3\\d{9}(?!\\d)");
     private static final Pattern DOCUMENTO = Pattern.compile("(?:C\\.?C\\.?|c[eé]dula|documento)[^\\d]{0,15}(\\d{6,11})", Pattern.CASE_INSENSITIVE);
     private static final Pattern DOCUMENTO_SUELTO = Pattern.compile("(?<!\\d)(\\d{7,10})(?!\\d)");
-    private static final Pattern LINKEDIN = Pattern.compile("(?i)linkedin\\.com/in/([a-zA-Z0-9_-]+)");
+    private static final Pattern LINKEDIN = Pattern.compile("(?i)(?:https?://)?(?:www\\.)?linkedin\\.com/in/([a-zA-Z0-9_-]+)");
+    private static final Pattern GITHUB = Pattern.compile("(?i)(?:https?://)?(?:www\\.)?github\\.com/([a-zA-Z0-9_-]+)");
 
     private static final String INSTRUCCIONES_IA = """
-            Extraes datos de hojas de vida en espanol para un CRM de empleabilidad.
+            Extraes datos de hojas de vida en espanol o ingles para un CRM de empleabilidad.
             Respondes SOLO con JSON, sin texto fuera del JSON.
             Usa null para los campos que no aparezcan; no inventes valores.
             El JSON debe encajar exactamente en esta estructura:
@@ -56,22 +57,25 @@ public class ExtraccionHvService {
     private static final Pattern ANIO_ISOLADO = Pattern.compile("(?<!\\d)(19[7-9]\\d|20[0-2]\\d)(?!\\d)");
 
     private static final List<String> CIUDADES = List.of(
-            "Bogotá", "Bogota", "Medellín", "Medellin", "Cali", "Barranquilla", "Cartagena",
+            "Soledad", "Malambo", "Puerto Colombia", "Galapa", "Barranquilla", "Atlántico", "Atlantico",
+            "Bogotá", "Bogota", "Medellín", "Medellin", "Cali", "Cartagena",
             "Bucaramanga", "Pereira", "Manizales", "Cúcuta", "Cucuta", "Villavicencio",
-            "Ibagué", "Ibague", "Santa Marta", "Montería", "Monteria", "Neiva", "Pasto", "Armenia");
+            "Ibagué", "Ibague", "Santa Marta", "Montería", "Monteria", "Neiva", "Pasto", "Armenia",
+            "Sincelejo", "Valledupar", "Popayán", "Popayan", "Tunja", "Riohacha", "Florencia", "Yopal", "Quibdó", "Quibdo");
 
     private record SeccionHeaderConfig(String tipo, List<String> palabrasClave) {}
 
     // Incluimos secciones de detención (DATOS_PERSONALES, REFERENCIAS) para evitar que contaminen Perfil/Educación/Experiencia
     private static final List<SeccionHeaderConfig> SECCIONES_CONFIG = List.of(
-            new SeccionHeaderConfig("DATOS_PERSONALES", List.of("i. datos personales", "datos personales", "información personal", "informacion personal")),
-            new SeccionHeaderConfig("PERFIL", List.of("perfil profesional", "perfil", "resumen profesional", "resumen", "acerca de mí", "acerca de mi", "acerca de", "summary", "profile", "about me")),
-            new SeccionHeaderConfig("EXPERIENCIA", List.of("experiencia laboral", "experiencia profesional", "experiencia", "work experience", "employment", "trayectoria laboral")),
-            new SeccionHeaderConfig("EDUCACION", List.of("educación académica", "educacion academica", "educación", "educacion", "formación académica", "formacion academica", "estudios", "education")),
-            new SeccionHeaderConfig("CERTIFICACIONES", List.of("certificaciones", "cursos", "formación adicional", "formacion adicional", "certifications", "diplomados")),
-            new SeccionHeaderConfig("COMPETENCIAS", List.of("habilidades técnicas", "habilidades tecnicas", "habilidades", "competencias", "skills", "technical skills", "herramientas")),
-            new SeccionHeaderConfig("IDIOMAS", List.of("idiomas", "languages")),
-            new SeccionHeaderConfig("REFERENCIAS", List.of("ii. referencias familiares", "iii. referencias personales", "referencias familiares", "referencias personales", "referencias laborales", "referencias"))
+            new SeccionHeaderConfig("DATOS_PERSONALES", List.of("i. datos personales", "datos personales", "información personal", "informacion personal", "personal info", "personal details", "contact info", "contact details", "contacto", "contact")),
+            new SeccionHeaderConfig("PERFIL", List.of("perfil profesional", "perfil laboral", "perfil ocupacional", "perfil", "resumen profesional", "resumen laboral", "resumen", "acerca de mí", "acerca de mi", "acerca de", "summary", "professional summary", "about me", "profile", "career objective")),
+            new SeccionHeaderConfig("EXPERIENCIA", List.of("experiencia laboral", "experiencia profesional", "experiencia", "professional experience", "work experience", "employment history", "employment", "trayectoria laboral", "historial laboral", "relevant experience")),
+            new SeccionHeaderConfig("EDUCACION", List.of("educación académica", "educacion academica", "educación", "educacion", "formación académica", "formacion academica", "formación", "formacion", "estudios", "education", "academic background", "academic history")),
+            new SeccionHeaderConfig("CERTIFICACIONES", List.of("certificaciones", "certificados", "cursos", "formación adicional", "formacion adicional", "formación continua", "formacion continua", "certifications", "courses", "diplomados", "trainings", "training")),
+            new SeccionHeaderConfig("COMPETENCIAS", List.of("habilidades técnicas", "habilidades tecnicas", "habilidades blandas", "habilidades", "competencias técnicas", "competencias tecnicas", "competencias", "technical skills", "technical skill", "skills", "tech stack", "herramientas", "stack tecnologico", "stack tecnológico", "tecnologias", "tecnologías", "conocimientos", "programming languages", "lenguajes de programación")),
+            new SeccionHeaderConfig("IDIOMAS", List.of("idiomas", "languages", "language proficiency")),
+            new SeccionHeaderConfig("REFERENCIAS", List.of("ii. referencias familiares", "iii. referencias personales", "referencias familiares", "referencias personales", "referencias laborales", "referencias comerciales", "referencias", "references")),
+            new SeccionHeaderConfig("INFORMACION_ADICIONAL", List.of("información adicional", "informacion adicional", "additional information", "intereses", "interests"))
     );
 
     private final ProveedorIa proveedorIa;
@@ -117,10 +121,6 @@ public class ExtraccionHvService {
             docVal = mDoc.group(1);
             campos.add(new CampoExtraido("numeroDocumento", docVal, 85));
         } else {
-            // Sin la palabra «cedula» delante, el primer numero largo del PDF
-            // suele ser el propio celular: son diez digitos y encajan en el
-            // mismo patron. Se descarta el que ya se leyo como telefono para no
-            // llenar el documento de identidad con un numero de contacto.
             var mDocSuelto = DOCUMENTO_SUELTO.matcher(texto);
             while (mDocSuelto.find()) {
                 String candidato = mDocSuelto.group(1);
@@ -133,7 +133,8 @@ public class ExtraccionHvService {
 
         String ciudadVal = null;
         for (var ciudad : CIUDADES) {
-            if (texto.contains(ciudad)) {
+            Pattern p = Pattern.compile("(?i)\\b" + Pattern.quote(ciudad) + "\\b");
+            if (p.matcher(texto).find()) {
                 ciudadVal = normalizarCiudad(ciudad);
                 campos.add(new CampoExtraido("ciudad", ciudadVal, 70));
                 break;
@@ -145,22 +146,34 @@ public class ExtraccionHvService {
         var mLi = LINKEDIN.matcher(texto);
         if (mLi.find()) {
             linkedinVal = mLi.group(1);
-            // La direccion completa, no solo el identificador: el PDF pone un
-            // enlace, y quien lo construye antepone "https://" a lo que reciba.
-            // Con el identificador suelto salia <a href="https://ana-perez">, un
-            // enlace roto en la hoja de vida que esa persona manda a empresas.
             linkedinUrlVal = mLi.group();
             campos.add(new CampoExtraido("linkedinUserId", linkedinVal, 90));
+        }
+
+        String githubUrlVal = null;
+        var mGh = GITHUB.matcher(texto);
+        if (mGh.find()) {
+            githubUrlVal = mGh.group();
         }
 
         String nombreVal = null;
         String apellidoVal = null;
         String nombreDetectado = detectarNombre(texto);
         if (nombreDetectado != null) {
-            var partes = nombreDetectado.trim().split("\\s+", 3);
-            if (partes.length >= 2) {
-                nombreVal = partes[0];
-                apellidoVal = nombreDetectado.substring(nombreDetectado.indexOf(' ') + 1).trim();
+            var palabras = nombreDetectado.trim().split("\\s+");
+            if (palabras.length == 4) {
+                nombreVal = palabras[0] + " " + palabras[1];
+                apellidoVal = palabras[2] + " " + palabras[3];
+                campos.add(new CampoExtraido("nombre", nombreVal, 60));
+                campos.add(new CampoExtraido("apellido", apellidoVal, 60));
+            } else if (palabras.length == 3) {
+                nombreVal = palabras[0] + " " + palabras[1];
+                apellidoVal = palabras[2];
+                campos.add(new CampoExtraido("nombre", nombreVal, 55));
+                campos.add(new CampoExtraido("apellido", apellidoVal, 55));
+            } else if (palabras.length == 2) {
+                nombreVal = palabras[0];
+                apellidoVal = palabras[1];
                 campos.add(new CampoExtraido("nombre", nombreVal, 55));
                 campos.add(new CampoExtraido("apellido", apellidoVal, 55));
             } else {
@@ -199,6 +212,15 @@ public class ExtraccionHvService {
 
         // Idiomas
         String idiomasVal = bloques.get("IDIOMAS");
+        if (idiomasVal == null || idiomasVal.isBlank()) {
+            String adicional = bloques.get("INFORMACION_ADICIONAL");
+            if (adicional != null && !adicional.isBlank()) {
+                var mIdiomas = Pattern.compile("(?i)(?:languages?|idiomas?):?\\s*([^\\n]+(?:\\n\\s*[^\\n]+)?)").matcher(adicional);
+                if (mIdiomas.find()) {
+                    idiomasVal = mIdiomas.group(1).replaceAll("^[•\\-*▪\\s]+", "").replaceAll("\\n+", ", ").trim();
+                }
+            }
+        }
         if (idiomasVal != null && !idiomasVal.isBlank()) {
             campos.add(new CampoExtraido("idiomas", idiomasVal, 70));
         }
@@ -211,6 +233,8 @@ public class ExtraccionHvService {
             tituloVal = eduItem.get().programa();
             institucionVal = eduItem.get().institucion();
         }
+
+        String portafolioOEnlace = githubUrlVal != null ? githubUrlVal : linkedinUrlVal;
 
         DatosHvDto datosEstructurados = new DatosHvDto(
                 nombreVal,
@@ -225,19 +249,12 @@ public class ExtraccionHvService {
                 idiomasVal,
                 tituloVal,
                 institucionVal,
-                // Sin nivel educativo: aqui iba "Profesional" fijo, y ese texto
-                // se imprime en la hoja de vida junto a la institucion —«SENA —
-                // Profesional»—. En una cohorte de tecnicos y bachilleres es
-                // afirmar una titulacion que nadie escribio, en el documento que
-                // esa persona manda a las empresas. Que lo ponga quien lo tenga.
                 null,
                 experiencias,
                 formaciones,
                 null,
                 null,
-                // Lo que se extrae del PDF es la direccion del perfil, no el id
-                // de la integracion OAuth: alimenta el enlace de la cabecera.
-                linkedinUrlVal,
+                linkedinUrlVal != null ? linkedinUrlVal : portafolioOEnlace,
                 null,
                 null,
                 null
@@ -426,53 +443,68 @@ public class ExtraccionHvService {
     }
 
     private static String detectarNombre(String texto) {
-        var lineas = texto.lines().map(String::trim).filter(l -> !l.isBlank()).limit(6).toList();
+        var lineas = texto.lines().map(String::trim).filter(l -> !l.isBlank()).limit(8).toList();
         for (var linea : lineas) {
             String lower = linea.toLowerCase();
-            if (linea.length() >= 6 && linea.length() <= 60
+            if (linea.length() >= 5 && linea.length() <= 60
                     && !linea.contains("@") && !linea.matches(".*\\d.*")
-                    && linea.split("\\s+").length >= 2 && linea.split("\\s+").length <= 5
-                    && Character.isUpperCase(linea.charAt(0))
+                    && !linea.contains("http") && !linea.contains(".com")
+                    && linea.split("\\s+").length >= 2 && linea.split("\\s+").length <= 6
+                    && (Character.isUpperCase(linea.charAt(0)) || linea.equals(linea.toUpperCase()))
                     && !lower.contains("hoja de vida")
                     && !lower.contains("curriculum")
                     && !lower.contains("datos personales")
                     && !lower.contains("informacion")
+                    && !lower.contains("summary")
                     && !lower.contains("perfil")) {
-                return linea;
+                return aTitleCase(linea);
             }
         }
         return null;
     }
 
+    private static String aTitleCase(String texto) {
+        if (texto == null || texto.isBlank()) return texto;
+        String[] palabras = texto.toLowerCase().split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < palabras.length; i++) {
+            String p = palabras[i];
+            if (p.isBlank()) continue;
+            if (sb.length() > 0) sb.append(" ");
+            sb.append(Character.toUpperCase(p.charAt(0))).append(p.substring(1));
+        }
+        return sb.toString();
+    }
+
     private static String detectarCargoObjetivo(String texto, String nombreDetectado) {
-        var lineas = texto.lines().map(String::trim).filter(l -> !l.isBlank()).limit(10).toList();
+        var lineas = texto.lines().map(String::trim).filter(l -> !l.isBlank()).limit(12).toList();
         boolean trasNombre = false;
         for (var linea : lineas) {
-            if (nombreDetectado != null && linea.equalsIgnoreCase(nombreDetectado)) {
+            if (nombreDetectado != null && (linea.equalsIgnoreCase(nombreDetectado)
+                    || normalizarCiudad(linea).equalsIgnoreCase(normalizarCiudad(nombreDetectado)))) {
                 trasNombre = true;
                 continue;
             }
             String lower = linea.toLowerCase();
-            // Ignorar números romanos (I. DATOS PERSONALES, II. REFERENCIAS, etc.) o encabezados conocidos
             boolean esEncabezadoNoCargo = lower.matches("^(i|ii|iii|iv|v|vi|1|2|3)\\.\\s*.*")
                     || lower.contains("datos personales")
                     || lower.contains("información personal")
                     || lower.contains("informacion personal")
                     || lower.contains("perfil")
+                    || lower.contains("summary")
                     || lower.contains("referencias")
                     || lower.contains("contacto")
                     || lower.contains("cédula")
                     || lower.contains("cedula")
                     || lower.contains("documento")
                     || lower.contains("hoja de vida")
-                    // La linea de debajo del nombre suele ser la direccion o la
-                    // ciudad, no el cargo, y acababa impresa como cargo objetivo
-                    // en la cabecera de la hoja de vida.
+                    || lower.contains("@")
+                    || lower.contains("http")
                     || esDireccionOCiudad(lower);
 
             if (!esEncabezadoNoCargo && linea.length() >= 4 && linea.length() <= 50
                     && !linea.contains("@") && !linea.matches(".*\\d.*")) {
-                return linea;
+                return aTitleCase(linea);
             }
         }
         return null;
@@ -485,7 +517,7 @@ public class ExtraccionHvService {
         }
         for (var ciudad : CIUDADES) {
             String c = ciudad.toLowerCase();
-            if (lower.equals(c) || lower.startsWith(c + ",") || lower.startsWith(c + " -")) return true;
+            if (lower.equals(c) || lower.startsWith(c + ",") || lower.startsWith(c + " -") || lower.startsWith(c + " |")) return true;
         }
         return false;
     }
@@ -507,13 +539,28 @@ public class ExtraccionHvService {
     private static String limpiarTextoCompetencias(String texto) {
         if (texto == null || texto.isBlank()) return null;
         var lineas = texto.lines().map(String::trim).filter(l -> !l.isBlank()).toList();
-        var validas = new ArrayList<String>();
+        var items = new LinkedHashSet<String>();
         for (String l : lineas) {
             String lower = l.toLowerCase();
             if (esMetadataBasura(lower)) continue;
-            validas.add(l.replaceAll("^[•\\-*▪]\\s*", ""));
+            String limpia = l.replaceAll("^[•\\-*▪>\\s]+", "").trim();
+            if (limpia.endsWith(":") && limpia.length() < 35) {
+                continue;
+            }
+            if (limpia.contains(":")) {
+                String[] partes = limpia.split(":", 2);
+                if (partes.length == 2 && !partes[1].isBlank()) {
+                    limpia = partes[1].trim();
+                }
+            }
+            for (String item : limpia.split("[,;|/]+")) {
+                String s = item.trim();
+                if (!s.isBlank() && s.length() <= 45 && !s.equalsIgnoreCase("and") && !s.equalsIgnoreCase("y")) {
+                    items.add(s);
+                }
+            }
         }
-        return String.join(", ", validas);
+        return String.join(", ", items);
     }
 
     private static List<ExperienciaDto> parseExperienciasDelBloque(String bloque) {
@@ -534,11 +581,14 @@ public class ExtraccionHvService {
             if (esMetadataBasura(lower)) continue;
 
             boolean esViñeta = linea.startsWith("•") || linea.startsWith("-") || linea.startsWith("*") || linea.startsWith("▪") || linea.matches("^\\d+[.)]\\s+.*");
-            boolean tieneAnio = tieneAnioValido(linea) || lower.contains("presente") || lower.contains("actualidad");
+            boolean tieneAnio = tieneAnioValido(linea) || lower.contains("presente") || lower.contains("actualidad") || lower.contains("present");
 
             if (tieneAnio && !esViñeta) {
-                if (cargo != null && empresa != null) {
-                    result.add(new ExperienciaDto(cargo, empresa, null, fechaInicio, fechaFin, false, actual, String.join("\n", funciones)));
+                if ((cargo != null || empresa != null) && (fechaInicio != null || !funciones.isEmpty())) {
+                    result.add(new ExperienciaDto(
+                            cargo != null ? cargo : "Experiencia",
+                            empresa != null ? empresa : "Empresa / Proyecto",
+                            null, fechaInicio, fechaFin, false, actual, String.join("\n", funciones)));
                     cargo = null;
                     empresa = null;
                     fechaInicio = null;
@@ -550,29 +600,47 @@ public class ExtraccionHvService {
                 fechaInicio = rango.inicio();
                 fechaFin = rango.fin();
                 actual = rango.actual();
+
+                // Extraer cargo y empresa si vienen en la misma linea que el año
+                String sinFecha = linea.replaceAll("(?i)(?:19[7-9]\\d|20[0-2]\\d)\\s*(?:[–\\-—/]|al|to)?\\s*(?:19[7-9]\\d|20[0-2]\\d|presente|actualidad|present|actual)?", "").trim();
+                sinFecha = sinFecha.replaceAll("^[–—\\-|\\s]+|[–—\\-|\\s]+$", "").trim();
+                if (!sinFecha.isBlank()) {
+                    String[] partes = sinFecha.split("\\s+(?:–|—|-|\\||\\bat\\b)\\s+", 2);
+                    if (cargo == null) {
+                        if (partes.length == 2) {
+                            cargo = partes[0].trim();
+                            empresa = partes[1].trim();
+                        } else {
+                            cargo = sinFecha;
+                        }
+                    } else if (empresa == null) {
+                        empresa = sinFecha;
+                    }
+                }
             } else if (!esViñeta) {
                 if (cargo == null) {
-                    cargo = linea;
+                    String[] partes = linea.split("\\s+(?:–|—|-|\\||\\bat\\b)\\s+", 2);
+                    if (partes.length == 2) {
+                        cargo = partes[0].trim();
+                        empresa = partes[1].trim();
+                    } else {
+                        cargo = linea;
+                    }
                 } else if (empresa == null) {
                     empresa = linea;
                 } else {
                     funciones.add(linea);
                 }
             } else {
-                String funcion = linea.replaceAll("^[•\\-*▪\\d+.)]+\\s*", "").trim();
+                String funcion = linea.replaceAll("^[•\\-*▪\\d+.)\\s]+", "").trim();
                 if (!funcion.isBlank()) funciones.add(funcion);
             }
         }
 
-        // Lo que quede sin cerrar solo se apunta si trae cargo o empresa. Antes
-        // se cerraba siempre y se rellenaba con «Cargo Desempeñado» y «Empresa /
-        // Organización»: unas lineas sueltas al final del bloque —una direccion,
-        // el pie de pagina— se convertian en un empleo inventado, y eso se
-        // imprime en la hoja de vida que esa persona manda a las empresas.
-        if (cargo != null || empresa != null) {
+        if (cargo != null || empresa != null || !funciones.isEmpty()) {
             result.add(new ExperienciaDto(
-                    cargo,
-                    empresa,
+                    cargo != null ? cargo : "Experiencia",
+                    empresa != null ? empresa : "Empresa / Proyecto",
                     null,
                     fechaInicio,
                     fechaFin,
@@ -601,8 +669,6 @@ public class ExtraccionHvService {
             anios.add(matcherAnio.group(1));
         }
 
-        // Sin año escrito no hay año: poner "2022" por defecto fechaba empleos
-        // que nadie fecho, y la fecha sale impresa junto al cargo.
         String inicio = !anios.isEmpty() ? anios.get(0) : null;
         String fin = null;
         if (actual) {
@@ -623,19 +689,62 @@ public class ExtraccionHvService {
         var lineas = bloque.lines().map(String::trim).filter(l -> !l.isBlank()).toList();
         var lineasFiltradas = lineas.stream().filter(l -> !esMetadataBasura(l.toLowerCase())).toList();
 
-        for (int i = 0; i < lineasFiltradas.size(); i += 2) {
-            String prog = lineasFiltradas.get(i).replaceAll("^[•\\-*▪>\\s]+", "").trim();
-            // Sin segunda linea no hay institucion. Ponia «Institución
-            // Educativa» de relleno y eso se imprime bajo el titulo, como si
-            // fuera el nombre del centro donde estudio.
-            String inst = (i + 1 < lineasFiltradas.size())
-                    ? lineasFiltradas.get(i + 1).replaceAll("^[•\\-*▪>\\s]+", "").trim()
-                    : null;
+        String prog = null;
+        String inst = null;
+        String anio = null;
 
-            var mAnio = ANIO_ISOLADO.matcher(prog + " " + (inst == null ? "" : inst));
-            // Y sin año escrito, tampoco año: «2023» fechaba estudios ajenos.
-            String anio = mAnio.find() ? mAnio.group(1) : null;
+        for (String linea : lineasFiltradas) {
+            boolean esViñeta = linea.startsWith("•") || linea.startsWith("-") || linea.startsWith("*") || linea.startsWith("▪") || linea.matches("^\\d+[.)]\\s+.*");
+            if (esViñeta) continue;
 
+            boolean tieneAnio = tieneAnioValido(linea);
+            if (tieneAnio) {
+                var matcher = ANIO_ISOLADO.matcher(linea);
+                List<String> anios = new ArrayList<>();
+                while (matcher.find()) anios.add(matcher.group(1));
+                anio = !anios.isEmpty() ? anios.get(anios.size() - 1) : null;
+
+                String sinAnio = linea.replaceAll("(?i)(?:19[7-9]\\d|20[0-2]\\d)\\s*(?:[–\\-—/]|al|to)?\\s*(?:19[7-9]\\d|20[0-2]\\d)?", "").trim();
+                sinAnio = sinAnio.replaceAll("^[–—\\-|\\s]+|[–—\\-|\\s]+$", "").trim();
+
+                if (prog == null) {
+                    String[] partes = sinAnio.split("\\s+(?:–|—|-|\\||\\bat\\b)\\s+", 2);
+                    if (partes.length == 2) {
+                        prog = partes[0].trim();
+                        inst = partes[1].trim();
+                    } else if (!sinAnio.isBlank()) {
+                        prog = sinAnio;
+                    }
+                } else if (inst == null && !sinAnio.isBlank()) {
+                    inst = sinAnio;
+                }
+
+                if (prog != null) {
+                    result.add(new FormacionDto("EDUCACION", prog, inst, anio));
+                    prog = null;
+                    inst = null;
+                    anio = null;
+                }
+            } else {
+                if (prog == null) {
+                    String[] partes = linea.split("\\s+(?:–|—|-|\\||\\bat\\b)\\s+", 2);
+                    if (partes.length == 2) {
+                        prog = partes[0].trim();
+                        inst = partes[1].trim();
+                    } else {
+                        prog = linea;
+                    }
+                } else if (inst == null) {
+                    inst = linea;
+                } else {
+                    result.add(new FormacionDto("EDUCACION", prog, inst, anio));
+                    prog = linea;
+                    inst = null;
+                    anio = null;
+                }
+            }
+        }
+        if (prog != null) {
             result.add(new FormacionDto("EDUCACION", prog, inst, anio));
         }
         return result;
@@ -650,16 +759,12 @@ public class ExtraccionHvService {
             if (esMetadataBasura(linea.toLowerCase())) continue;
             String t = linea.replaceAll("^[•\\-*▪>\\s]+", "").trim();
             if (!t.isBlank() && t.length() > 5) {
-                // El año se lee de la linea si esta escrito; «2023» de relleno
-                // fechaba certificados que nadie fecho.
                 var mAnio = ANIO_ISOLADO.matcher(t);
                 String anio = mAnio.find() ? mAnio.group(1) : null;
-                if (t.contains("-") || t.contains("—")) {
-                    var partes = t.split("[-—]", 2);
+                if (t.contains("-") || t.contains("—") || t.contains("–")) {
+                    var partes = t.split("[-—–]", 2);
                     result.add(new FormacionDto("CERTIFICACION", partes[0].trim(), partes[1].trim(), anio));
                 } else {
-                    // Sin separador no hay entidad que lo expida: antes se ponia
-                    // «Institución», que se imprime tal cual al lado del curso.
                     result.add(new FormacionDto("CERTIFICACION", t, null, anio));
                 }
             }
