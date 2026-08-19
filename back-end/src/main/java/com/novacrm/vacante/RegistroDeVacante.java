@@ -50,11 +50,15 @@ public class RegistroDeVacante {
         }
         // Dedup cruzado: la misma plaza en dos portales no entra dos veces. El
         // par (titulo, empresa) normalizado es la identidad mas alla de la fuente.
+        String empresaNom = nombreEmpresa;
+        if ((empresaNom == null || empresaNom.isBlank()) && vacante.getEmpresa() != null) {
+            empresaNom = vacante.getEmpresa().getNombre();
+        }
         if (vacante.getHashContenido() == null) {
-            vacante.setHashContenido(hashContenido(vacante.getTitulo(), nombreEmpresa));
-            if (vacanteRepository.findByHashContenido(vacante.getHashContenido()).isPresent()) {
-                return Optional.empty();
-            }
+            vacante.setHashContenido(hashContenido(vacante.getTitulo(), empresaNom));
+        }
+        if (vacante.getHashContenido() != null && vacanteRepository.findByHashContenido(vacante.getHashContenido()).isPresent()) {
+            return Optional.empty();
         }
         if (vacante.getEmpresa() == null && nombreEmpresa != null && !nombreEmpresa.isBlank()) {
             vacante.setEmpresa(empresaOCrear(nombreEmpresa.trim()));

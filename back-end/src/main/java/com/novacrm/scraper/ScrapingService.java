@@ -2,9 +2,14 @@ package com.novacrm.scraper;
 
 import com.novacrm.estudiante.EstudianteRepository;
 import com.novacrm.scraper.dto.EjecucionDeScraping;
+import com.novacrm.scraper.dto.EstadoConectorDto;
 import com.novacrm.scraper.dto.ResultadoActualizacion;
+import com.novacrm.scraper.dto.ResultadoPruebaFuenteDto;
+import com.novacrm.scraper.fuente.ControlDeCuota;
 import com.novacrm.scraper.fuente.FuenteDeVacantes;
 import com.novacrm.scraper.fuente.OfertaCruda;
+import com.novacrm.scraper.fuente.ResultadoBusqueda;
+import com.novacrm.scraper.fuente.Segmento;
 import com.novacrm.vacante.MotivoCierre;
 import com.novacrm.vacante.RegistroDeVacante;
 import com.novacrm.vacante.VacanteRepository;
@@ -61,17 +66,28 @@ public class ScrapingService {
     private final VacanteRepository vacanteRepository;
     private final ScrapingEjecucionRepository ejecucionRepository;
     private final RegistroDeVacante registroDeVacante;
+    private final ControlDeCuota controlDeCuota;
+
+    public ScrapingService(List<FuenteDeVacantes> fuentes,
+                           EstudianteRepository estudianteRepository,
+                           VacanteRepository vacanteRepository,
+                           ScrapingEjecucionRepository ejecucionRepository,
+                           RegistroDeVacante registroDeVacante,
+                           ControlDeCuota controlDeCuota) {
+        this.fuentes = fuentes;
+        this.estudianteRepository = estudianteRepository;
+        this.vacanteRepository = vacanteRepository;
+        this.ejecucionRepository = ejecucionRepository;
+        this.registroDeVacante = registroDeVacante;
+        this.controlDeCuota = controlDeCuota;
+    }
 
     public ScrapingService(List<FuenteDeVacantes> fuentes,
                            EstudianteRepository estudianteRepository,
                            VacanteRepository vacanteRepository,
                            ScrapingEjecucionRepository ejecucionRepository,
                            RegistroDeVacante registroDeVacante) {
-        this.fuentes = fuentes;
-        this.estudianteRepository = estudianteRepository;
-        this.vacanteRepository = vacanteRepository;
-        this.ejecucionRepository = ejecucionRepository;
-        this.registroDeVacante = registroDeVacante;
+        this(fuentes, estudianteRepository, vacanteRepository, ejecucionRepository, registroDeVacante, null);
     }
 
     public ResultadoActualizacion ejecutarScraping() {
@@ -513,5 +529,196 @@ public class ScrapingService {
                         vacanteRepository.contarVigentes(LocalDateTime.now()),
                         e.getInicio(),
                         e.getFin()));
+    }
+
+    /**
+     * Estado en vivo de todos los conectores registrados para el panel de administración.
+     */
+    @Transactional(readOnly = true)
+    public List<EstadoConectorDto> listarEstadoConectores() {
+        var ejecuciones = ejecucionRepository.findTop20ByOrderByInicioDesc();
+        var lista = new ArrayList<EstadoConectorDto>();
+
+        for (var fuente : fuentes) {
+            String nombre = fuente.nombre();
+            String segmento = fuente.segmento() != null ? fuente.segmento().name() : "LOCAL_COLOMBIA";
+            String descripcion = descripcionDeFuente(nombre, fuente.segmento());
+            boolean habilitado = fuente.estaHabilitada();
+            boolean filtraPorCiudad = fuente.filtraPorCiudad();
+
+            LocalDateTime ultimaEjecucion = null;
+            Integer ultimoConteo = null;
+            String ultimoError = null;
+
+            for (var ej : ejecuciones) {
+                var portales = ej.getPortales() == null ? List.<String>of()
+                        : Arrays.stream(ej.getPortales().split(",")).map(String::trim).toList();
+                var conteos = conteoPorPortal(ej.getOfertasPorPortal());
+                var conteoOpt = conteos.stream().filter(c -> c.portal().equalsIgnoreCase(nombre)).findFirst();
+
+                if (portales.stream().anyMatch(p -> p.equalsIgnoreCase(nombre)) || conteoOpt.isPresent()) {
+                    if (ultimaEjecucion == null) {
+                        ultimaEjecucion = ej.getFin() != null ? ej.getFin() : ej.getInicio();
+                    }
+                    if (ultimoConteo == null && conteoOpt.isPresent()) {
+                        ultimoConteo = conteoOpt.get().ofertas();
+                    }
+                    if (ultimoError == null && ej.getError() != null && !ej.getError().isBlank()) {
+                        for (String err : ej.getError().split(";\\s*")) {
+                            if (err.trim().toUpperCase().startsWith(nombre.toUpperCase() + ":")) {
+                                ultimoError = err.trim().substring((nombre + ":").length()).trim();
+                                break;
+                            }
+                        }
+                    }
+                    if (ultimaEjecucion != null && ultimoConteo != null) {
+                        break;
+                    }
+                }
+            }
+
+            String estado;
+            if (!habilitado) {
+                if ("JSEARCH".equalsIgnoreCase(nombre) || "SMARTRECRUITERS".equalsIgnoreCase(nombre)) {
+                    estado = "ESPERA_CONFIGURACION";
+                } else {
+                    estado = "DESACTIVADO";
+                }
+            } else if (ultimoError != null && !ultimoError.isBlank()) {
+                estado = "ERROR";
+            } else {
+                estado = "ACTIVO";
+            }
+
+            Integer cuotaLimite = null;
+            Integer cuotaRestante = null;
+            if ("JSEARCH".equalsIgnoreCase(nombre)) {
+                cuotaLimite = 200;
+                cuotaRestante = controlDeCuota != null ? controlDeCuota.restantes("JSEARCH", cuotaLimite) : cuotaLimite;
+            }
+
+            lista.add(new EstadoConectorDto(
+                    nombre,
+                    segmento,
+                    descripcion,
+                    habilitado,
+                    filtraPorCiudad,
+                    estado,
+                    cuotaRestante,
+                    cuotaLimite,
+                    ultimaEjecucion,
+                    ultimoConteo,
+                    ultimoError
+            ));
+        }
+
+        return lista;
+    }
+
+    private static String descripcionDeFuente(String nombre, Segmento segmento) {
+        return switch (nombre.toUpperCase()) {
+            case "LINKEDIN" -> "LinkedIn Jobs (Guest API pública)";
+            case "COMPUTRABAJO" -> "Computrabajo Colombia (Scraping directo)";
+            case "ELEMPLEO" -> "ElEmpleo.com Colombia";
+            case "JOOBLE" -> "Metabuscador Jooble Colombia (API REST)";
+            case "REMOTIVE" -> "Remotive Jobs API (Remoto internacional)";
+            case "MAGNETO" -> "Magneto 365 Empleos Colombia";
+            case "JSEARCH" -> "Proxy Agregador JSearch (Indeed, Glassdoor, ZipRecruiter)";
+            case "SMARTRECRUITERS" -> "SmartRecruiters ATS Directo (BPOs y empresas Atlántico)";
+            case "ARBEITNOW" -> "Arbeitnow Jobs (Empleo exterior con patrocinio de visa)";
+            default -> nombre + (segmento != null ? " (" + segmento.name() + ")" : "");
+        };
+    }
+
+    /**
+     * Ejecuta una prueba de búsqueda sobre una sola fuente sin persistir datos en la base.
+     */
+    public ResultadoPruebaFuenteDto probarFuente(String nombreFuente) {
+        var fuenteOpt = fuentes.stream()
+                .filter(f -> f.nombre().equalsIgnoreCase(nombreFuente))
+                .findFirst();
+
+        if (fuenteOpt.isEmpty()) {
+            return new ResultadoPruebaFuenteDto(
+                    nombreFuente, false, "ERROR", 0, 0,
+                    "Fuente no encontrada: " + nombreFuente, LocalDateTime.now());
+        }
+
+        var fuente = fuenteOpt.get();
+        if (!fuente.estaHabilitada()) {
+            return new ResultadoPruebaFuenteDto(
+                    fuente.nombre(), false, "DESHABILITADO", 0, 0,
+                    "La fuente está deshabilitada o requiere configuración", LocalDateTime.now());
+        }
+
+        long inicio = System.currentTimeMillis();
+        try {
+            var criterios = criteriosDeBusqueda();
+            String termino = (criterios.terminos() != null && !criterios.terminos().isEmpty())
+                    ? criterios.terminos().get(0)
+                    : "call center";
+            String ciudad = fuente.filtraPorCiudad() ? "Barranquilla" : null;
+
+            ResultadoBusqueda res = fuente.buscar(termino, ciudad);
+            long latencia = System.currentTimeMillis() - inicio;
+
+            if (res.fallo()) {
+                return new ResultadoPruebaFuenteDto(
+                        fuente.nombre(), false, "ERROR", 0, latencia,
+                        res.error(), LocalDateTime.now());
+            }
+
+            int encontrados = res.ofertas() != null ? res.ofertas().size() : 0;
+            String estado = encontrados > 0 ? "OK" : "SIN_RESULTADOS";
+            String mensaje = encontrados > 0
+                    ? "Prueba exitosa. Se encontraron " + encontrados + " oferta(s) para '" + termino + "'."
+                    : "Conexión exitosa, sin ofertas encontradas para el criterio de prueba.";
+
+            return new ResultadoPruebaFuenteDto(
+                    fuente.nombre(), true, estado, encontrados, latencia, mensaje, LocalDateTime.now());
+
+        } catch (Exception e) {
+            long latencia = System.currentTimeMillis() - inicio;
+            return new ResultadoPruebaFuenteDto(
+                    fuente.nombre(), false, "ERROR", 0, latencia,
+                    "Error ejecutando prueba: " + e.getMessage(), LocalDateTime.now());
+        }
+    }
+
+    /**
+     * Sincroniza bajo demanda únicamente la fuente indicada y guarda las nuevas ofertas válidas.
+     */
+    public ResultadoActualizacion sincronizarFuente(String nombreFuente) {
+        var fuenteOpt = fuentes.stream()
+                .filter(f -> f.nombre().equalsIgnoreCase(nombreFuente))
+                .findFirst();
+
+        if (fuenteOpt.isEmpty()) {
+            throw new IllegalArgumentException("Fuente no encontrada: " + nombreFuente);
+        }
+
+        var fuente = fuenteOpt.get();
+        if (!fuente.estaHabilitada()) {
+            throw new IllegalStateException("La fuente " + nombreFuente + " está deshabilitada o no configurada");
+        }
+
+        var inicio = LocalDateTime.now();
+        var errores = new ArrayList<String>();
+        var encontradas = new ArrayList<OfertaCruda>();
+        var criterios = criteriosDeBusqueda();
+
+        consultarUna(fuente, criterios, encontradas, errores);
+
+        var porPortal = new java.util.LinkedHashMap<String, Integer>();
+        porPortal.put(fuente.nombre(), encontradas.size());
+
+        var bilingues = soloBilingues(encontradas);
+        var validas = soloAtlanticoORemotas(bilingues);
+        int descartadas = encontradas.size() - validas.size();
+
+        int nuevas = guardar(validas);
+
+        return registrarEjecucion(ScrapingEjecucion.Origen.MANUAL, inicio, List.of(fuente),
+                nuevas, 0, errores, porPortal, descartadas);
     }
 }

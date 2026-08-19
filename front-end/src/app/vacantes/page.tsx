@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { VistasGuardadas } from '@/components/admin/vistas-guardadas'
+import { PanelConectoresScraping } from '@/components/admin/panel-conectores-scraping'
 import { RegistroDeScraping } from '@/components/admin/registro-de-scraping'
 import { Badge } from '@/components/ui/badge'
 import { usePreferences } from '@/lib/preferences'
@@ -717,6 +718,9 @@ export default function VacantesPage() {
           )}
         </>
       )}
+
+      {/* Panel en vivo de conectores y fuentes de empleo (ATS & Portales) */}
+      <PanelConectoresScraping onActualizacionTerminada={() => load(currentPage)} />
 
       {/* Registro de corridas.
           Va al final y no arriba porque es diagnóstico: se consulta cuando algo

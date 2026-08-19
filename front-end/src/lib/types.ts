@@ -1857,3 +1857,38 @@ export interface HitoDeLaLinea {
   /** Dónde se corrige. Nula cuando el suceso no tiene pantalla propia. */
   ruta: string | null
 }
+
+// ── Conectores y Scraping ───────────────────────────────────────────────────
+
+export interface EstadoConector {
+  nombre: string
+  segmento: string
+  descripcion: string
+  habilitado: boolean
+  filtraPorCiudad: boolean
+  estado: 'ACTIVO' | 'ESPERA_CONFIGURACION' | 'ERROR' | 'DESACTIVADO'
+  cuotaRestante: number | null
+  cuotaLimite: number | null
+  ultimaEjecucion: string | null
+  ultimoConteo: number | null
+  ultimoError: string | null
+}
+
+export interface ResultadoPruebaFuente {
+  fuente: string
+  exito: boolean
+  estado: 'OK' | 'SIN_RESULTADOS' | 'ERROR' | 'DESHABILITADO'
+  ofertasEncontradas: number
+  latenciaMs: number
+  mensaje: string
+  timestamp: string
+}
+
+export interface ResultadoActualizacion {
+  vacantesNuevas: number
+  vacantesCerradas: number
+  vigentesTotal: number
+  inicio: string
+  fin: string | null
+}
+

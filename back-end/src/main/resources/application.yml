@@ -126,7 +126,7 @@ app:
       # Son empleadores con los que el programa ya trabaja y que publican
       # ahi. Uno mal escrito no falla: devuelve cero resultados en silencio,
       # asi que conviene comprobarlo contra la API antes de anadirlo.
-      empresas: ${SCRAPING_SMARTRECRUITERS_EMPRESAS:Sutherland,Alorica}
+      empresas: ${SCRAPING_SMARTRECRUITERS_EMPRESAS:Sutherland,Alorica,Teleperformance,TaskUs,Auxis,Foundever}
     jsearch:
       # Empleo local en Colombia. Es la unica fuente de vacantes colombianas:
       # Adzuna no cubre el pais y el Servicio Publico de Empleo no publica datos

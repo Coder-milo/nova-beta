@@ -101,6 +101,10 @@ class SmartRecruitersConnectorTest {
                 .as("la publica el propio empleador, no un tercero")
                 .isTrue();
         assertThat(oferta.vacante().getFechaPublicacion()).isNotNull();
+        assertThat(oferta.vacante().getHashDedup())
+                .as("hashDedup es requerido para registrar la vacante sin descartarla")
+                .isNotNull()
+                .isNotBlank();
     }
 
     @Test

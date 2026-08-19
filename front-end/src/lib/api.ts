@@ -706,7 +706,7 @@ export const importarExtApi = {
 
 // ─── Vacantes ────────────────────────────────────────────────────────────────
 
-import type { VacanteRequest, VacanteResponse, EjecucionDeScraping } from './types'
+import type { VacanteRequest, VacanteResponse, EjecucionDeScraping, EstadoConector, ResultadoPruebaFuente, ResultadoActualizacion } from './types'
 
 export const vacantesApi = {
   listar: (page = 0, size = 20, token?: string) =>
@@ -764,6 +764,27 @@ export const vacantesApi = {
    */
   ejecuciones: (token?: string) =>
     apiFetch<EjecucionDeScraping[]>('/api/v1/vacantes/scraping/ejecuciones', { token }),
+  /**
+   * Estado en vivo de cada fuente y conector de empleo.
+   */
+  obtenerEstadoConectores: (token?: string) =>
+    apiFetch<EstadoConector[]>('/api/v1/vacantes/scraping/fuentes', { token }),
+  /**
+   * Ejecuta una prueba exploratoria de conexión y conteo sin guardar datos.
+   */
+  probarConector: (fuente: string, token?: string) =>
+    apiFetch<ResultadoPruebaFuente>(`/api/v1/vacantes/scraping/fuentes/${encodeURIComponent(fuente)}/probar`, {
+      method: 'POST',
+      token,
+    }),
+  /**
+   * Sincroniza bajo demanda únicamente la fuente seleccionada y guarda las ofertas.
+   */
+  sincronizarConector: (fuente: string, token?: string) =>
+    apiFetch<ResultadoActualizacion>(`/api/v1/vacantes/scraping/fuentes/${encodeURIComponent(fuente)}/sincronizar`, {
+      method: 'POST',
+      token,
+    }),
 }
 
 // ─── Matches ─────────────────────────────────────────────────────────────────

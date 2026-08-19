@@ -58,7 +58,7 @@ public class SmartRecruitersConnector implements FuenteDeVacantes {
      * configuran por {@code app.scraping.smartrecruiters.empresas} para poder
      * anadir empleadores sin tocar el codigo.
      */
-    private static final String EMPRESAS_POR_DEFECTO = "Sutherland,Alorica";
+    private static final String EMPRESAS_POR_DEFECTO = "Sutherland,Alorica,Teleperformance,TaskUs,Auxis,Foundever";
 
     /**
      * Tope de detalles pedidos por empresa y corrida.
@@ -211,6 +211,7 @@ public class SmartRecruitersConnector implements FuenteDeVacantes {
                 vacante.setUbicacion(componerUbicacion(ciudad, region));
                 vacante.setFuente(FUENTE);
                 vacante.setSegmento(Segmento.LOCAL_COLOMBIA);
+                vacante.setHashDedup(sha256(FUENTE + "|" + empresa + "|" + id));
                 // La oferta la publica el empleador, no un tercero: entra
                 // revisada, como las que registra el equipo.
                 vacante.setRevisada(true);
@@ -335,5 +336,15 @@ public class SmartRecruitersConnector implements FuenteDeVacantes {
     private static String textoAnidado(JsonNode nodo, String campo, String subcampo) {
         String valor = texto(nodo.path(campo), subcampo);
         return valor.isBlank() ? null : valor;
+    }
+
+    private static String sha256(String input) {
+        try {
+            var digest = java.security.MessageDigest.getInstance("SHA-256");
+            return java.util.HexFormat.of()
+                    .formatHex(digest.digest(input.getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }
