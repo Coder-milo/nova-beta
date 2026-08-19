@@ -57,37 +57,39 @@ export function GraficoCategorias({
         <BarChart
           layout="vertical"
           data={chartData}
-          margin={{ top: 10, right: 30, left: 40, bottom: 10 }}
-          barCategoryGap="25%"
+          margin={{ top: 12, right: 30, left: 20, bottom: 12 }}
+          barCategoryGap="20%"
         >
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border) / 0.5)" />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            horizontal={false}
+            stroke="var(--tbl-borde, rgba(255,255,255,0.08))"
+          />
           <XAxis
             type="number"
             tickLine={false}
-            axisLine={false}
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={11}
+            axisLine={{ stroke: 'var(--tbl-borde, rgba(255,255,255,0.12))' }}
+            tick={{ fill: 'var(--tbl-texto-tenue, #94a3b8)', fontSize: 12, fontWeight: 500 }}
           />
           <YAxis
             type="category"
             dataKey="categoria"
             tickLine={false}
-            axisLine={false}
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={11}
-            width={120}
+            axisLine={{ stroke: 'var(--tbl-borde, rgba(255,255,255,0.12))' }}
+            tick={{ fill: 'var(--tbl-texto, #e2e8f0)', fontSize: 12, fontWeight: 600 }}
+            width={130}
           />
           <Tooltip
-            cursor={{ fill: 'hsl(var(--muted) / 0.18)', radius: 4 }}
+            cursor={{ fill: 'var(--tbl-superficie-tenue, rgba(255,255,255,0.05))', radius: 4 }}
             content={({ active, payload }) => {
               if (!active || !payload || !payload.length) return null
               const item = payload[0].payload
               return (
-                <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-lg backdrop-blur-md">
+                <div className="rounded-lg border border-border bg-popover/95 px-3 py-2 text-xs shadow-xl backdrop-blur-md">
                   <span className="font-semibold text-foreground">{item.categoria}</span>
                   <div className="mt-1 flex items-center justify-between gap-4 text-muted-foreground">
                     <span>{etiquetaEjeX}:</span>
-                    <span className="font-bold text-foreground">
+                    <span className="font-bold text-primary">
                       {item.cantidad} {item.porcentaje ? `(${item.porcentaje}%)` : ''}
                     </span>
                   </div>
@@ -97,7 +99,7 @@ export function GraficoCategorias({
           />
           <Bar
             dataKey="cantidad"
-            maxBarSize={28}
+            maxBarSize={32}
             radius={[0, 6, 6, 0]}
             isAnimationActive={false}
           >
@@ -135,42 +137,44 @@ export function GraficoSerieMensual({
     }))
   }, [datos])
 
-  const colorPrincipal = 'hsl(var(--primary))'
+  const colorPrincipal = '#38BDF8'
 
   return (
     <div className="w-full" style={{ height: altura }} aria-label={descripcion}>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={chartData}
-          margin={{ top: 10, right: 20, left: -10, bottom: 0 }}
+          margin={{ top: 12, right: 20, left: -10, bottom: 0 }}
         >
           <defs>
             <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={colorPrincipal} stopOpacity={0.35} />
+              <stop offset="5%" stopColor={colorPrincipal} stopOpacity={0.4} />
               <stop offset="95%" stopColor={colorPrincipal} stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            vertical={false}
+            stroke="var(--tbl-borde, rgba(255,255,255,0.08))"
+          />
           <XAxis
             dataKey="mes"
             tickLine={false}
-            axisLine={false}
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={11}
+            axisLine={{ stroke: 'var(--tbl-borde, rgba(255,255,255,0.12))' }}
+            tick={{ fill: 'var(--tbl-texto-tenue, #94a3b8)', fontSize: 12, fontWeight: 500 }}
           />
           <YAxis
             tickLine={false}
-            axisLine={false}
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={11}
+            axisLine={{ stroke: 'var(--tbl-borde, rgba(255,255,255,0.12))' }}
+            tick={{ fill: 'var(--tbl-texto-tenue, #94a3b8)', fontSize: 12, fontWeight: 500 }}
           />
           <Tooltip
-            cursor={{ stroke: 'hsl(var(--primary) / 0.4)', strokeWidth: 1, strokeDasharray: '3 3' }}
+            cursor={{ stroke: colorPrincipal, strokeWidth: 1.5, strokeDasharray: '3 3' }}
             content={({ active, payload }) => {
               if (!active || !payload || !payload.length) return null
               const item = payload[0].payload
               return (
-                <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-lg backdrop-blur-md">
+                <div className="rounded-lg border border-border bg-popover/95 px-3 py-2 text-xs shadow-xl backdrop-blur-md">
                   <span className="font-semibold text-foreground">{item.mes}</span>
                   <div className="mt-1 flex items-center justify-between gap-4 text-muted-foreground">
                     <span>{etiquetaEjeY}:</span>
@@ -184,7 +188,7 @@ export function GraficoSerieMensual({
             type="monotone"
             dataKey="cantidad"
             stroke={colorPrincipal}
-            strokeWidth={2.5}
+            strokeWidth={3}
             fillOpacity={1}
             fill="url(#colorIngresos)"
             isAnimationActive={false}
