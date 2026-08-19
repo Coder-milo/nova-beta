@@ -520,6 +520,26 @@ export function StudentPostulaciones() {
     }
   }
 
+  const [buscandoOportunidades, setBuscandoOportunidades] = useState(false)
+
+  const refrescarOportunidades = async () => {
+    setBuscandoOportunidades(true)
+    try {
+      const page = await matchesApi.obtenerMisMatches(0, 100)
+      setMatches(page.content)
+      mostrarNotificacion(
+        'exito',
+        locale === 'en'
+          ? `Opportunities updated (${page.content.length} recommendations).`
+          : `Oportunidades actualizadas (${page.content.length} vacantes recomendadas).`,
+      )
+    } catch (e) {
+      mostrarNotificacion('error', mensajeDeError(e, T.errorCargar))
+    } finally {
+      setBuscandoOportunidades(false)
+    }
+  }
+
   const desistirPostulacion = async () => {
     const match = matchPorDesistir
     if (!match) return
@@ -529,7 +549,12 @@ export function StudentPostulaciones() {
         prev.map((m) => (m.id === match.id ? { ...m, postulado: false } : m)),
       )
       await refrescarHistorial()
-      mostrarNotificacion('exito', T.postulacionRevertida)
+      mostrarNotificacion(
+        'exito',
+        locale === 'en'
+          ? 'Application withdrawn. The opening is open again in your recommended opportunities and recorded in your history.'
+          : 'Postulación desistida. La convocatoria vuelve a estar disponible para postularte y queda registrada en tu seguimiento.',
+      )
     } catch (e) {
       mostrarNotificacion('error', mensajeDeError(e, T.errorEliminar))
     } finally {
@@ -811,6 +836,21 @@ export function StudentPostulaciones() {
               <option value="afinidad">{T.mayorAfinidad}</option>
               <option value="recientes">{T.masRecientes}</option>
             </select>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={refrescarOportunidades}
+              disabled={buscandoOportunidades}
+              className="h-8 gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
+              title="Buscar y actualizar nuevas vacantes para tu perfil"
+            >
+              <Sparkle className={`size-3.5 ${buscandoOportunidades ? 'animate-spin' : ''}`} />
+              {buscandoOportunidades
+                ? (locale === 'en' ? 'Searching…' : 'Buscando…')
+                : (locale === 'en' ? 'Search more jobs' : 'Buscar más vacantes')}
+            </Button>
           </div>
         </div>
 
