@@ -68,6 +68,7 @@ public class ScrapingService {
     private final RegistroDeVacante registroDeVacante;
     private final ControlDeCuota controlDeCuota;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public ScrapingService(List<FuenteDeVacantes> fuentes,
                            EstudianteRepository estudianteRepository,
                            VacanteRepository vacanteRepository,
