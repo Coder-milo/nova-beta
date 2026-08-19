@@ -29,6 +29,10 @@ public final class AreaMetropolitana {
      * normalizados —sin tildes ni mayusculas— para poder compararlos con lo que
      * publique cada portal.
      */
+    /**
+     * Todos los municipios del departamento del Atlántico (Colombia),
+     * normalizados sin tildes ni mayúsculas.
+     */
     private static final Set<String> MUNICIPIOS = Set.of(
             "barranquilla",
             "soledad",
@@ -39,10 +43,43 @@ public final class AreaMetropolitana {
             "baranoa",
             "palmar de varela",
             "santo tomas",
-            "polonuevo");
+            "polonuevo",
+            "tubara",
+            "luruaco",
+            "suan",
+            "campo de la cruz",
+            "ponedera",
+            "candelaria",
+            "juan de acosta",
+            "piojo",
+            "repelon",
+            "santa lucia",
+            "usiacuri",
+            "manati");
 
     /** El departamento, para cuando el portal solo publica la region. */
     private static final Set<String> REGIONES = Set.of("atlantico", "atlántico");
+
+    /** Señales inequívocas de que la oferta es remota / teletrabajo. */
+    private static final Set<String> SENALES_REMOTO = Set.of(
+            "remoto", "remote", "teletrabajo", "home office", "work from home",
+            "virtual", "desde casa", "trabajo en casa", "100% remoto", "worldwide",
+            "anywhere", "global", "latam");
+
+    /**
+     * Principales ciudades y áreas metropolitanas fuera del Atlántico.
+     * Si una oferta está en una de estas ciudades y NO es remota, se excluye.
+     */
+    private static final Set<String> OTRAS_CIUDADES = Set.of(
+            "bogota", "medellin", "cali", "bucaramanga", "cartagena",
+            "santa marta", "pereira", "manizales", "cucuta", "ibague",
+            "villavicencio", "pasto", "monteria", "valledupar", "neiva",
+            "armenia", "popayan", "sincelejo", "tunja", "riohacha",
+            "florencia", "yopal", "quibdo", "arauca", "mocoa",
+            "san andres", "leticia", "soacha", "bello", "itagui",
+            "envigado", "palmira", "floridablanca", "dosquebradas",
+            "chia", "facatativa", "zipaquira", "madrid", "funza",
+            "mosquera", "girardot", "fusagasuga", "tulua", "cartago");
 
     private AreaMetropolitana() {
     }
@@ -54,10 +91,6 @@ public final class AreaMetropolitana {
 
     /**
      * Si una oferta publicada en esa ciudad o region le sirve a la cohorte.
-     *
-     * <p>Una oferta sin ciudad se acepta: puede ser remota o no traer el dato,
-     * y descartarla por no venir etiquetada perderia ofertas buenas. Filtrar de
-     * mas es peor que filtrar de menos, porque lo que se pierde no se ve.
      */
     public static boolean esCercana(String ciudad, String region) {
         String c = normalizar(ciudad);
@@ -69,6 +102,65 @@ public final class AreaMetropolitana {
             return true;
         }
         return !r.isBlank() && REGIONES.stream().anyMatch(reg -> r.contains(normalizar(reg)));
+    }
+
+    /**
+     * Determina si una vacante es admisible para el programa:
+     * 1. Es REMOTA (cualquier ciudad o país de origen, si la modalidad es remota/teletrabajo).
+     * 2. O está ubicada físicamente en el Atlántico / Barranquilla.
+     *
+     * Si está ubicada en Bogotá u otra ciudad fuera del Atlántico y es presencial, se descarta.
+     */
+    public static boolean esAtlanticoORemota(com.novacrm.vacante.Vacante vacante) {
+        if (vacante == null) {
+            return false;
+        }
+        // Lo que viene de bolsas de empleo 100% remotas es válido por definición
+        if (vacante.getSegmento() == Segmento.REMOTO_INGLES) {
+            return true;
+        }
+
+        String modalidad = normalizar(vacante.getModalidadTrabajo());
+        String ubicacion = normalizar(vacante.getUbicacion());
+        String ciudad = normalizar(vacante.getCiudad());
+        String titulo = normalizar(vacante.getTitulo());
+        String descripcion = normalizar(vacante.getDescripcion());
+        String requisitos = normalizar(vacante.getRequisitos());
+
+        String textoCompleto = String.join(" ", modalidad, ubicacion, ciudad, titulo, descripcion, requisitos);
+
+        // 1. ¿Es remota?
+        boolean esRemoto = SENALES_REMOTO.stream().anyMatch(s -> textoCompleto.contains(s) || modalidad.contains(s));
+        if (esRemoto) {
+            // Asegurar que modalidadTrabajo refleje que es remota si no estaba definida
+            if (vacante.getModalidadTrabajo() == null || vacante.getModalidadTrabajo().isBlank()
+                    || "Presencial".equalsIgnoreCase(vacante.getModalidadTrabajo())) {
+                vacante.setModalidadTrabajo("Remoto");
+            }
+            return true;
+        }
+
+        // 2. ¿Es en el Atlántico?
+        boolean esEnAtlantico = MUNICIPIOS.stream().anyMatch(m -> ciudad.contains(m) || ubicacion.contains(m))
+                || REGIONES.stream().anyMatch(r -> ciudad.contains(r) || ubicacion.contains(r));
+        if (esEnAtlantico) {
+            return true;
+        }
+
+        // 3. ¿Es explícitamente en otra ciudad (ej: Bogotá, Medellín) y NO es remota?
+        boolean esOtraCiudad = OTRAS_CIUDADES.stream().anyMatch(oc -> ciudad.contains(oc) || ubicacion.contains(oc));
+        if (esOtraCiudad) {
+            return false;
+        }
+
+        // 4. Si no especifica ciudad o viene vacía, y no dice ser de otra ciudad
+        return true;
+    }
+
+    public static boolean esRemoto(String texto) {
+        if (texto == null || texto.isBlank()) return false;
+        String normal = normalizar(texto);
+        return SENALES_REMOTO.stream().anyMatch(normal::contains);
     }
 
     private static String normalizar(String texto) {

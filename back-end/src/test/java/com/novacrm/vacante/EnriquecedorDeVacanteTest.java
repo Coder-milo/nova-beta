@@ -203,6 +203,50 @@ class EnriquecedorDeVacanteTest {
     }
 
     @Test
+    void infiereModalidadRemotaEHibrida() {
+        var vRemota = vacante("Customer Service Agent", "Posición 100% remota con trabajo desde casa.");
+        enriquecedor.enriquecer(vRemota);
+        assertEquals("Remoto", vRemota.getModalidadTrabajo());
+
+        var vHibrida = vacante("Team Lead", "Modalidad de trabajo híbrido con 2 días en oficina.");
+        enriquecedor.enriquecer(vHibrida);
+        assertEquals("Híbrido", vHibrida.getModalidadTrabajo());
+    }
+
+    @Test
+    void infiereSalarioDesdeTextoDeLaDescripcion() {
+        var vRango = vacante("Bilingual CSR", "Ofrecemos salario de $2.500.000 a $3.000.000 COP más bonos.");
+        enriquecedor.enriquecer(vRango);
+        assertEquals("$2.500.000 - $3.000.000 COP", vRango.getRangoSalarial());
+
+        var vFijo = vacante("Agente BPO", "Salario: $2.800.000 COP con todas las prestaciones.");
+        enriquecedor.enriquecer(vFijo);
+        assertEquals("$2.800.000 COP", vFijo.getRangoSalarial());
+
+        var vUsd = vacante("Software Developer", "Salary: USD $1200 - $1800 per month.");
+        enriquecedor.enriquecer(vUsd);
+        assertEquals("USD $1200 - $1800", vUsd.getRangoSalarial());
+    }
+
+    @Test
+    void infiereRequisitosDesdeSeccionDedicada() {
+        var v = vacante("Soporte Bilingüe", """
+                Acerca de la empresa: BPO multinacional.
+                
+                Requisitos:
+                - Bachiller o técnico.
+                - Nivel de inglés B2.
+                - Manejo de herramientas ofimáticas.
+                
+                Beneficios:
+                - Medicina prepagada.
+                """);
+        enriquecedor.enriquecer(v);
+        assertNotNull(v.getRequisitos());
+        assertTrue(v.getRequisitos().contains("Nivel de inglés B2"));
+    }
+
+    @Test
     void unaVacanteNulaNoRompe() {
         assertDoesNotThrow(() -> enriquecedor.enriquecer(null));
     }

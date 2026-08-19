@@ -152,11 +152,38 @@ public class ComputrabajoScraper implements FuenteDeVacantes {
                         ? ciudadBusqueda
                         : ubicacionRaw;
 
-                Element salarioElem = card.selectFirst("span[class*='i_salary']");
+                Element salarioElem = card.selectFirst("span[class*='i_salary'], p[class*='salary']");
                 String salario = salarioElem != null ? salarioElem.parent().text().trim() : null;
 
                 Element descElem = card.selectFirst("p.dClear, p.build_desc, p.description, div[class*='description_offer']");
                 String descripcion = descElem != null ? descElem.text().trim() : titulo;
+
+                // Extraer etiquetas de modalidad, contrato y jornada
+                String cardText = card.text().toLowerCase();
+                String modalidad = "Presencial";
+                if (cardText.contains("desde casa") || cardText.contains("remoto") || cardText.contains("teletrabajo")) {
+                    modalidad = "Remoto";
+                } else if (cardText.contains("hibrid") || cardText.contains("híbrid")) {
+                    modalidad = "Híbrido";
+                }
+
+                String jornada = "Tiempo completo";
+                if (cardText.contains("medio tiempo") || cardText.contains("part time")) {
+                    jornada = "Medio tiempo";
+                } else if (cardText.contains("por horas")) {
+                    jornada = "Por horas";
+                }
+
+                String tipoContrato = null;
+                if (cardText.contains("indefinido")) {
+                    tipoContrato = "Término Indefinido";
+                } else if (cardText.contains("obra o labor") || cardText.contains("obra labor")) {
+                    tipoContrato = "Obra o Labor";
+                } else if (cardText.contains("termino fijo") || cardText.contains("término fijo")) {
+                    tipoContrato = "Término Fijo";
+                } else if (cardText.contains("aprendizaje") || cardText.contains("practicante")) {
+                    tipoContrato = "Contrato de Aprendizaje";
+                }
 
                 Vacante vacante = new Vacante();
                 vacante.setTitulo(titulo);
@@ -164,11 +191,14 @@ public class ComputrabajoScraper implements FuenteDeVacantes {
                 vacante.setHashDedup(sha256(PORTAL + "|" + idOferta));
                 vacante.setUbicacion(ubicacion);
                 vacante.setCiudad(extraerCiudad(ubicacion, ciudadBusqueda));
+                vacante.setModalidadTrabajo(modalidad);
+                vacante.setJornada(jornada);
+                vacante.setTipoContrato(tipoContrato);
                 vacante.setRangoSalarial(salario);
                 vacante.setDescripcion(descripcion);
                 vacante.setUrlOrigen(href.startsWith("http") ? href : SITE_ROOT + href);
                 vacante.setUrlAplicar(vacante.getUrlOrigen());
-                vacante.setSegmento(Segmento.LOCAL_COLOMBIA);
+                vacante.setSegmento(modalidad.equals("Remoto") ? Segmento.REMOTO_INGLES : Segmento.LOCAL_COLOMBIA);
                 vacante.setActivo(true);
                 vacante.setFechaPublicacion(LocalDateTime.now());
 

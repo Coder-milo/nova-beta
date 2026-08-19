@@ -96,14 +96,15 @@ public class ScrapingService {
         // cero igual que uno con los selectores rotos.
         var porPortal = contarPorPortal(activas, encontradas);
 
-        // El colador bilingue va despues de contar por portal y antes de
+        // El colador bilingue y geografico va despues de contar por portal y antes de
         // guardar: asi el registro sigue diciendo que trajo cada fuente —que es
         // como se ve si un portal murio— y aparte, cuantas se dejaron fuera.
         var bilingues = soloBilingues(encontradas);
-        int descartadas = encontradas.size() - bilingues.size();
+        var validas = soloAtlanticoORemotas(bilingues);
+        int descartadas = encontradas.size() - validas.size();
 
         // Fase de base de datos.
-        int nuevas = guardar(bilingues);
+        int nuevas = guardar(validas);
 
         return registrarEjecucion(origen, inicio, activas, nuevas, cerradas, errores,
                 porPortal, descartadas);
@@ -138,6 +139,24 @@ public class ScrapingService {
             }
         }
         return bilingues;
+    }
+
+    /**
+     * Deja solo las ofertas que son 100% Remotas o radicadas en el Atlántico / Barranquilla.
+     * Descarta ofertas presenciales ubicadas en Bogotá, Medellín u otras ciudades fuera del Atlántico.
+     */
+    private static List<OfertaCruda> soloAtlanticoORemotas(List<OfertaCruda> encontradas) {
+        var validas = new ArrayList<OfertaCruda>();
+        for (var oferta : encontradas) {
+            if (com.novacrm.scraper.fuente.AreaMetropolitana.esAtlanticoORemota(oferta.vacante())) {
+                validas.add(oferta);
+            } else {
+                log.debug("Descartada por no ser del Atlántico ni remota: {} [{}] en {} / {}",
+                        oferta.vacante().getTitulo(), oferta.vacante().getFuente(),
+                        oferta.vacante().getCiudad(), oferta.vacante().getUbicacion());
+            }
+        }
+        return validas;
     }
 
     /** Portal → ofertas devueltas, incluidas las fuentes que no trajeron nada. */

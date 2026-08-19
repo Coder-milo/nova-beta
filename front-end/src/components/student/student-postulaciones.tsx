@@ -230,13 +230,15 @@ function DetalleVacante({ m, T }: { m: MatchResponse; T: TextosPostulaciones }) 
         ? T.sinExperiencia
         : `${m.vacanteAniosExperienciaRequeridos} ${m.vacanteAniosExperienciaRequeridos === 1 ? T.anio : T.anios}`
   const expira = m.vacanteFechaExpiracion
-    // Con el idioma de la aplicacion y no el del navegador: si no, la fecha
-    // limite salia en el formato del sistema dentro de una pantalla traducida.
     ? new Date(m.vacanteFechaExpiracion).toLocaleDateString(T.anio === 'year' ? 'en-US' : 'es-CO')
     : null
 
+  const esRemoto =
+    (m.vacanteModalidadTrabajo && m.vacanteModalidadTrabajo.toLowerCase().includes('remot')) ||
+    (m.vacanteUbicacion && m.vacanteUbicacion.toLowerCase().includes('remot')) ||
+    (m.vacanteDescripcion && m.vacanteDescripcion.toLowerCase().includes('teletrabajo'))
+
   const hechos = [
-    m.vacanteRangoSalarial && { icon: CurrencyDollar, etiqueta: T.pago, valor: m.vacanteRangoSalarial },
     ciudad && { icon: MapPin, etiqueta: T.ciudad, valor: ciudad },
     m.vacanteModalidadTrabajo && { icon: Laptop, etiqueta: T.modalidad, valor: m.vacanteModalidadTrabajo },
     m.vacanteJornada && { icon: Clock, etiqueta: T.jornada, valor: m.vacanteJornada },
@@ -250,40 +252,84 @@ function DetalleVacante({ m, T }: { m: MatchResponse; T: TextosPostulaciones }) 
   const requisitos = m.vacanteRequisitos?.trim()
   const urlAbsoluta = urlDeOferta(m)
 
-  if (hechos.length === 0 && !descripcion && !requisitos && !urlAbsoluta) return null
+  if (hechos.length === 0 && !descripcion && !requisitos && !urlAbsoluta && !m.vacanteRangoSalarial) return null
 
   return (
-    <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+    <div className="space-y-3.5 rounded-xl border border-border bg-card/60 p-4 shadow-xs">
+      {/* Destacado de Salario y Modalidad */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-3">
+        {m.vacanteRangoSalarial ? (
+          <div className="flex items-center gap-1.5 rounded-lg border border-primary/25 bg-primary/10 px-3 py-1.5 text-primary">
+            <CurrencyDollar className="size-4 shrink-0 font-bold" />
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-primary/80">{T.pago}</p>
+              <p className="text-xs font-semibold tabular-nums text-foreground">{m.vacanteRangoSalarial}</p>
+            </div>
+          </div>
+        ) : (
+          <Badge variant="outline" className="text-[11px] text-muted-foreground">
+            {T.pago}: {T.anio === 'year' ? 'Competitive / To be agreed' : 'A convenir / Competitivo'}
+          </Badge>
+        )}
+
+        <div className="flex items-center gap-1.5">
+          {esRemoto ? (
+            <Badge variant="secondary" className="gap-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-medium text-xs">
+              <Laptop className="size-3.5" />
+              {T.anio === 'year' ? '100% Remote' : '100% Remoto'}
+            </Badge>
+          ) : ciudad ? (
+            <Badge variant="outline" className="gap-1 text-xs font-medium">
+              <MapPin className="size-3 text-primary" />
+              {ciudad}
+            </Badge>
+          ) : null}
+          {m.vacanteNivelInglesRequerido && (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              <Translate className="size-3 text-primary" />
+              {m.vacanteNivelInglesRequerido}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Cuadrícula de Condiciones */}
       {hechos.length > 0 && (
-        <div className="grid gap-1.5 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-2 text-xs">
           {hechos.map((h) => (
             <Hecho key={h.etiqueta} icon={h.icon} etiqueta={h.etiqueta} valor={h.valor} />
           ))}
         </div>
       )}
+
+      {/* Sección Requisitos */}
       {requisitos && (
-        <details>
-          <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
-            {T.requisitos}
-          </summary>
-          <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{requisitos}</p>
-        </details>
+        <div className="rounded-lg border border-border/80 bg-muted/20 p-3">
+          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <Sparkle className="size-3.5 text-primary" /> {T.requisitos}
+          </p>
+          <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">{requisitos}</p>
+        </div>
       )}
+
+      {/* Sección Descripción */}
       {descripcion && (
-        <details>
-          <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
-            {T.descripcionOferta}
-          </summary>
-          <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{descripcion}</p>
-        </details>
+        <div className="rounded-lg border border-border/80 bg-muted/20 p-3">
+          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <Briefcase className="size-3.5 text-primary" /> {T.descripcionOferta}
+          </p>
+          <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">{descripcion}</p>
+        </div>
       )}
-      <div className="flex items-center justify-between gap-2">
+
+      {/* Pie con Enlace y Fuente */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-2.5">
         {urlAbsoluta ? (
           <a
             href={urlAbsoluta}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-2"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline underline-offset-2"
           >
             <ArrowSquareOut className="size-3.5" />
             {T.verOriginal}

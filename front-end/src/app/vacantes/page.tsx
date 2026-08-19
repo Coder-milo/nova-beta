@@ -873,13 +873,42 @@ export default function VacantesPage() {
                   </section>
                 )}
 
-                {/* Info principal */}
+                {/* Info principal y Salario */}
                 <section className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-3">
-                  <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">{T.informacionGeneral}</h4>
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider">{T.informacionGeneral}</h4>
+                    {selected.modalidadTrabajo && (
+                      <Badge
+                        variant={selected.modalidadTrabajo.toLowerCase().includes('remot') ? 'secondary' : 'outline'}
+                        className={
+                          selected.modalidadTrabajo.toLowerCase().includes('remot')
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-medium text-xs gap-1'
+                            : 'text-xs gap-1'
+                        }
+                      >
+                        <Globe className="size-3" /> {selected.modalidadTrabajo}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {selected.rangoSalarial ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/10 p-2.5 text-primary">
+                      <CurrencyDollar className="size-5 shrink-0 font-bold" />
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wider text-primary/80">{T.rangoSalarial}</p>
+                        <p className="text-sm font-semibold tabular-nums text-foreground">{selected.rangoSalarial}</p>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                     <div>
-                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.rangoSalarial}</span>
-                      <span className="font-medium">{selected.rangoSalarial ?? T.noEspecificado}</span>
+                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.ubicacion}</span>
+                      <span className="font-medium">{selected.ciudad || selected.ubicacion || T.noEspecificado}</span>
+                    </div>
+                    <div>
+                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.jornada}</span>
+                      <span className="font-medium">{selected.jornada || T.noEspecificado}</span>
                     </div>
                     <div>
                       <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.experiencia}</span>
@@ -890,23 +919,31 @@ export default function VacantesPage() {
                       <span className="font-medium">{selected.nivelInglesRequerido ?? T.noEspecificado}</span>
                     </div>
                     <div>
+                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.tipoDeContrato}</span>
+                      <span className="font-medium">{selected.tipoContrato ?? T.noEspecificado}</span>
+                    </div>
+                    <div>
                       <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.fuente}</span>
                       <span className="font-medium">{selected.fuente ?? T.manual}</span>
                     </div>
                   </div>
                 </section>
 
-                {selected.descripcion && (
+                {selected.requisitos && (
                   <section className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-2">
-                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">{T.descripcion}</h4>
-                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{selected.descripcion}</p>
+                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1 flex items-center gap-1.5">
+                      <CheckCircle className="size-3.5" /> {T.requisitos}
+                    </h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{selected.requisitos}</p>
                   </section>
                 )}
 
-                {selected.requisitos && (
+                {selected.descripcion && (
                   <section className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-2">
-                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">{T.requisitos}</h4>
-                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{selected.requisitos}</p>
+                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1 flex items-center gap-1.5">
+                      <Briefcase className="size-3.5" /> {T.descripcion}
+                    </h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{selected.descripcion}</p>
                   </section>
                 )}
 
