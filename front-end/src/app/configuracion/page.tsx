@@ -25,7 +25,6 @@ import { PanelIntegraciones } from '@/components/admin/panel-integraciones'
 import { PanelPlataformas } from '@/components/admin/panel-plataformas'
 import { PanelUsuarios } from '@/components/admin/panel-usuarios'
 import { PanelWhatsapp } from '@/components/admin/panel-whatsapp'
-import { VistaPreviaCorreos } from '@/components/admin/vista-previa-correos'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
@@ -457,11 +456,6 @@ export default function ConfiguracionPage() {
               son otro tipo de cuenta —rol ESTUDIANTE, alta masiva, sin
               contraseña que nadie teclee— y porque basta con COORDINADOR. */}
           <PanelCuentasEstudiante />
-
-          {/* Justo debajo del alta de cuentas: es el sitio donde alguien está a
-              punto de disparar el envío masivo, y por tanto donde tiene sentido
-              poder mirar antes cómo queda el correo. */}
-          <VistaPreviaCorreos />
         </div>
       )}
 
