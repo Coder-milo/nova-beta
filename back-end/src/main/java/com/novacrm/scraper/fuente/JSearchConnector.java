@@ -107,7 +107,7 @@ public class JSearchConnector implements FuenteDeVacantes {
                 actual = httpClient;
                 if (actual == null) {
                     actual = HttpClient.newBuilder()
-                            .connectTimeout(Duration.ofSeconds(15))
+                            .connectTimeout(Duration.ofSeconds(20))
                             .followRedirects(HttpClient.Redirect.NORMAL)
                             .build();
                     httpClient = actual;
@@ -142,7 +142,7 @@ public class JSearchConnector implements FuenteDeVacantes {
                     HttpRequest.newBuilder(URI.create(url))
                             .header("Accept", "application/json")
                             .header("X-API-Key", apiKey)
-                            .timeout(Duration.ofSeconds(25))
+                            .timeout(Duration.ofSeconds(45))
                             .GET()
                             .build(),
                     HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));

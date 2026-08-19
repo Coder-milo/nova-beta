@@ -77,6 +77,18 @@ function textos(english: boolean) {
         estaOfertaEsta: 'This posting has not been reviewed',
         sinRevisar: 'Not reviewed',
         filtrarPorFuente: 'Filter by source',
+        filtrarPorConvocatoria: 'Filter by call / segment',
+        todasLasConvocatorias: 'All calls / segments',
+        convocatoriasLocales: '📍 Local Openings (Atlántico)',
+        convocatoriasRemotas: '🌐 Remote in English',
+        convocatoriasMigracion: '✈️ International (Visa)',
+        filtrarPorModalidad: 'Work mode',
+        todasLasModalidades: 'All modes',
+        filtrarPorRevision: 'Review status',
+        todasLasRevisiones: 'All postings',
+        soloRevisadas: 'Verified only',
+        soloPendientes: 'Pending review',
+        limpiarFiltros: 'Clear filters',
         informacionPrincipal: 'Main details',
         informacionGeneral: 'General information',
         condicionesDeLa: 'Job conditions',
@@ -175,6 +187,18 @@ function textos(english: boolean) {
         estaOfertaEsta: 'Esta oferta está sin revisar',
         sinRevisar: 'Sin revisar',
         filtrarPorFuente: 'Filtrar por fuente',
+        filtrarPorConvocatoria: 'Filtrar por convocatoria / segmento',
+        todasLasConvocatorias: 'Todas las convocatorias',
+        convocatoriasLocales: '📍 Convocatorias Locales (Atlántico)',
+        convocatoriasRemotas: '🌐 Convocatorias Remotas en Inglés',
+        convocatoriasMigracion: '✈️ Convocatorias Internacionales (Visa)',
+        filtrarPorModalidad: 'Modalidad',
+        todasLasModalidades: 'Todas las modalidades',
+        filtrarPorRevision: 'Estado de revisión',
+        todasLasRevisiones: 'Todas las ofertas',
+        soloRevisadas: 'Solo verificadas',
+        soloPendientes: 'Pendientes de revisión',
+        limpiarFiltros: 'Limpiar filtros',
         informacionPrincipal: 'Información principal',
         informacionGeneral: 'Información General',
         condicionesDeLa: 'Condiciones de la oportunidad',
@@ -281,12 +305,10 @@ export default function VacantesPage() {
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  /**
-   * Fuente seleccionada. Con varias fuentes activas —empleo local desde el
-   * portal de los empleadores, remoto en inglés, migración— el listado las
-   * mezcla y no hay forma de mirar sólo lo que sirve a quien vive aquí.
-   */
   const [fuenteFiltro, setFuenteFiltro] = useState('TODAS')
+  const [segmentoFiltro, setSegmentoFiltro] = useState('TODOS')
+  const [modalidadFiltro, setModalidadFiltro] = useState('TODAS')
+  const [revisionFiltro, setRevisionFiltro] = useState('TODAS')
   const [selected, setSelected]       = useState<VacanteResponse | null>(null)
   const [matching, setMatching]       = useState(false)
   const [matchingMsg, setMatchingMsg] = useState<string | null>(null)
@@ -513,19 +535,44 @@ export default function VacantesPage() {
     } finally { setGestionando(false) }
   }
 
-  /** Las fuentes que de verdad hay en lo cargado; no una lista fija. */
-  const fuentesDisponibles = Array.from(
+  const fuentesFijas = [
+    'LINKEDIN',
+    'COMPUTRABAJO',
+    'ELEMPLEO',
+    'JSEARCH',
+    'SMARTRECRUITERS',
+    'JOOBLE',
+    'REMOTIVE',
+    'ARBEITNOW',
+    'MANUAL',
+  ]
+  const fuentesEncontradas = Array.from(
     new Set((page?.content ?? []).map((v) => v.fuente).filter((f): f is string => !!f)),
-  ).sort()
+  )
+  const todasLasFuentes = Array.from(new Set([...fuentesFijas, ...fuentesEncontradas])).sort()
+
+  const hayFiltrosActivos =
+    fuenteFiltro !== 'TODAS' ||
+    segmentoFiltro !== 'TODOS' ||
+    modalidadFiltro !== 'TODAS' ||
+    revisionFiltro !== 'TODAS' ||
+    searchQuery.trim() !== ''
 
   const filtered = (page?.content ?? []).filter((v) => {
-    if (fuenteFiltro !== 'TODAS' && v.fuente !== fuenteFiltro) return false
+    if (fuenteFiltro !== 'TODAS' && v.fuente?.toUpperCase() !== fuenteFiltro.toUpperCase()) return false
+    if (segmentoFiltro !== 'TODOS' && v.segmento !== segmentoFiltro) return false
+    if (modalidadFiltro !== 'TODAS' && v.modalidadTrabajo?.toUpperCase() !== modalidadFiltro.toUpperCase()) return false
+    if (revisionFiltro === 'REVISADAS' && v.revisada === false) return false
+    if (revisionFiltro === 'PENDIENTES' && v.revisada !== false) return false
+
     const q = searchQuery.toLowerCase().trim()
     if (!q) return true
-    return v.titulo.toLowerCase().includes(q) ||
-      (v.empresaNombre?.toLowerCase().includes(q)) ||
-      (v.ubicacion?.toLowerCase().includes(q)) ||
-      (v.descripcion?.toLowerCase().includes(q))
+    return (
+      v.titulo.toLowerCase().includes(q) ||
+      (v.empresaNombre?.toLowerCase().includes(q) ?? false) ||
+      (v.ubicacion?.toLowerCase().includes(q) ?? false) ||
+      (v.descripcion?.toLowerCase().includes(q) ?? false)
+    )
   })
 
   return (
@@ -558,37 +605,119 @@ export default function VacantesPage() {
 
       <VistasGuardadas
         modulo="VACANTES"
-        hayFiltros={fuenteFiltro !== 'TODAS' || searchQuery.trim() !== ''}
-        filtrosActuales={{ fuente: fuenteFiltro, q: searchQuery.trim() }}
+        hayFiltros={hayFiltrosActivos}
+        filtrosActuales={{
+          fuente: fuenteFiltro,
+          segmento: segmentoFiltro,
+          modalidad: modalidadFiltro,
+          revision: revisionFiltro,
+          q: searchQuery.trim(),
+        }}
         onAplicar={(f) => {
           setFuenteFiltro(typeof f.fuente === 'string' ? f.fuente : 'TODAS')
+          setSegmentoFiltro(typeof f.segmento === 'string' ? f.segmento : 'TODOS')
+          setModalidadFiltro(typeof f.modalidad === 'string' ? f.modalidad : 'TODAS')
+          setRevisionFiltro(typeof f.revision === 'string' ? f.revision : 'TODAS')
           setSearchQuery(typeof f.q === 'string' ? f.q : '')
         }}
       />
 
-      {/* Búsqueda y filtro por fuente */}
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,28rem)_auto]">
-        <div className="relative">
-          <MagnifyingGlass className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input type="search" placeholder={T.buscarPorTitulo} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 bg-secondary/40" />
-        </div>
-        {/* Sólo con más de una fuente: un desplegable de un elemento es ruido. */}
-        {fuentesDisponibles.length > 1 && (
-          <div className="flex items-center gap-2">
-            <Globe className="size-3.5 shrink-0 text-muted-foreground" />
+      {/* Barra de Búsqueda y Filtros Completos */}
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card/60 p-4 shadow-sm">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,20rem)_repeat(auto-fit,minmax(9.5rem,1fr))]">
+          {/* Búsqueda por texto */}
+          <div className="relative">
+            <MagnifyingGlass className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder={T.buscarPorTitulo}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-secondary/40 h-9 text-xs"
+            />
+          </div>
+
+          {/* Filtro por Convocatoria / Segmento */}
+          <div>
             <select
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-56"
+              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              value={segmentoFiltro}
+              onChange={(e) => setSegmentoFiltro(e.target.value)}
+              aria-label={T.filtrarPorConvocatoria}
+            >
+              <option value="TODOS">{T.todasLasConvocatorias}</option>
+              <option value="LOCAL_COLOMBIA">{T.convocatoriasLocales}</option>
+              <option value="REMOTO_INGLES">{T.convocatoriasRemotas}</option>
+              <option value="MIGRACION">{T.convocatoriasMigracion}</option>
+            </select>
+          </div>
+
+          {/* Filtro por Fuente / Portal */}
+          <div>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
               value={fuenteFiltro}
               onChange={(e) => setFuenteFiltro(e.target.value)}
               aria-label={T.filtrarPorFuente}
             >
-              <option value="TODAS">Todas las fuentes ({page?.content.length ?? 0})</option>
-              {fuentesDisponibles.map((f) => (
+              <option value="TODAS">Todas las fuentes</option>
+              {todasLasFuentes.map((f) => (
                 <option key={f} value={f}>
-                  {f} ({(page?.content ?? []).filter((v) => v.fuente === f).length})
+                  {f} ({(page?.content ?? []).filter((v) => v.fuente?.toUpperCase() === f.toUpperCase()).length})
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Filtro por Modalidad */}
+          <div>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              value={modalidadFiltro}
+              onChange={(e) => setModalidadFiltro(e.target.value)}
+              aria-label={T.filtrarPorModalidad}
+            >
+              <option value="TODAS">{T.todasLasModalidades}</option>
+              <option value="PRESENCIAL">Presencial</option>
+              <option value="REMOTO">Remoto</option>
+              <option value="HÍBRIDO">Híbrido</option>
+            </select>
+          </div>
+
+          {/* Filtro por Estado de Revisión */}
+          <div>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              value={revisionFiltro}
+              onChange={(e) => setRevisionFiltro(e.target.value)}
+              aria-label={T.filtrarPorRevision}
+            >
+              <option value="TODAS">{T.todasLasRevisiones}</option>
+              <option value="REVISADAS">{T.soloRevisadas}</option>
+              <option value="PENDIENTES">{T.soloPendientes}</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Resumen de Filtros Activos y Botón Limpiar */}
+        {hayFiltrosActivos && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-lg border border-border mt-1">
+            <span>
+              Filtros activos: <strong>{filtered.length}</strong> de <strong>{page?.content.length ?? 0}</strong> vacantes mostradas
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setFuenteFiltro('TODAS')
+                setSegmentoFiltro('TODOS')
+                setModalidadFiltro('TODAS')
+                setRevisionFiltro('TODAS')
+                setSearchQuery('')
+              }}
+              className="text-primary hover:underline font-semibold"
+            >
+              {T.limpiarFiltros}
+            </button>
           </div>
         )}
       </div>

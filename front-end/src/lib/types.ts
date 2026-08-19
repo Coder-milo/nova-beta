@@ -354,6 +354,7 @@ export interface VacanteResponse {
    * de empleo llegue a toda la cohorte.
    */
   revisada?: boolean
+  segmento?: string | null
   /**
    * Campos internos de gestión: el servidor los envía nulos cuando quien
    * pregunta es un estudiante, porque en una oferta sugerida `creadaPor` es el
