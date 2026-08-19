@@ -34,10 +34,10 @@
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | Backend Connectors & ATS Fixes | Fix `SmartRecruitersConnector` `hashDedup` bug, ensure all Tier 1, 2, 3 connectors are properly configured and handle Atlántico employers | none | PLANNED |
-| 2 | Circuit Breaker, Deduplication & Quality Pipeline | Verify & enhance `ScrapingService` error isolation, `RegistroDeVacante` `hashContenido` guard, metrics tracking in `ScrapingEjecucion` | M1 | PLANNED |
-| 3 | Admin Monitoring & Control (API + Frontend UI) | Implement connector status & test/sync endpoints in `VacanteController`/`ScrapingService` and `PanelConectoresScraping` component in frontend | M2 | PLANNED |
-| 4 | Verification & Quality Assurance | Create `ScrapingServiceTest.java`, execute complete test suite with 0 failures, verify TypeScript build | M3 | PLANNED |
+| 1 | Backend Connectors & ATS Fixes | Fix `SmartRecruitersConnector` `hashDedup` bug, ensure all Tier 1, 2, 3 connectors are properly configured and handle Atlántico employers | none | DONE |
+| 2 | Circuit Breaker, Deduplication & Quality Pipeline | Verify & enhance `ScrapingService` error isolation, `RegistroDeVacante` `hashContenido` guard, metrics tracking in `ScrapingEjecucion` | M1 | DONE |
+| 3 | Admin Monitoring & Control (API + Frontend UI) | Implement connector status & test/sync endpoints in `VacanteController`/`ScrapingService` and `PanelConectoresScraping` component in frontend | M2 | DONE |
+| 4 | Verification & Quality Assurance | Create `ScrapingServiceTest.java`, execute complete test suite with 0 failures, verify TypeScript build | M3 | DONE |
 
 ## Interface Contracts
 ### ScrapingService ↔ VacanteController

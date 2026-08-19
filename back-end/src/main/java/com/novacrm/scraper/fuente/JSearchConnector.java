@@ -170,12 +170,32 @@ public class JSearchConnector implements FuenteDeVacantes {
     List<OfertaCruda> procesar(String cuerpoJson) throws Exception {
         List<OfertaCruda> ofertas = new ArrayList<>();
         JsonNode raiz = MAPPER.readTree(cuerpoJson);
-        for (JsonNode pagina : raiz.path("data")) {
-            for (JsonNode oferta : pagina.path("jobs")) {
+        JsonNode dataNode = raiz.path("data");
+
+        if (dataNode.isObject() && dataNode.has("jobs")) {
+            for (JsonNode oferta : dataNode.path("jobs")) {
                 try {
                     mapear(oferta).ifPresent(ofertas::add);
                 } catch (Exception e) {
                     log.warn("Error mapeando oferta de JSearch: {}", e.getMessage());
+                }
+            }
+        } else if (dataNode.isArray()) {
+            for (JsonNode item : dataNode) {
+                if (item.has("jobs")) {
+                    for (JsonNode oferta : item.path("jobs")) {
+                        try {
+                            mapear(oferta).ifPresent(ofertas::add);
+                        } catch (Exception e) {
+                            log.warn("Error mapeando oferta de JSearch: {}", e.getMessage());
+                        }
+                    }
+                } else if (item.has("job_id")) {
+                    try {
+                        mapear(item).ifPresent(ofertas::add);
+                    } catch (Exception e) {
+                        log.warn("Error mapeando oferta de JSearch: {}", e.getMessage());
+                    }
                 }
             }
         }
@@ -195,7 +215,8 @@ public class JSearchConnector implements FuenteDeVacantes {
         vacante.setSegmento(Segmento.LOCAL_COLOMBIA);
         vacante.setHashDedup(sha256(FUENTE + "|" + id));
         vacante.setDescripcion(texto(oferta, "job_description"));
-        vacante.setCiudad(texto(oferta, "job_city"));
+        String city = texto(oferta, "job_city");
+        vacante.setCiudad(city != null && !city.isBlank() ? city : "Barranquilla");
         vacante.setUbicacion(ubicacion(oferta));
         vacante.setTipoContrato(texto(oferta, "job_employment_type"));
         vacante.setModalidadTrabajo(

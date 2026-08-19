@@ -81,6 +81,7 @@ services:
       RATE_LIMIT_PUBLICO_WINDOW_MINUTES: ${RATE_LIMIT_PUBLICO_WINDOW_MINUTES:-60}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODELO: ${GROQ_MODELO:-llama-3.3-70b-versatile}
+      JSEARCH_API_KEY: ${JSEARCH_API_KEY:-ak_uykto2lw7wj40pijjnuklulmuwz2buzbyc5wadv7b1yv4xj}
     ports:
       - "8080:8080"
     healthcheck:
