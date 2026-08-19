@@ -155,7 +155,7 @@ public class LinkedInJobsScraper implements FuenteDeVacantes {
                 Element descElem = card.selectFirst("p.job-search-card__snippet, div.job-search-card__snippet");
                 String descripcion = descElem != null && !descElem.text().isBlank()
                         ? descElem.text().trim()
-                        : titulo + " en " + empresa + ". Ubicación: " + ubicacion;
+                        : titulo + " en " + empresa + ". Oferta de empleo bilingüe publicada en LinkedIn Jobs para " + ubicacion + ".";
 
                 // Detección de modalidad
                 String lowerText = (titulo + " " + descripcion + " " + ubicacion).toLowerCase();

@@ -46,6 +46,7 @@ public final class FiltroBilingue {
      */
     private static final List<String> PRUEBAS_DE_IDIOMA = List.of(
             "bilingu",        // bilingue, bilingual, bilinguismo
+            "trilingu",       // trilingue, trilingual
             "ingles",
             "english",
             "idioma extranjero",
