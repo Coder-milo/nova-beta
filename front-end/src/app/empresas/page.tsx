@@ -325,26 +325,88 @@ export default function EmpresasPage() {
         decidirlo. Si no hay duplicados, la tarjeta no se pinta. */}
     <FichasDuplicadas alFusionar={() => void cargar()} />
 
-    <Card className="shadow-none"><CardContent className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
-      <VistasGuardadas
-        modulo="EMPRESAS"
-        hayFiltros={q.trim() !== '' || sector !== '' || estado !== ''}
-        filtrosActuales={{ q: q.trim(), sector, estado }}
-        onAplicar={(f) => {
-          setQ(typeof f.q === 'string' ? f.q : '')
-          setSector(typeof f.sector === 'string' ? f.sector : '')
-          // El estado es un enum: solo se acepta si de verdad es uno de ellos.
-          // Una vista vieja con un valor retirado dejaría el filtro en un
-          // estado imposible y la lista saldría vacía sin explicación.
-          const e = typeof f.estado === 'string' ? f.estado : ''
-          setEstado(catalogoEstados.some((c) => c.valor === e) ? (e as EstadoRelacionEmpresa) : '')
-        }}
-      />
+    <VistasGuardadas
+      modulo="EMPRESAS"
+      hayFiltros={q.trim() !== '' || sector !== '' || estado !== ''}
+      filtrosActuales={{ q: q.trim(), sector, estado }}
+      onAplicar={(f) => {
+        setQ(typeof f.q === 'string' ? f.q : '')
+        setSector(typeof f.sector === 'string' ? f.sector : '')
+        const e = typeof f.estado === 'string' ? f.estado : ''
+        setEstado(catalogoEstados.some((c) => c.valor === e) ? (e as EstadoRelacionEmpresa) : '')
+      }}
+    />
 
-      <div className="relative"><MagnifyingGlass className="absolute left-3 top-3 size-4 text-muted-foreground" /><Input className="pl-9" placeholder={T.buscarEmpresaSector} value={q} onChange={(e) => setQ(e.target.value)} /></div>
-      <label className="relative"><Funnel className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground" /><select aria-label={T.filtrarPorSector} className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm" value={sector} onChange={(e) => setSector(e.target.value)}><option value="">{T.todosLosSectores}</option>{sectores.map((valor) => <option key={valor} value={valor}>{valor}</option>)}</select></label>
-      <select aria-label={T.filtrarPorEstado} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={estado} onChange={(e) => setEstado(e.target.value as EstadoRelacionEmpresa | '')}><option value="">{T.todosLosEstados}</option>{catalogoEstados.map((item) => <option key={item.valor} value={item.valor}>{etiquetaDeEstado(T, item.valor, item.etiqueta)}</option>)}</select>
-    </CardContent></Card>
+    {/* Barra de Búsqueda y Filtros Alineados */}
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card/60 p-3.5 shadow-sm">
+      <div className="flex flex-wrap items-center gap-2.5">
+        {/* Búsqueda por texto */}
+        <div className="relative min-w-[220px] flex-1">
+          <MagnifyingGlass className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="h-9 pl-9 bg-secondary/40 text-xs"
+            placeholder={T.buscarEmpresaSector}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+
+        {/* Filtro por Sector */}
+        <div className="w-full sm:w-auto min-w-[180px]">
+          <div className="relative">
+            <Funnel className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <select
+              aria-label={T.filtrarPorSector}
+              className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-2.5 text-xs text-foreground font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              value={sector}
+              onChange={(e) => setSector(e.target.value)}
+            >
+              <option value="">{T.todosLosSectores}</option>
+              {sectores.map((valor) => (
+                <option key={valor} value={valor}>{valor}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Filtro por Estado de Relación */}
+        <div className="w-full sm:w-auto min-w-[180px]">
+          <select
+            aria-label={T.filtrarPorEstado}
+            className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            value={estado}
+            onChange={(e) => setEstado(e.target.value as EstadoRelacionEmpresa | '')}
+          >
+            <option value="">{T.todosLosEstados}</option>
+            {catalogoEstados.map((item) => (
+              <option key={item.valor} value={item.valor}>
+                {etiquetaDeEstado(T, item.valor, item.etiqueta)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Resumen de Filtros Activos y Botón Limpiar */}
+      {(q.trim() !== '' || sector !== '' || estado !== '') && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-lg border border-border mt-1">
+          <span>
+            Filtros activos: <strong>{empresas.length}</strong> de <strong>{datos?.totalElements ?? 0}</strong> empresas
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setQ('')
+              setSector('')
+              setEstado('')
+            }}
+            className="text-primary hover:underline font-semibold"
+          >
+            Limpiar filtros
+          </button>
+        </div>
+      )}
+    </div>
 
     {error && <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"><WarningCircle className="size-5 shrink-0" />{error}</div>}
 
