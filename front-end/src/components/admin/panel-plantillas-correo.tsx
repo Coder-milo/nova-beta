@@ -1,114 +1,173 @@
 'use client'
 
-import { CircleAlert as WarningCircle, Eye, LoaderCircle as CircleNotch, Mail as EnvelopeSimple, Plus, Send as PaperPlaneTilt, Trash2 as Trash } from 'lucide-react'
 /**
- * Plantillas de correo.
+ * Catálogo y Editor Unificado de Plantillas de Correo (NOVA-CRM).
  *
- * Consume:
- *   GET    /api/v1/plantillas-correo            → lista
- *   GET    /api/v1/plantillas-correo/variables  → ayuda del editor
- *   POST   /api/v1/plantillas-correo            → crear
- *   PUT    /api/v1/plantillas-correo/{id}       → corregir
- *   DELETE /api/v1/plantillas-correo/{id}       → eliminar (solo ADMIN)
- *   POST   /api/v1/plantillas-correo/previsualizar → cómo queda, sin guardar
- *   POST   /api/v1/plantillas-correo/{id}/enviar   → envío masivo
+ * Unifica la gestión de:
+ * 1. Correos del Sistema (Transaccionales): Activación, Recuperación, Citación de Entrevista, Asignación de Vacante, Anuncios, Recordatorios HV.
+ * 2. Convocatorias y Comunicaciones Masivas para participantes.
  *
- * El módulo entero existía en el backend y ninguna pantalla lo pedía.
+ * Características principales:
+ * - Filtros por pestañas (Todas, Sistema, Masivas).
+ * - Editor enriquecido (`EditorTexto`) con inserción de variables categorizadas y bloques modulares HTML.
+ * - Previsualización interactiva responsive (`PanelVistaPreviaEmail`) con alternador 600px / 375px y perfiles de simulación.
+ * - Restablecimiento de valores iniciales de fábrica para plantillas del sistema.
+ * - Despacho de correos de prueba directos (`ModalEnvioPrueba`).
+ * - Simulación de seguridad y envío masivo a cohortes de estudiantes.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  CircleAlert as WarningCircle,
+  Eye,
+  History,
+  Layers,
+  LayoutTemplate,
+  LoaderCircle as CircleNotch,
+  Mail as EnvelopeSimple,
+  Plus,
+  RotateCcw,
+  Send as PaperPlaneTilt,
+  ShieldCheck,
+  Sparkles,
+  Trash2 as Trash,
+} from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { plantillasCorreoApi, mensajeDeError } from '@/lib/api'
+import { EditorTexto } from '@/components/ui/editor-texto'
+import { PanelVistaPreviaEmail } from '@/components/admin/panel-vista-previa-email'
+import { ModalEnvioPrueba } from '@/components/admin/modal-envio-prueba'
+import { SelectorAudiencia, type AudienciaSeleccionada } from '@/components/admin/selector-audiencia'
+import { plantillasCorreoApi, programasApi, mensajeDeError } from '@/lib/api'
 import { useAvisos } from '@/components/ui/avisos'
 import { useConfirmar } from '@/components/ui/confirmar'
 import { useAuth } from '@/lib/auth'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
+import { cn } from '@/lib/utils'
 import type {
-  PlantillaCorreo, PlantillaCorreoRequest, PrevisualizacionCorreo,
-  ResumenEnvioCorreo, VariableDisponible,
+  CategoriaPlantilla,
+  PlantillaCorreo,
+  PlantillaCorreoRequest,
+  PlantillaDefecto,
+  PrevisualizacionCorreo,
+  ProgramaResponse,
+  ResumenEnvioCorreo,
+  VariableDisponible,
 } from '@/lib/types'
 
+type TabCatalogo = 'todas' | 'sistema' | 'masivo'
+type TabEditor = 'editor' | 'previa'
+
 const vacia: PlantillaCorreoRequest = {
-  nombre: '', descripcion: '', asunto: '', cuerpo: '',
-  botonTexto: '', botonUrl: '', activa: true,
+  nombre: '',
+  descripcion: '',
+  asunto: '',
+  cuerpo: '',
+  botonTexto: '',
+  botonUrl: '',
+  activa: true,
+  categoria: 'MASIVO',
+  tipo: null,
 }
 
-/**
- * Textos propios de esta pantalla.
- *
- * Lo que se repite en varias pantallas de gestion sale de
- * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
- */
+/** Textos propios de esta pantalla, en los dos idiomas. */
 function textos(english: boolean) {
   return english
     ? {
-        titulo: 'Email communication templates',
-        descripcion: 'Configure and manage email templates for participant broadcasts. Includes preview and dry run before sending.',
-        nuevaPlantilla: 'New template',
-        sinPlantillas: 'No templates registered yet. Create a template to get started.',
-        nombre: 'Name',
+        titulo: 'Email Template Hub & Preview',
+        descripcion: 'Manage transactional system emails and broadcast campaigns with rich visual editing, modular blocks, responsive previews, and test dispatch.',
+        todasLasPlantillas: 'All Templates',
+        correosDelSistema: 'System Transactional',
+        convocatoriasYMasivos: 'Broadcast Campaigns',
+        nuevaPlantilla: 'New Template',
+        sinPlantillas: 'No templates registered in this category.',
+        nombre: 'Template Name',
         descripcionCampo: 'Description / Purpose',
         asunto: 'Subject',
-        cuerpo: 'Body',
-        botonTexto: 'Button text',
-        botonUrl: 'Button link',
+        cuerpo: 'Email Body',
+        botonTexto: 'Button Text (CTA)',
+        botonUrl: 'Button Link (URL)',
         activa: 'Active',
+        categoria: 'Category',
+        tipoTransaccional: 'System Email Type',
         variablesDisponibles: 'Dynamic variables available',
-        previsualizar: 'Preview',
-        vistaPrevia: 'Preview with sample data',
-        avisosPrevios: 'Before sending',
-        simular: 'Dry run',
-        enviarDeVerdad: 'Confirm and send',
+        insertarEnAsunto: 'Insert variable into subject',
+        previsualizar: 'Responsive Preview',
+        vistaPrevia: 'Live Preview',
+        pestañaEditor: 'Template Editor',
+        pestañaPrevia: 'Interactive Preview (600px / 375px)',
+        avisosPrevios: 'Pre-send warnings',
+        simular: 'Dry Run Simulation',
+        enviarDeVerdad: 'Confirm & Send Broadcast',
+        enviarPruebaDirecta: 'Send Test Email',
+        restablecerDefecto: 'Factory Reset',
+        confirmarRestablecer: 'Restore Factory Defaults?',
+        confirmarRestablecerDetalle: (n: string) => `Subject, body and buttons of “${n}” will be replaced with institutional system defaults.`,
         confirmarEnvio: 'Confirm email broadcast?',
-        confirmarEnvioDetalle: (n: number) => `Email will be sent to ${n} participant(s). This action cannot be undone.`,
-        resultadoEnvio: 'Result',
+        confirmarEnvioDetalle: (n: number) => `Email will be delivered to ${n} participant(s). This action cannot be undone.`,
+        resultadoEnvio: 'Broadcast Results',
         destinatarios: 'Recipients',
         enviados: 'Sent',
-        bloqueados: 'Blocked by test recipient filter',
+        bloqueados: 'Filtered by whitelist',
         fallidos: 'Failed',
-        sinCorreo: 'No email registered in profile',
-        fueSimulacion: 'Dry run completed: no emails were sent.',
-        listaDePruebas: 'Test filter active: only authorized test addresses will receive emails.',
+        sinCorreo: 'Missing email',
+        fueSimulacion: 'Simulation completed: zero emails were sent.',
+        listaDePruebas: 'Test filter active: only authorized addresses received emails.',
         canal: 'Channel',
-        elNombreEs: 'The name, subject and body are required.',
+        elNombreEs: 'Template name, subject and body are required.',
         noSePudoCargar: 'The templates could not be loaded.',
         noSePudoGuardar: 'The template could not be saved.',
         noSePudoPrevisualizar: 'The preview could not be generated.',
         noSePudoEnviar: 'The email could not be sent.',
         noSePudoEliminar: 'The template could not be deleted.',
+        noSePudoRestablecer: 'Could not restore default template.',
         eliminarPlantilla: 'Delete template',
         seEliminara: (n: string) => `Template “${n}” will be deleted. This action cannot be undone.`,
         plantillaGuardada: 'Template saved.',
-        simulaPrimero: 'Run a simulation first to verify recipients before sending.',
-        guardaAntesDeEnviar: 'Save changes before sending to ensure the latest version is delivered.',
-        previaDeLoNoGuardado: 'This preview shows current edits. Save changes before executing broadcast.',
+        plantillaRestablecida: 'Template restored to factory default.',
+        simulaPrimero: 'Run a simulation first to inspect recipient count before broadcast.',
+        guardaAntesDeEnviar: 'Save changes before broadcasting.',
+        previaDeLoNoGuardado: 'Showing unsaved draft preview. Save changes before final send.',
+        sistemaBadge: 'SYSTEM',
+        masivoBadge: 'CAMPAIGN',
+        personalizarPorDefecto: 'Customize System Email',
       }
     : {
-        titulo: 'Plantillas de comunicación por correo',
-        descripcion: 'Configura y gestiona las plantillas de correo masivo para participantes. Permite simular y previsualizar antes de enviar.',
+        titulo: 'Gestión y Editor de Plantillas de Correo',
+        descripcion: 'Diseña, personaliza y previsualiza correos transaccionales del sistema y comunicados masivos con bloques modulares y vista responsive.',
+        todasLasPlantillas: 'Todas las plantillas',
+        correosDelSistema: 'Correos del Sistema (Transaccionales)',
+        convocatoriasYMasivos: 'Convocatorias y Masivos',
         nuevaPlantilla: 'Nueva plantilla',
-        sinPlantillas: 'No hay plantillas registradas. Crea una nueva plantilla para comenzar.',
-        nombre: 'Nombre',
+        sinPlantillas: 'No hay plantillas registradas en esta categoría.',
+        nombre: 'Nombre de la plantilla',
         descripcionCampo: 'Descripción del propósito',
-        asunto: 'Asunto',
-        cuerpo: 'Cuerpo',
-        botonTexto: 'Texto del botón',
-        botonUrl: 'Enlace del botón',
+        asunto: 'Asunto del correo',
+        cuerpo: 'Cuerpo del mensaje',
+        botonTexto: 'Texto del botón (CTA)',
+        botonUrl: 'Enlace del botón (URL)',
         activa: 'Activa',
+        categoria: 'Categoría',
+        tipoTransaccional: 'Tipo de correo del sistema',
         variablesDisponibles: 'Variables dinámicas disponibles',
-        previsualizar: 'Previsualizar',
-        vistaPrevia: 'Vista previa con datos de ejemplo',
-        avisosPrevios: 'Antes de enviar',
+        insertarEnAsunto: 'Insertar variable en asunto',
+        previsualizar: 'Vista Previa Responsive',
+        vistaPrevia: 'Vista previa en tiempo real',
+        pestañaEditor: 'Editor de plantilla',
+        pestañaPrevia: 'Vista previa interactiva (600px / 375px)',
+        avisosPrevios: 'Avisos antes de enviar',
         simular: 'Simular envío',
         enviarDeVerdad: 'Confirmar y enviar',
+        enviarPruebaDirecta: 'Enviar correo de prueba',
+        restablecerDefecto: 'Restablecer valores iniciales',
+        confirmarRestablecer: '¿Restablecer valores iniciales del sistema?',
+        confirmarRestablecerDetalle: (n: string) => `El asunto, cuerpo y botón de «${n}» se reemplazarán por el formato predeterminado del sistema.`,
         confirmarEnvio: '¿Confirmar el envío masivo de correos?',
         confirmarEnvioDetalle: (n: number) => `Se enviará el correo a ${n} participante(s). Esta acción no se puede deshacer.`,
-        resultadoEnvio: 'Resultado',
+        resultadoEnvio: 'Resultado del envío',
         destinatarios: 'Destinatarios',
         enviados: 'Enviados',
         bloqueados: 'Bloqueados por filtro de pruebas',
@@ -123,12 +182,17 @@ function textos(english: boolean) {
         noSePudoPrevisualizar: 'No se pudo generar la vista previa.',
         noSePudoEnviar: 'No se pudo enviar el correo.',
         noSePudoEliminar: 'No se pudo eliminar la plantilla.',
+        noSePudoRestablecer: 'No se pudo restablecer la plantilla a sus valores por defecto.',
         eliminarPlantilla: 'Eliminar plantilla',
         seEliminara: (n: string) => `Se eliminará la plantilla «${n}». Esta acción no se puede deshacer.`,
         plantillaGuardada: 'Plantilla guardada.',
+        plantillaRestablecida: 'Plantilla restablecida a sus valores de fábrica.',
         simulaPrimero: 'Realiza una simulación para verificar los destinatarios antes del envío.',
         guardaAntesDeEnviar: 'Guarda los cambios para que se reflejen en el envío masivo.',
         previaDeLoNoGuardado: 'Esta vista previa muestra la edición actual. Guarda los cambios antes de enviar.',
+        sistemaBadge: 'SISTEMA',
+        masivoBadge: 'MASIVO',
+        personalizarPorDefecto: 'Personalizar correo del sistema',
       }
 }
 
@@ -137,15 +201,22 @@ export function PanelPlantillasCorreo() {
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
   const { mostrarError, avisos } = useAvisos()
-  // Borrar una plantilla es solo de ADMIN en el servidor. Sin esto, un
-  // coordinador ve el boton, lo pulsa y recibe un 403: se le ofrece algo que
-  // no puede hacer y el fallo parece del sistema.
   const { user } = useAuth()
   const puedeEliminar = user?.roles?.includes('ADMIN') ?? false
   const { confirmar, dialogo } = useConfirmar()
 
+  const [tabActiva, setTabActiva] = useState<TabCatalogo>('todas')
+  const [tabEditorActiva, setTabEditorActiva] = useState<TabEditor>('editor')
+
   const [plantillas, setPlantillas] = useState<PlantillaCorreo[]>([])
+  const [defaultsSistema, setDefaultsSistema] = useState<PlantillaDefecto[]>([])
   const [variables, setVariables] = useState<VariableDisponible[]>([])
+  const [programas, setProgramas] = useState<ProgramaResponse[]>([])
+  const [audienciaEnvio, setAudienciaEnvio] = useState<AudienciaSeleccionada>({
+    tipo: 'TODOS',
+    estudianteIds: [],
+    estudiantes: [],
+  })
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -153,61 +224,127 @@ export function PanelPlantillasCorreo() {
   const [form, setForm] = useState<PlantillaCorreoRequest>(vacia)
   const [abierto, setAbierto] = useState(false)
   const [guardando, setGuardando] = useState(false)
+  const [restableciendo, setRestableciendo] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const [previa, setPrevia] = useState<PrevisualizacionCorreo | null>(null)
+  const [previaServidor, setPreviaServidor] = useState<PrevisualizacionCorreo | null>(null)
   const [previsualizando, setPrevisualizando] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [resumen, setResumen] = useState<ResumenEnvioCorreo | null>(null)
-  /**
-   * De qué plantilla tenemos una simulación hecha.
-   *
-   * El envío real se apoya en ella para dos cosas: saber a cuántas personas
-   * llegaría —decirlo mal en la confirmación es peor que no decirlo— y obligar
-   * a mirar antes el resultado. No es una molestia de más: es la única
-   * oportunidad de ver a quién alcanza algo que no se puede deshacer.
-   */
   const [simuladoPara, setSimuladoPara] = useState<string | null>(null)
-  /**
-   * La plantilla tal como esta guardada en el servidor.
-   *
-   * La vista previa monta lo que hay escrito en el formulario, pero el envio
-   * usa lo que el servidor tiene guardado. Editar y no guardar hacia que la
-   * previsualizacion ensenara el texto nuevo y a la gente le llegara el
-   * anterior, sin nada que lo advirtiera. Con esto se sabe si difieren.
-   */
   const [guardado, setGuardado] = useState<string>('')
 
+  const [modalPruebaAbierto, setModalPruebaAbierto] = useState(false)
+
   const cargar = useCallback(async () => {
-    setCargando(true); setError(null)
+    setCargando(true)
+    setError(null)
     try {
-      const [lista, vars] = await Promise.all([
+      const [lista, vars, defaults, progs] = await Promise.all([
         plantillasCorreoApi.listar(),
         plantillasCorreoApi.variables(),
+        plantillasCorreoApi.obtenerDefaults().catch(() => []),
+        programasApi.listar().catch(() => []),
       ])
-      setPlantillas(lista); setVariables(vars)
+      setPlantillas(lista)
+      setVariables(vars)
+      setDefaultsSistema(defaults)
+      setProgramas(progs)
     } catch (e) {
       setError(mensajeDeError(e, T.noSePudoCargar))
-    } finally { setCargando(false) }
+    } finally {
+      setCargando(false)
+    }
   }, [T.noSePudoCargar])
 
-  useEffect(() => { void cargar() }, [cargar])
+  useEffect(() => {
+    void cargar()
+  }, [cargar])
 
-  const abrirNueva = () => {
-    setEditandoId(null); setForm(vacia); setFormError(null); setGuardado(JSON.stringify(vacia))
-    setPrevia(null); setResumen(null); setSimuladoPara(null); setAbierto(true)
+  // Plantillas filtradas por tab
+  const plantillasFiltradas = useMemo(() => {
+    if (tabActiva === 'sistema') {
+      return plantillas.filter(
+        (p) => p.categoria === 'SISTEMA' || p.esSistema || !!p.tipo || defaultsSistema.some((d) => d.nombre === p.nombre),
+      )
+    }
+    if (tabActiva === 'masivo') {
+      return plantillas.filter(
+        (p) => p.categoria !== 'SISTEMA' && !p.esSistema && !p.tipo && !defaultsSistema.some((d) => d.nombre === p.nombre),
+      )
+    }
+    return plantillas
+  }, [plantillas, tabActiva, defaultsSistema])
+
+  // Plantillas del sistema no configuradas aún
+  const defaultsNoCreados = useMemo(() => {
+    if (tabActiva === 'masivo') return []
+    return defaultsSistema.filter(
+      (def) => !plantillas.some((p) => p.nombre.toLowerCase() === def.nombre.toLowerCase() || p.tipo === def.tipo),
+    )
+  }, [defaultsSistema, plantillas, tabActiva])
+
+  const abrirNueva = (categoria: CategoriaPlantilla = 'MASIVO') => {
+    setEditandoId(null)
+    const nueva = { ...vacia, categoria }
+    setForm(nueva)
+    setFormError(null)
+    setGuardado(JSON.stringify(nueva))
+    setPreviaServidor(null)
+    setResumen(null)
+    setSimuladoPara(null)
+    setTabEditorActiva('editor')
+    setAbierto(true)
+  }
+
+  const abrirDesdeDefault = (def: PlantillaDefecto) => {
+    setEditandoId(null)
+    const cargado: PlantillaCorreoRequest = {
+      nombre: def.nombre,
+      descripcion: def.descripcion,
+      asunto: def.asunto,
+      cuerpo: def.cuerpo,
+      botonTexto: def.botonTexto || '',
+      botonUrl: def.botonUrl || '',
+      activa: true,
+      categoria: 'SISTEMA',
+      tipo: def.tipo,
+    }
+    setForm(cargado)
+    setFormError(null)
+    setGuardado(JSON.stringify(cargado))
+    setPreviaServidor(null)
+    setResumen(null)
+    setSimuladoPara(null)
+    setTabEditorActiva('editor')
+    setAbierto(true)
   }
 
   const abrirEdicion = (p: PlantillaCorreo) => {
     setEditandoId(p.id)
-    const cargado = {
-      programaId: p.programaId, nombre: p.nombre, descripcion: p.descripcion ?? '',
-      asunto: p.asunto, cuerpo: p.cuerpo, botonTexto: p.botonTexto ?? '',
-      botonUrl: p.botonUrl ?? '', rolMinimo: p.rolMinimo, activa: p.activa,
+    const esDeSistema =
+      p.categoria === 'SISTEMA' || p.esSistema || !!p.tipo || defaultsSistema.some((d) => d.nombre === p.nombre)
+    const cargado: PlantillaCorreoRequest = {
+      programaId: p.programaId,
+      nombre: p.nombre,
+      descripcion: p.descripcion ?? '',
+      asunto: p.asunto,
+      cuerpo: p.cuerpo,
+      botonTexto: p.botonTexto ?? '',
+      botonUrl: p.botonUrl ?? '',
+      rolMinimo: p.rolMinimo,
+      activa: p.activa,
+      categoria: esDeSistema ? 'SISTEMA' : 'MASIVO',
+      tipo: p.tipo ?? (defaultsSistema.find((d) => d.nombre === p.nombre)?.tipo || null),
     }
     setForm(cargado)
     setGuardado(JSON.stringify(cargado))
-    setFormError(null); setPrevia(null); setResumen(null); setSimuladoPara(null); setAbierto(true)
+    setFormError(null)
+    setPreviaServidor(null)
+    setResumen(null)
+    setSimuladoPara(null)
+    setTabEditorActiva('editor')
+    setAbierto(true)
   }
 
   const guardar = async () => {
@@ -215,76 +352,121 @@ export function PanelPlantillasCorreo() {
       setFormError(T.elNombreEs)
       return
     }
-    setGuardando(true); setFormError(null)
+    setGuardando(true)
+    setFormError(null)
     try {
       const guardada = editandoId
         ? await plantillasCorreoApi.actualizar(editandoId, form)
         : await plantillasCorreoApi.crear(form)
       setEditandoId(guardada.id)
       setGuardado(JSON.stringify(form))
-      // Lo guardado cambio, asi que la simulacion anterior ya no describe lo
-      // que saldria: hay que volver a mirarla antes de enviar.
       setSimuladoPara(null)
       await cargar()
     } catch (e) {
       setFormError(mensajeDeError(e, T.noSePudoGuardar))
-    } finally { setGuardando(false) }
+    } finally {
+      setGuardando(false)
+    }
   }
 
-  const previsualizar = async () => {
+  const restablecerValoresFabrica = async () => {
+    if (!form.nombre) return
+    const confirmado = await confirmar({
+      titulo: T.confirmarRestablecer,
+      descripcion: T.confirmarRestablecerDetalle(form.nombre),
+      textoConfirmar: T.restablecerDefecto,
+      destructivo: true,
+    })
+    if (!confirmado) return
+
+    setRestableciendo(true)
+    try {
+      if (editandoId) {
+        const restaurada = await plantillasCorreoApi.restaurarDefecto(editandoId, form.tipo ?? undefined)
+        abrirEdicion(restaurada)
+      } else {
+        // Si no está guardada aún, buscar en defaultsSistema
+        const def = defaultsSistema.find((d) => d.tipo === form.tipo || d.nombre === form.nombre)
+        if (def) {
+          setForm((f) => ({
+            ...f,
+            asunto: def.asunto,
+            cuerpo: def.cuerpo,
+            botonTexto: def.botonTexto || '',
+            botonUrl: def.botonUrl || '',
+          }))
+        }
+      }
+    } catch (e) {
+      mostrarError(mensajeDeError(e, T.noSePudoRestablecer))
+    } finally {
+      setRestableciendo(false)
+    }
+  }
+
+  const previsualizarServidor = async () => {
     setPrevisualizando(true)
     try {
-      setPrevia(await plantillasCorreoApi.previsualizar(form))
+      setPreviaServidor(await plantillasCorreoApi.previsualizar(form))
+      setTabEditorActiva('previa')
     } catch (e) {
       mostrarError(mensajeDeError(e, T.noSePudoPrevisualizar))
-    } finally { setPrevisualizando(false) }
+    } finally {
+      setPrevisualizando(false)
+    }
   }
 
-  /**
-   * Envía la plantilla guardada.
-   *
-   * La simulación va primero y sin preguntar: no manda nada, sólo dice a
-   * quién llegaría. El envío real pide confirmación aparte, porque un clic
-   * distraído sobre un botón que dice «enviar» alcanza a la cohorte entera y
-   * no se puede deshacer.
-   */
-  /** Lo escrito difiere de lo guardado, que es lo que de verdad se envia. */
   const hayCambiosSinGuardar = JSON.stringify(form) !== guardado
+  const esPlantillaSistema = form.categoria === 'SISTEMA' || !!form.tipo
 
-  const enviar = async (simulacion: boolean) => {
+  const enviarMasivo = async (simulacion: boolean) => {
     if (hayCambiosSinGuardar) return
     if (!editandoId) return
     if (!simulacion) {
       if (simuladoPara !== editandoId || !resumen) return
-      if (!(await confirmar({
-        titulo: T.confirmarEnvio,
-        descripcion: T.confirmarEnvioDetalle(resumen.destinatarios),
-        textoConfirmar: T.enviarDeVerdad,
-        destructivo: true,
-      }))) return
+      if (
+        !(await confirmar({
+          titulo: T.confirmarEnvio,
+          descripcion: T.confirmarEnvioDetalle(resumen.destinatarios),
+          textoConfirmar: T.enviarDeVerdad,
+          destructivo: true,
+        }))
+      )
+        return
     }
     setEnviando(true)
     try {
-      const nuevo = await plantillasCorreoApi.enviar(editandoId, { simulacion })
+      const nuevo = await plantillasCorreoApi.enviar(editandoId, {
+        simulacion,
+        programaId: audienciaEnvio.programaId,
+        cohorte: audienciaEnvio.cohorte,
+        estudianteIds: audienciaEnvio.estudianteIds.length > 0 ? audienciaEnvio.estudianteIds : undefined,
+      })
       setResumen(nuevo)
-      // Tras un envío real la simulación deja de valer: si se vuelve a pulsar
-      // hay que volver a mirar a quién llegaría.
       setSimuladoPara(simulacion ? editandoId : null)
     } catch (e) {
       mostrarError(mensajeDeError(e, T.noSePudoEnviar))
-    } finally { setEnviando(false) }
+    } finally {
+      setEnviando(false)
+    }
   }
 
   const eliminar = async (p: PlantillaCorreo) => {
-    if (!(await confirmar({
-      titulo: T.eliminarPlantilla,
-      descripcion: T.seEliminara(p.nombre),
-      textoConfirmar: C.eliminar,
-      destructivo: true,
-    }))) return
+    if (
+      !(await confirmar({
+        titulo: T.eliminarPlantilla,
+        descripcion: T.seEliminara(p.nombre),
+        textoConfirmar: C.eliminar,
+        destructivo: true,
+      }))
+    )
+      return
     try {
       await plantillasCorreoApi.eliminar(p.id)
-      if (editandoId === p.id) { setAbierto(false); setEditandoId(null) }
+      if (editandoId === p.id) {
+        setAbierto(false)
+        setEditandoId(null)
+      }
       await cargar()
     } catch (e) {
       mostrarError(mensajeDeError(e, T.noSePudoEliminar))
@@ -292,7 +474,7 @@ export function PanelPlantillasCorreo() {
   }
 
   return (
-    <Card className="shadow-none">
+    <Card className="shadow-none border-border">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <EnvelopeSimple className="size-4 text-primary" /> {T.titulo}
@@ -303,171 +485,375 @@ export function PanelPlantillasCorreo() {
       <CardContent className="flex flex-col gap-4">
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" onClick={abrirNueva} disabled={cargando}>
-            <Plus className="size-4" /> {T.nuevaPlantilla}
-          </Button>
+        {/* Pestañas de filtrado del catálogo */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+          <div className="flex items-center rounded-lg border border-border bg-muted/30 p-0.5">
+            <button
+              type="button"
+              onClick={() => setTabActiva('todas')}
+              className={cn(
+                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer',
+                tabActiva === 'todas'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {T.todasLasPlantillas} ({plantillas.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setTabActiva('sistema')}
+              className={cn(
+                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5',
+                tabActiva === 'sistema'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <ShieldCheck className="size-3.5 text-primary" />
+              {T.correosDelSistema}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTabActiva('masivo')}
+              className={cn(
+                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5',
+                tabActiva === 'masivo'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Layers className="size-3.5 text-muted-foreground" />
+              {T.convocatoriasYMasivos}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => abrirNueva('MASIVO')} disabled={cargando} className="cursor-pointer">
+              <Plus className="size-4" /> {T.nuevaPlantilla}
+            </Button>
+          </div>
         </div>
 
-        {!cargando && plantillas.length === 0 && (
+        {/* Listado de Plantillas */}
+        {!cargando && plantillasFiltradas.length === 0 && defaultsNoCreados.length === 0 && (
           <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
             {T.sinPlantillas}
           </p>
         )}
 
-        {plantillas.length > 0 && (
-          <div className="divide-y rounded-xl border">
-            {plantillas.map((p) => (
-              <div key={p.id} className="flex flex-wrap items-center gap-3 p-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">{p.nombre}</p>
-                  <p className="truncate text-xs text-muted-foreground">{p.asunto}</p>
+        {(plantillasFiltradas.length > 0 || defaultsNoCreados.length > 0) && (
+          <div className="divide-y divide-border rounded-xl border border-border">
+            {/* Plantillas Guardadas */}
+            {plantillasFiltradas.map((p) => {
+              const esSistemaItem =
+                p.categoria === 'SISTEMA' ||
+                p.esSistema ||
+                !!p.tipo ||
+                defaultsSistema.some((d) => d.nombre === p.nombre)
+              return (
+                <div
+                  key={p.id}
+                  className="flex flex-wrap items-center justify-between gap-3 p-3 hover:bg-muted/10 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-foreground">{p.nombre}</p>
+                      {esSistemaItem ? (
+                        <Badge variant="secondary" className="text-[10px] font-semibold text-primary">
+                          {T.sistemaBadge}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                          {T.masivoBadge}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">{p.asunto}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {!p.activa && <Badge variant="outline" className="text-[10px]">{C.inactivo}</Badge>}
+                    <Button variant="outline" size="sm" onClick={() => abrirEdicion(p)} className="cursor-pointer">
+                      {C.editar}
+                    </Button>
+                    {puedeEliminar && !esSistemaItem && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void eliminar(p)}
+                        aria-label={`${C.eliminar} ${p.nombre}`}
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                      >
+                        <Trash className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                {!p.activa && <Badge variant="outline" className="text-[10px]">{C.inactivo}</Badge>}
-                <Button variant="outline" size="sm" onClick={() => abrirEdicion(p)}>{C.editar}</Button>
-                {puedeEliminar && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void eliminar(p)}
-                    aria-label={`${C.eliminar} ${p.nombre}`}
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Trash className="size-3.5" />
-                  </Button>
-                )}
+              )
+            })}
+
+            {/* Plantillas del Sistema Disponibles por Defecto (aún no guardadas en BD) */}
+            {defaultsNoCreados.map((def) => (
+              <div
+                key={def.tipo}
+                className="flex flex-wrap items-center justify-between gap-3 p-3 bg-muted/15 hover:bg-muted/25 transition-colors border-l-4 border-l-primary/60"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-foreground">{def.nombre}</p>
+                    <Badge variant="secondary" className="text-[10px] font-semibold text-primary">
+                      {T.sistemaBadge}
+                    </Badge>
+                    <Badge variant="outline" className="text-[9px] text-muted-foreground font-mono">
+                      Fábrica
+                    </Badge>
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">{def.descripcion || def.asunto}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => abrirDesdeDefault(def)}
+                  className="text-primary hover:bg-primary/10 cursor-pointer"
+                >
+                  <Sparkles className="size-3.5 mr-1" />
+                  {T.personalizarPorDefecto}
+                </Button>
               </div>
             ))}
           </div>
         )}
 
+        {/* Sección de Edición y Vista Previa */}
         {abierto && (
-          <section className="flex flex-col gap-4 rounded-xl border border-border bg-muted/10 p-4">
+          <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
             {formError && <p className="text-sm text-destructive">{formError}</p>}
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-1.5">
-                <span className="text-xs font-medium">{T.nombre}</span>
-                <Input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-              </label>
-              <label className="space-y-1.5">
-                <span className="text-xs font-medium">{T.descripcionCampo}</span>
-                <Input value={form.descripcion ?? ''} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
-              </label>
-              <label className="space-y-1.5 sm:col-span-2">
-                <span className="text-xs font-medium">{T.asunto}</span>
-                <Input value={form.asunto} onChange={(e) => setForm({ ...form, asunto: e.target.value })} maxLength={160} />
-              </label>
-              <label className="space-y-1.5 sm:col-span-2">
-                <span className="text-xs font-medium">{T.cuerpo}</span>
-                <Textarea
-                  minRows={6}
-                  value={form.cuerpo}
-                  onChange={(e) => setForm({ ...form, cuerpo: e.target.value })}
-                  className="w-full resize-y rounded-xl border border-input bg-card/90 px-3.5 py-2.5 text-sm outline-none"
-                />
-              </label>
-              <label className="space-y-1.5">
-                <span className="text-xs font-medium">{T.botonTexto}</span>
-                <Input value={form.botonTexto ?? ''} onChange={(e) => setForm({ ...form, botonTexto: e.target.value })} />
-              </label>
-              <label className="space-y-1.5">
-                <span className="text-xs font-medium">{T.botonUrl}</span>
-                <Input type="url" value={form.botonUrl ?? ''} onChange={(e) => setForm({ ...form, botonUrl: e.target.value })} placeholder="https://…" />
-              </label>
-              <label className="flex items-center gap-2 sm:col-span-2">
-                <input
-                  type="checkbox"
-                  className="size-4"
-                  checked={form.activa ?? true}
-                  onChange={(e) => setForm({ ...form, activa: e.target.checked })}
-                />
-                <span className="text-xs font-medium">{T.activa}</span>
-              </label>
-            </div>
-
-            {/* Las variables se listan con su marca exacta y su ejemplo. Sin
-                esto hay que adivinar cómo se escribe cada una, y una mal
-                tecleada no falla: sale literal en el correo del estudiante. */}
-            {variables.length > 0 && (
-              <div className="rounded-xl border border-border bg-background p-3">
-                <p className="mb-2 text-xs font-semibold text-foreground">{T.variablesDisponibles}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {variables.map((v) => (
-                    <button
-                      key={v.clave}
-                      type="button"
-                      title={`${v.descripcion} · ${v.ejemplo}`}
-                      onClick={() => setForm((f) => ({ ...f, cuerpo: `${f.cuerpo}${v.marca}` }))}
-                      className="rounded-full border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground transition hover:border-primary hover:text-primary"
-                    >
-                      {v.marca}
-                    </button>
-                  ))}
-                </div>
+            {/* Selector de sub-pestañas: Editor vs Vista Previa */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+              <div className="flex items-center rounded-lg border border-border bg-muted/30 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setTabEditorActiva('editor')}
+                  className={cn(
+                    'rounded-md px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer',
+                    tabEditorActiva === 'editor'
+                      ? 'bg-background text-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {T.pestañaEditor}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTabEditorActiva('previa')
+                  }}
+                  className={cn(
+                    'rounded-md px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5',
+                    tabEditorActiva === 'previa'
+                      ? 'bg-background text-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <Eye className="size-3.5 text-primary" />
+                  {T.pestañaPrevia}
+                </button>
               </div>
-            )}
 
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => void guardar()} disabled={guardando}>
-                {guardando ? <CircleNotch className="size-4 animate-spin" /> : null} {C.guardar}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => void previsualizar()} disabled={previsualizando}>
-                <Eye className="size-3.5" /> {T.previsualizar}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void enviar(true)}
-                disabled={enviando || !editandoId || hayCambiosSinGuardar}
-                title={hayCambiosSinGuardar ? T.guardaAntesDeEnviar : undefined}
-              >
-                <PaperPlaneTilt className="size-3.5" /> {T.simular}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void enviar(false)}
-                disabled={enviando || hayCambiosSinGuardar || simuladoPara !== editandoId}
-                title={hayCambiosSinGuardar ? T.guardaAntesDeEnviar : simuladoPara === editandoId ? undefined : T.simulaPrimero}
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-              >
-                <PaperPlaneTilt className="size-3.5" /> {T.enviarDeVerdad}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setAbierto(false)}>{C.cerrar}</Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Botón Restablecer Fábrica (solo para plantillas del sistema) */}
+                {esPlantillaSistema && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void restablecerValoresFabrica()}
+                    disabled={restableciendo}
+                    className="text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer"
+                    title={T.restablecerDefecto}
+                  >
+                    <RotateCcw className={cn('size-3.5 mr-1', restableciendo && 'animate-spin')} />
+                    {T.restablecerDefecto}
+                  </Button>
+                )}
+
+                {/* Botón Envío de Prueba Directo */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setModalPruebaAbierto(true)}
+                  className="cursor-pointer"
+                >
+                  <PaperPlaneTilt className="size-3.5 mr-1" />
+                  {T.enviarPruebaDirecta}
+                </Button>
+              </div>
             </div>
 
-            {previa && (
-              <div className="flex flex-col gap-2 rounded-xl border border-border bg-background p-3">
-                <p className="text-xs font-semibold text-foreground">{T.vistaPrevia}</p>
-                {hayCambiosSinGuardar && (
-                  <p className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-700 dark:text-amber-400">
-                    {T.previaDeLoNoGuardado}
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground">{previa.asunto}</p>
-                {previa.avisos.length > 0 && (
-                  <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-2">
-                    <p className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-                      <WarningCircle className="size-3.5" /> {T.avisosPrevios}
-                    </p>
-                    <ul className="mt-1 list-inside list-disc text-[11px] text-muted-foreground">
-                      {previa.avisos.map((a) => <li key={a}>{a}</li>)}
-                    </ul>
+            {/* Modo 1: Editor Visual Enriquecido */}
+            {tabEditorActiva === 'editor' ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-foreground">{T.nombre}</span>
+                  <Input
+                    value={form.nombre}
+                    onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                  />
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-foreground">{T.descripcionCampo}</span>
+                  <Input
+                    value={form.descripcion ?? ''}
+                    onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                  />
+                </label>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground">{T.asunto}</span>
+                    {/* Botones rápidos de variables en asunto */}
+                    {variables.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className="text-[10px] text-muted-foreground">{T.insertarEnAsunto}:</span>
+                        {variables.slice(0, 4).map((v) => (
+                          <button
+                            key={v.clave}
+                            type="button"
+                            onClick={() => setForm((f) => ({ ...f, asunto: `${f.asunto} ${v.marca}`.trim() }))}
+                            className="font-mono text-[10px] text-primary hover:underline"
+                          >
+                            {v.marca}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <Input
+                    value={form.asunto}
+                    onChange={(e) => setForm({ ...form, asunto: e.target.value })}
+                    maxLength={160}
+                  />
+                </div>
+
+                {/* Editor Enriquecido Quill con Caret Insertion y Bloques Modulares */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <span className="text-xs font-medium text-foreground">{T.cuerpo}</span>
+                  <EditorTexto
+                    value={form.cuerpo}
+                    onChange={(cuerpo) => setForm({ ...form, cuerpo })}
+                    variables={variables}
+                    mostrarBloques={true}
+                    minHeight="16rem"
+                  />
+                </div>
+
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-foreground">{T.botonTexto}</span>
+                  <Input
+                    value={form.botonTexto ?? ''}
+                    onChange={(e) => setForm({ ...form, botonTexto: e.target.value })}
+                    placeholder="ej. Confirmar Asistencia"
+                  />
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-foreground">{T.botonUrl}</span>
+                  <Input
+                    type="url"
+                    value={form.botonUrl ?? ''}
+                    onChange={(e) => setForm({ ...form, botonUrl: e.target.value })}
+                    placeholder="https://…"
+                  />
+                </label>
+
+                <label className="flex items-center gap-2 sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded border-border"
+                    checked={form.activa ?? true}
+                    onChange={(e) => setForm({ ...form, activa: e.target.checked })}
+                  />
+                  <span className="text-xs font-medium text-foreground">{T.activa}</span>
+                </label>
+
+                {/* Selección de Audiencia de Envío */}
+                {!esPlantillaSistema && (
+                  <div className="sm:col-span-2 pt-2 border-t border-border">
+                    <span className="text-xs font-semibold text-foreground mb-2 block">
+                      Audiencia de Destino para Envío / Simulación Masiva
+                    </span>
+                    <SelectorAudiencia
+                      programas={programas}
+                      valorInicial={audienciaEnvio}
+                      onChange={setAudienciaEnvio}
+                      mostrarCohortes={true}
+                    />
                   </div>
                 )}
-                {/* En un iframe con sandbox: el HTML lo arma el servidor, pero
-                    esto es un correo y no debe poder ejecutar nada ni navegar
-                    la pantalla que lo muestra. */}
-                <iframe
-                  title={T.vistaPrevia}
-                  sandbox=""
-                  srcDoc={previa.html}
-                  className="h-96 w-full rounded-lg border border-border bg-white"
-                />
               </div>
+            ) : (
+              // Modo 2: Vista Previa Responsive Interactiva
+              <PanelVistaPreviaEmail
+                asunto={form.asunto}
+                cuerpo={form.cuerpo}
+                botonTexto={form.botonTexto}
+                botonUrl={form.botonUrl}
+                programaId={form.programaId}
+                htmlServidor={previaServidor?.html}
+                avisos={previaServidor?.avisos}
+              />
             )}
 
+            {/* Barra de Acciones y Envío */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => void guardar()} disabled={guardando} className="cursor-pointer">
+                  {guardando ? <CircleNotch className="size-4 animate-spin" /> : null} {C.guardar}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void previsualizarServidor()}
+                  disabled={previsualizando}
+                  className="cursor-pointer"
+                >
+                  <Eye className="size-3.5" /> {T.previsualizar}
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void enviarMasivo(true)}
+                  disabled={enviando || !editandoId || hayCambiosSinGuardar}
+                  title={hayCambiosSinGuardar ? T.guardaAntesDeEnviar : undefined}
+                  className="cursor-pointer"
+                >
+                  <PaperPlaneTilt className="size-3.5" /> {T.simular}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void enviarMasivo(false)}
+                  disabled={enviando || hayCambiosSinGuardar || simuladoPara !== editandoId}
+                  title={
+                    hayCambiosSinGuardar
+                      ? T.guardaAntesDeEnviar
+                      : simuladoPara === editandoId
+                        ? undefined
+                        : T.simulaPrimero
+                  }
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                >
+                  <PaperPlaneTilt className="size-3.5" /> {T.enviarDeVerdad}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setAbierto(false)} className="cursor-pointer">
+                  {C.cerrar}
+                </Button>
+              </div>
+            </div>
+
+            {/* Telemetría y Resultado del Envío Masivo */}
             {resumen && (
               <div className="flex flex-col gap-2 rounded-xl border border-border bg-background p-3">
                 <p className="text-xs font-semibold text-foreground">{T.resultadoEnvio}</p>
@@ -476,29 +862,46 @@ export function PanelPlantillasCorreo() {
                     {T.fueSimulacion}
                   </p>
                 )}
-                {resumen.destinatariosPermitidos.length > 0 && (
+                {resumen.destinatariosPermitidos && resumen.destinatariosPermitidos.length > 0 && (
                   <p className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-700 dark:text-amber-400">
                     {T.listaDePruebas} {resumen.destinatariosPermitidos.join(', ')}
                   </p>
                 )}
                 <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
-                  {([
-                    [T.destinatarios, resumen.destinatarios],
-                    [T.enviados, resumen.enviados],
-                    [T.bloqueados, resumen.bloqueadosPorLista],
-                    [T.fallidos, resumen.fallidos],
-                    [T.sinCorreo, resumen.sinCorreo],
-                  ] as const).map(([rotulo, valor]) => (
+                  {(
+                    [
+                      [T.destinatarios, resumen.destinatarios],
+                      [T.enviados, resumen.enviados],
+                      [T.bloqueados, resumen.bloqueadosPorLista],
+                      [T.fallidos, resumen.fallidos],
+                      [T.sinCorreo, resumen.sinCorreo],
+                    ] as const
+                  ).map(([rotulo, valor]) => (
                     <div key={rotulo} className="rounded-lg border border-border p-2">
                       <p className="text-base font-semibold tabular-nums text-foreground">{valor}</p>
                       <p className="text-[10px] text-muted-foreground">{rotulo}</p>
                     </div>
                   ))}
                 </div>
-                <p className="text-[11px] text-muted-foreground">{T.canal}: {resumen.canalDeCorreo}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {T.canal}: {resumen.canalDeCorreo}
+                </p>
               </div>
             )}
           </section>
+        )}
+
+        {/* Modal de Envío de Prueba Directo */}
+        {modalPruebaAbierto && (
+          <ModalEnvioPrueba
+            abierto={modalPruebaAbierto}
+            onCerrar={() => setModalPruebaAbierto(false)}
+            asunto={form.asunto}
+            cuerpo={form.cuerpo}
+            botonTexto={form.botonTexto}
+            botonUrl={form.botonUrl}
+            programaId={form.programaId}
+          />
         )}
       </CardContent>
       {dialogo}

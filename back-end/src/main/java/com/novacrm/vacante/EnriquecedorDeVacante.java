@@ -104,7 +104,8 @@ public class EnriquecedorDeVacante {
 
     /** Si la ubicacion dice esto, no hay ciudad que extraer: el puesto es remoto. */
     private static final List<String> SENALES_REMOTO = List.of(
-            "remoto", "remote", "worldwide", "anywhere", "global", "teletrabajo");
+            "remot", "remote", "worldwide", "anywhere", "global", "teletrabajo",
+            "home office", "work from home", "desde casa", "virtual", "100% remot");
 
     private final int diasVigenciaPorDefecto;
 
@@ -129,9 +130,98 @@ public class EnriquecedorDeVacante {
         if (esBlanco(vacante.getCiudad())) {
             inferirCiudad(vacante.getUbicacion(), texto).ifPresent(vacante::setCiudad);
         }
+        if (esBlanco(vacante.getModalidadTrabajo())) {
+            inferirModalidad(texto, vacante.getUbicacion()).ifPresent(vacante::setModalidadTrabajo);
+        }
+        if (esBlanco(vacante.getRangoSalarial())) {
+            inferirSalario(vacante.getDescripcion()).ifPresent(vacante::setRangoSalarial);
+        }
+        if (esBlanco(vacante.getRequisitos())) {
+            inferirRequisitos(vacante.getDescripcion()).ifPresent(vacante::setRequisitos);
+        }
         if (vacante.getFechaExpiracion() == null) {
             vacante.setFechaExpiracion(vigenciaPorDefecto(vacante));
         }
+    }
+
+    /**
+     * Infiere la modalidad de trabajo (Remoto, Híbrido, Presencial).
+     */
+    java.util.Optional<String> inferirModalidad(String texto, String ubicacion) {
+        String t = normalizar(String.join(" ", texto == null ? "" : texto, ubicacion == null ? "" : ubicacion));
+        if (SENALES_REMOTO.stream().anyMatch(t::contains)) {
+            return java.util.Optional.of("Remoto");
+        }
+        if (t.contains("hibrid") || t.contains("hybrid") || t.contains("alternancia") || t.contains("semipresencial")) {
+            return java.util.Optional.of("Híbrido");
+        }
+        if (t.contains("presencial") || t.contains("en sitio") || t.contains("on-site") || t.contains("onsite")) {
+            return java.util.Optional.of("Presencial");
+        }
+        return java.util.Optional.empty();
+    }
+
+    private static final Pattern PATRON_SALARIO_RANGO = Pattern.compile(
+            "(?i)(?:\\$\\s*)?([0-9]{1,3}(?:\\.[0-9]{3}){1,2})\\s*(?:a|-|–|hasta)\\s*(?:\\$\\s*)?([0-9]{1,3}(?:\\.[0-9]{3}){1,2})(?:\\s*COP)?");
+
+    private static final Pattern PATRON_SALARIO_MILLONES = Pattern.compile(
+            "(?i)(?:salario|sueldo|pago|asignacion|remuneracion)[:\\s]+\\$?\\s*([0-9]{1,2}(?:[.,][0-9]{1,2})?)\\s*(?:millones|m\\b)");
+
+    private static final Pattern PATRON_SALARIO_EXPLICITO = Pattern.compile(
+            "(?i)(?:salario|sueldo|pago|remuneracion)[:\\s]+\\$?\\s*([0-9]{1,3}(?:\\.[0-9]{3}){1,2})(?:\\s*COP)?");
+
+    private static final Pattern PATRON_SALARIO_USD = Pattern.compile(
+            "(?i)(?:usd|\\$)\\s*([0-9]{3,6}(?:\\.[0-9]{3})?)\\s*(?:a|-|–)\\s*(?:usd|\\$)?\\s*([0-9]{3,6}(?:\\.[0-9]{3})?)(?:\\s*usd)?");
+
+    /**
+     * Extrae el rango salarial si viene explícito en la descripción.
+     */
+    java.util.Optional<String> inferirSalario(String descripcion) {
+        if (descripcion == null || descripcion.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        Matcher mRango = PATRON_SALARIO_RANGO.matcher(descripcion);
+        if (mRango.find()) {
+            return java.util.Optional.of("$" + mRango.group(1) + " - $" + mRango.group(2) + " COP");
+        }
+        Matcher mExp = PATRON_SALARIO_EXPLICITO.matcher(descripcion);
+        if (mExp.find()) {
+            return java.util.Optional.of("$" + mExp.group(1) + " COP");
+        }
+        Matcher mUsd = PATRON_SALARIO_USD.matcher(descripcion);
+        if (mUsd.find()) {
+            return java.util.Optional.of("USD $" + mUsd.group(1) + " - $" + mUsd.group(2));
+        }
+        Matcher mMill = PATRON_SALARIO_MILLONES.matcher(descripcion);
+        if (mMill.find()) {
+            return java.util.Optional.of("$" + mMill.group(1) + " Millones COP");
+        }
+        return java.util.Optional.empty();
+    }
+
+    /**
+     * Extrae el bloque de requisitos si existe una sección dedicada en la descripción.
+     */
+    java.util.Optional<String> inferirRequisitos(String descripcion) {
+        if (descripcion == null || descripcion.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        String lower = descripcion.toLowerCase(Locale.ROOT);
+        String[] marcas = {"requisitos:", "perfil requerido:", "requirements:", "que buscamos:", "lo que necesitas:"};
+        for (String marca : marcas) {
+            int idx = lower.indexOf(marca);
+            if (idx >= 0) {
+                String sub = descripcion.substring(idx + marca.length()).trim();
+                // Tomar hasta la siguiente sección o los primeros 400 caracteres
+                int finSeccion = sub.indexOf("\n\n");
+                if (finSeccion > 20) {
+                    return java.util.Optional.of(sub.substring(0, finSeccion).trim());
+                } else if (sub.length() > 20) {
+                    return java.util.Optional.of(sub.length() > 500 ? sub.substring(0, 500) + "…" : sub);
+                }
+            }
+        }
+        return java.util.Optional.empty();
     }
 
     /**

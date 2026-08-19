@@ -30,28 +30,54 @@ import java.util.regex.Pattern;
  */
 public enum Variables {
 
-    NOMBRE("nombre", "Nombre completo del estudiante", "Héctor Luis Suárez Arroyo"),
-    EMAIL("email", "Su correo, que tambien es su usuario", "hector@ejemplo.com"),
-    EMPRESA("empresa", "Empresa de la vacante", "Konecta"),
-    LINK("link", "Enlace personal de activacion o recuperacion",
-            "https://panel.ejemplo.com/recuperar-contrasena?token=…");
+    // Estudiante
+    NOMBRE("nombre", "Nombre del estudiante", "Héctor Luis", "Estudiante"),
+    APELLIDO("apellido", "Apellidos del estudiante", "Suárez Arroyo", "Estudiante"),
+    EMAIL("email", "Correo electrónico del estudiante", "hector@ejemplo.com", "Estudiante"),
+
+    // Empleo / Vacante
+    EMPRESA("empresa", "Empresa de la vacante o aliada", "Konecta", "Empleo"),
+    CARGO("cargo", "Cargo o posición de la vacante", "Representante Bilingüe", "Empleo"),
+    PROGRAMA("programa", "Nombre del programa de formación o inserción", "Ruta BPO Bilingüe", "Empleo"),
+
+    // Entrevista
+    FECHA_ENTREVISTA("fecha_entrevista", "Fecha y hora de la entrevista", "15 de Septiembre, 10:00 AM", "Entrevista"),
+    MODALIDAD_ENTREVISTA("modalidad_entrevista", "Modalidad de la entrevista (Presencial / Virtual)", "Virtual (Microsoft Teams)", "Entrevista"),
+    LUGAR_ENTREVISTA("lugar_entrevista", "Lugar físico o enlace de conexión", "https://teams.microsoft.com/l/meetup-join/ejemplo", "Entrevista"),
+
+    // Coordinador y Emisor
+    COORDINADOR_NOMBRE("coordinador_nombre", "Nombre del coordinador emisor", "Lic. Carlos Mendoza", "Coordinador"),
+    COORDINADOR_CARGO("coordinador_cargo", "Cargo o rol del coordinador", "Coordinador de Empleabilidad", "Coordinador"),
+    COORDINADOR_CONTACTO("coordinador_contacto", "Canal o correo del coordinador", "empleabilidad@novacrm.org", "Coordinador"),
+
+    // Proyecto e Iniciativa
+    PROYECTO_NOMBRE("proyecto_nombre", "Nombre del proyecto o iniciativa", "Ruta Accelerator", "Proyecto"),
+    LEMA_PROYECTO("lema_proyecto", "Lema o eslogan del proyecto", "Impulsando el talento bilingüe", "Proyecto"),
+
+    // Sistema
+    ENLACE_BOTON("enlace_boton", "Enlace de destino para botón de acción", "https://panel.ejemplo.com/accion", "Sistema"),
+    LINK("link", "Enlace personal de activación o recuperación",
+            "https://panel.ejemplo.com/recuperar-contrasena?token=…", "Sistema");
 
     /** {@code {{ nombre }}} con espacios opcionales, insensible a mayusculas. */
-    private static final Pattern MARCA = Pattern.compile("\\{\\{\\s*([a-zA-Z_]+)\\s*}}");
+    private static final Pattern MARCA = Pattern.compile("\\{\\{\\s*([a-zA-Z0-9_]+)\\s*}}");
 
     private final String clave;
     private final String descripcion;
     private final String ejemplo;
+    private final String categoria;
 
-    Variables(String clave, String descripcion, String ejemplo) {
+    Variables(String clave, String descripcion, String ejemplo, String categoria) {
         this.clave = clave;
         this.descripcion = descripcion;
         this.ejemplo = ejemplo;
+        this.categoria = categoria;
     }
 
     public String clave() { return clave; }
     public String descripcion() { return descripcion; }
     public String ejemplo() { return ejemplo; }
+    public String categoria() { return categoria; }
 
     /** Como se escribe en la plantilla. Lo muestra la ayuda del editor. */
     public String marca() { return "{{" + clave + "}}"; }

@@ -192,4 +192,24 @@ class JSearchConnectorTest {
         assertEquals("Agente Bilingue", resultado.get(0).vacante().getTitulo());
         assertEquals("Asesor comercial", resultado.get(2).vacante().getTitulo());
     }
+
+    @Test
+    void procesaElSobreDeOpenwebninjaSearchV2() throws Exception {
+        var resultado = conector.procesar("""
+                {
+                  "status": "OK",
+                  "data": {
+                    "jobs": [
+                      {"job_id": "v2-1", "job_title": "Bilingual CSR"},
+                      {"job_id": "v2-2", "job_title": "Tech Support"}
+                    ],
+                    "cursor": "cursor123"
+                  }
+                }
+                """);
+
+        assertEquals(2, resultado.size());
+        assertEquals("Bilingual CSR", resultado.get(0).vacante().getTitulo());
+        assertEquals("Tech Support", resultado.get(1).vacante().getTitulo());
+    }
 }

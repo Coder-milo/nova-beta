@@ -80,6 +80,16 @@ public class MatchController {
         matchingService.marcarPostulado(matchId, auth.getName(), esElPropioEstudiante);
     }
 
+    @PatchMapping("/{matchId}/cancelar-postulacion")
+    @Operation(summary = "Revertir o cancelar postulación de un match")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")
+    public void cancelarPostulacion(@PathVariable UUID matchId, Authentication auth) {
+        var match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new com.novacrm.exception.ResourceNotFoundException("Match no encontrado: " + matchId));
+        ownershipService.verificarAccesoEstudiante(auth, match.getEstudiante().getId());
+        matchingService.cancelarPostulacion(matchId, auth.getName());
+    }
+
     @PostMapping("/ejecutar")
     @Operation(summary = "Ejecutar matching bajo demanda")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")

@@ -126,7 +126,7 @@ app:
       # Son empleadores con los que el programa ya trabaja y que publican
       # ahi. Uno mal escrito no falla: devuelve cero resultados en silencio,
       # asi que conviene comprobarlo contra la API antes de anadirlo.
-      empresas: ${SCRAPING_SMARTRECRUITERS_EMPRESAS:Sutherland,Alorica}
+      empresas: ${SCRAPING_SMARTRECRUITERS_EMPRESAS:Sutherland,Alorica,Teleperformance,TaskUs,Auxis,Foundever}
     jsearch:
       # Empleo local en Colombia. Es la unica fuente de vacantes colombianas:
       # Adzuna no cubre el pais y el Servicio Publico de Empleo no publica datos
@@ -152,12 +152,8 @@ app:
       enabled: ${SCRAPING_ELEMPLEO_ENABLED:true}
     computrabajo:
       enabled: ${SCRAPING_COMPUTRABAJO_ENABLED:true}
-    magneto:
-      # Desactivado por defecto y a proposito: magneto365.com es un SPA
-      # renderizado por JS (Next.js RSC) — el HTML no trae las vacantes y la
-      # URL de busqueda antigua responde 500. Reactivarlo solo si aparece un
-      # acuerdo, una API o un servicio contratado con el portal.
-      enabled: ${SCRAPING_MAGNETO_ENABLED:false}
+    linkedin:
+      enabled: ${SCRAPING_LINKEDIN_ENABLED:true}
   colocacion:
     # Salario objetivo del programa: por debajo de esto una colocacion cuenta,
     # pero no como colocacion digna. Es configuracion y no una constante porque

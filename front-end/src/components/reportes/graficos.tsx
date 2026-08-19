@@ -1,117 +1,28 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { areaY, barX, defineChart, lineY } from '@tanstack/charts'
-import { scaleBand } from '@tanstack/charts/scales/band'
-import { scaleLinear } from '@tanstack/charts/scales/linear'
-import { scalePoint } from '@tanstack/charts/scales/point'
-import { tooltip } from '@tanstack/charts/tooltip'
-import { Chart } from '@tanstack/charts/react'
+import { useMemo } from 'react'
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Cell,
+} from 'recharts'
 import type { PuntoDato } from '@/lib/types'
 
-/**
- * Gráficos de las pantallas de reporte, sobre `@tanstack/charts`.
- *
- * El tablero sigue en Recharts a propósito. `@tanstack/charts` está en 0.x y su
- * propio README avisa de que no es para producción: acotarlo a reportes deja
- * la pantalla más vista del panel fuera del alcance de un cambio de API.
- *
- * La gramática es declarativa —marcas, canales y escalas— así que cada gráfico
- * es una definición de datos, no un árbol de componentes.
- */
-
-/**
- * Colores del gráfico, leídos del tema en vez de escritos aquí.
- *
- * Las variables de `.tabler` cambian de valor entre claro y oscuro, y el tema
- * puede cambiar sin recargar (el conmutador escribe la clase `dark` sobre
- * <html>). `getComputedStyle` resuelve el valor vigente, y el observador
- * vuelve a leerlo cuando esa clase se mueve.
- */
-const VARIABLES_DE_SERIE = [
-  '--tbl-azul',
-  '--tbl-verde',
-  '--tbl-morado',
-  '--tbl-naranja',
-  '--tbl-cian',
-  '--tbl-rojo',
-] as const
-
-type TemaGrafico = {
-  foreground: string
-  muted: string
-  grid: string
-  background: string
-  palette: string[]
-}
-
-const TEMA_INICIAL: TemaGrafico = {
-  foreground: '#182433',
-  muted: '#667382',
-  grid: 'rgba(4, 32, 69, 0.12)',
-  background: 'transparent',
-  palette: ['#206BC4', '#2FB344', '#AE3EC9', '#F76707', '#17A2B8', '#D63939'],
-}
-
-export function useTemaGrafico(elemento: HTMLElement | null): TemaGrafico {
-  const [tema, setTema] = useState<TemaGrafico>(TEMA_INICIAL)
-
-  useEffect(() => {
-    if (!elemento) return
-
-    const leer = () => {
-      const estilos = getComputedStyle(elemento)
-      const valor = (nombre: string, respaldo: string) =>
-        estilos.getPropertyValue(nombre).trim() || respaldo
-
-      setTema({
-        foreground: valor('--tbl-texto', TEMA_INICIAL.foreground),
-        muted: valor('--tbl-texto-tenue', TEMA_INICIAL.muted),
-        grid: valor('--tbl-borde', TEMA_INICIAL.grid),
-        // El lienzo se deja transparente para que se vea la tarjeta detrás:
-        // pintarlo repetiría el fondo y delataría el rectángulo del gráfico.
-        background: 'transparent',
-        palette: VARIABLES_DE_SERIE.map((nombre, indice) =>
-          valor(nombre, TEMA_INICIAL.palette[indice]),
-        ),
-      })
-    }
-
-    leer()
-
-    // El conmutador de tema alterna las clases `dark`/`light` sobre <html>, y
-    // el de proyecto reescribe el tono de marca en el atributo `style`.
-    const observador = new MutationObserver(leer)
-    observador.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class', 'style'],
-    })
-    return () => observador.disconnect()
-  }, [elemento])
-
-  return tema
-}
-
-/**
- * Envoltorio que ata un gráfico al tema.
- *
- * El `div` existe para tener de dónde leer las variables: `getComputedStyle`
- * necesita un nodo dentro del ámbito `.tabler`, no vale el documento.
- */
-function LienzoGrafico({
-  children,
-}: {
-  children: (tema: TemaGrafico) => React.ReactNode
-}) {
-  const [nodo, setNodo] = useState<HTMLDivElement | null>(null)
-  const tema = useTemaGrafico(nodo)
-
-  return (
-    <div ref={setNodo} className="w-full">
-      {nodo && children(tema)}
-    </div>
-  )
-}
+const COLORES_DEFAULT = [
+  '#206BC4',
+  '#2FB344',
+  '#AE3EC9',
+  '#F76707',
+  '#17A2B8',
+  '#D63939',
+]
 
 /**
  * Barras horizontales, una por categoría.
@@ -131,73 +42,74 @@ export function GraficoCategorias({
   altura?: number
   descripcion: string
 }) {
-  return (
-    <LienzoGrafico>
-      {(tema) => (
-        <GraficoCategoriasInterno
-          datos={datos}
-          etiquetaEjeX={etiquetaEjeX}
-          altura={altura}
-          descripcion={descripcion}
-          tema={tema}
-        />
-      )}
-    </LienzoGrafico>
-  )
-}
-
-function GraficoCategoriasInterno({
-  datos,
-  etiquetaEjeX,
-  altura,
-  descripcion,
-  tema,
-}: {
-  datos: readonly PuntoDato[]
-  etiquetaEjeX: string
-  altura: number
-  descripcion: string
-  tema: TemaGrafico
-}) {
-  const definicion = useMemo(() => {
-    // Cada barra lleva su propio color de la paleta; sin `color` todas saldrían
-    // del primer tono y la tabla de al lado, que sí colorea por fila, no
-    // coincidiría con el gráfico.
-    const filas = datos.map((punto, indice) => ({
+  const chartData = useMemo(() => {
+    return datos.map((punto, indice) => ({
       categoria: punto.label,
       cantidad: punto.value,
       porcentaje: punto.pct ?? null,
-      tono: tema.palette[indice % tema.palette.length],
+      color: COLORES_DEFAULT[indice % COLORES_DEFAULT.length],
     }))
-
-    return defineChart({
-      marks: [
-        barX(filas, {
-          x: 'cantidad',
-          y: 'categoria',
-          fill: (fila) => fila.tono,
-          radius: 2,
-        }),
-      ],
-      x: {
-        scale: scaleLinear,
-        nice: true,
-        grid: true,
-        axis: { label: etiquetaEjeX },
-      },
-      y: { scale: () => scaleBand<string>().padding(0.28) },
-      theme: tema,
-      tooltip,
-    })
-  }, [datos, etiquetaEjeX, tema])
+  }, [datos])
 
   return (
-    <Chart
-      definition={definicion}
-      height={altura}
-      ariaLabel={descripcion}
-      className="w-full"
-    />
+    <div className="w-full" style={{ height: altura }} aria-label={descripcion}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          layout="vertical"
+          data={chartData}
+          margin={{ top: 12, right: 30, left: 20, bottom: 12 }}
+          barCategoryGap="20%"
+        >
+          <CartesianGrid
+            strokeDasharray="3 3"
+            horizontal={false}
+            stroke="var(--tbl-borde, rgba(255,255,255,0.08))"
+          />
+          <XAxis
+            type="number"
+            tickLine={false}
+            axisLine={{ stroke: 'var(--tbl-borde, rgba(255,255,255,0.12))' }}
+            tick={{ fill: 'var(--tbl-texto-tenue, #94a3b8)', fontSize: 12, fontWeight: 500 }}
+          />
+          <YAxis
+            type="category"
+            dataKey="categoria"
+            tickLine={false}
+            axisLine={{ stroke: 'var(--tbl-borde, rgba(255,255,255,0.12))' }}
+            tick={{ fill: 'var(--tbl-texto, #e2e8f0)', fontSize: 12, fontWeight: 600 }}
+            width={130}
+          />
+          <Tooltip
+            cursor={{ fill: 'var(--tbl-superficie-tenue, rgba(255,255,255,0.05))', radius: 4 }}
+            content={({ active, payload }) => {
+              if (!active || !payload || !payload.length) return null
+              const item = payload[0].payload
+              return (
+                <div className="rounded-lg border border-border bg-popover/95 px-3 py-2 text-xs shadow-xl backdrop-blur-md">
+                  <span className="font-semibold text-foreground">{item.categoria}</span>
+                  <div className="mt-1 flex items-center justify-between gap-4 text-muted-foreground">
+                    <span>{etiquetaEjeX}:</span>
+                    <span className="font-bold text-primary">
+                      {item.cantidad} {item.porcentaje ? `(${item.porcentaje}%)` : ''}
+                    </span>
+                  </div>
+                </div>
+              )
+            }}
+          />
+          <Bar
+            dataKey="cantidad"
+            maxBarSize={32}
+            radius={[0, 6, 6, 0]}
+            isAnimationActive={false}
+          >
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   )
 }
 
@@ -218,71 +130,71 @@ export function GraficoSerieMensual({
   altura?: number
   descripcion: string
 }) {
-  return (
-    <LienzoGrafico>
-      {(tema) => (
-        <GraficoSerieMensualInterno
-          datos={datos}
-          etiquetaEjeY={etiquetaEjeY}
-          altura={altura}
-          descripcion={descripcion}
-          tema={tema}
-        />
-      )}
-    </LienzoGrafico>
-  )
-}
+  const chartData = useMemo(() => {
+    return datos.map((punto) => ({
+      mes: punto.label,
+      cantidad: punto.value,
+    }))
+  }, [datos])
 
-function GraficoSerieMensualInterno({
-  datos,
-  etiquetaEjeY,
-  altura,
-  descripcion,
-  tema,
-}: {
-  datos: readonly PuntoDato[]
-  etiquetaEjeY: string
-  altura: number
-  descripcion: string
-  tema: TemaGrafico
-}) {
-  const definicion = useMemo(() => {
-    const filas = datos.map((punto) => ({ mes: punto.label, cantidad: punto.value }))
-    const azul = tema.palette[0]
-
-    return defineChart({
-      marks: [
-        areaY(filas, {
-          x: 'mes',
-          y: 'cantidad',
-          fill: azul,
-          fillOpacity: 0.14,
-        }),
-        lineY(filas, {
-          x: 'mes',
-          y: 'cantidad',
-          stroke: azul,
-          strokeWidth: 2,
-        }),
-      ],
-      x: { scale: () => scalePoint<string>().padding(0.5) },
-      y: {
-        scale: scaleLinear,
-        nice: true,
-        grid: true,
-        axis: { label: etiquetaEjeY },
-      },
-      theme: tema,
-      tooltip,
-    })
-  }, [datos, etiquetaEjeY, tema])
+  const colorPrincipal = '#38BDF8'
 
   return (
-    <Chart
-      definition={definicion}
-      height={altura}
-      ariaLabel={descripcion}
-      className="w-full"
-    />
+    <div className="w-full" style={{ height: altura }} aria-label={descripcion}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart
+          data={chartData}
+          margin={{ top: 12, right: 20, left: -10, bottom: 0 }}
+        >
+          <defs>
+            <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={colorPrincipal} stopOpacity={0.4} />
+              <stop offset="95%" stopColor={colorPrincipal} stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid
+            strokeDasharray="3 3"
+            vertical={false}
+            stroke="var(--tbl-borde, rgba(255,255,255,0.08))"
+          />
+          <XAxis
+            dataKey="mes"
+            tickLine={false}
+            axisLine={{ stroke: 'var(--tbl-borde, rgba(255,255,255,0.12))' }}
+            tick={{ fill: 'var(--tbl-texto-tenue, #94a3b8)', fontSize: 12, fontWeight: 500 }}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={{ stroke: 'var(--tbl-borde, rgba(255,255,255,0.12))' }}
+            tick={{ fill: 'var(--tbl-texto-tenue, #94a3b8)', fontSize: 12, fontWeight: 500 }}
+          />
+          <Tooltip
+            cursor={{ stroke: colorPrincipal, strokeWidth: 1.5, strokeDasharray: '3 3' }}
+            content={({ active, payload }) => {
+              if (!active || !payload || !payload.length) return null
+              const item = payload[0].payload
+              return (
+                <div className="rounded-lg border border-border bg-popover/95 px-3 py-2 text-xs shadow-xl backdrop-blur-md">
+                  <span className="font-semibold text-foreground">{item.mes}</span>
+                  <div className="mt-1 flex items-center justify-between gap-4 text-muted-foreground">
+                    <span>{etiquetaEjeY}:</span>
+                    <span className="font-bold text-primary">{item.cantidad}</span>
+                  </div>
+                </div>
+              )
+            }}
+          />
+          <Area
+            type="monotone"
+            dataKey="cantidad"
+            stroke={colorPrincipal}
+            strokeWidth={3}
+            fillOpacity={1}
+            fill="url(#colorIngresos)"
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   )
 }

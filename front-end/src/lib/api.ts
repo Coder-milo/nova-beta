@@ -317,7 +317,7 @@ export interface MapaDelAtlantico {
 
 import type { ProgramaResponse, ProgramaRequest, ProgramaEstado, ProgramaResumenResponse } from './types'
 import type { MotivoCierre, OpcionCatalogo, CatalogosColocacion, Tablero, TarjetaTablero, EstadoContacto } from './types'
-import type { PlantillaCorreo, PlantillaCorreoRequest, VariableDisponible, PrevisualizacionCorreo, ResumenEnvioCorreo } from './types'
+import type { PlantillaCorreo, PlantillaCorreoRequest, VariableDisponible, PrevisualizacionCorreo, ResumenEnvioCorreo, PlantillaDefecto, EnviarPruebaRequest } from './types'
 
 export const programasApi = {
   listar: () =>
@@ -706,7 +706,7 @@ export const importarExtApi = {
 
 // ─── Vacantes ────────────────────────────────────────────────────────────────
 
-import type { VacanteRequest, VacanteResponse, EjecucionDeScraping } from './types'
+import type { VacanteRequest, VacanteResponse, EjecucionDeScraping, EstadoConector, ResultadoPruebaFuente, ResultadoActualizacion } from './types'
 
 export const vacantesApi = {
   listar: (page = 0, size = 20, token?: string) =>
@@ -764,6 +764,27 @@ export const vacantesApi = {
    */
   ejecuciones: (token?: string) =>
     apiFetch<EjecucionDeScraping[]>('/api/v1/vacantes/scraping/ejecuciones', { token }),
+  /**
+   * Estado en vivo de cada fuente y conector de empleo.
+   */
+  obtenerEstadoConectores: (token?: string) =>
+    apiFetch<EstadoConector[]>('/api/v1/vacantes/scraping/fuentes', { token }),
+  /**
+   * Ejecuta una prueba exploratoria de conexión y conteo sin guardar datos.
+   */
+  probarConector: (fuente: string, token?: string) =>
+    apiFetch<ResultadoPruebaFuente>(`/api/v1/vacantes/scraping/fuentes/${encodeURIComponent(fuente)}/probar`, {
+      method: 'POST',
+      token,
+    }),
+  /**
+   * Sincroniza bajo demanda únicamente la fuente seleccionada y guarda las ofertas.
+   */
+  sincronizarConector: (fuente: string, token?: string) =>
+    apiFetch<ResultadoActualizacion>(`/api/v1/vacantes/scraping/fuentes/${encodeURIComponent(fuente)}/sincronizar`, {
+      method: 'POST',
+      token,
+    }),
 }
 
 // ─── Matches ─────────────────────────────────────────────────────────────────
@@ -782,6 +803,10 @@ export const matchesApi = {
     apiFetch<number>(`/api/v1/matches/pendientes?estudianteId=${estudianteId}`, { token }),
   marcarPostulado: (matchId: string, token?: string) =>
     apiFetch<void>(`/api/v1/matches/${matchId}/postular`, { method: 'PATCH', token }),
+  cancelarPostulacion: (matchId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/matches/${matchId}/cancelar-postulacion`, { method: 'PATCH', token }),
+  descartar: (matchId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/matches/${matchId}`, { method: 'DELETE', token }),
   ejecutarMatching: (token?: string) =>
     apiFetch<{ matchesCreados: number }>('/api/v1/matches/ejecutar', { method: 'POST', token }),
 }
@@ -1285,6 +1310,11 @@ export const plantillasCorreoApi = {
   /** Las variables que se pueden escribir dentro del texto, con su ejemplo. */
   variables: (token?: string) =>
     apiFetch<VariableDisponible[]>('/api/v1/plantillas-correo/variables', { token }),
+  /** Alias para obtener las variables disponibles categorizadas. */
+  obtenerVariables: (token?: string) =>
+    apiFetch<VariableDisponible[]>('/api/v1/plantillas-correo/variables', { token }),
+  obtener: (id: string, token?: string) =>
+    apiFetch<PlantillaCorreo>(`/api/v1/plantillas-correo/${id}`, { token }),
   crear: (data: PlantillaCorreoRequest, token?: string) =>
     apiFetch<PlantillaCorreo>('/api/v1/plantillas-correo', { method: 'POST', data, token }),
   actualizar: (id: string, data: PlantillaCorreoRequest, token?: string) =>
@@ -1300,12 +1330,42 @@ export const plantillasCorreoApi = {
   previsualizar: (data: PlantillaCorreoRequest, token?: string) =>
     apiFetch<PrevisualizacionCorreo>('/api/v1/plantillas-correo/previsualizar', { method: 'POST', data, token }),
   /**
-   * Envío masivo.
+   * Obtiene la lista de plantillas predeterminadas del sistema.
+   */
+  obtenerDefaults: (token?: string) =>
+    apiFetch<PlantillaDefecto[]>('/api/v1/plantillas-correo/sistema/defaults', { token }),
+  /**
+   * Restaura una plantilla guardada a sus valores por defecto de fábrica.
+   */
+  restaurarDefecto: (id: string, tipo?: string, token?: string) =>
+    apiFetch<PlantillaCorreo>(`/api/v1/plantillas-correo/${id}/restaurar-defecto${tipo ? `?tipo=${tipo}` : ''}`, {
+      method: 'POST',
+      token,
+    }),
+  /**
+   * Obtiene la plantilla por defecto para un tipo específico sin asociar a un ID existente.
+   */
+  restaurarDefectoPorTipo: (tipo: string, token?: string) =>
+    apiFetch<PlantillaDefecto>(`/api/v1/plantillas-correo/restaurar-defecto/${tipo}`, {
+      method: 'POST',
+      token,
+    }),
+  /**
+   * Envía un correo de prueba directo con variables simuladas.
+   */
+  enviarPrueba: (peticion: EnviarPruebaRequest, token?: string) =>
+    apiFetch<ResumenEnvioCorreo>('/api/v1/plantillas-correo/enviar-prueba', {
+      method: 'POST',
+      data: peticion,
+      token,
+    }),
+  /**
+   * Envío masivo o segmentado.
    *
    * `simulacion` va explícito y en true por defecto, igual que en el backend:
    * mandar un correo a 108 personas no debe ser el efecto de un clic distraído.
    */
-  enviar: (id: string, opciones: { estudianteIds?: string[]; simulacion: boolean }, token?: string) =>
+  enviar: (id: string, opciones: { estudianteIds?: string[]; programaId?: string; cohorte?: string; simulacion: boolean }, token?: string) =>
     apiFetch<ResumenEnvioCorreo>(`/api/v1/plantillas-correo/${id}/enviar`, {
       method: 'POST', data: opciones, token,
     }),

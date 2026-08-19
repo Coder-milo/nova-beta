@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { EstadoDot } from '@/components/ui/estado-dot'
 import { PageSpinner } from '@/components/ui/page-spinner'
+import { MedidorSeguridadContrasena } from '@/components/ui/medidor-seguridad-contrasena'
 import { useAuth } from '@/lib/auth'
 import { usuariosApi, empresasApi, ApiCallError } from '@/lib/api'
 import type { UsuarioResponse, EmpresaResponse } from '@/lib/types'
@@ -409,6 +410,7 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
                       placeholder="••••••••"
                       disabled={creando}
                     />
+                    <MedidorSeguridadContrasena value={nuevoUsuario.password} />
                   </div>
                   {nuevoUsuario.roles.includes('EMPRESA') && (
                     <div className="flex flex-col gap-1.5 sm:col-span-3">
@@ -602,6 +604,7 @@ export function PanelUsuarios({ mostrar = 'todo' }: { mostrar?: MitadDeUsuarios 
                     onChange={(e) => setNuevaPassword(e.target.value)}
                     disabled={cambiandoPassword}
                   />
+                  <MedidorSeguridadContrasena value={nuevaPassword} />
                 </div>
 
                 {passwordError && (

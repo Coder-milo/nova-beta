@@ -22,6 +22,8 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     @EntityGraph(attributePaths = "programa")
     List<Estudiante> findAllByProgramaIdAndActivoTrue(UUID programaId);
 
+
+
     // Aqui vivia findByEmail, con igualdad exacta, y se colo en tres sitios: el
     // historial del estudiante, sus plataformas y el conteo previo de la
     // importacion. Los correos se cargaron desde Excel tal y como venian

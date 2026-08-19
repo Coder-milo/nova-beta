@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowRight, Briefcase, Building, Calendar, CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Clock, DollarSign as CurrencyDollar, ExternalLink as ArrowSquareOut, GraduationCap, Languages as Translate, Laptop, LoaderCircle as CircleNotch, MapPin, Sparkles as Sparkle, Trash2 as Trash } from 'lucide-react'
+import { ArrowRight, Briefcase, Building, Calendar, CheckCircle2 as CheckCircle, ChevronRight, CircleAlert as WarningCircle, Clock, DollarSign as CurrencyDollar, ExternalLink as ArrowSquareOut, GraduationCap, Languages as Translate, Laptop, LoaderCircle as CircleNotch, MapPin, RotateCcw, Search, Sparkles as Sparkle, Trash2 as Trash } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { ApiCallError, matchesApi, mensajeDeError, postulacionesApi } from '@/lib/api'
 import { hoyLocal } from '@/lib/utils'
@@ -117,21 +117,44 @@ function Hecho({
 }
 
 /**
- * Detalle de la oferta para decidir antes de postularse.
- *
- * Empresa, cargo, pago, ciudad, modalidad, jornada, contrato, inglés,
- * experiencia y vencimiento —lo que hace falta para saber si vale la pena—.
- * Solo se muestra lo que la oferta trae; una vacante de portal rara vez lo
- * trae todo, y mostrar campos vacíos sería ruido. El enlace a la oferta
- * original es un ancla real: funciona siempre, aunque el navegador bloquee la
- * apertura automática al postularse.
+ * Sintetiza el texto de una vacante en un pitch conciso de 2-3 líneas
+ * y extrae los 3 a 5 puntos clave de requisitos o tareas.
  */
+function sintetizarTexto(texto?: string | null): { pitch: string; puntos: string[] } {
+  if (!texto || !texto.trim()) return { pitch: '', puntos: [] }
+
+  const limpio = texto
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  const lineas = limpio.split('\n').map((l) => l.trim()).filter(Boolean)
+  const pitch = lineas.slice(0, 2).join(' ')
+
+  const puntos: string[] = []
+  for (const linea of lineas) {
+    if (/^[•\-\*–]\s*/.test(linea) || /^\d+[\.\)]\s*/.test(linea)) {
+      const limpioLinea = linea.replace(/^[•\-\*–\d\.\)]\s*/, '').trim()
+      if (limpioLinea.length > 5 && limpioLinea.length < 200 && !puntos.includes(limpioLinea)) {
+        puntos.push(limpioLinea)
+        if (puntos.length >= 5) break
+      }
+    }
+  }
+
+  if (puntos.length === 0 && lineas.length > 2) {
+    for (let i = 2; i < Math.min(lineas.length, 6); i++) {
+      if (lineas[i].length > 10 && lineas[i].length < 180 && !puntos.includes(lineas[i])) {
+        puntos.push(lineas[i])
+      }
+    }
+  }
+
+  return { pitch, puntos }
+}
+
 /**
  * Los textos de esta pantalla, en los dos idiomas.
- *
- * Junto al componente y no en el diccionario global, igual que en la pantalla
- * de documentos: `preferences` guarda lo que se repite en toda la aplicacion,
- * no las cadenas de una sola vista.
  */
 function textos(english: boolean) {
   return english
@@ -148,6 +171,8 @@ function textos(english: boolean) {
         aplicaAntes: 'Apply before', sinExperiencia: 'No previous experience',
         anio: 'year', anios: 'years',
         requisitos: 'Requirements', descripcionOferta: 'Job description',
+        requisitosClave: 'Key requirements and tasks',
+        verDescripcionCompleta: 'View full original description',
         verOriginal: 'View original posting', sinEnlace: 'This posting has no direct link.',
         fuente: 'Source',
         seguimiento: 'My application tracker', misPostulaciones: 'My applications',
@@ -175,6 +200,22 @@ function textos(english: boolean) {
         okPostulada: 'Application logged.', okEliminada: 'Application deleted.',
         okEstado: 'Status updated.',
         confirmarEliminar: 'This application will be removed from your tracker. This cannot be undone.',
+        confirmarPostulacion: 'Confirm application',
+        seguroPostular: 'Do you want to apply to this opening?',
+        abrirYConfirmar: 'Open posting & confirm application',
+        confirmarSolo: 'Confirm application',
+        desistirPostulacion: 'Withdraw application',
+        cancelarPostulacionTitulo: 'Withdraw application?',
+        cancelarPostulacionDesc: 'The opening will become available again in your recommended opportunities list.',
+        cancelar: 'Cancel',
+        ordenarPor: 'Sort by',
+        masRecientes: 'Most recent',
+        mayorAfinidad: 'Highest match',
+        todas: 'All',
+        nuevas: 'New',
+        postuladas: 'Applied',
+        buscarVacante: 'Search by role or company…',
+        postulacionRevertida: 'Application withdrawn. The opening is available again.',
       }
     : {
         cumple: 'cumple',
@@ -189,6 +230,8 @@ function textos(english: boolean) {
         aplicaAntes: 'Aplica antes de', sinExperiencia: 'Sin experiencia previa',
         anio: 'año', anios: 'años',
         requisitos: 'Requisitos', descripcionOferta: 'Descripción de la oferta',
+        requisitosClave: 'Puntos clave y requisitos',
+        verDescripcionCompleta: 'Ver descripción completa original',
         verOriginal: 'Ver oferta original', sinEnlace: 'Esta oferta no trae enlace directo.',
         fuente: 'Fuente',
         seguimiento: 'Seguimiento de mis postulaciones', misPostulaciones: 'Mis postulaciones',
@@ -216,11 +259,26 @@ function textos(english: boolean) {
         okPostulada: 'Postulación registrada exitosamente.', okEliminada: 'Postulación eliminada.',
         okEstado: 'Estado actualizado.',
         confirmarEliminar: 'Esta postulación se quitará de tu seguimiento. No se puede deshacer.',
+        confirmarPostulacion: 'Confirmar postulación',
+        seguroPostular: '¿Deseas postularte a esta oportunidad?',
+        abrirYConfirmar: 'Abrir oferta y confirmar postulación',
+        confirmarSolo: 'Confirmar postulación',
+        desistirPostulacion: 'Desistir de postulación',
+        cancelarPostulacionTitulo: '¿Desistir de esta postulación?',
+        cancelarPostulacionDesc: 'La vacante volverá a estar disponible en tu lista de oportunidades recomendadas.',
+        cancelar: 'Cancelar',
+        ordenarPor: 'Ordenar por',
+        masRecientes: 'Más recientes',
+        mayorAfinidad: 'Mayor afinidad',
+        todas: 'Todas',
+        nuevas: 'Nuevas',
+        postuladas: 'Postuladas',
+        buscarVacante: 'Buscar por cargo o empresa…',
+        postulacionRevertida: 'Postulación cancelada. La vacante vuelve a estar disponible.',
       }
 }
 
 export type TextosPostulaciones = ReturnType<typeof textos>
-
 function DetalleVacante({ m, T }: { m: MatchResponse; T: TextosPostulaciones }) {
   const ciudad = m.vacanteCiudad || m.vacanteUbicacion
   const experiencia =
@@ -230,13 +288,15 @@ function DetalleVacante({ m, T }: { m: MatchResponse; T: TextosPostulaciones }) 
         ? T.sinExperiencia
         : `${m.vacanteAniosExperienciaRequeridos} ${m.vacanteAniosExperienciaRequeridos === 1 ? T.anio : T.anios}`
   const expira = m.vacanteFechaExpiracion
-    // Con el idioma de la aplicacion y no el del navegador: si no, la fecha
-    // limite salia en el formato del sistema dentro de una pantalla traducida.
     ? new Date(m.vacanteFechaExpiracion).toLocaleDateString(T.anio === 'year' ? 'en-US' : 'es-CO')
     : null
 
+  const esRemoto =
+    (m.vacanteModalidadTrabajo && m.vacanteModalidadTrabajo.toLowerCase().includes('remot')) ||
+    (m.vacanteUbicacion && m.vacanteUbicacion.toLowerCase().includes('remot')) ||
+    (m.vacanteDescripcion && m.vacanteDescripcion.toLowerCase().includes('teletrabajo'))
+
   const hechos = [
-    m.vacanteRangoSalarial && { icon: CurrencyDollar, etiqueta: T.pago, valor: m.vacanteRangoSalarial },
     ciudad && { icon: MapPin, etiqueta: T.ciudad, valor: ciudad },
     m.vacanteModalidadTrabajo && { icon: Laptop, etiqueta: T.modalidad, valor: m.vacanteModalidadTrabajo },
     m.vacanteJornada && { icon: Clock, etiqueta: T.jornada, valor: m.vacanteJornada },
@@ -250,40 +310,111 @@ function DetalleVacante({ m, T }: { m: MatchResponse; T: TextosPostulaciones }) 
   const requisitos = m.vacanteRequisitos?.trim()
   const urlAbsoluta = urlDeOferta(m)
 
-  if (hechos.length === 0 && !descripcion && !requisitos && !urlAbsoluta) return null
+  const { pitch, puntos } = sintetizarTexto(descripcion || requisitos)
+
+  if (hechos.length === 0 && !descripcion && !requisitos && !urlAbsoluta && !m.vacanteRangoSalarial) return null
 
   return (
-    <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+    <div className="space-y-3.5 rounded-xl border border-border bg-card/60 p-4 shadow-xs">
+      {/* Destacado de Salario y Modalidad */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-3">
+        {m.vacanteRangoSalarial ? (
+          <div className="flex items-center gap-1.5 rounded-lg border border-primary/25 bg-primary/10 px-3 py-1.5 text-primary">
+            <CurrencyDollar className="size-4 shrink-0 font-bold" />
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-primary/80">{T.pago}</p>
+              <p className="text-xs font-semibold tabular-nums text-foreground">{m.vacanteRangoSalarial}</p>
+            </div>
+          </div>
+        ) : (
+          <Badge variant="outline" className="text-[11px] text-muted-foreground">
+            {T.pago}: {T.anio === 'year' ? 'Competitive / To be agreed' : 'A convenir / Competitivo'}
+          </Badge>
+        )}
+
+        <div className="flex items-center gap-1.5">
+          {esRemoto ? (
+            <Badge variant="secondary" className="gap-1 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-medium text-xs">
+              <Laptop className="size-3.5" />
+              {T.anio === 'year' ? '100% Remote' : '100% Remoto'}
+            </Badge>
+          ) : ciudad ? (
+            <Badge variant="outline" className="gap-1 text-xs font-medium">
+              <MapPin className="size-3 text-primary" />
+              {ciudad}
+            </Badge>
+          ) : null}
+          {m.vacanteNivelInglesRequerido && (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              <Translate className="size-3 text-primary" />
+              {m.vacanteNivelInglesRequerido}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Cuadrícula de Condiciones */}
       {hechos.length > 0 && (
-        <div className="grid gap-1.5 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-2 text-xs">
           {hechos.map((h) => (
             <Hecho key={h.etiqueta} icon={h.icon} etiqueta={h.etiqueta} valor={h.valor} />
           ))}
         </div>
       )}
-      {requisitos && (
-        <details>
-          <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
-            {T.requisitos}
+
+      {/* Resumen conciso / pitch (sin muros de texto) */}
+      {pitch && (
+        <p className="text-xs leading-relaxed text-muted-foreground line-clamp-3">
+          {pitch}
+        </p>
+      )}
+
+      {/* Puntos clave y requisitos estructurados */}
+      {puntos.length > 0 && (
+        <div className="rounded-lg border border-border/80 bg-muted/20 p-3 space-y-1.5">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <Sparkle className="size-3.5 text-primary" /> {T.requisitosClave}
+          </p>
+          <ul className="space-y-1 text-xs text-muted-foreground">
+            {puntos.map((pt, idx) => (
+              <li key={idx} className="flex items-start gap-1.5">
+                <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary/70" />
+                <span>{pt}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Detalle original completo plegable */}
+      {(descripcion || requisitos) && (
+        <details className="group rounded-lg border border-border/60 bg-muted/10 p-2.5">
+          <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground list-none flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <ChevronRight className="size-3.5 transition-transform group-open:rotate-90 text-primary" />
+              {T.verDescripcionCompleta}
+            </span>
           </summary>
-          <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{requisitos}</p>
+          <div className="mt-2 space-y-2 border-t border-border/40 pt-2 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
+            {descripcion && <p>{descripcion}</p>}
+            {requisitos && (
+              <div className="pt-1">
+                <p className="font-semibold text-foreground">{T.requisitos}:</p>
+                <p>{requisitos}</p>
+              </div>
+            )}
+          </div>
         </details>
       )}
-      {descripcion && (
-        <details>
-          <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
-            {T.descripcionOferta}
-          </summary>
-          <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{descripcion}</p>
-        </details>
-      )}
-      <div className="flex items-center justify-between gap-2">
+
+      {/* Pie con Enlace y Fuente */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-2.5">
         {urlAbsoluta ? (
           <a
             href={urlAbsoluta}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-2"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline underline-offset-2"
           >
             <ArrowSquareOut className="size-3.5" />
             {T.verOriginal}
@@ -307,6 +438,8 @@ export function StudentPostulaciones() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [postulando, setPostulando] = useState<string | null>(null)
+  const [matchPorPostular, setMatchPorPostular] = useState<MatchResponse | null>(null)
+  const [matchPorDesistir, setMatchPorDesistir] = useState<MatchResponse | null>(null)
   const [registrando, setRegistrando] = useState(false)
   const [notificacion, setNotificacion] = useState<{ tipo: 'exito' | 'error'; mensaje: string } | null>(null)
   const [porEliminar, setPorEliminar] = useState<MiPostulacion | null>(null)
@@ -315,6 +448,11 @@ export function StudentPostulaciones() {
   const [canalManual, setCanalManual] = useState('')
   const [urlOfertaManual, setUrlOfertaManual] = useState('')
   const [observacionesManual, setObservacionesManual] = useState('')
+
+  // Filtros y ordenación de oportunidades
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState<'todas' | 'disponibles' | 'postuladas'>('todas')
+  const [orden, setOrden] = useState<'afinidad' | 'recientes'>('afinidad')
 
   const mostrarNotificacion = (tipo: 'exito' | 'error', mensaje: string) => {
     setNotificacion({ tipo, mensaje })
@@ -328,8 +466,6 @@ export function StudentPostulaciones() {
       try {
         const page = await matchesApi.obtenerMisMatches(0, 100)
         setMatches(page.content)
-        // La bandeja nueva se activa al desplegar el backend con el módulo de
-        // postulaciones; las recomendaciones no quedan bloqueadas antes.
         try {
           setHistorial(await postulacionesApi.mias())
         } catch {
@@ -355,13 +491,10 @@ export function StudentPostulaciones() {
     }
   }
 
-  const postular = async (match: MatchResponse) => {
-    if (match.postulado || postulando) return
+  const confirmarPostulacion = async () => {
+    const match = matchPorPostular
+    if (!match || postulando) return
 
-    // La oferta se abre de forma síncrona, dentro del gesto del click. Si se
-    // abriera después del await de la API el navegador lo trataría como popup
-    // emergente y lo bloquearía: la persona haría click y "no pasaría nada".
-    // Abrir aquí es la forma fiable; nada de pestañas en blanco intermedias.
     const targetUrl = urlDeOferta(match)
     if (targetUrl) window.open(targetUrl, '_blank', 'noopener,noreferrer')
 
@@ -376,13 +509,56 @@ export function StudentPostulaciones() {
       mostrarNotificacion(
         'exito',
         targetUrl
-          ? `Postulación a "${match.vacanteTitulo}" registrada. Abrimos la oferta en otra pestaña para que completes la aplicación.`
-          : `Postulación a "${match.vacanteTitulo}" registrada. Esta oferta no trae enlace directo; búscala como "${match.vacanteEmpresa}" en el portal o consulta a tu coordinador.`,
+          ? T.postulacionRegistradaConEnlace(match.vacanteTitulo)
+          : T.postulacionRegistradaSinEnlace(match.vacanteTitulo, match.vacanteEmpresa || 'el portal'),
       )
     } catch (e) {
       mostrarNotificacion('error', mensajeDeError(e, T.errorPostular))
     } finally {
       setPostulando(null)
+      setMatchPorPostular(null)
+    }
+  }
+
+  const [buscandoOportunidades, setBuscandoOportunidades] = useState(false)
+
+  const refrescarOportunidades = async () => {
+    setBuscandoOportunidades(true)
+    try {
+      const page = await matchesApi.obtenerMisMatches(0, 100)
+      setMatches(page.content)
+      mostrarNotificacion(
+        'exito',
+        locale === 'en'
+          ? `Opportunities updated (${page.content.length} recommendations).`
+          : `Oportunidades actualizadas (${page.content.length} vacantes recomendadas).`,
+      )
+    } catch (e) {
+      mostrarNotificacion('error', mensajeDeError(e, T.errorCargar))
+    } finally {
+      setBuscandoOportunidades(false)
+    }
+  }
+
+  const desistirPostulacion = async () => {
+    const match = matchPorDesistir
+    if (!match) return
+    try {
+      await matchesApi.cancelarPostulacion(match.id)
+      setMatches((prev) =>
+        prev.map((m) => (m.id === match.id ? { ...m, postulado: false } : m)),
+      )
+      await refrescarHistorial()
+      mostrarNotificacion(
+        'exito',
+        locale === 'en'
+          ? 'Application withdrawn. The opening is open again in your recommended opportunities and recorded in your history.'
+          : 'Postulación desistida. La convocatoria vuelve a estar disponible para postularte y queda registrada en tu seguimiento.',
+      )
+    } catch (e) {
+      mostrarNotificacion('error', mensajeDeError(e, T.errorEliminar))
+    } finally {
+      setMatchPorDesistir(null)
     }
   }
 
@@ -415,9 +591,6 @@ export function StudentPostulaciones() {
     }
   }
 
-  // El diálogo de confirmación (in-app, no el confirm() del navegador) llama a
-  // esto sobre la postulación en `porEliminar`. Si falla, se relanza para que el
-  // diálogo no se cierre como si hubiera funcionado; el aviso se muestra igual.
   const eliminarPostulacion = async () => {
     const objetivo = porEliminar
     if (!objetivo) return
@@ -450,8 +623,29 @@ export function StudentPostulaciones() {
     )
   }
 
-  const disponibles = matches.filter((m) => !m.postulado)
-  const postuladas = matches.filter((m) => m.postulado)
+  const disponiblesCount = matches.filter((m) => !m.postulado).length
+  const postuladasCount = matches.filter((m) => m.postulado).length
+
+  // Filtrado y ordenación dinámicos
+  const matchesFiltrados = matches.filter((m) => {
+    if (busqueda.trim()) {
+      const q = busqueda.toLowerCase().trim()
+      const matchTitulo = m.vacanteTitulo?.toLowerCase().includes(q)
+      const matchEmpresa = m.vacanteEmpresa?.toLowerCase().includes(q)
+      const matchUbicacion = m.vacanteUbicacion?.toLowerCase().includes(q)
+      if (!matchTitulo && !matchEmpresa && !matchUbicacion) return false
+    }
+    if (filtroEstado === 'disponibles') return !m.postulado
+    if (filtroEstado === 'postuladas') return m.postulado
+    return true
+  }).sort((a, b) => {
+    if (orden === 'recientes') {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      return dateB - dateA
+    }
+    return b.puntaje - a.puntaje
+  })
 
   return (
     <div className="space-y-8">
@@ -498,72 +692,71 @@ export function StudentPostulaciones() {
             <Card className="border-dashed shadow-none">
               <CardContent className="p-5 text-sm text-muted-foreground">{T.vacioHistorial}</CardContent>
             </Card>
-          ) : historial.map((postulacion) => (
-            <Card key={postulacion.id} className="shadow-none">
-              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="font-semibold">{postulacion.cargo}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {postulacion.empresaNombre} · {postulacion.fechaPostulacion}
-                    {postulacion.canal ? ` · ${postulacion.canal}` : ''}
-                  </p>
-                  {postulacion.urlOferta && (
-                    <a
-                      href={postulacion.urlOferta.startsWith('http') ? postulacion.urlOferta : `https://${postulacion.urlOferta}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-0.5 inline-block text-xs text-primary underline truncate max-w-xs"
-                    >
-                      {T.verOferta}
-                    </a>
-                  )}
-                  {postulacion.observaciones && (
-                    <p className="mt-1 text-xs text-muted-foreground italic">{postulacion.observaciones}</p>
-                  )}
-                  {/* La cita, en la propia postulación. El bloque de arriba las
-                      reúne todas, pero quien está mirando esta fila concreta
-                      espera encontrarla aquí y no volver al inicio. */}
-                  {postulacion.fechaHoraEntrevista && (
-                    <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-primary">
-                      <Calendar className="size-3.5 shrink-0" />
-                      {new Date(postulacion.fechaHoraEntrevista).toLocaleString(
-                        locale === 'en' ? 'en-GB' : 'es-CO',
-                        { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' },
-                      )}
-                      {postulacion.modalidadEtiqueta ? ` · ${postulacion.modalidadEtiqueta}` : ''}
+          ) : (
+            historial.map((postulacion) => (
+              <Card key={postulacion.id} className="shadow-none">
+                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-semibold">{postulacion.cargo}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {postulacion.empresaNombre} · {postulacion.fechaPostulacion}
+                      {postulacion.canal ? ` · ${postulacion.canal}` : ''}
                     </p>
-                  )}
-                  {postulacion.diasEsperando != null && <p className="mt-1 text-xs text-muted-foreground">{postulacion.diasEsperando} días esperando respuesta</p>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={postulacion.estadoFinal ? 'secondary' : 'default'}>{postulacion.estadoEtiqueta}</Badge>
-                  <select
-                    aria-label={`Actualizar estado de ${postulacion.cargo}`}
-                    value={postulacion.estado}
-                    onChange={(event) => void actualizarEstado(postulacion.id, event.target.value)}
-                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                  >
-                    <option value="ENVIADA">{T.estados.ENVIADA}</option>
-                    <option value="EN_PROCESO">{T.estados.EN_PROCESO}</option>
-                    <option value="ENTREVISTA_AGENDADA">{T.estados.ENTREVISTA_AGENDADA}</option>
-                    <option value="ENTREVISTA_REALIZADA">{T.estados.ENTREVISTA_REALIZADA}</option>
-                    <option value="RECHAZADO">{T.estados.RECHAZADO}</option>
-                    <option value="CONTRATADO">{T.estados.CONTRATADO}</option>
-                  </select>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => setPorEliminar(postulacion)}
-                    title={T.eliminarPostulacion}
-                  >
-                    <Trash className="size-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    {postulacion.urlOferta && (
+                      <a
+                        href={postulacion.urlOferta.startsWith('http') ? postulacion.urlOferta : `https://${postulacion.urlOferta}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-0.5 inline-block text-xs text-primary underline truncate max-w-xs font-medium"
+                      >
+                        {T.verOferta}
+                      </a>
+                    )}
+                    {postulacion.observaciones && (
+                      <p className="mt-1 text-xs text-muted-foreground italic">{postulacion.observaciones}</p>
+                    )}
+                    {postulacion.fechaHoraEntrevista && (
+                      <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-primary">
+                        <Calendar className="size-3.5 shrink-0" />
+                        {new Date(postulacion.fechaHoraEntrevista).toLocaleString(
+                          locale === 'en' ? 'en-GB' : 'es-CO',
+                          { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' },
+                        )}
+                        {postulacion.modalidadEtiqueta ? ` · ${postulacion.modalidadEtiqueta}` : ''}
+                      </p>
+                    )}
+                    {postulacion.diasEsperando != null && <p className="mt-1 text-xs text-muted-foreground">{postulacion.diasEsperando} días esperando respuesta</p>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={postulacion.estadoFinal ? 'secondary' : 'default'}>{postulacion.estadoEtiqueta}</Badge>
+                    <select
+                      aria-label={`Actualizar estado de ${postulacion.cargo}`}
+                      value={postulacion.estado}
+                      onChange={(event) => void actualizarEstado(postulacion.id, event.target.value)}
+                      className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                    >
+                      <option value="ENVIADA">{T.estados.ENVIADA}</option>
+                      <option value="EN_PROCESO">{T.estados.EN_PROCESO}</option>
+                      <option value="ENTREVISTA_AGENDADA">{T.estados.ENTREVISTA_AGENDADA}</option>
+                      <option value="ENTREVISTA_REALIZADA">{T.estados.ENTREVISTA_REALIZADA}</option>
+                      <option value="RECHAZADO">{T.estados.RECHAZADO}</option>
+                      <option value="CONTRATADO">{T.estados.CONTRATADO}</option>
+                    </select>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => setPorEliminar(postulacion)}
+                      title={T.eliminarPostulacion}
+                    >
+                      <Trash className="size-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
         <Card className="h-fit shadow-none">
           <CardHeader><CardTitle className="text-base">{T.registrar}</CardTitle><CardDescription>{T.registrarPie}</CardDescription></CardHeader>
@@ -580,85 +773,128 @@ export function StudentPostulaciones() {
         </Card>
       </section>
 
-      {/* ── Mis postulaciones ── */}
-      {postuladas.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            {T.misPostulaciones} ({postuladas.length})
-          </h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            {postuladas.map((m) => (
-              <Card key={m.id} className="shadow-none">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <CardTitle className="text-base leading-snug">{m.vacanteTitulo}</CardTitle>
-                    <Badge className="shrink-0 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20">
-                      Postulado
-                    </Badge>
-                  </div>
-                  <CardDescription className="flex items-center gap-1">
-                    <Building className="size-3.5" />
-                    {m.vacanteEmpresa}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <DetalleVacante m={m} T={T} />
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Sparkle className="size-3.5 text-primary" />
-                      <span className="text-xs text-muted-foreground">{T.compatibilidad}</span>
-                      <MatchScore score={m.puntaje} />
-                    </div>
-                    <RazonesDelMatch razones={m.razones} cobertura={m.cobertura} />
-                  </div>
-                  <div className="flex items-center gap-1.5 text-sm text-emerald-600">
-                    <CheckCircle className="size-4" />
-                    {T.postulacionRegistrada}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+      {/* ── Sección de Oportunidades y Descubrimiento ── */}
+      <section className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">
+              {T.oportunidades} ({matches.length})
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Explora y postúlate a las vacantes analizadas y recomendadas para tu perfil.
+            </p>
           </div>
-        </section>
-      )}
 
-      {/* ── Oportunidades disponibles ── */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          {T.oportunidades} ({disponibles.length})
-        </h2>
+          {/* Barra de herramientas: Filtros, Búsqueda y Orden */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder={T.buscarVacante}
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="h-8 w-48 pl-8 text-xs sm:w-60"
+              />
+            </div>
 
-        {disponibles.length === 0 ? (
+            <div className="flex items-center rounded-lg border border-border bg-card p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setFiltroEstado('todas')}
+                className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+                  filtroEstado === 'todas' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {T.todas} ({matches.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroEstado('disponibles')}
+                className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+                  filtroEstado === 'disponibles' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {T.nuevas} ({disponiblesCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroEstado('postuladas')}
+                className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+                  filtroEstado === 'postuladas' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {T.postuladas} ({postuladasCount})
+              </button>
+            </div>
+
+            <select
+              value={orden}
+              onChange={(e) => setOrden(e.target.value as 'afinidad' | 'recientes')}
+              className="h-8 rounded-md border border-input bg-background px-2.5 text-xs"
+              aria-label={T.ordenarPor}
+            >
+              <option value="afinidad">{T.mayorAfinidad}</option>
+              <option value="recientes">{T.masRecientes}</option>
+            </select>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={refrescarOportunidades}
+              disabled={buscandoOportunidades}
+              className="h-8 gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
+              title="Buscar y actualizar nuevas vacantes para tu perfil"
+            >
+              <Sparkle className={`size-3.5 ${buscandoOportunidades ? 'animate-spin' : ''}`} />
+              {buscandoOportunidades
+                ? (locale === 'en' ? 'Searching…' : 'Buscando…')
+                : (locale === 'en' ? 'Search more jobs' : 'Buscar más vacantes')}
+            </Button>
+          </div>
+        </div>
+
+        {matchesFiltrados.length === 0 ? (
           <Card className="border-dashed shadow-none">
             <CardContent className="flex min-h-56 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
               <span className="flex size-12 items-center justify-center rounded-full bg-secondary">
                 <Briefcase className="size-5" />
               </span>
               <p className="max-w-md text-sm">
-                {matches.length === 0
-                  ? T.vacioSinVacantes
-                  : T.vacioTodasHechas}
+                {busqueda
+                  ? 'No se encontraron vacantes con el término de búsqueda ingresado.'
+                  : matches.length === 0
+                    ? T.vacioSinVacantes
+                    : 'No hay vacantes para el filtro seleccionado.'}
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {disponibles.map((m) => (
-              <Card key={m.id} className="shadow-none">
+            {matchesFiltrados.map((m) => (
+              <Card key={m.id} className={`shadow-none transition-all ${m.postulado ? 'border-emerald-500/30 bg-emerald-500/[0.02]' : ''}`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <CardTitle className="text-base leading-snug">{m.vacanteTitulo}</CardTitle>
-                    <Badge variant="outline" className="shrink-0">
-                      {Math.round(m.puntaje)}% match
-                    </Badge>
+                    {m.postulado ? (
+                      <Badge className="shrink-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-medium">
+                        Postulado
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="shrink-0">
+                        {Math.round(m.puntaje)}% match
+                      </Badge>
+                    )}
                   </div>
                   <CardDescription className="flex items-center gap-1">
                     <Building className="size-3.5" />
-                    {m.vacanteEmpresa}
+                    {m.vacanteEmpresa || 'Empresa confidencial'}
                   </CardDescription>
                 </CardHeader>
+
                 <CardContent className="space-y-4">
                   <DetalleVacante m={m} T={T} />
+
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <Sparkle className="size-3.5 text-primary" />
@@ -667,24 +903,44 @@ export function StudentPostulaciones() {
                     </div>
                     <RazonesDelMatch razones={m.razones} cobertura={m.cobertura} />
                   </div>
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    disabled={postulando === m.id}
-                    onClick={() => postular(m)}
-                  >
-                    {postulando === m.id ? (
-                      <>
-                        <CircleNotch className="size-4 animate-spin" />
-                        {T.postulando}
-                      </>
-                    ) : (
-                      <>
-                        {T.postularme}
-                        <ArrowRight className="size-4" />
-                      </>
-                    )}
-                  </Button>
+
+                  {m.postulado ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle className="size-4" />
+                        {T.postulacionRegistrada}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 text-xs text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                        onClick={() => setMatchPorDesistir(m)}
+                      >
+                        <RotateCcw className="size-3.5" />
+                        {T.desistirPostulacion}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="w-full gap-1.5"
+                      disabled={postulando === m.id}
+                      onClick={() => setMatchPorPostular(m)}
+                    >
+                      {postulando === m.id ? (
+                        <>
+                          <CircleNotch className="size-4 animate-spin" />
+                          {T.postulando}
+                        </>
+                      ) : (
+                        <>
+                          {T.postularme}
+                          <ArrowRight className="size-4" />
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -692,6 +948,70 @@ export function StudentPostulaciones() {
         )}
       </section>
 
+      {/* Modal de Confirmación de Postulación */}
+      <Confirmar
+        open={matchPorPostular !== null}
+        onOpenChange={(abierto) => {
+          if (!abierto) setMatchPorPostular(null)
+        }}
+        titulo={T.confirmarPostulacion}
+        destructivo={false}
+        textoConfirmar={
+          matchPorPostular && urlDeOferta(matchPorPostular)
+            ? T.abrirYConfirmar
+            : T.confirmarSolo
+        }
+        textoCancelar={T.cancelar}
+        onConfirmar={confirmarPostulacion}
+        descripcion={
+          matchPorPostular ? (
+            <div className="space-y-3 pt-1 text-xs text-muted-foreground">
+              <p>{T.seguroPostular}</p>
+              <div className="rounded-lg border border-border bg-card p-3 space-y-1.5 text-foreground">
+                <p className="font-semibold text-sm">{matchPorPostular.vacanteTitulo}</p>
+                <p className="text-muted-foreground">{matchPorPostular.vacanteEmpresa || 'Empresa confidencial'}</p>
+                {matchPorPostular.vacanteRangoSalarial && (
+                  <p className="font-medium text-primary">{matchPorPostular.vacanteRangoSalarial}</p>
+                )}
+              </div>
+              {urlDeOferta(matchPorPostular) ? (
+                <p className="text-[11px] leading-relaxed">
+                  Al confirmar, se abrirá la oferta original en una nueva pestaña para que completes los datos que solicite la empresa y quedará registrada en tu seguimiento.
+                </p>
+              ) : (
+                <p className="text-[11px] leading-relaxed">
+                  Esta vacante no incluye enlace externo directo. Se registrará la postulación en tu panel para coordinar con tu equipo de empleabilidad.
+                </p>
+              )}
+            </div>
+          ) : undefined
+        }
+      />
+
+      {/* Modal de Confirmación de Cancelación / Desistir */}
+      <Confirmar
+        open={matchPorDesistir !== null}
+        onOpenChange={(abierto) => {
+          if (!abierto) setMatchPorDesistir(null)
+        }}
+        titulo={T.cancelarPostulacionTitulo}
+        destructivo={true}
+        textoConfirmar={T.desistirPostulacion}
+        textoCancelar={T.cancelar}
+        onConfirmar={desistirPostulacion}
+        descripcion={
+          matchPorDesistir ? (
+            <div className="space-y-2 pt-1 text-xs text-muted-foreground">
+              <p>{T.cancelarPostulacionDesc}</p>
+              <p className="font-medium text-foreground">
+                {matchPorDesistir.vacanteTitulo} · {matchPorDesistir.vacanteEmpresa}
+              </p>
+            </div>
+          ) : undefined
+        }
+      />
+
+      {/* Modal de Eliminación de Postulación Manual */}
       <Confirmar
         open={porEliminar !== null}
         onOpenChange={(abierto) => {

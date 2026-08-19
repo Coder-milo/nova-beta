@@ -50,30 +50,32 @@ public final class TerminosDeBusqueda {
      */
     static final List<String> NUCLEO_BILINGUE = List.of(
             "bilingue",
+            "bilingual customer service",
             "call center bilingue",
             "asesor bilingue",
+            "ingles b2",
             "bpo");
 
-    /** Cuantos de los ocho se reserva el nucleo. El resto sale de las fichas. */
+    /** Cuantos se reserva el nucleo. El resto sale de las fichas. */
     static final int RESERVADOS_AL_NUCLEO = NUCLEO_BILINGUE.size();
 
     /**
      * Se usan si no hay ni fichas ni nada que derivar.
-     *
-     * <p>Ya no es una lista de oficios sueltos: si no hay de donde sacar
-     * terminos, lo que hay que buscar sigue siendo lo mismo que busca el
-     * programa.
      */
     static final List<String> RESPALDO = List.of(
             "bilingue",
+            "bilingual customer service",
             "call center bilingue",
             "asesor bilingue",
+            "ingles b2",
+            "ingles c1",
             "bpo",
             "customer service bilingue",
+            "soporte bilingue",
             "servicio al cliente bilingue");
 
     /** Tope por corrida: cada termino es una peticion mas al portal. */
-    static final int MAX_TERMINOS = 8;
+    static final int MAX_TERMINOS = 10;
 
     /** Ciudad por defecto cuando no hay ninguna registrada. */
     static final String CIUDAD_POR_DEFECTO = "Colombia";

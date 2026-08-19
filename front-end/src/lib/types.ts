@@ -354,6 +354,7 @@ export interface VacanteResponse {
    * de empleo llegue a toda la cohorte.
    */
   revisada?: boolean
+  segmento?: string | null
   /**
    * Campos internos de gestión: el servidor los envía nulos cuando quien
    * pregunta es un estudiante, porque en una oferta sugerida `creadaPor` es el
@@ -376,6 +377,16 @@ export interface VacanteResponse {
   telefonoDeclarado?: string | null
 }
 
+export type CategoriaPlantilla = 'SISTEMA' | 'MASIVO'
+
+export type TipoPlantillaSistema =
+  | 'ACTIVACION'
+  | 'RECUPERACION'
+  | 'CITA_ENTREVISTA'
+  | 'ASIGNACION_VACANTE'
+  | 'ANUNCIO'
+  | 'RECORDATORIO_HV'
+
 /** Una plantilla de correo tal como la devuelve el backend. */
 export interface PlantillaCorreo {
   id: string
@@ -390,6 +401,9 @@ export interface PlantillaCorreo {
   activa: boolean
   /** Las variables que usa, para avisar si pide una que no habrá. */
   variablesUsadas: string[]
+  esSistema?: boolean
+  tipo?: string | null
+  categoria?: CategoriaPlantilla
 }
 
 /** Lo que se manda al crear o corregir una plantilla. */
@@ -403,6 +417,8 @@ export interface PlantillaCorreoRequest {
   botonUrl?: string | null
   rolMinimo?: string | null
   activa?: boolean
+  categoria?: CategoriaPlantilla
+  tipo?: string | null
 }
 
 export interface VariableDisponible {
@@ -411,6 +427,29 @@ export interface VariableDisponible {
   marca: string
   descripcion: string
   ejemplo: string
+  categoria?: string
+}
+
+/** Plantilla del sistema con valores predeterminados de fábrica. */
+export interface PlantillaDefecto {
+  tipo: string
+  nombre: string
+  descripcion: string
+  asunto: string
+  cuerpo: string
+  botonTexto: string
+  botonUrl: string
+}
+
+/** Solicitud para enviar un correo de prueba directo. */
+export interface EnviarPruebaRequest {
+  destinatario: string
+  asunto: string
+  cuerpo: string
+  botonTexto?: string | null
+  botonUrl?: string | null
+  programaId?: string | null
+  variablesSimuladas?: Record<string, string>
 }
 
 export interface PrevisualizacionCorreo {
@@ -1819,3 +1858,38 @@ export interface HitoDeLaLinea {
   /** Dónde se corrige. Nula cuando el suceso no tiene pantalla propia. */
   ruta: string | null
 }
+
+// ── Conectores y Scraping ───────────────────────────────────────────────────
+
+export interface EstadoConector {
+  nombre: string
+  segmento: string
+  descripcion: string
+  habilitado: boolean
+  filtraPorCiudad: boolean
+  estado: 'ACTIVO' | 'ESPERA_CONFIGURACION' | 'ERROR' | 'DESACTIVADO'
+  cuotaRestante: number | null
+  cuotaLimite: number | null
+  ultimaEjecucion: string | null
+  ultimoConteo: number | null
+  ultimoError: string | null
+}
+
+export interface ResultadoPruebaFuente {
+  fuente: string
+  exito: boolean
+  estado: 'OK' | 'SIN_RESULTADOS' | 'ERROR' | 'DESHABILITADO'
+  ofertasEncontradas: number
+  latenciaMs: number
+  mensaje: string
+  timestamp: string
+}
+
+export interface ResultadoActualizacion {
+  vacantesNuevas: number
+  vacantesCerradas: number
+  vigentesTotal: number
+  inicio: string
+  fin: string | null
+}
+

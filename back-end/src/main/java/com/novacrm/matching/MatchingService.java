@@ -80,9 +80,73 @@ public class MatchingService {
      * calibrar pero no se le vuelven a mostrar a quien ya dijo que no.
      */
     public Page<MatchResponse> obtenerMatches(UUID estudianteId, org.springframework.data.domain.Pageable pageable) {
-        return matchRepository.findVigentesDeEstudiante(
-                        estudianteId, java.time.LocalDateTime.now(), pageable)
-                .map(this::toResponse);
+        var ahora = java.time.LocalDateTime.now();
+        var pagina = matchRepository.findVigentesDeEstudiante(estudianteId, ahora, pageable);
+        if (pagina.isEmpty() || pagina.getTotalElements() < 10) {
+            ejecutarMatchingParaEstudiante(estudianteId);
+            pagina = matchRepository.findVigentesDeEstudiante(estudianteId, ahora, pageable);
+        }
+        return pagina.map(this::toResponse);
+    }
+
+    /**
+     * Evalúa y genera los matches de un estudiante particular contra todo el pool
+     * de vacantes vigentes y revisadas.
+     */
+    @Transactional
+    public int ejecutarMatchingParaEstudiante(UUID estudianteId) {
+        var estudianteOpt = estudianteRepository.findById(estudianteId);
+        if (estudianteOpt.isEmpty()) return 0;
+        var e = estudianteOpt.get();
+        if (!e.isActivo()) return 0;
+
+        var colocados = java.util.Set.copyOf(colocacionRepository.idsColocados());
+        var pool = cargarPool();
+        if (pool.isEmpty()) return 0;
+
+        int umbral = configuracionService.umbralDeMatch();
+        String versionDeConfig = versionDeConfig(umbral);
+        var pesos = PesosPorRareza.de(pool.stream().map(VacanteTokenizada::terminos).toList());
+
+        var terminosEstudiante = skillSynonyms.tokenize(
+                e.getCargoObjetivo(), e.getSectorObjetivo(), e.getSectorExperiencia(),
+                e.getUltimoCargo(), e.getPerfilProfesional(), e.getAreaFormacion(),
+                e.getNivelEducativo());
+        var competenciasEstudiante = skillSynonyms.tokenize(e.getCompetencias());
+
+        Map<UUID, Match> matchesExistentesPorVacante = matchRepository.findByEstudianteIdOrderByPuntajeDesc(estudianteId, PageRequest.of(0, 1000))
+                .getContent().stream()
+                .collect(Collectors.toMap(m -> m.getVacante().getId(), m -> m, (m1, m2) -> m1));
+
+        int creados = 0;
+        for (VacanteTokenizada candidata : pool) {
+            var v = candidata.vacante();
+            if (!ElegibilidadPorSegmento.esElegible(e, v)) continue;
+            var desglose = calcularPuntaje(e, v,
+                    terminosEstudiante, candidata.terminos(),
+                    competenciasEstudiante, candidata.competencias(),
+                    pesos);
+            if (!superaElCorte(desglose, umbral)) continue;
+
+            Match match = matchesExistentesPorVacante.get(v.getId());
+            if (match == null) {
+                match = new Match();
+                match.setEstudiante(e);
+                match.setVacante(v);
+                match.aplicarDesglose(desglose, versionDeConfig);
+                try {
+                    matchRepository.save(match);
+                    creados++;
+                } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+                    // Ignore concurrent unique constraint
+                }
+            } else if (!match.isPostulado() && !match.isDescartado()) {
+                match.aplicarDesglose(desglose, versionDeConfig);
+                matchRepository.save(match);
+                creados++;
+            }
+        }
+        return creados;
     }
 
     /**
@@ -186,9 +250,15 @@ public class MatchingService {
         }
         var vacante = match.getVacante();
         var estudianteId = match.getEstudiante().getId();
-        // Si ya hay postulacion a esa vacante no se duplica: pudo registrarla
-        // el coordinador a mano antes de que el estudiante pulsara el boton.
-        if (postulacionRepository.findByEstudianteIdAndVacanteId(estudianteId, vacante.getId()).isPresent()) {
+        // Si ya hay postulacion a esa vacante no se duplica; si estaba desistida/rechazada, se reactiva
+        var existente = postulacionRepository.findByEstudianteIdAndVacanteId(estudianteId, vacante.getId());
+        if (existente.isPresent()) {
+            var p = existente.get();
+            if (p.getEstado() == com.novacrm.postulacion.EstadoPostulacion.RECHAZADO) {
+                p.moverA(com.novacrm.postulacion.EstadoPostulacion.ENVIADA, java.time.LocalDate.now());
+                p.setObservaciones((p.getObservaciones() != null ? p.getObservaciones() + " | " : "") + "Postulación reactivada");
+                postulacionRepository.save(p);
+            }
             return;
         }
         try {
@@ -214,18 +284,38 @@ public class MatchingService {
                             com.novacrm.postulacion.EstadoPostulacion.ENVIADA,
                             urlOferta,
                             null,
-                            // Postularse desde un match no agenda nada: la cita
-                            // la pone la empresa cuando contesta.
                             null, null, null, null, null, null, null),
                     autor, loHaceElEstudiante);
         } catch (com.novacrm.exception.BusinessException e) {
-            // Carrera entre dos clics sobre el mismo match: el perdedor llega a
-            // crear() con el duplicado ya guardado. El match queda marcado y la
-            // postulacion la creo el ganador, asi que este intento es no-op.
             if (postulacionRepository.findByEstudianteIdAndVacanteId(estudianteId, vacante.getId()).isEmpty()) {
                 throw e;
             }
         }
+    }
+
+    /**
+     * Revierte una postulación realizada por error o desistida por el estudiante.
+     * Marca el match como no postulado para que la vacante vuelva a quedar abierta,
+     * y conserva el registro en el historial de postulaciones (Seguimiento) en estado RECHAZADO / No continuó.
+     */
+    @Transactional
+    public void cancelarPostulacion(UUID matchId, String autor) {
+        var match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new com.novacrm.exception.ResourceNotFoundException("Match no encontrado: " + matchId));
+        if (!match.isPostulado()) {
+            return;
+        }
+        match.setPostulado(false);
+        matchRepository.save(match);
+
+        var estudianteId = match.getEstudiante().getId();
+        var vacanteId = match.getVacante().getId();
+        postulacionRepository.findByEstudianteIdAndVacanteId(estudianteId, vacanteId)
+                .ifPresent(p -> {
+                    p.moverA(com.novacrm.postulacion.EstadoPostulacion.RECHAZADO, java.time.LocalDate.now());
+                    p.setObservaciones((p.getObservaciones() != null ? p.getObservaciones() + " | " : "") + "Postulación desistida por el estudiante");
+                    postulacionRepository.save(p);
+                });
     }
 
     private static String sanitizarUrl(String url) {
@@ -352,7 +442,7 @@ public class MatchingService {
      * hasta que el equipo la valide.
      */
     private List<VacanteTokenizada> cargarPool() {
-        int maxVacantes = config.getMaxVacantesPorEjecucion();
+        int maxVacantes = Math.max(config.getMaxVacantesPorEjecucion(), 1000);
         List<VacanteTokenizada> pool = new ArrayList<>();
         int page = 0;
 
@@ -361,9 +451,6 @@ public class MatchingService {
                     java.time.LocalDateTime.now(), PageRequest.of(page, 200));
             if (pagina.getContent().isEmpty()) break;
             for (Vacante v : pagina.getContent()) {
-                // El corte se mira sobre el pool ya filtrado: una pagina entera
-                // de ofertas sin revisar no significa que se hayan acabado las
-                // vacantes, y cortar ahi dejaria fuera todas las siguientes.
                 if (!v.isRevisada()) continue;
                 if (pool.size() >= maxVacantes) break;
                 pool.add(new VacanteTokenizada(v,
@@ -551,8 +638,18 @@ public class MatchingService {
     }
 
     private static boolean esRemota(Vacante v) {
+        if (v == null) return false;
+        if (v.getSegmento() == com.novacrm.scraper.fuente.Segmento.REMOTO_INGLES) return true;
         String modalidad = normalizar(v.getModalidadTrabajo());
-        return modalidad.contains("remoto") || modalidad.contains("remote");
+        String ubicacion = normalizar(v.getUbicacion());
+        String ciudad = normalizar(v.getCiudad());
+        String titulo = normalizar(v.getTitulo());
+        String desc = normalizar(v.getDescripcion());
+        return com.novacrm.scraper.fuente.AreaMetropolitana.esRemoto(modalidad)
+                || com.novacrm.scraper.fuente.AreaMetropolitana.esRemoto(ubicacion)
+                || com.novacrm.scraper.fuente.AreaMetropolitana.esRemoto(ciudad)
+                || com.novacrm.scraper.fuente.AreaMetropolitana.esRemoto(titulo)
+                || com.novacrm.scraper.fuente.AreaMetropolitana.esRemoto(desc);
     }
 
     private static String normalizar(String texto) {

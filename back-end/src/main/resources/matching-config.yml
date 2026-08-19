@@ -13,6 +13,6 @@ umbral_minimo: 55
 # llegue a ser match. Los criterios sin datos no puntuan ni penalizan: quedan
 # fuera del reparto. Sin este minimo, un puntaje calculado sobre un solo
 # criterio valdria tanto como uno calculado sobre los cinco.
-cobertura_minima: 0.5
+cobertura_minima: 0.35
 
 max_vacantes_por_ejecucion: 500

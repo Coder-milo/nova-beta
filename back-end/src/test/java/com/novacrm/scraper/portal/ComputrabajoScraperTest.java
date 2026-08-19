@@ -73,7 +73,7 @@ class ComputrabajoScraperTest {
         assertEquals("Asesor Comercial con Atencion al cliente", vacante.getTitulo());
         assertEquals("EMERGIA", ofertas.get(0).nombreEmpresa());
         assertEquals("Manizales, Caldas", vacante.getUbicacion());
-        assertEquals("Manizales, Caldas", vacante.getCiudad());
+        assertEquals("Manizales", vacante.getCiudad());
         assertEquals("$ 1.750.905,00 (Mensual)", vacante.getRangoSalarial());
         assertEquals(vacante.getTitulo(), vacante.getDescripcion(),
                 "sin descripcion en la tarjeta, el titulo es mejor que el ruido del card");

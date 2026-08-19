@@ -70,6 +70,27 @@ public class VacanteController {
         return scrapingService.historial();
     }
 
+    @GetMapping("/scraping/fuentes")
+    @Operation(summary = "Listado de estado en vivo de conectores y fuentes de scraping")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public List<com.novacrm.scraper.dto.EstadoConectorDto> fuentes() {
+        return scrapingService.listarEstadoConectores();
+    }
+
+    @PostMapping("/scraping/fuentes/{fuente}/probar")
+    @Operation(summary = "Probar una fuente o conector específico sin persistir datos")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public com.novacrm.scraper.dto.ResultadoPruebaFuenteDto probarFuente(@PathVariable String fuente) {
+        return scrapingService.probarFuente(fuente);
+    }
+
+    @PostMapping("/scraping/fuentes/{fuente}/sincronizar")
+    @Operation(summary = "Sincronizar una sola fuente bajo demanda y guardar nuevas ofertas")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public ResultadoActualizacion sincronizarFuente(@PathVariable String fuente) {
+        return scrapingService.sincronizarFuente(fuente);
+    }
+
     @GetMapping("/ultima-actualizacion")
     @Operation(summary = "Cuantas ofertas entraron en la ultima actualizacion")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")

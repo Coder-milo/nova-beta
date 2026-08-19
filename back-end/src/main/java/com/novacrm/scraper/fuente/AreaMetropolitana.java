@@ -29,6 +29,10 @@ public final class AreaMetropolitana {
      * normalizados —sin tildes ni mayusculas— para poder compararlos con lo que
      * publique cada portal.
      */
+    /**
+     * Todos los municipios del departamento del Atlántico (Colombia),
+     * normalizados sin tildes ni mayúsculas.
+     */
     private static final Set<String> MUNICIPIOS = Set.of(
             "barranquilla",
             "soledad",
@@ -39,10 +43,77 @@ public final class AreaMetropolitana {
             "baranoa",
             "palmar de varela",
             "santo tomas",
-            "polonuevo");
+            "polonuevo",
+            "tubara",
+            "luruaco",
+            "suan",
+            "campo de la cruz",
+            "ponedera",
+            "candelaria",
+            "juan de acosta",
+            "piojo",
+            "repelon",
+            "santa lucia",
+            "usiacuri",
+            "manati");
 
     /** El departamento, para cuando el portal solo publica la region. */
     private static final Set<String> REGIONES = Set.of("atlantico", "atlántico");
+
+    /** Señales inequívocas de que la oferta es remota / teletrabajo. */
+    private static final Set<String> SENALES_REMOTO = Set.of(
+            "remoto", "remote", "teletrabajo", "home office", "work from home",
+            "100% remoto", "totalmente remoto", "trabajo remoto", "worldwide",
+            "anywhere", "global", "latam");
+
+    /**
+     * Todos los departamentos y municipios fuera del Atlántico (normalizados).
+     * Si una oferta está ubicada en una de estas zonas y NO es 100% remota, se excluye.
+     */
+    private static final Set<String> OTRAS_CIUDADES_Y_REGIONES = Set.of(
+            // Risaralda / Eje Cafetero
+            "risaralda", "pereira", "dosquebradas", "santa rosa de cabal",
+            "caldas", "manizales", "villamaria", "chinchina", "la dorada",
+            "quindio", "armenia", "calarca", "montenegro", "quimbaya", "la tebaida",
+            // Cundinamarca / Bogotá
+            "cundinamarca", "bogota", "soacha", "chia", "zipaquira",
+            "madrid", "funza", "mosquera", "facatativa", "girardot", "fusagasuga",
+            "cajica", "tocancipa", "sopo", "cota", "sibate", "tabio", "tenjo", "la calera",
+            // Antioquia
+            "antioquia", "medellin", "bello", "itagui", "envigado",
+            "rionegro", "sabaneta", "copacabana", "la estrella", "apartado",
+            "turbo", "caucasia", "guatape",
+            // Valle del Cauca
+            "valle del cauca", "valle", "cali", "palmira", "buenaventura", "tulua",
+            "cartago", "yumbo", "jamundi", "buga",
+            // Santanderes
+            "santander", "bucaramanga", "floridablanca", "giron", "piedecuesta",
+            "barrancabermeja", "san gil",
+            "norte de santander", "cucuta", "ocana", "villa del rosario", "los patios", "pamplona",
+            // Tolima / Huila
+            "tolima", "ibague", "espinal", "melgar", "chaparral", "mariquita", "honda",
+            "huila", "neiva", "pitalito", "garzon", "la plata",
+            // Meta / Llanos
+            "meta", "villavicencio", "acacias", "granada", "puerto lopez",
+            "casanare", "yopal", "aguazul", "arauca", "guaviare", "san jose del guaviare",
+            "guainia", "inirida", "vaupes", "mitu", "vichada", "puerto carreno",
+            // Nariño / Cauca / Putumayo / Caquetá
+            "narino", "pasto", "tumaco", "ipiales",
+            "cauca", "popayan", "santander de quilichao", "puerto tejada",
+            "putumayo", "mocoa", "puerto asis",
+            "caqueta", "florencia",
+            // Costa Caribe (no Atlántico)
+            "bolivar", "cartagena", "magangue", "turbaco", "arjona", "carmen de bolivar",
+            "magdalena", "santa marta", "cienaga", "fundacion", "plato",
+            "cesar", "valledupar", "aguachica", "agustin codazzi",
+            "cordoba", "monteria", "cerete", "lorica", "sahagun", "montelibano",
+            "sucre", "sincelejo", "corozal", "san marcos",
+            "la guajira", "guajira", "riohacha", "maicao", "uribia", "san juan del cesar",
+            "san andres", "providencia",
+            // Boyacá / Chocó / Amazonas
+            "boyaca", "tunja", "sogamoso", "duitama", "chiquinquira", "paipa",
+            "choco", "quibdo",
+            "amazonas", "leticia");
 
     private AreaMetropolitana() {
     }
@@ -54,10 +125,6 @@ public final class AreaMetropolitana {
 
     /**
      * Si una oferta publicada en esa ciudad o region le sirve a la cohorte.
-     *
-     * <p>Una oferta sin ciudad se acepta: puede ser remota o no traer el dato,
-     * y descartarla por no venir etiquetada perderia ofertas buenas. Filtrar de
-     * mas es peor que filtrar de menos, porque lo que se pierde no se ve.
      */
     public static boolean esCercana(String ciudad, String region) {
         String c = normalizar(ciudad);
@@ -69,6 +136,62 @@ public final class AreaMetropolitana {
             return true;
         }
         return !r.isBlank() && REGIONES.stream().anyMatch(reg -> r.contains(normalizar(reg)));
+    }
+
+    /**
+     * Determina si una vacante es admisible para el programa:
+     * 1. Es REMOTA (cualquier ciudad o país de origen, si la modalidad es remota/teletrabajo).
+     * 2. O está ubicada físicamente en el Atlántico / Barranquilla.
+     *
+     * Si está ubicada en Risaralda, Bogotá, Medellín u otra ciudad fuera del Atlántico y es presencial, se descarta.
+     */
+    public static boolean esAtlanticoORemota(com.novacrm.vacante.Vacante vacante) {
+        if (vacante == null) {
+            return false;
+        }
+        if (vacante.getSegmento() == Segmento.REMOTO_INGLES) {
+            return true;
+        }
+
+        String modalidad = normalizar(vacante.getModalidadTrabajo());
+        String ubicacion = normalizar(vacante.getUbicacion());
+        String ciudad = normalizar(vacante.getCiudad());
+        String titulo = normalizar(vacante.getTitulo());
+        String descripcion = normalizar(vacante.getDescripcion());
+        String requisitos = normalizar(vacante.getRequisitos());
+        String url = normalizar(vacante.getUrlOrigen());
+
+        String textoCompleto = String.join(" ", modalidad, ubicacion, ciudad, titulo, descripcion, requisitos, url);
+
+        // 1. ¿Es remota comprobada?
+        boolean esRemoto = SENALES_REMOTO.stream().anyMatch(s -> modalidad.contains(s) || titulo.contains(s) || descripcion.contains(s));
+        if (esRemoto && !"presencial".equalsIgnoreCase(modalidad)) {
+            if (vacante.getModalidadTrabajo() == null || vacante.getModalidadTrabajo().isBlank()
+                    || "Presencial".equalsIgnoreCase(vacante.getModalidadTrabajo())) {
+                vacante.setModalidadTrabajo("Remoto");
+            }
+            return true;
+        }
+
+        // 2. ¿Es en el Atlántico?
+        boolean esEnAtlantico = MUNICIPIOS.stream().anyMatch(m -> ciudad.contains(m) || ubicacion.contains(m) || url.contains(m))
+                || REGIONES.stream().anyMatch(r -> ciudad.contains(r) || ubicacion.contains(r) || url.contains(r));
+
+        // 3. ¿Es explícitamente en otra ciudad/departamento fuera del Atlántico?
+        boolean esOtraCiudad = OTRAS_CIUDADES_Y_REGIONES.stream().anyMatch(oc ->
+                ciudad.contains(oc) || ubicacion.contains(oc) || url.contains("-" + oc + "-") || url.contains("/" + oc + "/") || titulo.contains("en " + oc));
+
+        if (esOtraCiudad && !esEnAtlantico) {
+            return false;
+        }
+
+        return esEnAtlantico;
+    }
+
+    public static boolean esRemoto(String texto) {
+        if (texto == null || texto.isBlank()) return false;
+        String normal = normalizar(texto);
+        return SENALES_REMOTO.stream().anyMatch(normal::contains);
     }
 
     private static String normalizar(String texto) {

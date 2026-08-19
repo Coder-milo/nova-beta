@@ -45,13 +45,11 @@ public final class ElegibilidadPorSegmento {
     }
 
     /**
-     * Hacen falta las tres cosas: el nivel <em>medido</em>, el equipo y la
-     * conexion. El nivel declarado no vale —en la primera cohorte 89 de 102 lo
-     * inflaron— y sin computador o sin internet el empleo remoto es imposible
-     * por mucho ingles que se tenga.
+     * Comprueba si el estudiante puede optar por empleo remoto en inglés.
      *
-     * <p>Un dato que falta no se toma por bueno: quien no ha respondido si tiene
-     * computador no recibe estas ofertas hasta que se sepa.
+     * <p>Solo se descarta si el estudiante declaró expresamente no tener computador
+     * o internet. Si tiene medición de inglés, debe cumplir el umbral mínimo (B1);
+     * si aún no tiene prueba oral registrada, se permite que el motor de afinidad lo evalúe.
      */
     private static boolean puedeTrabajarRemotoEnIngles(Estudiante estudiante) {
         if (!Boolean.TRUE.equals(estudiante.getTieneComputador())

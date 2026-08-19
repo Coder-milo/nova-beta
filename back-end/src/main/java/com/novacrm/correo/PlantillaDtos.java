@@ -45,9 +45,41 @@ public final class PlantillaDtos {
     }
 
     /** Una variable, para la ayuda del editor. */
-    public record VariableDisponible(String clave, String marca, String descripcion, String ejemplo) {
+    public record VariableDisponible(String clave, String marca, String descripcion, String ejemplo, String categoria) {
         public static VariableDisponible de(Variables v) {
-            return new VariableDisponible(v.clave(), v.marca(), v.descripcion(), v.ejemplo());
+            return new VariableDisponible(v.clave(), v.marca(), v.descripcion(), v.ejemplo(), v.categoria());
+        }
+    }
+
+    /** Plantilla del sistema con valores predeterminados de fábrica. */
+    public record PlantillaDefecto(
+            String tipo,
+            String nombre,
+            String descripcion,
+            String asunto,
+            String cuerpo,
+            String botonTexto,
+            String botonUrl) {}
+
+    /** Solicitud para enviar un correo de prueba directo. */
+    public record EnviarPruebaRequest(
+            String destinatario,
+            String asunto,
+            String cuerpo,
+            String botonTexto,
+            String botonUrl,
+            UUID programaId,
+            String textoCabecera,
+            java.util.Map<String, String> variablesSimuladas) {
+
+        public EnviarPruebaRequest(String destinatario, String asunto, String cuerpo,
+                                   String botonTexto, String botonUrl, UUID programaId,
+                                   java.util.Map<String, String> variablesSimuladas) {
+            this(destinatario, asunto, cuerpo, botonTexto, botonUrl, programaId, null, variablesSimuladas);
+        }
+
+        public String emailDestino() {
+            return destinatario == null ? "" : destinatario.trim();
         }
     }
 
@@ -66,9 +98,16 @@ public final class PlantillaDtos {
 
     /** Lo que se pide al enviar. */
     public record EnviarRequest(
-            /** Ids concretos; vacio = todos los estudiantes activos. */
+            /** Ids concretos; vacio = todos los estudiantes activos o segun programa/cohorte. */
             List<UUID> estudianteIds,
-            Boolean simulacion) {}
+            UUID programaId,
+            String cohorte,
+            Boolean simulacion) {
+
+        public EnviarRequest(List<UUID> estudianteIds, Boolean simulacion) {
+            this(estudianteIds, null, null, simulacion);
+        }
+    }
 
     public record ResultadoEnvio(
             UUID estudianteId,

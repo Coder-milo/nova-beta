@@ -69,8 +69,16 @@ soporte:
   - help desk
   - service desk
   - it support
+  - soporte it
   - technical support
+  - soporte tecnico
+  - soporte técnico
+  - tecnico de soporte
+  - técnico de soporte
   - mesa de ayuda
+  - mantenimiento de computadores
+  - ensamble y mantenimiento
+  - diagnostico de sistemas
 
 gerente:
   - gerente
@@ -297,13 +305,26 @@ servicio_cliente:
   - servicio cliente
   - atencion al cliente
   - atencion cliente
+  - atencion a clientes
+  - servicio a clientes
   - customer service
   - customer support
   - customer care
   - customer experience
   - customer success
+  - customer representative
+  - customer service representative
   - servicio al usuario
   - csr
+  - asesor de servicio
+  - asesor servicio
+  - asesor de atencion
+  - asesor atencion
+  - asesor al cliente
+  - asesor de atencion al cliente
+  - asesor de servicio al cliente
+  - asesor servicio al cliente
+  - asesor atencion al cliente
 
 # Puestos cuya herramienta es la voz. Se mantiene aparte de servicio_cliente
 # porque es lo que decide contra que destreza se puntua el ingles: aqui manda
@@ -315,7 +336,10 @@ trabajo_de_voz:
   - televenta
   - televentas
   - agente bilingue
+  - agente bilingüe
   - bilingual agent
+  - asesor bilingue
+  - asesor bilingüe
   - agente telefonico
   - asesor telefonico
   - soporte telefonico

@@ -22,6 +22,8 @@ package com.novacrm.config;
  * @param bannerAlto    alto del archivo en px
  * @param textoPie      linea del pie; null = la de los aliados del programa marco
  * @param colorPrimario color del boton; null = el azul institucional
+ * @param textoCabecera lema o titulo de cabecera; null = valor por defecto
+ * @param textoLegal    aviso legal o pie de pagina; null = valor por defecto
  */
 public record MarcaCorreo(
         String logoUrl,
@@ -31,7 +33,15 @@ public record MarcaCorreo(
         Integer bannerAncho,
         Integer bannerAlto,
         String textoPie,
-        String colorPrimario) {
+        String colorPrimario,
+        String textoCabecera,
+        String textoLegal) {
+
+    public MarcaCorreo(String logoUrl, Integer logoAncho, Integer logoAlto,
+                       String bannerUrl, Integer bannerAncho, Integer bannerAlto,
+                       String textoPie, String colorPrimario) {
+        this(logoUrl, logoAncho, logoAlto, bannerUrl, bannerAncho, bannerAlto, textoPie, colorPrimario, null, null);
+    }
 
     /** Ancho maximo del cuerpo del correo. Es el limite que respeta Outlook. */
     public static final int ANCHO_CORREO = 600;

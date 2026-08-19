@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { VistasGuardadas } from '@/components/admin/vistas-guardadas'
+import { PanelConectoresScraping } from '@/components/admin/panel-conectores-scraping'
 import { RegistroDeScraping } from '@/components/admin/registro-de-scraping'
 import { Badge } from '@/components/ui/badge'
 import { usePreferences } from '@/lib/preferences'
@@ -75,7 +76,20 @@ function textos(english: boolean) {
         sinPermisosInicia: 'No permission. Please sign in.',
         estaOfertaEsta: 'This posting has not been reviewed',
         sinRevisar: 'Not reviewed',
-        filtrarPorFuente: 'Filter by source',
+        filtrarPorFuente: 'Source',
+        filtrarPorConvocatoria: 'Call / Segment',
+        todasLasConvocatorias: 'Convocatorias: Todas',
+        convocatoriasLocales: 'Locales (Atlántico)',
+        convocatoriasRemotas: 'Remotas (Inglés)',
+        convocatoriasMigracion: 'Internacional (Con Visa)',
+        filtrarPorModalidad: 'Work mode',
+        todasLasModalidades: 'Modalidad: Todas',
+        todasLasFuentesLabel: 'Fuentes: Todas',
+        filtrarPorRevision: 'Review status',
+        todasLasRevisiones: 'Revisión: Todas',
+        soloRevisadas: 'Verificadas',
+        soloPendientes: 'Por revisar',
+        limpiarFiltros: 'Limpiar filtros',
         informacionPrincipal: 'Main details',
         informacionGeneral: 'General information',
         condicionesDeLa: 'Job conditions',
@@ -149,11 +163,11 @@ function textos(english: boolean) {
         yaCubierta: 'Already filled',
         expirada: 'Expired',
         retirada: 'Withdrawn',
-        fueraDePerfil: 'Does not require English',
+        fueraDePerfil: 'No English required',
         ofertaCerrada: 'Closed',
-        gestionDeLa: 'Vacancy management',
-        cerrarLaConserva: 'Closing keeps it and its history; deleting removes it for good. Close what was filled or expired; delete only what should never have been recorded.',
-        noSePudoCerrar: 'The vacancy could not be closed.',
+        gestionDeLa: 'Posting management',
+        cerrarLaConserva: 'Closing keeps its history; deleting removes it entirely. Close what was filled or expired; delete only what should never have been logged.',
+        noSePudoCerrar: 'Could not close the vacancy.',
         noSePudoReabrir: 'The vacancy could not be reopened.',
         noSePudoEliminar: 'The vacancy could not be deleted.',
         seEliminaraVacante: (t: string) => `Vacancy “${t}” will be deleted. This cannot be undone.`,
@@ -173,7 +187,20 @@ function textos(english: boolean) {
         sinPermisosInicia: 'Sin permisos. Inicia sesión.',
         estaOfertaEsta: 'Esta oferta está sin revisar',
         sinRevisar: 'Sin revisar',
-        filtrarPorFuente: 'Filtrar por fuente',
+        filtrarPorFuente: 'Fuente',
+        filtrarPorConvocatoria: 'Convocatoria',
+        todasLasConvocatorias: 'Convocatorias: Todas',
+        convocatoriasLocales: 'Locales (Atlántico)',
+        convocatoriasRemotas: 'Remotas (Inglés)',
+        convocatoriasMigracion: 'Internacional (Con Visa)',
+        filtrarPorModalidad: 'Modalidad',
+        todasLasModalidades: 'Modalidad: Todas',
+        todasLasFuentesLabel: 'Fuentes: Todas',
+        filtrarPorRevision: 'Revisión',
+        todasLasRevisiones: 'Revisión: Todas',
+        soloRevisadas: 'Solo verificadas',
+        soloPendientes: 'Pendientes',
+        limpiarFiltros: 'Limpiar filtros',
         informacionPrincipal: 'Información principal',
         informacionGeneral: 'Información General',
         condicionesDeLa: 'Condiciones de la oportunidad',
@@ -275,28 +302,28 @@ export default function VacantesPage() {
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
-  const [page, setPage]               = useState<Page<VacanteResponse> | null>(null)
-  const [currentPage, setCurrentPage] = useState(0)
-  const [loading, setLoading]         = useState(true)
-  const [error, setError]             = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  /**
-   * Fuente seleccionada. Con varias fuentes activas —empleo local desde el
-   * portal de los empleadores, remoto en inglés, migración— el listado las
-   * mezcla y no hay forma de mirar sólo lo que sirve a quien vive aquí.
-   */
-  const [fuenteFiltro, setFuenteFiltro] = useState('TODAS')
-  const [selected, setSelected]       = useState<VacanteResponse | null>(null)
-  const [matching, setMatching]       = useState(false)
-  const [matchingMsg, setMatchingMsg] = useState<string | null>(null)
-  const [creando, setCreando]         = useState(false)
-  const [guardando, setGuardando]     = useState(false)
-  const [formError, setFormError]     = useState<string | null>(null)
-  const [formVacante, setFormVacante] = useState<VacanteForm>(formularioVacio)
-  const [editandoId, setEditandoId]   = useState<string | null>(null)
-  const [gestionando, setGestionando] = useState(false)
-  const [revisando, setRevisando]     = useState(false)
-  const [revisarError, setRevisarError] = useState<string | null>(null)
+  const [todasVacantes, setTodasVacantes] = useState<VacanteResponse[]>([])
+  const [currentPage, setCurrentPage]     = useState(0)
+  const [loading, setLoading]             = useState(true)
+  const [error, setError]                 = useState<string | null>(null)
+  const [searchQuery, setSearchQuery]     = useState('')
+  const [fuenteFiltro, setFuenteFiltro]   = useState('TODAS')
+  const [segmentoFiltro, setSegmentoFiltro] = useState('TODOS')
+  const [modalidadFiltro, setModalidadFiltro] = useState('TODAS')
+  const [revisionFiltro, setRevisionFiltro] = useState('TODAS')
+  const [selected, setSelected]           = useState<VacanteResponse | null>(null)
+  const [matching, setMatching]           = useState(false)
+  const [matchingMsg, setMatchingMsg]     = useState<string | null>(null)
+  const [creando, setCreando]             = useState(false)
+  const [guardando, setGuardando]         = useState(false)
+  const [formError, setFormError]         = useState<string | null>(null)
+  const [formVacante, setFormVacante]     = useState<VacanteForm>(formularioVacio)
+  const [editandoId, setEditandoId]       = useState<string | null>(null)
+  const [gestionando, setGestionando]     = useState(false)
+  const [revisando, setRevisando]         = useState(false)
+  const [revisarError, setRevisarError]   = useState<string | null>(null)
+
+  const PAGE_SIZE = 18
 
   const actualizarFormulario = (campo: keyof VacanteForm, valor: string) => {
     setFormVacante((anterior) => ({ ...anterior, [campo]: valor }))
@@ -310,11 +337,6 @@ export default function VacantesPage() {
 
   /**
    * El mismo panel sirve para corregir.
-   *
-   * `fechaExpiracion` llega del servidor con segundos y zona; el input
-   * `datetime-local` sólo acepta `YYYY-MM-DDTHH:mm`, y con más caracteres se
-   * queda vacío sin avisar. Recortarla es lo que evita que al guardar una
-   * corrección se borre la fecha de cierre que ya tenía.
    */
   const abrirEdicion = (v: VacanteResponse) => {
     setFormError(null); setEditandoId(v.id)
@@ -357,33 +379,27 @@ export default function VacantesPage() {
       aniosExperienciaRequeridos: formVacante.aniosExperienciaRequeridos ? Number(formVacante.aniosExperienciaRequeridos) : undefined,
       urlAplicar: formVacante.urlAplicar.trim() || undefined,
       url: formVacante.url.trim() || undefined,
-      fechaExpiracion: formVacante.fechaExpiracion || undefined,
+      fechaExpiracion: formVacante.fechaExpiracion ? `${formVacante.fechaExpiracion}:00Z` : undefined,
       descripcion: formVacante.descripcion.trim() || undefined,
       requisitos: formVacante.requisitos.trim() || undefined,
     }
     try {
       if (editandoId) {
         const corregida = await vacantesApi.actualizar(editandoId, datos)
-        // Se repinta sólo la fila tocada: recargar la página entera devolvería
-        // el listado al principio y quien está revisando perdería el sitio.
-        setPage((actual) => actual && {
-          ...actual,
-          content: actual.content.map((v) => (v.id === editandoId ? corregida : v)),
-        })
-        setMatchingMsg(T.vacanteActualizada)
+        setTodasVacantes((prev) => prev.map((v) => (v.id === editandoId ? corregida : v)))
+        setSelected(corregida)
+        setCreando(false)
+        mostrarError(T.vacanteActualizada)
       } else {
         await vacantesApi.crear(datos)
-        setMatchingMsg(T.vacanteCreadaCorrectamente)
-        setCurrentPage(0)
-        await load(0)
+        setCreando(false)
+        await load()
+        mostrarError(T.vacanteCreadaCorrectamente)
       }
-      setCreando(false)
-      setEditandoId(null)
-      setFormVacante(formularioVacio)
     } catch (err) {
-      setFormError(err instanceof ApiCallError
-        ? (err.body.message ?? T.noSePudoCrear(err.status))
-        : T.noSePudo)
+      if (err instanceof ApiCallError) {
+        setFormError(err.status === 400 ? T.noSePudoX : T.noSePudoCrear(err.status))
+      } else { setFormError(T.noSePudo) }
     } finally { setGuardando(false) }
   }
 
@@ -401,7 +417,6 @@ export default function VacantesPage() {
     } finally { setMatching(false) }
   }
 
-  /** Flujo de un solo paso: escanea los portales y luego ejecuta el matching. */
   const runScanAndMatch = async () => {
     setMatching(true); setMatchingMsg(T.escaneandoPortalesDe)
     try {
@@ -411,7 +426,8 @@ export default function VacantesPage() {
       setMatchingMsg(
         T.escaneoCompletado(scan.vacantesNuevas, res.matchesCreados)
         + (res.matchesCreados > 0 ? ` ${T.revisalosEnLa}` : ''))
-      load(0); setCurrentPage(0)
+      await load()
+      setCurrentPage(0)
     } catch (err) {
       setMatchingMsg(err instanceof ApiCallError
         ? (err.status === 401 || err.status === 403 ? T.sinPermisosParaX : T.errorDelServidor(err.status))
@@ -419,10 +435,11 @@ export default function VacantesPage() {
     } finally { setMatching(false) }
   }
 
-  const load = useCallback(async (pg: number) => {
+  const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      setPage(await vacantesApi.listar(pg, 20))
+      const data = await vacantesApi.listar(0, 1000)
+      setTodasVacantes(data.content)
     } catch (err) {
       if (err instanceof ApiCallError) {
         setError(err.status === 401 || err.status === 403
@@ -430,46 +447,26 @@ export default function VacantesPage() {
           : `Error al cargar vacantes (HTTP ${err.status}).`)
       } else { setError(C.errorConexion) }
     } finally { setLoading(false) }
-  }, [])
+  }, [C.errorConexion, T.sinPermisosInicia])
 
-  useEffect(() => { load(0) }, [load])
+  useEffect(() => { void load() }, [load])
 
-  /**
-   * Da por buena una oferta sugerida por un participante.
-   *
-   * Se actualiza la tarjeta en la lista y el panel abierto con lo que
-   * devuelve el servidor, en vez de recargar la página entera: recargar
-   * cerraría el panel y quien está revisando varias perdería el sitio.
-   */
   const validarOferta = async (id: string) => {
     setRevisando(true); setRevisarError(null)
     try {
       const actualizada = await vacantesApi.revisar(id)
-      setPage((actual) => actual && {
-        ...actual,
-        content: actual.content.map((v) => (v.id === id ? actualizada : v)),
-      })
+      setTodasVacantes((prev) => prev.map((v) => (v.id === id ? actualizada : v)))
       setSelected((actual) => (actual?.id === id ? actualizada : actual))
     } catch (err) {
       setRevisarError(mensajeDeError(err, T.noSePudoX))
     } finally { setRevisando(false) }
   }
 
-  /**
-   * Cierra una oferta con su motivo.
-   *
-   * El motivo no es un adorno: distingue una plaza cubierta —el proceso llegó
-   * a su fin— de una que venció sin que nadie llegara a tiempo. Sin esa
-   * diferencia no se puede saber si el programa está llegando tarde.
-   */
   const cerrarOferta = async (id: string, motivo: MotivoCierre) => {
     setGestionando(true)
     try {
       const cerrada = await vacantesApi.cerrar(id, motivo)
-      setPage((actual) => actual && {
-        ...actual,
-        content: actual.content.map((v) => (v.id === id ? cerrada : v)),
-      })
+      setTodasVacantes((prev) => prev.map((v) => (v.id === id ? cerrada : v)))
       setSelected((actual) => (actual?.id === id ? cerrada : actual))
     } catch (err) {
       mostrarError(mensajeDeError(err, T.noSePudoCerrar))
@@ -480,21 +477,13 @@ export default function VacantesPage() {
     setGestionando(true)
     try {
       const abierta = await vacantesApi.reabrir(id)
-      setPage((actual) => actual && {
-        ...actual,
-        content: actual.content.map((v) => (v.id === id ? abierta : v)),
-      })
+      setTodasVacantes((prev) => prev.map((v) => (v.id === id ? abierta : v)))
       setSelected((actual) => (actual?.id === id ? abierta : actual))
     } catch (err) {
       mostrarError(mensajeDeError(err, T.noSePudoReabrir))
     } finally { setGestionando(false) }
   }
 
-  /**
-   * Borrado definitivo, para lo que nunca debió entrar: un scraping mal leído
-   * o una oferta duplicada. Lo que se cubrió o venció se cierra, no se borra,
-   * porque su historial es lo que permite medir el programa.
-   */
   const eliminarOferta = async (v: VacanteResponse) => {
     if (!(await confirmar({
       titulo: T.eliminarVacante,
@@ -505,43 +494,81 @@ export default function VacantesPage() {
     setGestionando(true)
     try {
       await vacantesApi.eliminar(v.id)
+      setTodasVacantes((prev) => prev.filter((item) => item.id !== v.id))
       setSelected(null)
-      await load(currentPage)
     } catch (err) {
       mostrarError(mensajeDeError(err, T.noSePudoEliminar))
     } finally { setGestionando(false) }
   }
 
-  /** Las fuentes que de verdad hay en lo cargado; no una lista fija. */
-  const fuentesDisponibles = Array.from(
-    new Set((page?.content ?? []).map((v) => v.fuente).filter((f): f is string => !!f)),
-  ).sort()
+  const fuentesFijas = [
+    'LINKEDIN',
+    'COMPUTRABAJO',
+    'ELEMPLEO',
+    'JSEARCH',
+    'SMARTRECRUITERS',
+    'REMOTIVE',
+    'ARBEITNOW',
+    'MANUAL',
+  ]
+  const fuentesEncontradas = Array.from(
+    new Set(todasVacantes.map((v) => v.fuente).filter((f): f is string => !!f)),
+  )
+  const todasLasFuentes = Array.from(new Set([...fuentesFijas, ...fuentesEncontradas])).sort()
 
-  const filtered = (page?.content ?? []).filter((v) => {
-    if (fuenteFiltro !== 'TODAS' && v.fuente !== fuenteFiltro) return false
+  const hayFiltrosActivos =
+    fuenteFiltro !== 'TODAS' ||
+    segmentoFiltro !== 'TODOS' ||
+    modalidadFiltro !== 'TODAS' ||
+    revisionFiltro !== 'TODAS' ||
+    searchQuery.trim() !== ''
+
+  const filtered = todasVacantes.filter((v) => {
+    if (fuenteFiltro !== 'TODAS' && v.fuente?.toUpperCase() !== fuenteFiltro.toUpperCase()) return false
+    if (segmentoFiltro !== 'TODOS' && v.segmento !== segmentoFiltro) return false
+    if (modalidadFiltro !== 'TODAS' && v.modalidadTrabajo?.toUpperCase() !== modalidadFiltro.toUpperCase()) return false
+    if (revisionFiltro === 'REVISADAS' && v.revisada === false) return false
+    if (revisionFiltro === 'PENDIENTES' && v.revisada !== false) return false
+
     const q = searchQuery.toLowerCase().trim()
     if (!q) return true
-    return v.titulo.toLowerCase().includes(q) ||
-      (v.empresaNombre?.toLowerCase().includes(q)) ||
-      (v.ubicacion?.toLowerCase().includes(q)) ||
-      (v.descripcion?.toLowerCase().includes(q))
+    return (
+      v.titulo.toLowerCase().includes(q) ||
+      (v.empresaNombre?.toLowerCase().includes(q) ?? false) ||
+      (v.ubicacion?.toLowerCase().includes(q) ?? false) ||
+      (v.descripcion?.toLowerCase().includes(q) ?? false)
+    )
   })
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1
+  const paginaActual = Math.min(currentPage, totalPages - 1)
+  const vacantesVisibles = filtered.slice(paginaActual * PAGE_SIZE, (paginaActual + 1) * PAGE_SIZE)
 
   return (
     <div className="flex flex-col gap-6">
       {/* Cabecera */}
-      <div className="flex justify-end gap-4">
-        <div className="flex shrink-0 gap-2">
-          <Button size="sm" onClick={abrirCreacion}>
+      {/* Cabecera Principal */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <Briefcase className="size-5 text-primary" />
+            Banco de Vacantes
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Gestión de oportunidades laborales, convocatorias y matching de participantes.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={abrirCreacion} className="gap-1.5 shadow-sm">
             <Plus className="size-3.5" /> {T.nuevaVacante}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => load(currentPage)}>
+          <Button variant="outline" size="sm" onClick={() => void load()} className="gap-1.5">
             <ArrowsClockwise className="size-3.5" /> Refrescar
           </Button>
           <Button variant="outline" size="sm" onClick={runMatching} disabled={matching}>
             Solo matching
           </Button>
-          <Button size="sm" onClick={runScanAndMatch} disabled={matching}>
+          <Button size="sm" onClick={runScanAndMatch} disabled={matching} className="gap-1.5">
             {matching
               ? <><CircleNotch className="size-3.5 animate-spin" /> Procesando…</>
               : <><MagnifyingGlass className="size-3.5" /> {T.escanearYHacer}</>}
@@ -557,37 +584,139 @@ export default function VacantesPage() {
 
       <VistasGuardadas
         modulo="VACANTES"
-        hayFiltros={fuenteFiltro !== 'TODAS' || searchQuery.trim() !== ''}
-        filtrosActuales={{ fuente: fuenteFiltro, q: searchQuery.trim() }}
+        hayFiltros={hayFiltrosActivos}
+        filtrosActuales={{
+          fuente: fuenteFiltro,
+          segmento: segmentoFiltro,
+          modalidad: modalidadFiltro,
+          revision: revisionFiltro,
+          q: searchQuery.trim(),
+        }}
         onAplicar={(f) => {
           setFuenteFiltro(typeof f.fuente === 'string' ? f.fuente : 'TODAS')
+          setSegmentoFiltro(typeof f.segmento === 'string' ? f.segmento : 'TODOS')
+          setModalidadFiltro(typeof f.modalidad === 'string' ? f.modalidad : 'TODAS')
+          setRevisionFiltro(typeof f.revision === 'string' ? f.revision : 'TODAS')
           setSearchQuery(typeof f.q === 'string' ? f.q : '')
+          setCurrentPage(0)
         }}
       />
 
-      {/* Búsqueda y filtro por fuente */}
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,28rem)_auto]">
-        <div className="relative">
-          <MagnifyingGlass className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input type="search" placeholder={T.buscarPorTitulo} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 bg-secondary/40" />
-        </div>
-        {/* Sólo con más de una fuente: un desplegable de un elemento es ruido. */}
-        {fuentesDisponibles.length > 1 && (
-          <div className="flex items-center gap-2">
-            <Globe className="size-3.5 shrink-0 text-muted-foreground" />
+      {/* Barra de Búsqueda y Filtros Compactos */}
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card/60 p-3.5 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Búsqueda por texto */}
+          <div className="relative min-w-[200px] flex-1">
+            <MagnifyingGlass className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder={T.buscarPorTitulo}
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setCurrentPage(0)
+              }}
+              className="pl-9 bg-secondary/40 h-9 text-xs"
+            />
+          </div>
+
+          {/* Filtro por Convocatoria / Segmento */}
+          <div className="w-full sm:w-auto min-w-[150px]">
             <select
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-56"
+              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              value={segmentoFiltro}
+              onChange={(e) => {
+                setSegmentoFiltro(e.target.value)
+                setCurrentPage(0)
+              }}
+              aria-label={T.filtrarPorConvocatoria}
+            >
+              <option value="TODOS">{T.todasLasConvocatorias}</option>
+              <option value="LOCAL_COLOMBIA">{T.convocatoriasLocales}</option>
+              <option value="REMOTO_INGLES">{T.convocatoriasRemotas}</option>
+              <option value="MIGRACION">{T.convocatoriasMigracion}</option>
+            </select>
+          </div>
+
+          {/* Filtro por Fuente / Portal */}
+          <div className="w-full sm:w-auto min-w-[140px]">
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
               value={fuenteFiltro}
-              onChange={(e) => setFuenteFiltro(e.target.value)}
+              onChange={(e) => {
+                setFuenteFiltro(e.target.value)
+                setCurrentPage(0)
+              }}
               aria-label={T.filtrarPorFuente}
             >
-              <option value="TODAS">Todas las fuentes ({page?.content.length ?? 0})</option>
-              {fuentesDisponibles.map((f) => (
-                <option key={f} value={f}>
-                  {f} ({(page?.content ?? []).filter((v) => v.fuente === f).length})
-                </option>
-              ))}
+              <option value="TODAS">{T.todasLasFuentesLabel} ({todasVacantes.length})</option>
+              {todasLasFuentes.map((f) => {
+                const totalFuente = todasVacantes.filter((v) => v.fuente?.toUpperCase() === f.toUpperCase()).length
+                return (
+                  <option key={f} value={f}>
+                    {f} ({totalFuente})
+                  </option>
+                )
+              })}
             </select>
+          </div>
+
+          {/* Filtro por Modalidad */}
+          <div className="w-full sm:w-auto min-w-[130px]">
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              value={modalidadFiltro}
+              onChange={(e) => {
+                setModalidadFiltro(e.target.value)
+                setCurrentPage(0)
+              }}
+              aria-label={T.filtrarPorModalidad}
+            >
+              <option value="TODAS">{T.todasLasModalidades}</option>
+              <option value="PRESENCIAL">Presencial</option>
+              <option value="REMOTO">Remoto</option>
+              <option value="HÍBRIDO">Híbrido</option>
+            </select>
+          </div>
+
+          {/* Filtro por Estado de Revisión */}
+          <div className="w-full sm:w-auto min-w-[125px]">
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              value={revisionFiltro}
+              onChange={(e) => {
+                setRevisionFiltro(e.target.value)
+                setCurrentPage(0)
+              }}
+              aria-label={T.filtrarPorRevision}
+            >
+              <option value="TODAS">{T.todasLasRevisiones}</option>
+              <option value="REVISADAS">{T.soloRevisadas}</option>
+              <option value="PENDIENTES">{T.soloPendientes}</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Resumen de Filtros Activos y Botón Limpiar */}
+        {hayFiltrosActivos && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-lg border border-border mt-1">
+            <span>
+              Filtros activos: <strong>{filtered.length}</strong> de <strong>{todasVacantes.length}</strong> vacantes encontradas
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setFuenteFiltro('TODAS')
+                setSegmentoFiltro('TODOS')
+                setModalidadFiltro('TODAS')
+                setRevisionFiltro('TODAS')
+                setSearchQuery('')
+                setCurrentPage(0)
+              }}
+              className="text-primary hover:underline font-semibold"
+            >
+              {T.limpiarFiltros}
+            </button>
           </div>
         )}
       </div>
@@ -602,12 +731,12 @@ export default function VacantesPage() {
         <div className="flex flex-col items-center gap-3 py-12">
           <WarningCircle className="size-8 text-destructive" />
           <p className="text-sm text-destructive">{error}</p>
-          <Button variant="outline" onClick={() => load(currentPage)}><ArrowsClockwise className="size-4" /> Reintentar</Button>
+          <Button variant="outline" onClick={() => void load()}><ArrowsClockwise className="size-4" /> Reintentar</Button>
         </div>
       )}
 
       {/* Listado */}
-      {!loading && !error && page && (
+      {!loading && !error && (
         <>
           {filtered.length === 0 ? (
             <Card className="rounded-xl shadow-sm">
@@ -619,7 +748,7 @@ export default function VacantesPage() {
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filtered.map((v) => (
+                {vacantesVisibles.map((v) => (
                   <Card key={v.id} onClick={() => setSelected(v)} className="rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between gap-2">
@@ -696,18 +825,26 @@ export default function VacantesPage() {
               </div>
 
               {/* Paginación */}
-              {page.totalPages > 1 && (
+              {totalPages > 1 && (
                 <div className="flex items-center justify-between pt-2">
-                  <span className="text-xs text-muted-foreground">Página {page.number + 1} de {page.totalPages} · {page.totalElements} vacantes</span>
+                  <span className="text-xs text-muted-foreground">
+                    Página {paginaActual + 1} de {totalPages} · {filtered.length} vacantes
+                  </span>
                   <div className="flex gap-1">
-                    <button type="button" disabled={page.number === 0}
-                      onClick={() => { const p = currentPage - 1; setCurrentPage(p); load(p) }}
-                      className="flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-secondary disabled:opacity-40">
+                    <button
+                      type="button"
+                      disabled={paginaActual === 0}
+                      onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                      className="flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-secondary disabled:opacity-40"
+                    >
                       <CaretLeft className="size-4" />
                     </button>
-                    <button type="button" disabled={page.number >= page.totalPages - 1}
-                      onClick={() => { const p = currentPage + 1; setCurrentPage(p); load(p) }}
-                      className="flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-secondary disabled:opacity-40">
+                    <button
+                      type="button"
+                      disabled={paginaActual >= totalPages - 1}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                      className="flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-secondary disabled:opacity-40"
+                    >
                       <CaretRight className="size-4" />
                     </button>
                   </div>
@@ -717,6 +854,9 @@ export default function VacantesPage() {
           )}
         </>
       )}
+
+      {/* Panel en vivo de conectores y fuentes de empleo (ATS & Portales) */}
+      <PanelConectoresScraping onActualizacionTerminada={() => void load()} />
 
       {/* Registro de corridas.
           Va al final y no arriba porque es diagnóstico: se consulta cuando algo
@@ -873,13 +1013,42 @@ export default function VacantesPage() {
                   </section>
                 )}
 
-                {/* Info principal */}
+                {/* Info principal y Salario */}
                 <section className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-3">
-                  <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">{T.informacionGeneral}</h4>
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider">{T.informacionGeneral}</h4>
+                    {selected.modalidadTrabajo && (
+                      <Badge
+                        variant={selected.modalidadTrabajo.toLowerCase().includes('remot') ? 'secondary' : 'outline'}
+                        className={
+                          selected.modalidadTrabajo.toLowerCase().includes('remot')
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-medium text-xs gap-1'
+                            : 'text-xs gap-1'
+                        }
+                      >
+                        <Globe className="size-3" /> {selected.modalidadTrabajo}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {selected.rangoSalarial ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/10 p-2.5 text-primary">
+                      <CurrencyDollar className="size-5 shrink-0 font-bold" />
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wider text-primary/80">{T.rangoSalarial}</p>
+                        <p className="text-sm font-semibold tabular-nums text-foreground">{selected.rangoSalarial}</p>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                     <div>
-                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.rangoSalarial}</span>
-                      <span className="font-medium">{selected.rangoSalarial ?? T.noEspecificado}</span>
+                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.ubicacion}</span>
+                      <span className="font-medium">{selected.ciudad || selected.ubicacion || T.noEspecificado}</span>
+                    </div>
+                    <div>
+                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.jornada}</span>
+                      <span className="font-medium">{selected.jornada || T.noEspecificado}</span>
                     </div>
                     <div>
                       <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.experiencia}</span>
@@ -890,23 +1059,31 @@ export default function VacantesPage() {
                       <span className="font-medium">{selected.nivelInglesRequerido ?? T.noEspecificado}</span>
                     </div>
                     <div>
+                      <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.tipoDeContrato}</span>
+                      <span className="font-medium">{selected.tipoContrato ?? T.noEspecificado}</span>
+                    </div>
+                    <div>
                       <span className="block text-muted-foreground text-[10px] uppercase tracking-wider">{T.fuente}</span>
                       <span className="font-medium">{selected.fuente ?? T.manual}</span>
                     </div>
                   </div>
                 </section>
 
-                {selected.descripcion && (
+                {selected.requisitos && (
                   <section className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-2">
-                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">{T.descripcion}</h4>
-                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{selected.descripcion}</p>
+                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1 flex items-center gap-1.5">
+                      <CheckCircle className="size-3.5" /> {T.requisitos}
+                    </h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{selected.requisitos}</p>
                   </section>
                 )}
 
-                {selected.requisitos && (
+                {selected.descripcion && (
                   <section className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col gap-2">
-                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1">{T.requisitos}</h4>
-                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{selected.requisitos}</p>
+                    <h4 className="text-xs font-semibold text-primary uppercase tracking-wider border-b border-border pb-1 flex items-center gap-1.5">
+                      <Briefcase className="size-3.5" /> {T.descripcion}
+                    </h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{selected.descripcion}</p>
                   </section>
                 )}
 

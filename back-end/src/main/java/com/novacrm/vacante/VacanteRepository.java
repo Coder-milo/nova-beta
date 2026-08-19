@@ -91,6 +91,8 @@ public interface VacanteRepository extends JpaRepository<Vacante, UUID> {
     /** Vacantes abiertas de una empresa. Para la ficha del CRM. */
     long countByEmpresaIdAndActivoTrue(UUID empresaId);
 
+    List<Vacante> findByEmpresaIdAndActivoTrue(UUID empresaId);
+
     /**
      * Vigentes y validadas: las unicas que entran al matching.
      *

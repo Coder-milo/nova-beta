@@ -1,20 +1,8 @@
 'use client'
 
 /**
- * Previsualización de los correos automáticos.
- *
- * <p>El envío a estudiantes es masivo y de una sola pasada: los correos de
- * activación salen de golpe para toda la cohorte y no hay forma de retirarlos.
- * Sin poder mirar antes cómo quedan, los fallos que se descubren son siempre los
- * mismos —el logo del programa no carga, el color no contrasta con el texto del
- * botón, el pie quedó con la marca de otro cliente— y se descubren cuando ya los
- * recibió todo el mundo.
- *
- * <p>El HTML lo arma el backend con el mismo código que usa el envío real, así
- * que lo que se ve aquí es lo que llega. Se pinta en un `iframe` porque el
- * correo va maquetado con tablas y estilos en línea pensados para Outlook:
- * incrustarlo en la página lo rompería, y además heredaría los estilos del
- * panel, que es justo lo que no tiene el cliente de correo del destinatario.
+ * Previsualización de los correos automáticos del sistema con soporte responsive
+ * y prueba de envío directo.
  *
  * Consume:
  *   GET /api/v1/correos/tipos
@@ -22,15 +10,25 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { CircleAlert as WarningCircle, LoaderCircle as CircleNotch, Mail as Envelope, RefreshCw as ArrowsClockwise } from 'lucide-react'
+import {
+  CircleAlert as WarningCircle,
+  Laptop,
+  LoaderCircle as CircleNotch,
+  Mail as Envelope,
+  Send as PaperPlaneTilt,
+  RefreshCw as ArrowsClockwise,
+  Smartphone,
+} from 'lucide-react'
 import { ApiCallError, correosApi, programasApi } from '@/lib/api'
 import type { TipoCorreo } from '@/lib/api'
 import type { ProgramaResponse } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Campo, Selector } from '@/components/ui/campo'
+import { ModalEnvioPrueba } from '@/components/admin/modal-envio-prueba'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin, type TextosAdmin } from '@/lib/textos-admin'
+import { cn } from '@/lib/utils'
 
 /** No es un componente: no puede leer el idioma, se lo pasan. */
 function mensajeDe(error: unknown, C: TextosAdmin): string {
@@ -43,12 +41,7 @@ function mensajeDe(error: unknown, C: TextosAdmin): string {
   return C.errorConexion
 }
 
-/**
- * Textos propios de esta pantalla.
- *
- * Lo que se repite en varias pantallas de gestion sale de
- * `textosAdmin`; aqui solo va lo que es de esta y de ninguna otra.
- */
+/** Textos propios de esta pantalla. */
 function textos(english: boolean) {
   return english
     ? {
@@ -58,6 +51,9 @@ function textos(english: boolean) {
         eligeUnCorreo: 'Choose an email to view it.',
         montandoElCorreo: 'Building the email…',
         marcaDelPrograma: 'Programme branding',
+        escritorio: 'Desktop (600px)',
+        movil: 'Mobile (375px)',
+        enviarPrueba: 'Send Test Email',
       }
     : {
         miralosAntesDe: 'Míralos antes de que salgan. Se muestran con datos de ejemplo y con la marca del programa que elijas, tal como los va a recibir el estudiante.',
@@ -66,6 +62,9 @@ function textos(english: boolean) {
         eligeUnCorreo: 'Elige un correo para verlo.',
         montandoElCorreo: 'Montando el correo…',
         marcaDelPrograma: 'Marca del programa',
+        escritorio: 'Escritorio (600px)',
+        movil: 'Móvil (375px)',
+        enviarPrueba: 'Enviar correo de prueba',
       }
 }
 
@@ -80,6 +79,8 @@ export function VistaPreviaCorreos() {
   const [html, setHtml] = useState('')
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dispositivo, setDispositivo] = useState<'desktop' | 'mobile'>('desktop')
+  const [modalPruebaAbierto, setModalPruebaAbierto] = useState(false)
 
   useEffect(() => {
     correosApi
@@ -134,10 +135,7 @@ export function VistaPreviaCorreos() {
             />
           </Campo>
 
-          <Campo
-            etiqueta={T.marcaDelPrograma}
-            ayuda={T.cadaProgramaPuede}
-          >
+          <Campo etiqueta={T.marcaDelPrograma} ayuda={T.cadaProgramaPuede}>
             <Selector
               value={programaId}
               onChange={setProgramaId}
@@ -157,11 +155,53 @@ export function VistaPreviaCorreos() {
           </div>
         )}
 
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={() => void cargar()} disabled={cargando}>
-            <ArrowsClockwise className={cargando ? 'size-3.5 animate-spin' : 'size-3.5'} />
-            Actualizar
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-y border-border py-2">
+          {/* Alternador Desktop / Mobile */}
+          <div className="flex items-center rounded-lg border border-border bg-muted/30 p-0.5">
+            <button
+              type="button"
+              onClick={() => setDispositivo('desktop')}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors cursor-pointer',
+                dispositivo === 'desktop'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Laptop className="size-3.5" />
+              <span>{T.escritorio}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDispositivo('mobile')}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors cursor-pointer',
+                dispositivo === 'mobile'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Smartphone className="size-3.5" />
+              <span>{T.movil}</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setModalPruebaAbierto(true)}
+              disabled={!html}
+              className="cursor-pointer"
+            >
+              <PaperPlaneTilt className="size-3.5 mr-1" />
+              {T.enviarPrueba}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => void cargar()} disabled={cargando} className="cursor-pointer">
+              <ArrowsClockwise className={cargando ? 'size-3.5 animate-spin' : 'size-3.5'} />
+              Actualizar
+            </Button>
+          </div>
         </div>
 
         {cargando && !html ? (
@@ -170,21 +210,49 @@ export function VistaPreviaCorreos() {
             {T.montandoElCorreo}
           </div>
         ) : html ? (
-          <iframe
-            // `srcDoc` y no una URL: el HTML ya viene completo y así no hay que
-            // crear ni revocar object URLs. El sandbox sin `allow-scripts` deja
-            // el correo inerte, que es como lo abre un cliente de correo.
-            title={`Vista previa del correo: ${elegido?.etiqueta ?? tipo}`}
-            srcDoc={html}
-            sandbox=""
-            className="h-[38rem] w-full rounded-xl border border-border bg-white"
-          />
+          <div className="flex justify-center rounded-xl bg-muted/30 p-3 sm:p-6 transition-all duration-300 overflow-hidden">
+            {dispositivo === 'desktop' ? (
+              <div className="w-[600px] max-w-full rounded-xl border border-border bg-card shadow-md overflow-hidden transition-all duration-300">
+                <iframe
+                  title={`Vista previa del correo: ${elegido?.etiqueta ?? tipo}`}
+                  srcDoc={html}
+                  sandbox=""
+                  className="h-[38rem] w-full bg-white"
+                />
+              </div>
+            ) : (
+              <div className="w-[375px] max-w-full rounded-[32px] border-[6px] border-border/80 bg-card shadow-2xl overflow-hidden transition-all duration-300 flex flex-col">
+                <div className="flex h-6 w-full items-center justify-center bg-muted/60 relative border-b border-border/50">
+                  <div className="h-3 w-24 rounded-full bg-foreground/20" />
+                </div>
+                <iframe
+                  title={`Vista previa móvil del correo: ${elegido?.etiqueta ?? tipo}`}
+                  srcDoc={html}
+                  sandbox=""
+                  className="h-[38rem] w-full bg-white flex-1"
+                />
+                <div className="flex h-4 w-full items-center justify-center bg-muted/60 border-t border-border/50">
+                  <div className="h-1 w-28 rounded-full bg-foreground/20" />
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           !error && (
             <div className="flex h-96 items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
               {T.eligeUnCorreo}
             </div>
           )
+        )}
+
+        {modalPruebaAbierto && (
+          <ModalEnvioPrueba
+            abierto={modalPruebaAbierto}
+            onCerrar={() => setModalPruebaAbierto(false)}
+            asunto={`[Prueba] ${elegido?.etiqueta ?? 'Correo del Sistema'}`}
+            cuerpo={html}
+            programaId={programaId || null}
+          />
         )}
       </CardContent>
     </Card>
