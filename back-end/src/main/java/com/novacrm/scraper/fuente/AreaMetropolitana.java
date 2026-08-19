@@ -63,23 +63,57 @@ public final class AreaMetropolitana {
     /** Señales inequívocas de que la oferta es remota / teletrabajo. */
     private static final Set<String> SENALES_REMOTO = Set.of(
             "remoto", "remote", "teletrabajo", "home office", "work from home",
-            "virtual", "desde casa", "trabajo en casa", "100% remoto", "worldwide",
+            "100% remoto", "totalmente remoto", "trabajo remoto", "worldwide",
             "anywhere", "global", "latam");
 
     /**
-     * Principales ciudades y áreas metropolitanas fuera del Atlántico.
-     * Si una oferta está en una de estas ciudades y NO es remota, se excluye.
+     * Todos los departamentos y municipios fuera del Atlántico (normalizados).
+     * Si una oferta está ubicada en una de estas zonas y NO es 100% remota, se excluye.
      */
-    private static final Set<String> OTRAS_CIUDADES = Set.of(
-            "bogota", "medellin", "cali", "bucaramanga", "cartagena",
-            "santa marta", "pereira", "manizales", "cucuta", "ibague",
-            "villavicencio", "pasto", "monteria", "valledupar", "neiva",
-            "armenia", "popayan", "sincelejo", "tunja", "riohacha",
-            "florencia", "yopal", "quibdo", "arauca", "mocoa",
-            "san andres", "leticia", "soacha", "bello", "itagui",
-            "envigado", "palmira", "floridablanca", "dosquebradas",
-            "chia", "facatativa", "zipaquira", "madrid", "funza",
-            "mosquera", "girardot", "fusagasuga", "tulua", "cartago");
+    private static final Set<String> OTRAS_CIUDADES_Y_REGIONES = Set.of(
+            // Risaralda / Eje Cafetero
+            "risaralda", "pereira", "dosquebradas", "santa rosa de cabal",
+            "caldas", "manizales", "villamaria", "chinchina", "la dorada",
+            "quindio", "armenia", "calarca", "montenegro", "quimbaya", "la tebaida",
+            // Cundinamarca / Bogotá
+            "cundinamarca", "bogota", "soacha", "chia", "zipaquira",
+            "madrid", "funza", "mosquera", "facatativa", "girardot", "fusagasuga",
+            "cajica", "tocancipa", "sopo", "cota", "sibate", "tabio", "tenjo", "la calera",
+            // Antioquia
+            "antioquia", "medellin", "bello", "itagui", "envigado",
+            "rionegro", "sabaneta", "copacabana", "la estrella", "apartado",
+            "turbo", "caucasia", "guatape",
+            // Valle del Cauca
+            "valle del cauca", "valle", "cali", "palmira", "buenaventura", "tulua",
+            "cartago", "yumbo", "jamundi", "buga",
+            // Santanderes
+            "santander", "bucaramanga", "floridablanca", "giron", "piedecuesta",
+            "barrancabermeja", "san gil",
+            "norte de santander", "cucuta", "ocana", "villa del rosario", "los patios", "pamplona",
+            // Tolima / Huila
+            "tolima", "ibague", "espinal", "melgar", "chaparral", "mariquita", "honda",
+            "huila", "neiva", "pitalito", "garzon", "la plata",
+            // Meta / Llanos
+            "meta", "villavicencio", "acacias", "granada", "puerto lopez",
+            "casanare", "yopal", "aguazul", "arauca", "guaviare", "san jose del guaviare",
+            "guainia", "inirida", "vaupes", "mitu", "vichada", "puerto carreno",
+            // Nariño / Cauca / Putumayo / Caquetá
+            "narino", "pasto", "tumaco", "ipiales",
+            "cauca", "popayan", "santander de quilichao", "puerto tejada",
+            "putumayo", "mocoa", "puerto asis",
+            "caqueta", "florencia",
+            // Costa Caribe (no Atlántico)
+            "bolivar", "cartagena", "magangue", "turbaco", "arjona", "carmen de bolivar",
+            "magdalena", "santa marta", "cienaga", "fundacion", "plato",
+            "cesar", "valledupar", "aguachica", "agustin codazzi",
+            "cordoba", "monteria", "cerete", "lorica", "sahagun", "montelibano",
+            "sucre", "sincelejo", "corozal", "san marcos",
+            "la guajira", "guajira", "riohacha", "maicao", "uribia", "san juan del cesar",
+            "san andres", "providencia",
+            // Boyacá / Chocó / Amazonas
+            "boyaca", "tunja", "sogamoso", "duitama", "chiquinquira", "paipa",
+            "choco", "quibdo",
+            "amazonas", "leticia");
 
     private AreaMetropolitana() {
     }
@@ -109,13 +143,12 @@ public final class AreaMetropolitana {
      * 1. Es REMOTA (cualquier ciudad o país de origen, si la modalidad es remota/teletrabajo).
      * 2. O está ubicada físicamente en el Atlántico / Barranquilla.
      *
-     * Si está ubicada en Bogotá u otra ciudad fuera del Atlántico y es presencial, se descarta.
+     * Si está ubicada en Risaralda, Bogotá, Medellín u otra ciudad fuera del Atlántico y es presencial, se descarta.
      */
     public static boolean esAtlanticoORemota(com.novacrm.vacante.Vacante vacante) {
         if (vacante == null) {
             return false;
         }
-        // Lo que viene de bolsas de empleo 100% remotas es válido por definición
         if (vacante.getSegmento() == Segmento.REMOTO_INGLES) {
             return true;
         }
@@ -126,13 +159,13 @@ public final class AreaMetropolitana {
         String titulo = normalizar(vacante.getTitulo());
         String descripcion = normalizar(vacante.getDescripcion());
         String requisitos = normalizar(vacante.getRequisitos());
+        String url = normalizar(vacante.getUrlOrigen());
 
-        String textoCompleto = String.join(" ", modalidad, ubicacion, ciudad, titulo, descripcion, requisitos);
+        String textoCompleto = String.join(" ", modalidad, ubicacion, ciudad, titulo, descripcion, requisitos, url);
 
-        // 1. ¿Es remota?
-        boolean esRemoto = SENALES_REMOTO.stream().anyMatch(s -> textoCompleto.contains(s) || modalidad.contains(s));
-        if (esRemoto) {
-            // Asegurar que modalidadTrabajo refleje que es remota si no estaba definida
+        // 1. ¿Es remota comprobada?
+        boolean esRemoto = SENALES_REMOTO.stream().anyMatch(s -> modalidad.contains(s) || titulo.contains(s) || descripcion.contains(s));
+        if (esRemoto && !"presencial".equalsIgnoreCase(modalidad)) {
             if (vacante.getModalidadTrabajo() == null || vacante.getModalidadTrabajo().isBlank()
                     || "Presencial".equalsIgnoreCase(vacante.getModalidadTrabajo())) {
                 vacante.setModalidadTrabajo("Remoto");
@@ -141,20 +174,18 @@ public final class AreaMetropolitana {
         }
 
         // 2. ¿Es en el Atlántico?
-        boolean esEnAtlantico = MUNICIPIOS.stream().anyMatch(m -> ciudad.contains(m) || ubicacion.contains(m))
-                || REGIONES.stream().anyMatch(r -> ciudad.contains(r) || ubicacion.contains(r));
-        if (esEnAtlantico) {
-            return true;
-        }
+        boolean esEnAtlantico = MUNICIPIOS.stream().anyMatch(m -> ciudad.contains(m) || ubicacion.contains(m) || url.contains(m))
+                || REGIONES.stream().anyMatch(r -> ciudad.contains(r) || ubicacion.contains(r) || url.contains(r));
 
-        // 3. ¿Es explícitamente en otra ciudad (ej: Bogotá, Medellín) y NO es remota?
-        boolean esOtraCiudad = OTRAS_CIUDADES.stream().anyMatch(oc -> ciudad.contains(oc) || ubicacion.contains(oc));
-        if (esOtraCiudad) {
+        // 3. ¿Es explícitamente en otra ciudad/departamento fuera del Atlántico?
+        boolean esOtraCiudad = OTRAS_CIUDADES_Y_REGIONES.stream().anyMatch(oc ->
+                ciudad.contains(oc) || ubicacion.contains(oc) || url.contains("-" + oc + "-") || url.contains("/" + oc + "/") || titulo.contains("en " + oc));
+
+        if (esOtraCiudad && !esEnAtlantico) {
             return false;
         }
 
-        // 4. Si no especifica ciudad o viene vacía, y no dice ser de otra ciudad
-        return true;
+        return esEnAtlantico;
     }
 
     public static boolean esRemoto(String texto) {

@@ -1,26 +1,15 @@
 package com.novacrm.config;
 
 import com.novacrm.admin.AdminService;
+import com.novacrm.configuracion.ConfiguracionService;
+import com.novacrm.postulacion.PostulacionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * La purga automatica de la papelera, los domingos de madrugada.
- *
- * <p>No borra por su cuenta: llama a la misma purga que el boton de la pantalla
- * de administracion. Antes tenia su propia copia, y la copia se quedo atras en
- * las dos cosas que importan.
- *
- * <p>Los dias de retencion los estaba clavando en 30 mientras la pantalla
- * ofrecia un campo para cambiarlos y la purga manual ya lo respetaba. Subirlos
- * a 90 no salvaba ninguna ficha, porque quien borra de verdad es esto —nadie
- * purga a mano un domingo a las tres de la manana— y esto seguia contando 30.
- *
- * <p>Y no dejaba rastro. La purga manual se anota en auditoria; la automatica,
- * que es la que se lleva las fichas, no aparecia en ningun sitio. Si un dia
- * faltan personas, hace falta poder decir cuando se fueron y por que.
+ * La purga automatica de la papelera y postulaciones inactivas, los domingos de madrugada.
  */
 @Component
 public class PurgeScheduler {
@@ -28,9 +17,15 @@ public class PurgeScheduler {
     private static final Logger log = LoggerFactory.getLogger(PurgeScheduler.class);
 
     private final AdminService adminService;
+    private final PostulacionService postulacionService;
+    private final ConfiguracionService configuracionService;
 
-    public PurgeScheduler(AdminService adminService) {
+    public PurgeScheduler(AdminService adminService,
+                          PostulacionService postulacionService,
+                          ConfiguracionService configuracionService) {
         this.adminService = adminService;
+        this.postulacionService = postulacionService;
+        this.configuracionService = configuracionService;
     }
 
     @Scheduled(cron = "0 0 3 * * SUN")
@@ -38,8 +33,19 @@ public class PurgeScheduler {
         int eliminados = adminService.purgarPapelera();
         if (eliminados == 0) {
             log.info("Purga semanal: no hay estudiantes en papelera para eliminar");
-            return;
+        } else {
+            log.info("Purga semanal: {} estudiantes eliminados fisicamente", eliminados);
         }
-        log.info("Purga semanal: {} estudiantes eliminados fisicamente", eliminados);
+
+        int diasRetencion = configuracionService.diasRetencionPapelera();
+        int postulacionesPurgadas = postulacionService.purgarPostulacionesInactivas(diasRetencion);
+        if (postulacionesPurgadas > 0) {
+            log.info("Purga semanal: {} postulaciones terminales e inactivas eliminadas", postulacionesPurgadas);
+        }
+
+        int invalidasLimpiadas = postulacionService.limpiarPostulacionesDeVacantesInvalidas();
+        if (invalidasLimpiadas > 0) {
+            log.info("Purga semanal: {} postulaciones de vacantes fuera de zona eliminadas", invalidasLimpiadas);
+        }
     }
 }

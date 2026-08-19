@@ -287,6 +287,38 @@ public class PostulacionService {
         postulacionRepository.delete(postulacion);
     }
 
+    /**
+     * Purga postulaciones en estados terminales (RECHAZADO, DESISTIDO) que superen
+     * el tiempo límite de retención en días.
+     */
+    @Transactional
+    public int purgarPostulacionesInactivas(int diasLimite) {
+        var fechaCorte = LocalDate.now().minusDays(Math.max(diasLimite, 1));
+        var inactivas = postulacionRepository.findAll().stream()
+                .filter(p -> p.getEstado().esFinal() && p.getFechaPostulacion() != null && p.getFechaPostulacion().isBefore(fechaCorte))
+                .toList();
+        if (inactivas.isEmpty()) return 0;
+        postulacionRepository.deleteAll(inactivas);
+        log.info("Purga de postulaciones: {} registros terminales anteriores a {} eliminados", inactivas.size(), fechaCorte);
+        return inactivas.size();
+    }
+
+    /**
+     * Limpia postulaciones asociadas a vacantes que hayan sido cerradas o descartadas por estar
+     * fuera de la zona del Atlántico o no ser válidas.
+     */
+    @Transactional
+    public int limpiarPostulacionesDeVacantesInvalidas() {
+        var invalidas = postulacionRepository.findAll().stream()
+                .filter(p -> p.getVacante() != null && (!p.getVacante().isActivo()
+                        || !com.novacrm.scraper.fuente.AreaMetropolitana.esAtlanticoORemota(p.getVacante())))
+                .toList();
+        if (invalidas.isEmpty()) return 0;
+        postulacionRepository.deleteAll(invalidas);
+        log.info("Limpieza de postulaciones: {} registros de vacantes fuera de zona o inactivas eliminados", invalidas.size());
+        return invalidas.size();
+    }
+
     // ── Consulta ────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
