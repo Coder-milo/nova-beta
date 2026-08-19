@@ -215,7 +215,7 @@ public class ComputrabajoScraper implements FuenteDeVacantes {
         }
 
         // B. Buscar en elementos de texto de la tarjeta
-        Element locElem = card.selectFirst("p.fs13.fc_base, span[class*='location'], p[class*='location']");
+        Element locElem = card.selectFirst("p.fs16 span.mr10, p.fs13.fc_base, span.mr10:not(.fwB), span[class*='location'], p[class*='location']");
         if (locElem != null) {
             String text = locElem.text().trim();
             if (!text.isBlank() && !text.matches("^[0-9.,\\s]+$") && !text.toLowerCase().contains("hace ")) {

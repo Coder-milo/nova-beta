@@ -152,6 +152,11 @@ app:
       enabled: ${SCRAPING_ELEMPLEO_ENABLED:true}
     computrabajo:
       enabled: ${SCRAPING_COMPUTRABAJO_ENABLED:true}
+    linkedin:
+      enabled: ${SCRAPING_LINKEDIN_ENABLED:true}
+    jooble:
+      enabled: ${SCRAPING_JOOBLE_ENABLED:true}
+      api-key: ${JOOBLE_API_KEY:}
     magneto:
       # Desactivado por defecto y a proposito: magneto365.com es un SPA
       # renderizado por JS (Next.js RSC) — el HTML no trae las vacantes y la
