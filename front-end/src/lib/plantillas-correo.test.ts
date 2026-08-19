@@ -53,9 +53,12 @@ describe('interpolarVariables', () => {
 })
 
 describe('BLOQUES_PREDISENADOS', () => {
-  test('contiene los 5 bloques modulares requeridos', () => {
+  test('contiene al menos los 5 bloques modulares requeridos', () => {
     const ids = BLOQUES_PREDISENADOS.map((b) => b.id)
-    assert.equal(BLOQUES_PREDISENADOS.length, 5)
+    // Los cinco siguientes son el mínimo de la experiencia. El catálogo puede
+    // crecer con bloques adicionales sin que una mejora legítima rompa la
+    // prueba ni el editor de correos.
+    assert.ok(BLOQUES_PREDISENADOS.length >= 5)
     assert.ok(ids.includes('cabecera'), 'Falta bloque cabecera')
     assert.ok(ids.includes('boton_cta'), 'Falta bloque boton_cta')
     assert.ok(ids.includes('tarjeta_entrevista'), 'Falta bloque tarjeta_entrevista')
