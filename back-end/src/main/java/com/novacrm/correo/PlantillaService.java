@@ -199,8 +199,6 @@ public class PlantillaService {
             estudiantes = estudianteRepository.findAllById(peticion.estudianteIds());
         } else if (peticion.programaId() != null) {
             estudiantes = estudianteRepository.findAllByProgramaIdAndActivoTrue(peticion.programaId());
-        } else if (peticion.cohorte() != null && !peticion.cohorte().isBlank()) {
-            estudiantes = estudianteRepository.findByCohorteAndActivoTrue(peticion.cohorte().trim());
         } else {
             estudiantes = estudianteRepository.findAllByActivoTrue();
         }

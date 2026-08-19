@@ -22,10 +22,7 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     @EntityGraph(attributePaths = "programa")
     List<Estudiante> findAllByProgramaIdAndActivoTrue(UUID programaId);
 
-    List<Estudiante> findByCohorteAndActivoTrue(String cohorte);
 
-    @Query("SELECT DISTINCT e.cohorte FROM Estudiante e WHERE e.cohorte IS NOT NULL AND e.activo = true ORDER BY e.cohorte DESC")
-    List<String> findDistinctCohortes();
 
     // Aqui vivia findByEmail, con igualdad exacta, y se colo en tres sitios: el
     // historial del estudiante, sus plataformas y el conteo previo de la
