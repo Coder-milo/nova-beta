@@ -101,7 +101,14 @@ public class EmpresaService {
             empresa.setNombre(nombreNuevo);
         }
         aplicar(empresa, datos);
-        return aResponse(empresaRepository.save(empresa));
+        var guardada = empresaRepository.save(empresa);
+        if (guardada.getEstadoRelacion() == EstadoRelacion.DESCARTADA) {
+            var vacantes = vacanteRepository.findByEmpresaIdAndActivoTrue(guardada.getId());
+            var ahora = java.time.LocalDateTime.now();
+            vacantes.forEach(v -> v.cerrar(com.novacrm.vacante.MotivoCierre.RETIRADA, ahora));
+            vacanteRepository.saveAll(vacantes);
+        }
+        return aResponse(guardada);
     }
 
     @Transactional
@@ -164,7 +171,14 @@ public class EmpresaService {
             apunte.setNotas(nota.trim());
             contactoEmpresaRepository.save(apunte);
         }
-        return aResponse(empresaRepository.save(empresa));
+        var guardada = empresaRepository.save(empresa);
+        if (guardada.getEstadoRelacion() == EstadoRelacion.DESCARTADA) {
+            var vacantes = vacanteRepository.findByEmpresaIdAndActivoTrue(guardada.getId());
+            var ahora = java.time.LocalDateTime.now();
+            vacantes.forEach(v -> v.cerrar(com.novacrm.vacante.MotivoCierre.RETIRADA, ahora));
+            vacanteRepository.saveAll(vacantes);
+        }
+        return aResponse(guardada);
     }
 
     /** El historial de acercamientos, lo más reciente primero. */

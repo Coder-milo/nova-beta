@@ -54,6 +54,15 @@ public class RegistroDeVacante {
         if ((empresaNom == null || empresaNom.isBlank()) && vacante.getEmpresa() != null) {
             empresaNom = vacante.getEmpresa().getNombre();
         }
+
+        // Si la empresa fue descartada/bloqueada para el programa, se ignora la vacante del scraper.
+        if (empresaNom != null && !empresaNom.isBlank()) {
+            var empresaExistente = empresaRepository.findByNombreIgnoreCaseActiva(empresaNom.trim());
+            if (empresaExistente.isPresent() && !empresaExistente.get().getEstadoRelacion().estaViva()) {
+                return Optional.empty();
+            }
+        }
+
         if (vacante.getHashContenido() == null) {
             vacante.setHashContenido(hashContenido(vacante.getTitulo(), empresaNom));
         }

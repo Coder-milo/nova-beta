@@ -16,6 +16,7 @@ import { VistasGuardadas } from '@/components/admin/vistas-guardadas'
 import { FichasDuplicadas } from '@/components/admin/fichas-duplicadas'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { useConfirmar } from '@/components/ui/confirmar'
 import { HiloDeContactos } from '@/components/admin/hilo-de-contactos'
 import { CuentasDelPortal } from '@/components/admin/cuentas-del-portal'
 import { Textarea } from '@/components/ui/textarea'
@@ -200,6 +201,7 @@ export default function EmpresasPage() {
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
+  const { confirmar, dialogo } = useConfirmar()
   const [catalogoEstados, setCatalogoEstados] = useState<OpcionCatalogo[]>([])
   const [datos, setDatos] = useState<Page<EmpresaResponse> | null>(null)
   const [sectores, setSectores] = useState<string[]>([])
@@ -265,6 +267,24 @@ export default function EmpresasPage() {
 
   const guardar = async (event: React.SyntheticEvent) => {
     event.preventDefault()
+    if (form.estadoRelacion === 'DESCARTADA' && seleccionada?.estadoRelacion !== 'DESCARTADA') {
+      const ok = await confirmar({
+        titulo: '¿Descartar empresa y excluir del scraping?',
+        descripcion: `Al marcar a «${form.nombre || seleccionada?.nombre}» como Descartada, sus vacantes abiertas se cerrarán y el scraper ignorará todas las ofertas futuras publicadas por esta empresa. ¿Deseas continuar?`,
+        textoConfirmar: 'Descartar y bloquear',
+        destructivo: true,
+      })
+      if (!ok) return
+    } else if (seleccionada?.estadoRelacion === 'DESCARTADA' && form.estadoRelacion !== 'DESCARTADA') {
+      const ok = await confirmar({
+        titulo: '¿Reactivar empresa para scraping?',
+        descripcion: `«${form.nombre || seleccionada?.nombre}» volverá a considerarse activa. El scraper volverá a recopilar sus ofertas en las próximas sincronizaciones. ¿Confirmar?`,
+        textoConfirmar: 'Reactivar empresa',
+        destructivo: false,
+      })
+      if (!ok) return
+    }
+
     setGuardando(true); setError('')
     try {
       if (seleccionada) await empresasApi.actualizar(seleccionada.id, form)
@@ -278,6 +298,24 @@ export default function EmpresasPage() {
   const registrarContacto = async (event: React.SyntheticEvent) => {
     event.preventDefault()
     if (!seleccionada) return
+    if (estadoContacto === 'DESCARTADA' && seleccionada.estadoRelacion !== 'DESCARTADA') {
+      const ok = await confirmar({
+        titulo: '¿Descartar empresa y excluir del scraping?',
+        descripcion: `Al mover a «${seleccionada.nombre}» a Descartada, sus vacantes abiertas se cerrarán y el scraper ignorará sus ofertas futuras. ¿Deseas continuar?`,
+        textoConfirmar: 'Descartar y bloquear',
+        destructivo: true,
+      })
+      if (!ok) return
+    } else if (seleccionada.estadoRelacion === 'DESCARTADA' && estadoContacto !== 'DESCARTADA') {
+      const ok = await confirmar({
+        titulo: '¿Reactivar empresa para scraping?',
+        descripcion: `«${seleccionada.nombre}» volverá a considerarse activa y se reanudará la búsqueda de sus ofertas en el scraping. ¿Confirmar?`,
+        textoConfirmar: 'Reactivar empresa',
+        destructivo: false,
+      })
+      if (!ok) return
+    }
+
     setRegistrandoContacto(true); setError('')
     try {
       const actualizada = await empresasApi.registrarContacto(seleccionada.id, {
@@ -415,5 +453,6 @@ export default function EmpresasPage() {
     {datos && datos.totalPages > 1 && <div className="flex items-center justify-between text-sm text-muted-foreground"><span>Página {datos.number + 1} de {datos.totalPages} · {datos.totalElements} empresas</span><div className="flex gap-2"><Button variant="outline" size="icon" disabled={pagina === 0} onClick={() => void cargar(pagina - 1)}><CaretLeft /></Button><Button variant="outline" size="icon" disabled={pagina >= datos.totalPages - 1} onClick={() => void cargar(pagina + 1)}><CaretRight /></Button></div></div>}
 
     <Sheet open={editando || !!seleccionada} onOpenChange={cerrarDrawer}><SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-2xl"><SheetHeader className="shrink-0 border-b border-border p-6"><SheetTitle>{seleccionada ? seleccionada.nombre : T.nuevaEmpresa}</SheetTitle><SheetDescription>{seleccionada ? T.actualizaLaFicha : T.creaUnaFicha}</SheetDescription></SheetHeader><div className="flex-1 overflow-y-auto"><form onSubmit={guardar} className="space-y-6 p-6"><section className="space-y-3"><h3 className="text-sm font-semibold">{T.informacionDeLa}</h3><div className="grid gap-3 sm:grid-cols-2"><label className="sm:col-span-2"><span className="mb-1.5 block text-xs font-medium">{C.nombreObligatorio}</span><Input required value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder={T.nombreComercial} /></label><label><span className="mb-1.5 block text-xs font-medium">{T.sector}</span><Input value={form.sector ?? ''} onChange={(e) => setForm({ ...form, sector: e.target.value })} placeholder={T.bpoTurismoTecnologia} /></label><label><span className="mb-1.5 block text-xs font-medium">{C.ciudad}</span><Input value={form.ciudad ?? ''} onChange={(e) => setForm({ ...form, ciudad: e.target.value })} placeholder="Cartagena" /></label><label><span className="mb-1.5 block text-xs font-medium">{T.correoCorporativo}</span><Input type="email" value={form.email ?? ''} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label><label><span className="mb-1.5 block text-xs font-medium">{C.telefono}</span><Input value={form.telefono ?? ''} onChange={(e) => setForm({ ...form, telefono: e.target.value })} maxLength={50} /></label><label className="sm:col-span-2"><span className="mb-1.5 block text-xs font-medium">{T.sitioWeb}</span><Input value={form.sitioWeb ?? ''} onChange={(e) => setForm({ ...form, sitioWeb: e.target.value })} placeholder="https://…" /></label></div></section><section className="space-y-3 border-t border-border pt-5"><h3 className="text-sm font-semibold">{T.contactoYOportunidad}</h3><div className="grid gap-3 sm:grid-cols-2"><label><span className="mb-1.5 block text-xs font-medium">{T.contactoPrincipal}</span><Input value={form.contactoNombre ?? ''} onChange={(e) => setForm({ ...form, contactoNombre: e.target.value })} /></label><label><span className="mb-1.5 block text-xs font-medium">{T.correoDelContacto}</span><Input type="email" value={form.contactoEmail ?? ''} onChange={(e) => setForm({ ...form, contactoEmail: e.target.value })} /></label><label><span className="mb-1.5 block text-xs font-medium">{T.canalDeContacto}</span><Input value={form.contactoCanal ?? ''} onChange={(e) => setForm({ ...form, contactoCanal: e.target.value })} placeholder={T.correoLinkedinLlamada} /></label><label><span className="mb-1.5 block text-xs font-medium">{T.estadoDeRelacion}</span><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.estadoRelacion ?? 'SIN_CONTACTAR'} onChange={(e) => setForm({ ...form, estadoRelacion: e.target.value as EstadoRelacionEmpresa })}>{catalogoEstados.map((item) => <option key={item.valor} value={item.valor}>{etiquetaDeEstado(T, item.valor, item.etiqueta)}</option>)}</select></label><label className="sm:col-span-2"><span className="mb-1.5 block text-xs font-medium">{T.cargosQueSuele}</span><Input value={form.cargosTipicos ?? ''} onChange={(e) => setForm({ ...form, cargosTipicos: e.target.value })} placeholder={T.agenteBilingueAsesor} /></label><label className="sm:col-span-2"><span className="mb-1.5 block text-xs font-medium">{T.proximoPaso}</span><Input value={form.proximoPaso ?? ''} onChange={(e) => setForm({ ...form, proximoPaso: e.target.value })} placeholder={T.enviarPerfilesConfirmar} /></label></div></section><div className="flex justify-end gap-2 border-t border-border pt-5"><Button type="button" variant="outline" onClick={() => cerrarDrawer(false)}>{C.cancelar}</Button><Button type="submit" disabled={guardando}>{guardando && <CircleNotch className="size-4 animate-spin" />}{guardando ? C.guardando : T.guardarFicha}</Button></div></form>{seleccionada && <section className="border-t border-border bg-muted/20 p-6"><div className="mb-4"><h3 className="flex items-center gap-2 text-sm font-semibold"><CheckCircle className="size-4 text-primary" />{T.registrarAcercamiento}</h3><p className="mt-1 text-xs text-muted-foreground">{T.elEstadoLa}</p></div><form className="space-y-3" onSubmit={registrarContacto}><div className="grid gap-3 sm:grid-cols-2"><label><span className="mb-1.5 block text-xs font-medium">{T.nuevoEstado}</span><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={estadoContacto} onChange={(e) => setEstadoContacto(e.target.value as EstadoRelacionEmpresa)}>{catalogoEstados.map((item) => <option key={item.valor} value={item.valor}>{etiquetaDeEstado(T, item.valor, item.etiqueta)}</option>)}</select></label><label><span className="mb-1.5 block text-xs font-medium">{T.proximoPaso}</span><Input value={paso} onChange={(e) => setPaso(e.target.value)} placeholder={T.ejEnviarDos} /></label></div><label><span className="mb-1.5 block text-xs font-medium">{T.notaDelAcercamiento}</span><Textarea className="w-full rounded-md border border-input bg-background p-3 text-sm" value={nota} onChange={(e) => setNota(e.target.value)} placeholder={T.queOcurrioEn} /></label><Button type="submit" variant="outline" disabled={registrandoContacto}>{registrandoContacto && <CircleNotch className="size-4 animate-spin" />}{T.guardarAcercamiento}</Button></form><HiloDeContactos empresaId={seleccionada.id} notasGenerales={seleccionada.notas} recargar={hiloVersion} /><CuentasDelPortal empresaId={seleccionada.id} /></section>}</div></SheetContent></Sheet>
+    {dialogo}
   </div>
 }
