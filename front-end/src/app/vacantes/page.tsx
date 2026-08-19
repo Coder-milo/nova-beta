@@ -541,7 +541,6 @@ export default function VacantesPage() {
     'ELEMPLEO',
     'JSEARCH',
     'SMARTRECRUITERS',
-    'JOOBLE',
     'REMOTIVE',
     'ARBEITNOW',
     'MANUAL',

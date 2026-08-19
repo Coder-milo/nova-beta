@@ -32,5 +32,3 @@ app:
       enabled: false
     computrabajo:
       enabled: false
-    magneto:
-      enabled: false

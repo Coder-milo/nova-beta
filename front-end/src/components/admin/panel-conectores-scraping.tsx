@@ -425,18 +425,6 @@ export function PanelConectoresScraping({ onActualizacionTerminada }: PanelConec
                         <span className="line-clamp-2">{c.ultimoError}</span>
                       </div>
                     )}
-
-                    {/* Notas contextuales para portales que requieren configuración o son SPA */}
-                    {c.nombre === 'JOOBLE' && (c.estado === 'ESPERA_CONFIGURACION' || c.estado === 'DESACTIVADO') && (
-                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 text-[11px] text-amber-700 dark:text-amber-400">
-                        Requiere variable de entorno <code className="font-mono font-semibold">JOOBLE_API_KEY</code> (gratuita en jooble.org/api).
-                      </div>
-                    )}
-                    {c.nombre === 'MAGNETO' && c.estado === 'DESACTIVADO' && (
-                      <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-2 text-[11px] text-blue-700 dark:text-blue-400">
-                        Portal renderizado por JS (Next.js SPA). Sus vacantes se extraen automáticamente a través del agregador JSearch.
-                      </div>
-                    )}
                   </div>
 
                   {/* Acciones del Conector */}
