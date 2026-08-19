@@ -114,15 +114,13 @@ public class MatchingService {
                 e.getNivelEducativo());
         var competenciasEstudiante = skillSynonyms.tokenize(e.getCompetencias());
 
-        Set<UUID> vacantesYaEmparejadas = matchRepository.findByEstudianteIdOrderByPuntajeDesc(estudianteId, PageRequest.of(0, 1000))
+        Map<UUID, Match> matchesExistentesPorVacante = matchRepository.findByEstudianteIdOrderByPuntajeDesc(estudianteId, PageRequest.of(0, 1000))
                 .getContent().stream()
-                .map(m -> m.getVacante().getId())
-                .collect(Collectors.toSet());
+                .collect(Collectors.toMap(m -> m.getVacante().getId(), m -> m, (m1, m2) -> m1));
 
         int creados = 0;
         for (VacanteTokenizada candidata : pool) {
             var v = candidata.vacante();
-            if (vacantesYaEmparejadas.contains(v.getId())) continue;
             if (!ElegibilidadPorSegmento.esElegible(e, v)) continue;
             var desglose = calcularPuntaje(e, v,
                     terminosEstudiante, candidata.terminos(),
@@ -130,15 +128,22 @@ public class MatchingService {
                     pesos);
             if (!superaElCorte(desglose, umbral)) continue;
 
-            var match = new Match();
-            match.setEstudiante(e);
-            match.setVacante(v);
-            match.aplicarDesglose(desglose, versionDeConfig);
-            try {
+            Match match = matchesExistentesPorVacante.get(v.getId());
+            if (match == null) {
+                match = new Match();
+                match.setEstudiante(e);
+                match.setVacante(v);
+                match.aplicarDesglose(desglose, versionDeConfig);
+                try {
+                    matchRepository.save(match);
+                    creados++;
+                } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+                    // Ignore concurrent unique constraint
+                }
+            } else if (!match.isPostulado() && !match.isDescartado()) {
+                match.aplicarDesglose(desglose, versionDeConfig);
                 matchRepository.save(match);
                 creados++;
-            } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-                // Ignore concurrent unique constraint
             }
         }
         return creados;

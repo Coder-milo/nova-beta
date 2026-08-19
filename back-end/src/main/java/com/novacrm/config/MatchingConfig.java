@@ -27,7 +27,7 @@ public class MatchingConfig {
      * mismo que uno calculado sobre los cinco, y volveriamos a recomendar
      * vacantes de las que apenas se sabe nada.
      */
-    private double coberturaMinima = 0.5;
+    private double coberturaMinima = 0.35;
 
     @PostConstruct
     public void init() {
