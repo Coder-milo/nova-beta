@@ -782,6 +782,10 @@ export const matchesApi = {
     apiFetch<number>(`/api/v1/matches/pendientes?estudianteId=${estudianteId}`, { token }),
   marcarPostulado: (matchId: string, token?: string) =>
     apiFetch<void>(`/api/v1/matches/${matchId}/postular`, { method: 'PATCH', token }),
+  cancelarPostulacion: (matchId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/matches/${matchId}/cancelar-postulacion`, { method: 'PATCH', token }),
+  descartar: (matchId: string, token?: string) =>
+    apiFetch<void>(`/api/v1/matches/${matchId}`, { method: 'DELETE', token }),
   ejecutarMatching: (token?: string) =>
     apiFetch<{ matchesCreados: number }>('/api/v1/matches/ejecutar', { method: 'POST', token }),
 }

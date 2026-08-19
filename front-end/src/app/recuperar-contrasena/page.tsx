@@ -15,6 +15,7 @@ import Link from '@/compat/next-link'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MedidorSeguridadContrasena } from '@/components/ui/medidor-seguridad-contrasena'
 import { authApi, ApiCallError } from '@/lib/api'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
@@ -181,6 +182,7 @@ function FormularioNuevaContrasena({ token }: { token: string }) {
             {showPass ? <EyeSlash className="size-4" /> : <Eye className="size-4" />}
           </button>
         </div>
+        <MedidorSeguridadContrasena value={password} />
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="rec-confirmar" className="text-sm font-medium text-foreground">{T.confirmarContrasena}</label>

@@ -228,6 +228,34 @@ public class MatchingService {
         }
     }
 
+    /**
+     * Revierte una postulación realizada por error o desistida por el estudiante.
+     * Marca el match como no postulado y retira la postulación en estado ENVIADA.
+     */
+    @Transactional
+    public void cancelarPostulacion(UUID matchId, String autor) {
+        var match = matchRepository.findById(matchId)
+                .orElseThrow(() -> new com.novacrm.exception.ResourceNotFoundException("Match no encontrado: " + matchId));
+        if (!match.isPostulado()) {
+            return;
+        }
+        match.setPostulado(false);
+        matchRepository.save(match);
+
+        var estudianteId = match.getEstudiante().getId();
+        var vacanteId = match.getVacante().getId();
+        postulacionRepository.findByEstudianteIdAndVacanteId(estudianteId, vacanteId)
+                .ifPresent(p -> {
+                    if (p.getEstado() == com.novacrm.postulacion.EstadoPostulacion.ENVIADA
+                            && p.getFechaHoraEntrevista() == null) {
+                        postulacionRepository.delete(p);
+                    } else {
+                        p.moverA(com.novacrm.postulacion.EstadoPostulacion.RECHAZADO, java.time.LocalDate.now());
+                        postulacionRepository.save(p);
+                    }
+                });
+    }
+
     private static String sanitizarUrl(String url) {
         if (url == null || url.isBlank()) {
             return null;
@@ -352,7 +380,7 @@ public class MatchingService {
      * hasta que el equipo la valide.
      */
     private List<VacanteTokenizada> cargarPool() {
-        int maxVacantes = config.getMaxVacantesPorEjecucion();
+        int maxVacantes = Math.max(config.getMaxVacantesPorEjecucion(), 1000);
         List<VacanteTokenizada> pool = new ArrayList<>();
         int page = 0;
 
@@ -361,9 +389,6 @@ public class MatchingService {
                     java.time.LocalDateTime.now(), PageRequest.of(page, 200));
             if (pagina.getContent().isEmpty()) break;
             for (Vacante v : pagina.getContent()) {
-                // El corte se mira sobre el pool ya filtrado: una pagina entera
-                // de ofertas sin revisar no significa que se hayan acabado las
-                // vacantes, y cortar ahi dejaria fuera todas las siguientes.
                 if (!v.isRevisada()) continue;
                 if (pool.size() >= maxVacantes) break;
                 pool.add(new VacanteTokenizada(v,
