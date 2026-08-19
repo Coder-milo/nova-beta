@@ -45,9 +45,34 @@ public final class PlantillaDtos {
     }
 
     /** Una variable, para la ayuda del editor. */
-    public record VariableDisponible(String clave, String marca, String descripcion, String ejemplo) {
+    public record VariableDisponible(String clave, String marca, String descripcion, String ejemplo, String categoria) {
         public static VariableDisponible de(Variables v) {
-            return new VariableDisponible(v.clave(), v.marca(), v.descripcion(), v.ejemplo());
+            return new VariableDisponible(v.clave(), v.marca(), v.descripcion(), v.ejemplo(), v.categoria());
+        }
+    }
+
+    /** Plantilla del sistema con valores predeterminados de fábrica. */
+    public record PlantillaDefecto(
+            String tipo,
+            String nombre,
+            String descripcion,
+            String asunto,
+            String cuerpo,
+            String botonTexto,
+            String botonUrl) {}
+
+    /** Solicitud para enviar un correo de prueba directo. */
+    public record EnviarPruebaRequest(
+            String destinatario,
+            String asunto,
+            String cuerpo,
+            String botonTexto,
+            String botonUrl,
+            UUID programaId,
+            java.util.Map<String, String> variablesSimuladas) {
+
+        public String emailDestino() {
+            return destinatario == null ? "" : destinatario.trim();
         }
     }
 

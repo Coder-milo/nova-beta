@@ -3,6 +3,8 @@ package com.novacrm.correo;
 import com.novacrm.config.MarcaCorreo;
 import com.novacrm.config.PlantillaCorreo;
 
+import java.util.List;
+
 /**
  * Los cuerpos de los correos automáticos, en un solo sitio.
  *
@@ -28,8 +30,18 @@ public final class CorreosDelSistema {
                 "Se envía al crear las cuentas de acceso de los estudiantes."),
         RECUPERACION("Recuperación de contraseña",
                 "Se envía cuando alguien usa «Olvidé mi contraseña» en la pantalla de acceso."),
+        CITA_ENTREVISTA("Cita de entrevista agendada",
+                "Se envía cuando se programa una entrevista con una empresa aliada."),
+        ENTREVISTA("Cita de entrevista agendada",
+                "Se envía cuando se programa una entrevista con una empresa aliada."),
+        ASIGNACION_VACANTE("Asignación a vacante",
+                "Se envía cuando un estudiante es postulado o asignado a una oportunidad laboral."),
+        POSTULACION("Asignación a vacante",
+                "Se envía cuando un estudiante es postulado o asignado a una oportunidad laboral."),
         ANUNCIO("Anuncio del programa",
-                "Se envía al publicar un anuncio dirigido a los estudiantes.");
+                "Se envía al publicar un anuncio dirigido a los estudiantes."),
+        RECORDATORIO_HV("Recordatorio de hoja de vida",
+                "Se envía para recordar a los estudiantes completar o actualizar su hoja de vida.");
 
         private final String etiqueta;
         private final String cuando;
@@ -108,6 +120,75 @@ public final class CorreosDelSistema {
     }
 
     /**
+     * Correo de cita de entrevista laboral agendada.
+     */
+    public static String citaEntrevista(String nombre, String empresa, String cargo,
+                                        String fecha, String modalidad, String lugar,
+                                        String enlace, MarcaCorreo marca) {
+        String cuerpo = """
+                <p style="margin:0 0 14px 0;">
+                  Has sido programado para una entrevista laboral en <strong>%s</strong> para la vacante de <strong>%s</strong>.
+                </p>
+                <table role="presentation" width="100%%" cellpadding="0" cellspacing="0"
+                       style="background-color:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px;margin:16px 0;">
+                  <tr>
+                    <td>
+                      <p style="margin:0 0 8px 0;font-size:14px;color:#1F2A44;"><strong>Fecha y hora:</strong> %s</p>
+                      <p style="margin:0 0 8px 0;font-size:14px;color:#1F2A44;"><strong>Modalidad:</strong> %s</p>
+                      <p style="margin:0;font-size:14px;color:#1F2A44;"><strong>Lugar / Enlace:</strong> %s</p>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 4px 0;">
+                  Por favor confirma tu asistencia y preséntate puntualmente:
+                </p>
+                %s
+                <p style="margin:16px 0 0 0;font-size:14px;color:#6B7280;">
+                  Si tienes algún inconveniente de fuerza mayor, notifícalo a tu coordinador con anticipación.
+                </p>
+                """.formatted(
+                escapar(empresa),
+                escapar(cargo),
+                escapar(fecha),
+                escapar(modalidad),
+                escapar(lugar),
+                enlace != null && !enlace.isBlank()
+                        ? PlantillaCorreo.boton("Ver detalles de la entrevista", enlace, marca.colorPrimario())
+                        : "");
+
+        return PlantillaCorreo.construir("Cita de entrevista agendada", "Hola " + nombre + ",", cuerpo, marca);
+    }
+
+    /**
+     * Correo de asignación o postulación a vacante.
+     */
+    public static String asignacionVacante(String nombre, String empresa, String cargo,
+                                          String programa, String enlace, MarcaCorreo marca) {
+        String cuerpo = """
+                <p style="margin:0 0 14px 0;">
+                  ¡Buenas noticias! Tu perfil ha sido postulado a la vacante de <strong>%s</strong> en <strong>%s</strong> como parte de tu proceso en <strong>%s</strong>.
+                </p>
+                %s
+                <p style="margin:0 0 4px 0;">
+                  Puedes consultar el estado y los requisitos de la vacante en el siguiente enlace:
+                </p>
+                %s
+                <p style="margin:16px 0 0 0;font-size:14px;color:#6B7280;">
+                  El equipo de selección estará revisando tu postulación. Mantén tu información y disponibilidad actualizadas.
+                </p>
+                """.formatted(
+                escapar(cargo),
+                escapar(empresa),
+                escapar(programa),
+                PlantillaCorreo.recuadroDato("Vacante asignada", cargo + " · " + empresa),
+                enlace != null && !enlace.isBlank()
+                        ? PlantillaCorreo.boton("Consultar vacante", enlace, marca.colorPrimario())
+                        : "");
+
+        return PlantillaCorreo.construir("Asignación a vacante", "Hola " + nombre + ",", cuerpo, marca);
+    }
+
+    /**
      * Correo de un anuncio del programa.
      *
      * @param mensajeHtml cuerpo ya saneado por {@code HtmlEnriquecido}
@@ -130,6 +211,30 @@ public final class CorreosDelSistema {
     }
 
     /**
+     * Correo de recordatorio para completar la hoja de vida.
+     */
+    public static String recordatorioHv(String nombre, String programa, String enlace, MarcaCorreo marca) {
+        String cuerpo = """
+                <p style="margin:0 0 14px 0;">
+                  Queremos recordarte que tu hoja de vida aún no está completa en el panel de <strong>%s</strong>.
+                </p>
+                <p style="margin:0 0 14px 0;">
+                  Para que las empresas aliadas puedan revisar tu perfil y podamos postularte a las vacantes disponibles, es indispensable completar todos tus datos de formación y experiencia.
+                </p>
+                %s
+                <p style="margin:16px 0 0 0;font-size:14px;color:#6B7280;">
+                  Solo te tomará unos minutos. ¡Haz que tu perfil destaque!
+                </p>
+                """.formatted(
+                escapar(programa),
+                enlace != null && !enlace.isBlank()
+                        ? PlantillaCorreo.boton("Actualizar mi hoja de vida", enlace, marca.colorPrimario())
+                        : "");
+
+        return PlantillaCorreo.construir("Completa tu hoja de vida", "Hola " + nombre + ",", cuerpo, marca);
+    }
+
+    /**
      * Datos de ejemplo para la previsualización del panel.
      *
      * <p>Se usan valores que parecen reales —un nombre con tilde, un enlace con
@@ -143,6 +248,14 @@ public final class CorreosDelSistema {
                     base + "/recuperar-contrasena?token=token-de-ejemplo", 7, marca);
             case RECUPERACION -> recuperacion("María Fernanda Gómez",
                     base + "/recuperar-contrasena?token=token-de-ejemplo", 30, marca);
+            case CITA_ENTREVISTA, ENTREVISTA -> citaEntrevista("María Fernanda Gómez",
+                    "Konecta", "Bilingual Customer Support",
+                    "15 de Septiembre, 10:00 AM", "Virtual (Microsoft Teams)",
+                    "https://teams.microsoft.com/l/meetup-join/ejemplo",
+                    base + "/mis-entrevistas", marca);
+            case ASIGNACION_VACANTE, POSTULACION -> asignacionVacante("María Fernanda Gómez",
+                    "Konecta", "Bilingual Customer Support", "Ruta BPO Bilingüe",
+                    base + "/mis-postulaciones", marca);
             case ANUNCIO -> anuncio("María Fernanda Gómez",
                     "Feria de empleo BPO — 12 de agosto",
                     """
@@ -156,6 +269,157 @@ public final class CorreosDelSistema {
                     <p>Confirma tu asistencia antes del <em>8 de agosto</em>.</p>
                     """,
                     base + "/mis-notificaciones", marca);
+            case RECORDATORIO_HV -> recordatorioHv("María Fernanda Gómez",
+                    "Ruta BPO Bilingüe",
+                    base + "/mi-hoja-de-vida", marca);
         };
+    }
+
+    /**
+     * Plantilla de correo por defecto de fábrica para un tipo de correo del sistema.
+     */
+    public static PlantillaDtos.PlantillaDefecto plantillaPorDefecto(Tipo tipo) {
+        if (tipo == null) {
+            tipo = Tipo.ACTIVACION;
+        }
+        return switch (tipo) {
+            case ACTIVACION -> new PlantillaDtos.PlantillaDefecto(
+                    "ACTIVACION",
+                    "Activación de cuenta",
+                    "Plantilla predeterminada enviada al crear el usuario del estudiante.",
+                    "Activa tu acceso al panel de {{programa}}",
+                    """
+                    <p style="margin:0 0 14px 0;">
+                      Te creamos un acceso al panel del programa. Desde ahí vas a poder
+                      consultar tu perfil, tu hoja de vida y las vacantes que se ajustan a ti.
+                    </p>
+                    <p style="margin:0 0 4px 0;">
+                      Para entrar, primero <strong>define tu contraseña</strong> pulsando el siguiente botón:
+                    </p>
+                    """,
+                    "Crear mi contraseña",
+                    "{{link}}");
+            case RECUPERACION -> new PlantillaDtos.PlantillaDefecto(
+                    "RECUPERACION",
+                    "Recuperación de contraseña",
+                    "Plantilla predeterminada enviada cuando un usuario solicita restablecer su contraseña.",
+                    "Recupera tu contraseña de acceso",
+                    """
+                    <p style="margin:0 0 14px 0;">
+                      Recibimos una solicitud para restablecer tu contraseña. Si fuiste tú,
+                      usa el botón a continuación para elegir una nueva:
+                    </p>
+                    <p style="margin:0 0 14px 0;font-size:14px;color:#6B7280;">
+                      El enlace caduca en 30 minutos y solo se puede usar una vez.
+                    </p>
+                    <p style="margin:16px 0 0 0;font-size:14px;color:#6B7280;">
+                      Si no pediste este cambio, ignora este correo: tu contraseña actual
+                      sigue funcionando y nadie ha accedido a tu cuenta.
+                    </p>
+                    """,
+                    "Restablecer mi contraseña",
+                    "{{link}}");
+            case CITA_ENTREVISTA, ENTREVISTA -> new PlantillaDtos.PlantillaDefecto(
+                    "CITA_ENTREVISTA",
+                    "Cita de entrevista agendada",
+                    "Plantilla predeterminada enviada al agendar una entrevista laboral.",
+                    "Cita de entrevista: {{cargo}} en {{empresa}}",
+                    """
+                    <p style="margin:0 0 14px 0;">
+                      Has sido seleccionado para una entrevista laboral para el cargo de
+                      <strong>{{cargo}}</strong> en <strong>{{empresa}}</strong>.
+                    </p>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                           style="background-color:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px;margin:16px 0;">
+                      <tr>
+                        <td>
+                          <p style="margin:0 0 8px 0;font-size:14px;color:#1F2A44;"><strong>Fecha y hora:</strong> {{fecha_entrevista}}</p>
+                          <p style="margin:0 0 8px 0;font-size:14px;color:#1F2A44;"><strong>Modalidad:</strong> {{modalidad_entrevista}}</p>
+                          <p style="margin:0;font-size:14px;color:#1F2A44;"><strong>Lugar / Enlace:</strong> {{lugar_entrevista}}</p>
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin:0 0 4px 0;">
+                      Por favor confirma tu asistencia y preséntate puntualmente.
+                    </p>
+                    """,
+                    "Ver detalles de la entrevista",
+                    "{{enlace_boton}}");
+            case ASIGNACION_VACANTE, POSTULACION -> new PlantillaDtos.PlantillaDefecto(
+                    "ASIGNACION_VACANTE",
+                    "Asignación a vacante",
+                    "Plantilla predeterminada enviada cuando se postula al estudiante a una vacante.",
+                    "Nueva postulación: {{cargo}} en {{empresa}}",
+                    """
+                    <p style="margin:0 0 14px 0;">
+                      ¡Buenas noticias! Tu perfil ha sido postulado a la vacante de
+                      <strong>{{cargo}}</strong> en la empresa <strong>{{empresa}}</strong>
+                      como parte de tu proceso en <strong>{{programa}}</strong>.
+                    </p>
+                    <p style="margin:0 0 4px 0;">
+                      El equipo de selección estará revisando tu postulación. Mantén tu
+                      información y disponibilidad actualizadas en el panel.
+                    </p>
+                    """,
+                    "Consultar vacante",
+                    "{{enlace_boton}}");
+            case ANUNCIO -> new PlantillaDtos.PlantillaDefecto(
+                    "ANUNCIO",
+                    "Anuncio del programa",
+                    "Plantilla predeterminada para comunicados y convocatorias generales.",
+                    "Comunicado importante de {{programa}}",
+                    """
+                    <p style="margin:0 0 14px 0;">
+                      Queremos compartirte información relevante sobre las actividades y
+                      oportunidades en el marco de tu proceso de formación e inserción laboral.
+                    </p>
+                    <p style="margin:0 0 4px 0;">
+                      Revisa los detalles ingresando a tu panel de notificaciones.
+                    </p>
+                    """,
+                    "Ver comunicado",
+                    "{{enlace_boton}}");
+            case RECORDATORIO_HV -> new PlantillaDtos.PlantillaDefecto(
+                    "RECORDATORIO_HV",
+                    "Recordatorio de hoja de vida",
+                    "Plantilla predeterminada para recordar a los estudiantes completar su hoja de vida.",
+                    "Completa tu hoja de vida para aplicar a vacantes",
+                    """
+                    <p style="margin:0 0 14px 0;">
+                      Notamos que tu hoja de vida aún no está completa en el panel de <strong>{{programa}}</strong>.
+                    </p>
+                    <p style="margin:0 0 14px 0;">
+                      Para poder postularte a las oportunidades laborales de nuestras empresas aliadas,
+                      es fundamental que registres tu formación, experiencia y nivel de inglés.
+                    </p>
+                    <p style="margin:0 0 4px 0;">
+                      ¡Solo te tomará unos minutos!
+                    </p>
+                    """,
+                    "Actualizar mi hoja de vida",
+                    "{{enlace_boton}}");
+        };
+    }
+
+    /**
+     * Lista todas las plantillas predeterminadas de fábrica del sistema.
+     */
+    public static List<PlantillaDtos.PlantillaDefecto> plantillasPorDefecto() {
+        return List.of(
+                plantillaPorDefecto(Tipo.ACTIVACION),
+                plantillaPorDefecto(Tipo.RECUPERACION),
+                plantillaPorDefecto(Tipo.CITA_ENTREVISTA),
+                plantillaPorDefecto(Tipo.ASIGNACION_VACANTE),
+                plantillaPorDefecto(Tipo.ANUNCIO),
+                plantillaPorDefecto(Tipo.RECORDATORIO_HV));
+    }
+
+    private static String escapar(String valor) {
+        if (valor == null) return "";
+        return valor.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }

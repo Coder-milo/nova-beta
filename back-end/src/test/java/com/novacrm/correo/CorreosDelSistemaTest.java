@@ -39,7 +39,7 @@ class CorreosDelSistemaTest {
     }
 
     @Test
-    @DisplayName("los tres correos salen con la marca y sin marcadores sueltos")
+    @DisplayName("todos los correos del sistema salen con la marca y sin marcadores sueltos")
     void todosPasanPorLaPlantillaDeMarca() throws Exception {
         for (var tipo : CorreosDelSistema.Tipo.values()) {
             String html = CorreosDelSistema.ejemplo(tipo, MARCA, "https://nova.ejemplo.com");
@@ -73,6 +73,30 @@ class CorreosDelSistemaTest {
         assertThat(recuperacion)
                 .contains("https://nova.ejemplo.com/reset?token=xyz")
                 .contains("30 minutos");
+
+        String entrevista = CorreosDelSistema.citaEntrevista(
+                "María Gómez", "Konecta", "Bilingual Support", "15 de Septiembre, 10:00 AM",
+                "Virtual", "https://teams.microsoft.com/meet", "https://nova.ejemplo.com/entrevistas", MARCA);
+        assertThat(entrevista)
+                .contains("Konecta")
+                .contains("Bilingual Support")
+                .contains("15 de Septiembre, 10:00 AM")
+                .contains("https://nova.ejemplo.com/entrevistas");
+
+        String vacante = CorreosDelSistema.asignacionVacante(
+                "María Gómez", "Konecta", "Bilingual Support", "Ruta BPO",
+                "https://nova.ejemplo.com/postulaciones", MARCA);
+        assertThat(vacante)
+                .contains("Konecta")
+                .contains("Bilingual Support")
+                .contains("Ruta BPO")
+                .contains("https://nova.ejemplo.com/postulaciones");
+
+        String recordatorio = CorreosDelSistema.recordatorioHv(
+                "María Gómez", "Ruta BPO", "https://nova.ejemplo.com/mi-hv", MARCA);
+        assertThat(recordatorio)
+                .contains("Ruta BPO")
+                .contains("https://nova.ejemplo.com/mi-hv");
     }
 
     @Test
@@ -97,6 +121,26 @@ class CorreosDelSistemaTest {
                     .as("%s sin marca configurada", tipo)
                     .startsWith("<!DOCTYPE html>")
                     .doesNotContain("null", "{{", "}}");
+        }
+    }
+
+    @Test
+    @DisplayName("las plantillas por defecto tienen variables válidas y datos completos")
+    void plantillasPorDefectoSonValidas() {
+        var plantillas = CorreosDelSistema.plantillasPorDefecto();
+        assertThat(plantillas).isNotEmpty();
+
+        for (var p : plantillas) {
+            assertThat(p.tipo()).isNotBlank();
+            assertThat(p.nombre()).isNotBlank();
+            assertThat(p.asunto()).isNotBlank();
+            assertThat(p.cuerpo()).isNotBlank();
+
+            // Todas las variables usadas en asunto y cuerpo deben ser reconocidas
+            var desconocidas = Variables.desconocidasEn(p.asunto() + " " + p.cuerpo() + " " + p.botonUrl());
+            assertThat(desconocidas)
+                    .as("Plantilla por defecto %s no debe tener variables desconocidas", p.tipo())
+                    .isEmpty();
         }
     }
 }

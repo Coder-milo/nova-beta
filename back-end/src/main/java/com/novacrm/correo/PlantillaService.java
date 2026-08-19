@@ -231,11 +231,12 @@ public class PlantillaService {
             }
 
             var valores = new EnumMap<Variables, String>(Variables.class);
-            valores.put(Variables.NOMBRE, nombre);
+            valores.put(Variables.NOMBRE, estudiante.getNombre() != null ? estudiante.getNombre() : nombre);
+            valores.put(Variables.APELLIDO, estudiante.getApellido() != null ? estudiante.getApellido() : "");
             valores.put(Variables.EMAIL, email);
-            // EMPRESA y LINK se quedan vacias a proposito: la primera necesita
-            // una vacante y la segunda un token de activacion, y ninguna de las
-            // dos existe en un envio de comunicacion general.
+            if (estudiante.getPrograma() != null && estudiante.getPrograma().getNombre() != null) {
+                valores.put(Variables.PROGRAMA, estudiante.getPrograma().getNombre());
+            }
 
             var marca = marcaDe(programaDe(estudiante, plantilla));
             String asunto = Variables.aplicar(plantilla.getAsunto(), valores);
@@ -260,6 +261,130 @@ public class PlantillaService {
         return new PlantillaDtos.ResumenEnvio(
                 estudiantes.size(), enviados, bloqueados, fallidos, sinCorreo,
                 simulacion, emailService.canalActivo(), destinatarios.lista(), resultados);
+    }
+
+    /**
+     * Envía un correo de prueba directo a una dirección especificada con datos simulados.
+     */
+    @Transactional(readOnly = true)
+    public PlantillaDtos.ResumenEnvio enviarPrueba(PlantillaDtos.EnviarPruebaRequest peticion) {
+        if (peticion == null) {
+            throw new BusinessException("La solicitud de envío de prueba no puede ser nula");
+        }
+        String email = peticion.emailDestino();
+        if (email.isBlank()) {
+            throw new BusinessException("Debe especificar una dirección de correo de destino.");
+        }
+        if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            throw new BusinessException("La dirección de correo no tiene un formato válido: " + email);
+        }
+        if (vacio(peticion.asunto())) {
+            throw new BusinessException("El asunto no puede estar vacio.");
+        }
+        if (vacio(peticion.cuerpo())) {
+            throw new BusinessException("El cuerpo no puede estar vacio.");
+        }
+
+        // Construir mapa de variables simuladas (iniciando con los ejemplos por defecto)
+        var valores = new EnumMap<Variables, String>(Variables.ejemplos());
+        valores.put(Variables.EMAIL, email);
+        if (peticion.variablesSimuladas() != null) {
+            peticion.variablesSimuladas().forEach((clave, val) -> {
+                if (clave != null && val != null) {
+                    Variables.desde(clave).ifPresent(v -> valores.put(v, val));
+                }
+            });
+        }
+
+        var marca = marcaDe(peticion.programaId());
+        String asunto = Variables.aplicar(peticion.asunto(), valores);
+        String cuerpo = Variables.aplicar(peticion.cuerpo(), valores);
+        String botonUrl = peticion.botonUrl() != null ? Variables.aplicar(peticion.botonUrl(), valores) : null;
+
+        String saludo = "Hola " + valores.getOrDefault(Variables.NOMBRE, "Usuario") + ",";
+        String html = montar(asunto, saludo, cuerpo, peticion.botonTexto(), botonUrl, valores, marca);
+
+        var resultados = new ArrayList<PlantillaDtos.ResultadoEnvio>();
+        if (!destinatarios.permite(email)) {
+            resultados.add(new PlantillaDtos.ResultadoEnvio(null, "Prueba", email, false,
+                    "No enviado: la direccion no esta en la lista de pruebas"));
+            return new PlantillaDtos.ResumenEnvio(
+                    1, 0, 1, 0, 0, false, emailService.canalActivo(), destinatarios.lista(), resultados);
+        }
+
+        var envio = emailService.enviar(email, asunto, html);
+        if (envio.enviado()) {
+            resultados.add(new PlantillaDtos.ResultadoEnvio(null, "Prueba", email, true, "Enviado con éxito"));
+            return new PlantillaDtos.ResumenEnvio(
+                    1, 1, 0, 0, 0, false, emailService.canalActivo(), destinatarios.lista(), resultados);
+        } else {
+            log.warn("Fallo el envio de prueba a {}: {}", email, envio.motivoFallo());
+            resultados.add(new PlantillaDtos.ResultadoEnvio(null, "Prueba", email, false,
+                    "Fallo: " + envio.motivoFallo()));
+            return new PlantillaDtos.ResumenEnvio(
+                    1, 0, 0, 1, 0, false, emailService.canalActivo(), destinatarios.lista(), resultados);
+        }
+    }
+
+    /**
+     * Restaura una plantilla guardada a sus valores de fábrica del sistema.
+     */
+    @Transactional
+    public PlantillaDtos.Respuesta restaurarDefecto(UUID id, String tipoStr) {
+        PlantillaGuardada plantilla = buscar(id);
+        CorreosDelSistema.Tipo tipo = resolverTipo(tipoStr, plantilla.getNombre());
+        PlantillaDtos.PlantillaDefecto def = CorreosDelSistema.plantillaPorDefecto(tipo);
+
+        plantilla.setAsunto(def.asunto());
+        plantilla.setCuerpo(def.cuerpo());
+        plantilla.setBotonTexto(def.botonTexto());
+        plantilla.setBotonUrl(def.botonUrl());
+        if (def.descripcion() != null && (plantilla.getDescripcion() == null || plantilla.getDescripcion().isBlank())) {
+            plantilla.setDescripcion(def.descripcion());
+        }
+
+        return PlantillaDtos.Respuesta.de(plantillaRepository.save(plantilla));
+    }
+
+    /**
+     * Obtiene la plantilla predeterminada de fábrica para un tipo de correo del sistema.
+     */
+    public PlantillaDtos.PlantillaDefecto restaurarDefectoPorTipo(String tipoStr) {
+        if (tipoStr == null || tipoStr.isBlank()) {
+            throw new BusinessException("Debe especificar un tipo de correo del sistema.");
+        }
+        try {
+            CorreosDelSistema.Tipo tipo = CorreosDelSistema.Tipo.valueOf(tipoStr.toUpperCase(java.util.Locale.ROOT));
+            return CorreosDelSistema.plantillaPorDefecto(tipo);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException("Tipo de correo del sistema desconocido: " + tipoStr);
+        }
+    }
+
+    /**
+     * Lista todas las plantillas predeterminadas de fábrica del sistema.
+     */
+    public List<PlantillaDtos.PlantillaDefecto> obtenerDefectos() {
+        return CorreosDelSistema.plantillasPorDefecto();
+    }
+
+    private CorreosDelSistema.Tipo resolverTipo(String tipoStr, String nombre) {
+        if (tipoStr != null && !tipoStr.isBlank()) {
+            try {
+                return CorreosDelSistema.Tipo.valueOf(tipoStr.toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        if (nombre != null) {
+            String norm = nombre.toLowerCase(java.util.Locale.ROOT);
+            if (norm.contains("activaci")) return CorreosDelSistema.Tipo.ACTIVACION;
+            if (norm.contains("recupera") || norm.contains("contrase")) return CorreosDelSistema.Tipo.RECUPERACION;
+            if (norm.contains("entrevista") || norm.contains("cita")) return CorreosDelSistema.Tipo.CITA_ENTREVISTA;
+            if (norm.contains("vacante") || norm.contains("postula")) return CorreosDelSistema.Tipo.ASIGNACION_VACANTE;
+            if (norm.contains("anuncio") || norm.contains("comunicado")) return CorreosDelSistema.Tipo.ANUNCIO;
+            if (norm.contains("hoja de vida") || norm.contains("hv") || norm.contains("recordatorio")) return CorreosDelSistema.Tipo.RECORDATORIO_HV;
+        }
+        return CorreosDelSistema.Tipo.ACTIVACION;
     }
 
     /** Las variables disponibles, para que el editor no lleve la lista escrita. */

@@ -317,7 +317,7 @@ export interface MapaDelAtlantico {
 
 import type { ProgramaResponse, ProgramaRequest, ProgramaEstado, ProgramaResumenResponse } from './types'
 import type { MotivoCierre, OpcionCatalogo, CatalogosColocacion, Tablero, TarjetaTablero, EstadoContacto } from './types'
-import type { PlantillaCorreo, PlantillaCorreoRequest, VariableDisponible, PrevisualizacionCorreo, ResumenEnvioCorreo } from './types'
+import type { PlantillaCorreo, PlantillaCorreoRequest, VariableDisponible, PrevisualizacionCorreo, ResumenEnvioCorreo, PlantillaDefecto, EnviarPruebaRequest } from './types'
 
 export const programasApi = {
   listar: () =>
@@ -1285,6 +1285,11 @@ export const plantillasCorreoApi = {
   /** Las variables que se pueden escribir dentro del texto, con su ejemplo. */
   variables: (token?: string) =>
     apiFetch<VariableDisponible[]>('/api/v1/plantillas-correo/variables', { token }),
+  /** Alias para obtener las variables disponibles categorizadas. */
+  obtenerVariables: (token?: string) =>
+    apiFetch<VariableDisponible[]>('/api/v1/plantillas-correo/variables', { token }),
+  obtener: (id: string, token?: string) =>
+    apiFetch<PlantillaCorreo>(`/api/v1/plantillas-correo/${id}`, { token }),
   crear: (data: PlantillaCorreoRequest, token?: string) =>
     apiFetch<PlantillaCorreo>('/api/v1/plantillas-correo', { method: 'POST', data, token }),
   actualizar: (id: string, data: PlantillaCorreoRequest, token?: string) =>
@@ -1299,6 +1304,36 @@ export const plantillasCorreoApi = {
    */
   previsualizar: (data: PlantillaCorreoRequest, token?: string) =>
     apiFetch<PrevisualizacionCorreo>('/api/v1/plantillas-correo/previsualizar', { method: 'POST', data, token }),
+  /**
+   * Obtiene la lista de plantillas predeterminadas del sistema.
+   */
+  obtenerDefaults: (token?: string) =>
+    apiFetch<PlantillaDefecto[]>('/api/v1/plantillas-correo/sistema/defaults', { token }),
+  /**
+   * Restaura una plantilla guardada a sus valores por defecto de fábrica.
+   */
+  restaurarDefecto: (id: string, tipo?: string, token?: string) =>
+    apiFetch<PlantillaCorreo>(`/api/v1/plantillas-correo/${id}/restaurar-defecto${tipo ? `?tipo=${tipo}` : ''}`, {
+      method: 'POST',
+      token,
+    }),
+  /**
+   * Obtiene la plantilla por defecto para un tipo específico sin asociar a un ID existente.
+   */
+  restaurarDefectoPorTipo: (tipo: string, token?: string) =>
+    apiFetch<PlantillaDefecto>(`/api/v1/plantillas-correo/restaurar-defecto/${tipo}`, {
+      method: 'POST',
+      token,
+    }),
+  /**
+   * Envía un correo de prueba directo con variables simuladas.
+   */
+  enviarPrueba: (peticion: EnviarPruebaRequest, token?: string) =>
+    apiFetch<ResumenEnvioCorreo>('/api/v1/plantillas-correo/enviar-prueba', {
+      method: 'POST',
+      data: peticion,
+      token,
+    }),
   /**
    * Envío masivo.
    *

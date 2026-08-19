@@ -102,6 +102,7 @@ class VariablesTest {
         for (var v : Variables.values()) {
             assertFalse(v.descripcion().isBlank(), v + " sin descripcion");
             assertFalse(v.ejemplo().isBlank(), v + " sin ejemplo para la previsualizacion");
+            assertFalse(v.categoria().isBlank(), v + " sin categoria");
             assertEquals("{{" + v.clave() + "}}", v.marca());
         }
     }
@@ -111,5 +112,40 @@ class VariablesTest {
         // Si se anade una variable y se olvida su ejemplo, la previsualizacion
         // saldria con un hueco y nadie sabria por que.
         assertEquals(Variables.values().length, Variables.ejemplos().size());
+    }
+
+    @Test
+    void todasLasVariablesPertenecenAUnaCategoriaValida() {
+        var categoriasValidas = java.util.Set.of("Estudiante", "Empleo", "Entrevista", "Sistema");
+        for (var v : Variables.values()) {
+            assertTrue(categoriasValidas.contains(v.categoria()),
+                    v + " tiene una categoria no permitida: " + v.categoria());
+        }
+    }
+
+    @Test
+    void sustituyeVariablesDeEntrevistaYEmpleo() {
+        String plantilla = "Hola {{nombre}} {{apellido}}, tu entrevista para {{cargo}} en {{empresa}} "
+                + "es el {{fecha_entrevista}} vía {{modalidad_entrevista}} en {{lugar_entrevista}}.";
+        String resultado = Variables.aplicar(plantilla, Map.of(
+                Variables.NOMBRE, "Héctor",
+                Variables.APELLIDO, "Suárez",
+                Variables.CARGO, "Desarrollador Java",
+                Variables.EMPRESA, "Tech Solutions",
+                Variables.FECHA_ENTREVISTA, "20 de Agosto, 9:00 AM",
+                Variables.MODALIDAD_ENTREVISTA, "Virtual",
+                Variables.LUGAR_ENTREVISTA, "https://meet.google.com/abc-defg-hij"
+        ));
+
+        assertEquals("Hola Héctor Suárez, tu entrevista para Desarrollador Java en Tech Solutions "
+                + "es el 20 de Agosto, 9:00 AM vía Virtual en https://meet.google.com/abc-defg-hij.", resultado);
+    }
+
+    @Test
+    void buscaVariablesPorClaveInsensibleAMayusculas() {
+        assertTrue(Variables.desde("fecha_entrevista").isPresent());
+        assertEquals(Variables.FECHA_ENTREVISTA, Variables.desde("FECHA_ENTREVISTA").get());
+        assertEquals(Variables.ENLACE_BOTON, Variables.desde(" enlace_boton ").get());
+        assertTrue(Variables.desde("inexistente").isEmpty());
     }
 }

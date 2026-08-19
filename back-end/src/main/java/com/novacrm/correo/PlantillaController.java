@@ -84,6 +84,44 @@ public class PlantillaController {
         return plantillaService.previsualizar(peticion);
     }
 
+    @GetMapping("/sistema/defaults")
+    @Operation(summary = "Listar plantillas predeterminadas del sistema")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public List<PlantillaDtos.PlantillaDefecto> defaultsSistema() {
+        return plantillaService.obtenerDefectos();
+    }
+
+    /**
+     * Enviar un correo de prueba directo con variables simuladas.
+     */
+    @PostMapping("/enviar-prueba")
+    @Operation(summary = "Enviar un correo de prueba directo")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public PlantillaDtos.ResumenEnvio enviarPrueba(@RequestBody PlantillaDtos.EnviarPruebaRequest peticion) {
+        return plantillaService.enviarPrueba(peticion);
+    }
+
+    /**
+     * Restaura una plantilla a sus valores predeterminados de fábrica.
+     */
+    @PostMapping("/{id}/restaurar-defecto")
+    @Operation(summary = "Restaurar una plantilla a sus valores de fábrica del sistema")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public PlantillaDtos.Respuesta restaurarDefecto(@PathVariable UUID id,
+                                                    @RequestParam(required = false) String tipo) {
+        return plantillaService.restaurarDefecto(id, tipo);
+    }
+
+    /**
+     * Obtiene los valores predeterminados de fábrica para un tipo de correo del sistema.
+     */
+    @PostMapping("/restaurar-defecto/{tipo}")
+    @Operation(summary = "Obtener valores de fábrica para un tipo de correo del sistema")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public PlantillaDtos.PlantillaDefecto restaurarDefectoPorTipo(@PathVariable String tipo) {
+        return plantillaService.restaurarDefectoPorTipo(tipo);
+    }
+
     /**
      * Envio masivo. <strong>Simula por defecto</strong>: mandar un correo a 108
      * personas no debe ser el efecto de una llamada hecha por descuido.
