@@ -79,9 +79,9 @@ function textos(english: boolean) {
         filtrarPorFuente: 'Source',
         filtrarPorConvocatoria: 'Call / Segment',
         todasLasConvocatorias: 'Convocatorias: Todas',
-        convocatoriasLocales: '📍 Locales (Atlántico)',
-        convocatoriasRemotas: '🌐 Remotas (Inglés)',
-        convocatoriasMigracion: '✈️ Con Visa',
+        convocatoriasLocales: 'Locales (Atlántico)',
+        convocatoriasRemotas: 'Remotas (Inglés)',
+        convocatoriasMigracion: 'Internacional (Con Visa)',
         filtrarPorModalidad: 'Work mode',
         todasLasModalidades: 'Modalidad: Todas',
         todasLasFuentesLabel: 'Fuentes: Todas',
@@ -89,7 +89,7 @@ function textos(english: boolean) {
         todasLasRevisiones: 'Revisión: Todas',
         soloRevisadas: 'Verificadas',
         soloPendientes: 'Por revisar',
-        limpiarFiltros: 'Clear filters',
+        limpiarFiltros: 'Limpiar filtros',
         informacionPrincipal: 'Main details',
         informacionGeneral: 'General information',
         condicionesDeLa: 'Job conditions',
@@ -190,9 +190,9 @@ function textos(english: boolean) {
         filtrarPorFuente: 'Fuente',
         filtrarPorConvocatoria: 'Convocatoria',
         todasLasConvocatorias: 'Convocatorias: Todas',
-        convocatoriasLocales: '📍 Locales (Atlántico)',
-        convocatoriasRemotas: '🌐 Remotas (Inglés)',
-        convocatoriasMigracion: '✈️ Con Visa',
+        convocatoriasLocales: 'Locales (Atlántico)',
+        convocatoriasRemotas: 'Remotas (Inglés)',
+        convocatoriasMigracion: 'Internacional (Con Visa)',
         filtrarPorModalidad: 'Modalidad',
         todasLasModalidades: 'Modalidad: Todas',
         todasLasFuentesLabel: 'Fuentes: Todas',
@@ -547,18 +547,28 @@ export default function VacantesPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Cabecera */}
-      <div className="flex justify-end gap-4">
-        <div className="flex shrink-0 gap-2">
-          <Button size="sm" onClick={abrirCreacion}>
+      {/* Cabecera Principal */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <Briefcase className="size-5 text-primary" />
+            Banco de Vacantes
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Gestión de oportunidades laborales, convocatorias y matching de participantes.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={abrirCreacion} className="gap-1.5 shadow-sm">
             <Plus className="size-3.5" /> {T.nuevaVacante}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => void load()}>
+          <Button variant="outline" size="sm" onClick={() => void load()} className="gap-1.5">
             <ArrowsClockwise className="size-3.5" /> Refrescar
           </Button>
           <Button variant="outline" size="sm" onClick={runMatching} disabled={matching}>
             Solo matching
           </Button>
-          <Button size="sm" onClick={runScanAndMatch} disabled={matching}>
+          <Button size="sm" onClick={runScanAndMatch} disabled={matching} className="gap-1.5">
             {matching
               ? <><CircleNotch className="size-3.5 animate-spin" /> Procesando…</>
               : <><MagnifyingGlass className="size-3.5" /> {T.escanearYHacer}</>}
