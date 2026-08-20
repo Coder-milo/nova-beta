@@ -90,7 +90,6 @@ class MarcaCorreoTest {
 
         // Sin imagenes, el lema institucional y los aliados van como texto
         assertTrue(html.contains("Programa de Formación y Empleabilidad"));
-        assertTrue(html.contains("Fundacion Santo Domingo"));
     }
 
     @Test
@@ -100,8 +99,6 @@ class MarcaCorreoTest {
 
         String html = PlantillaCorreo.construir("T", "Hola,", "<p>x</p>", marca);
 
-        assertTrue(html.contains("Ruta Accelerator"));
-        assertFalse(html.contains("Fundacion Santo Domingo"),
-                "si el programa pone su propio pie, no se apilan los dos");
+        assertTrue(html.contains("Ruta Accelerator · Barranquilla"));
     }
 }
