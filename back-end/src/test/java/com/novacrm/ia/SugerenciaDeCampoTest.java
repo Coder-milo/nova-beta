@@ -5,6 +5,8 @@ import com.novacrm.excel.libro.DestinoDeHoja;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -25,7 +27,7 @@ class SugerenciaDeCampoTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /** Proveedor de mentira que responde siempre lo mismo y cuenta llamadas. */
-    private static final class ProveedorFijo implements ProveedorIa {
+    private static class ProveedorFijo implements ProveedorIa {
         private final String respuesta;
         final AtomicInteger llamadas = new AtomicInteger();
 
@@ -119,6 +121,32 @@ class SugerenciaDeCampoTest {
         assertTrue(ia.sugerirCampo("   ", CAMPOS).isEmpty());
         assertTrue(ia.sugerirCampo("Nombre", Set.of()).isEmpty());
         assertEquals(0, proveedor.llamadas.get());
+    }
+
+    @Test
+    void resuelveUnaHojaCompletaConUnaSolaLlamada() {
+        var proveedor = new ProveedorFijo("null") {
+            @Override
+            public Optional<com.fasterxml.jackson.databind.JsonNode> completarJson(String i, String c) {
+                llamadas.incrementAndGet();
+                try {
+                    return Optional.of(MAPPER.readTree("""
+                            {"mapeo":{"0":"nombrecompleto","1":"cargoObjetivo","2":null}}
+                            """));
+                } catch (Exception e) {
+                    return Optional.empty();
+                }
+            }
+        };
+        var ia = new ReconocimientoConIa(proveedor);
+
+        Map<String, String> resultado = ia.sugerirCampos(
+                List.of("Nombre y apellido", "Puesto deseado", "Color favorito"), CAMPOS);
+
+        assertEquals("nombreCompleto", resultado.get("Nombre y apellido"));
+        assertEquals("cargoObjetivo", resultado.get("Puesto deseado"));
+        assertFalse(resultado.containsKey("Color favorito"));
+        assertEquals(1, proveedor.llamadas.get(), "todas las columnas viajan juntas");
     }
 
     /**

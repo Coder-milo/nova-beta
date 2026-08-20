@@ -1,9 +1,20 @@
 spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
   jpa:
     show-sql: false
+    open-in-view: false
   flyway:
     clean-disabled: true
 
 logging:
   level:
     com.novacrm: INFO
+
+server:
+  tomcat:
+    threads:
+      max: 32
+      min-spare: 2

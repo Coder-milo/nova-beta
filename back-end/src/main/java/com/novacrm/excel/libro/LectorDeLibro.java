@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -53,14 +54,11 @@ public final class LectorDeLibro {
     /**
      * Tope de consultas a la IA por libro.
      *
-     * <p>Se pregunta una vez por cada columna que ningun sinonimo cubre, y cada
-     * consulta es una peticion HTTP con hasta diez segundos de espera. Un libro
-     * con siete hojas y cabeceras anchas puede rozar el centenar de columnas
-     * sueltas: sin tope, una importacion se convierte en varios minutos de
-     * espera y en una factura. Agotado el presupuesto se sigue con el
-     * diccionario, que es lo que se hacia antes de que existiera la IA.
+     * <p>Las columnas desconocidas de una hoja se mandan juntas, de modo que el
+     * presupuesto ya cuenta hojas, no columnas. El tope sigue protegiendo el
+     * tiempo de respuesta si un libro trae muchas pestañas irrelevantes.
      */
-    static final int MAXIMO_CONSULTAS_IA = 25;
+    static final int MAXIMO_CONSULTAS_IA = 8;
 
     /** Consultas que le quedan a un libro. Se comparte entre sus hojas. */
     static final class PresupuestoIa {
@@ -87,12 +85,12 @@ public final class LectorDeLibro {
             return ia.sugerirDestino(nombreHoja, titulos);
         }
 
-        Optional<String> campo(String titulo, Set<String> camposPosibles) {
+        Map<String, String> campos(List<String> titulos, Set<String> camposPosibles) {
             if (!activo()) {
-                return Optional.empty();
+                return Map.of();
             }
             restantes--;
-            return ia.sugerirCampo(titulo, camposPosibles);
+            return ia.sugerirCampos(titulos, camposPosibles);
         }
     }
 
@@ -234,16 +232,18 @@ public final class LectorDeLibro {
         // Gana siempre la primera columna que lo reclamó, como en el diccionario.
         var columnasPorIa = new LinkedHashSet<String>();
         if (ia.activo()) {
-            for (var entrada : cabecera.get().titulos().entrySet()) {
-                if (porIndice.containsKey(entrada.getKey())) {
-                    continue;
+            var desconocidas = cabecera.get().titulos().entrySet().stream()
+                    .filter(entrada -> !porIndice.containsKey(entrada.getKey()))
+                    .toList();
+            var sugeridos = ia.campos(
+                    desconocidas.stream().map(Map.Entry::getValue).toList(),
+                    destino.camposPosibles());
+            for (var entrada : desconocidas) {
+                String campo = sugeridos.get(entrada.getValue());
+                if (campo != null && !porIndice.containsValue(campo)) {
+                    porIndice.put(entrada.getKey(), campo);
+                    columnasPorIa.add(entrada.getValue());
                 }
-                ia.campo(entrada.getValue(), destino.camposPosibles())
-                        .filter(campo -> !porIndice.containsValue(campo))
-                        .ifPresent(campo -> {
-                            porIndice.put(entrada.getKey(), campo);
-                            columnasPorIa.add(entrada.getValue());
-                        });
             }
         }
 

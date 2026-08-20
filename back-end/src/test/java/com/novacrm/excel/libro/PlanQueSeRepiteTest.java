@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.Map;
 
 import static com.novacrm.excel.libro.LibroDePrueba.fila;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,16 +51,16 @@ class PlanQueSeRepiteTest {
     /**
      * Una IA que contesta la primera vez y después se calla.
      *
-     * <p>No es un capricho del test: {@code sugerirCampo} memoriza en el
+     * <p>No es un capricho del test: {@code sugerirCampos} memoriza en el
      * proceso y {@code sugerirDestino} no memoriza nada, así que un reinicio o
      * un 429 dejan exactamente este comportamiento.
      */
     private static ReconocimientoConIa iaQueContestaUnaVez() {
         var ia = mock(ReconocimientoConIa.class);
         when(ia.disponible()).thenReturn(true);
-        when(ia.sugerirCampo(anyString(), any()))
-                .thenReturn(Optional.of("notas"))
-                .thenReturn(Optional.empty());
+        when(ia.sugerirCampos(anyList(), any()))
+                .thenReturn(Map.of("Bitácora del gestor", "notas"))
+                .thenReturn(Map.of());
         when(ia.sugerirDestino(anyString(), any())).thenReturn(Optional.empty());
         return ia;
     }
@@ -101,7 +102,7 @@ class PlanQueSeRepiteTest {
         // Releer no consulta: es lo que hace que el resultado no dependa de si
         // el proveedor esta de pie en ese momento. La unica llamada es la de la
         // previsualizacion.
-        verify(ia, times(1)).sugerirCampo(anyString(), any());
+        verify(ia, times(1)).sugerirCampos(anyList(), any());
     }
 
     @Test
@@ -170,7 +171,7 @@ class PlanQueSeRepiteTest {
         var archivo = conBitacora().comoArchivo();
         var ia = mock(ReconocimientoConIa.class);
         when(ia.disponible()).thenReturn(true);
-        when(ia.sugerirCampo(anyString(), any())).thenReturn(Optional.empty());
+        when(ia.sugerirCampos(anyList(), any())).thenReturn(Map.of());
         when(ia.sugerirDestino(anyString(), any())).thenReturn(Optional.empty());
 
         var previa = LectorDeLibro.leer(archivo, ia);
@@ -197,9 +198,10 @@ class PlanQueSeRepiteTest {
         var ia = mock(ReconocimientoConIa.class);
         when(ia.disponible()).thenReturn(true);
         when(ia.sugerirDestino(anyString(), anyList())).thenReturn(Optional.of(DestinoDeHoja.EMPRESAS));
-        when(ia.sugerirCampo(eq("Razón de la organización"), any())).thenReturn(Optional.of("nombre"));
-        when(ia.sugerirCampo(eq("Actividad principal"), any())).thenReturn(Optional.of("sector"));
-        when(ia.sugerirCampo(eq("Municipio de operación"), any())).thenReturn(Optional.of("ciudad"));
+        when(ia.sugerirCampos(anyList(), any())).thenReturn(Map.of(
+                "Razón de la organización", "nombre",
+                "Actividad principal", "sector",
+                "Municipio de operación", "ciudad"));
 
         var hoja = LectorDeLibro.leer(archivo, ia).get(0);
 

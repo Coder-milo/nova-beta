@@ -13,7 +13,7 @@
  */
 
 import type { ApiError, LoginRequest } from './types'
-import { esperarBackendDisponible, esFalloTransitorioDelBackend } from './backend-disponible'
+import { esperarBackendDisponible } from './backend-disponible'
 
 const BASE_URL = ''
 
@@ -479,15 +479,14 @@ const conPlan = (base: string, simular: boolean, planId?: string | null) =>
   `${base}?simular=${simular}${planId ? `&planId=${planId}` : ''}`
 
 /**
- * Despierta Render antes de enviar el archivo. Solo la simulación se repite
- * automáticamente: es de solo lectura. La importación real no se reintenta
- * para evitar duplicar registros si el backend alcanzó a escribir y se perdió
- * únicamente la respuesta.
+ * Despierta Render antes de enviar el archivo. La subida no se repite: un 502
+ * también puede significar que el proxy perdió la respuesta mientras Spring
+ * todavía procesa el Excel. Repetir en ese caso duplica el análisis y aumenta
+ * justamente la presión de memoria que intentamos evitar.
  */
 async function subirImportacion<T>(
   path: string,
   archivo: File,
-  simular: boolean,
   token?: string,
 ): Promise<T> {
   try {
@@ -499,22 +498,14 @@ async function subirImportacion<T>(
     })
   }
 
-  try {
-    return await apiUpload<T>(path, { archivo }, token)
-  } catch (error) {
-    if (simular && error instanceof ApiCallError && esFalloTransitorioDelBackend(error.status)) {
-      await esperarBackendDisponible()
-      return apiUpload<T>(path, { archivo }, token)
-    }
-    throw error
-  }
+  return apiUpload<T>(path, { archivo }, token)
 }
 
 export const importarCrmApi = {
   empresas: (archivo: File, simular = false, planId?: string | null, token?: string) =>
-    subirImportacion<ResultadoImportacionCrm>(conPlan('/api/v1/importar/empresas', simular, planId), archivo, simular, token),
+    subirImportacion<ResultadoImportacionCrm>(conPlan('/api/v1/importar/empresas', simular, planId), archivo, token),
   colocaciones: (archivo: File, simular = false, planId?: string | null, token?: string) =>
-    subirImportacion<ResultadoImportacionCrm>(conPlan('/api/v1/importar/colocaciones', simular, planId), archivo, simular, token),
+    subirImportacion<ResultadoImportacionCrm>(conPlan('/api/v1/importar/colocaciones', simular, planId), archivo, token),
   /**
    * Libro completo: una sola subida para un archivo con varias pestañas.
    *
@@ -522,7 +513,7 @@ export const importarCrmApi = {
    * colocaciones— y las que no son datos importables se informan con su motivo.
    */
   libro: (archivo: File, simular = false, planId?: string | null, token?: string) =>
-    subirImportacion<ResultadoImportacionLibro>(conPlan('/api/v1/importar/libro', simular, planId), archivo, simular, token),
+    subirImportacion<ResultadoImportacionLibro>(conPlan('/api/v1/importar/libro', simular, planId), archivo, token),
 }
 
 /** Un correo automático del sistema, tal como lo describe el backend. */
