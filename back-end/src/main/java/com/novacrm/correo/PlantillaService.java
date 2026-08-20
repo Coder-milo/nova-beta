@@ -240,9 +240,18 @@ public class PlantillaService {
             valores.put(Variables.EMAIL, email);
             if (estudiante.getPrograma() != null && estudiante.getPrograma().getNombre() != null) {
                 valores.put(Variables.PROGRAMA, estudiante.getPrograma().getNombre());
+                valores.put(Variables.PROYECTO_NOMBRE, estudiante.getPrograma().getNombre());
             }
 
             var marca = marcaDe(programaDe(estudiante, plantilla));
+            if (marca.textoPie() != null && !marca.textoPie().isBlank()) {
+                valores.put(Variables.PATROCINADORES, marca.textoPie());
+                valores.put(Variables.ALIADOS_PROYECTO, marca.textoPie());
+            }
+            if (marca.textoCabecera() != null && !marca.textoCabecera().isBlank()) {
+                valores.put(Variables.LEMA_PROYECTO, marca.textoCabecera());
+            }
+
             String asunto = Variables.aplicar(plantilla.getAsunto(), valores);
             String html = montar(asunto, "Hola " + nombre + ",",
                     Variables.aplicar(plantilla.getCuerpo(), valores),

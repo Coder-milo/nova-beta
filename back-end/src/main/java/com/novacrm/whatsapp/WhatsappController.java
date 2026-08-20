@@ -24,11 +24,14 @@ public class WhatsappController {
 
     private final WhatsappConfigService configService;
     private final WhatsappSender whatsappSender;
+    private final WhatsappAutomatizacionesService automatizacionesService;
 
     public WhatsappController(WhatsappConfigService configService,
-                              WhatsappSender whatsappSender) {
+                              WhatsappSender whatsappSender,
+                              WhatsappAutomatizacionesService automatizacionesService) {
         this.configService = configService;
         this.whatsappSender = whatsappSender;
+        this.automatizacionesService = automatizacionesService;
     }
 
     /** El canal del programa del propio usuario. Para el portal del estudiante. */
@@ -52,6 +55,47 @@ public class WhatsappController {
     public WhatsappResponse guardar(@PathVariable UUID programaId,
                                     @RequestBody WhatsappRequest request) {
         return configService.guardar(programaId, request);
+    }
+
+    @GetMapping("/{programaId}/automatizaciones/metricas")
+    @Operation(summary = "Métricas de presupuesto y candidatos de automatización de WhatsApp")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public WhatsappAutomatizacionesService.MetricasPresupuesto metricas(@PathVariable UUID programaId) {
+        return automatizacionesService.obtenerMetricasPresupuesto(programaId);
+    }
+
+    public record PeticionAutomatizacion(Integer dias, Boolean simulacion) {}
+
+    @PostMapping("/{programaId}/automatizaciones/inactividad")
+    @Operation(summary = "Ejecutar o simular nudges de WhatsApp por inactividad de postulación")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public WhatsappAutomatizacionesService.ResumenEjecucion ejecutarInactividad(
+            @PathVariable UUID programaId,
+            @RequestBody(required = false) PeticionAutomatizacion peticion) {
+        int dias = peticion != null && peticion.dias() != null ? peticion.dias() : 7;
+        boolean sim = peticion != null && peticion.simulacion() != null ? peticion.simulacion() : true;
+        return automatizacionesService.ejecutarNudgeInactividad(programaId, dias, sim);
+    }
+
+    @PostMapping("/{programaId}/automatizaciones/resumen-semanal")
+    @Operation(summary = "Ejecutar o simular resumen semanal de ofertas de WhatsApp")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public WhatsappAutomatizacionesService.ResumenEjecucion ejecutarResumenSemanal(
+            @PathVariable UUID programaId,
+            @RequestBody(required = false) PeticionAutomatizacion peticion) {
+        boolean sim = peticion != null && peticion.simulacion() != null ? peticion.simulacion() : true;
+        return automatizacionesService.ejecutarResumenSemanalVacantes(programaId, sim);
+    }
+
+    @PostMapping("/{programaId}/automatizaciones/seguimiento")
+    @Operation(summary = "Ejecutar o simular check-in de seguimiento laboral por WhatsApp")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN')")
+    public WhatsappAutomatizacionesService.ResumenEjecucion ejecutarSeguimiento(
+            @PathVariable UUID programaId,
+            @RequestBody(required = false) PeticionAutomatizacion peticion) {
+        int dias = peticion != null && peticion.dias() != null ? peticion.dias() : 30;
+        boolean sim = peticion != null && peticion.simulacion() != null ? peticion.simulacion() : true;
+        return automatizacionesService.ejecutarCheckInSeguimiento(programaId, dias, sim);
     }
 
     /**

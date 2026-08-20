@@ -22,7 +22,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/chats")
-@PreAuthorize("hasRole('ESTUDIANTE')")
+@PreAuthorize("isAuthenticated()")
 public class ChatDirectoController {
     private final ChatDirectoService service;
     private final com.novacrm.documento.StorageService storageService;

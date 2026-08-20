@@ -11,7 +11,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/chats/grupos")
-@PreAuthorize("hasRole('ESTUDIANTE')")
+@PreAuthorize("isAuthenticated()")
 public class ChatGrupoController {
 
     private final ChatGrupoService service;

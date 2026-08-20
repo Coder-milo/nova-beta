@@ -1597,6 +1597,9 @@ import type {
   PostulacionResponse,
   MiPostulacion,
   ResumenColocaciones,
+  CandidatoAutomatizacionWhatsapp,
+  ResumenAutomatizacionWhatsapp,
+  MetricasPresupuestoWhatsapp,
   VacanteDelPortal,
   VacanteEntrante,
   ResumenPostulaciones,
@@ -1629,6 +1632,34 @@ export const whatsappApi = {
   /** Bandeja del programa, de más nueva a más vieja. */
   bandeja: (programaId: string, token?: string) =>
     apiFetch<MensajeWhatsappResponse[]>(`/api/v1/whatsapp/${programaId}/mensajes`, { token }),
+
+  /** Métricas de presupuesto y candidatos a automatización. */
+  metricas: (programaId: string, token?: string) =>
+    apiFetch<MetricasPresupuestoWhatsapp>(`/api/v1/whatsapp/${programaId}/automatizaciones/metricas`, { token }),
+
+  /** Nudge de inactividad de postulaciones (simulación o real). */
+  ejecutarInactividad: (programaId: string, dias?: number, simulacion?: boolean, token?: string) =>
+    apiFetch<ResumenAutomatizacionWhatsapp>(`/api/v1/whatsapp/${programaId}/automatizaciones/inactividad`, {
+      method: 'POST',
+      data: { dias, simulacion },
+      token,
+    }),
+
+  /** Resumen semanal consolidado de empleo. */
+  ejecutarResumenSemanal: (programaId: string, simulacion?: boolean, token?: string) =>
+    apiFetch<ResumenAutomatizacionWhatsapp>(`/api/v1/whatsapp/${programaId}/automatizaciones/resumen-semanal`, {
+      method: 'POST',
+      data: { simulacion },
+      token,
+    }),
+
+  /** Check-in periódico de seguimiento laboral. */
+  ejecutarSeguimiento: (programaId: string, dias?: number, simulacion?: boolean, token?: string) =>
+    apiFetch<ResumenAutomatizacionWhatsapp>(`/api/v1/whatsapp/${programaId}/automatizaciones/seguimiento`, {
+      method: 'POST',
+      data: { dias, simulacion },
+      token,
+    }),
 }
 
 export const pipelineApi = {

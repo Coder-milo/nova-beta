@@ -1398,6 +1398,35 @@ export interface ResultadoEnvio {
   motivoFallo: string
 }
 
+export interface CandidatoAutomatizacionWhatsapp {
+  estudianteId: string
+  nombreCompleto: string
+  celular: string
+  programaNombre: string
+  diasInactivo: number
+  vacantesCompatibles: number
+  motivo: string
+}
+
+export interface ResumenAutomatizacionWhatsapp {
+  tipo: string
+  totalEvaluados: number
+  elegibles: number
+  enviados: number
+  omitidosPorCooldown: number
+  fallidos: number
+  simulacion: boolean
+  candidatos: CandidatoAutomatizacionWhatsapp[]
+}
+
+export interface MetricasPresupuestoWhatsapp {
+  totalEnviadosMes: number
+  limiteSugerido: number
+  porcentajeAhorroEstimado: number
+  estudiantesInactivosDetectados: number
+  estudiantesConVacantesPendientes: number
+}
+
 export interface PipelineEmpleabilidadResponse {
   estudianteId: string
   nombreCompleto: string

@@ -53,6 +53,9 @@ public enum Variables {
     // Proyecto e Iniciativa
     PROYECTO_NOMBRE("proyecto_nombre", "Nombre del proyecto o iniciativa", "Ruta Accelerator", "Proyecto"),
     LEMA_PROYECTO("lema_proyecto", "Lema o eslogan del proyecto", "Impulsando el talento bilingüe", "Proyecto"),
+    PATROCINADORES("patrocinadores", "Entidades patrocinadoras y aliadas", "Fundación Santo Domingo · CAC Eurocentres", "Proyecto"),
+    ALIADOS_PROYECTO("aliados_proyecto", "Aliados y cooperantes del proyecto", "Alianzas Estratégicas", "Proyecto"),
+    INSTITUCION_NOMBRE("institucion_nombre", "Nombre de la institución o sede", "Academy CAC", "Proyecto"),
 
     // Sistema
     ENLACE_BOTON("enlace_boton", "Enlace de destino para botón de acción", "https://panel.ejemplo.com/accion", "Sistema"),
