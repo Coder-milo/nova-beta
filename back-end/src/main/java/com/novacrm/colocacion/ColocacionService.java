@@ -109,8 +109,13 @@ public class ColocacionService {
     @Transactional
     public ColocacionResponse actualizar(UUID id, GuardarColocacion datos, String autor) {
         var colocacion = obtener(id);
+        String anterior = resumenEditable(colocacion);
         aplicar(colocacion, datos);
-        return aResponse(colocacionRepository.save(colocacion));
+        var guardada = colocacionRepository.save(colocacion);
+        auditoriaService.registrar("Colocaciones", "Actualización", "Colocacion",
+                id.toString(), nombreDe(guardada.getEstudiante()) + " - " + guardada.nombreEmpresa(),
+                anterior, resumenEditable(guardada));
+        return aResponse(guardada);
     }
 
     /**
@@ -158,8 +163,11 @@ public class ColocacionService {
 
     private void aplicar(Colocacion colocacion, GuardarColocacion d) {
         colocacion.setEmpresaNombre(d.empresaNombre().trim());
-        empresaRepository.findByNombreIgnoreCaseActiva(colocacion.getEmpresaNombre())
-                .ifPresent(colocacion::setEmpresa);
+        // Al editar de una empresa registrada a un nombre libre hay que quitar
+        // la relación anterior. Si no, nombreEmpresa() seguía mostrando la
+        // empresa vieja aunque empresaNombre ya tuviera el valor nuevo.
+        colocacion.setEmpresa(empresaRepository.findByNombreIgnoreCaseActiva(colocacion.getEmpresaNombre())
+                .orElse(null));
         colocacion.setCargo(d.cargo());
         colocacion.setTipoVinculacion(
                 d.tipoVinculacion() == null ? TipoVinculacion.EMPLEADO : d.tipoVinculacion());
@@ -339,5 +347,17 @@ public class ColocacionService {
         String completo = ((e.getNombre() == null ? "" : e.getNombre()) + " "
                 + (e.getApellido() == null ? "" : e.getApellido())).trim();
         return completo.isEmpty() ? "Estudiante" : completo;
+    }
+
+    private static String resumenEditable(Colocacion c) {
+        return "empresa=" + c.nombreEmpresa()
+                + "; cargo=" + valor(c.getCargo())
+                + "; salario=" + (c.getSalario() == null ? "sin registrar" : c.getSalario().toPlainString())
+                + "; modalidad=" + valor(c.getModalidad())
+                + "; contrato=" + valor(c.getTipoContrato());
+    }
+
+    private static String valor(String texto) {
+        return texto == null || texto.isBlank() ? "sin registrar" : texto;
     }
 }

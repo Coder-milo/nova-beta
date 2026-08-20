@@ -10,6 +10,8 @@ import com.novacrm.perfil.ExperienciaLaboral;
 import com.novacrm.perfil.FormacionAdicional;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,8 +28,11 @@ import java.util.zip.ZipOutputStream;
 @Transactional(readOnly = true)
 public class HvService {
 
+    private static final Logger log = LoggerFactory.getLogger(HvService.class);
+
     private final PlantillaHvRepository plantillaRepository;
     private final HojaDeVidaRepository hvRepository;
+    private final HvVersionService hvVersionService;
     private final EstudianteRepository estudianteRepository;
     private final HvPdfService pdfService;
     private final HvCustomTemplateService customTemplateService;
@@ -39,6 +44,7 @@ public class HvService {
 
     public HvService(PlantillaHvRepository plantillaRepository,
                      HojaDeVidaRepository hvRepository,
+                     HvVersionService hvVersionService,
                      EstudianteRepository estudianteRepository,
                      HvPdfService pdfService,
                      HvCustomTemplateService customTemplateService,
@@ -46,6 +52,7 @@ public class HvService {
                      CompletitudHvService completitudService) {
         this.plantillaRepository = plantillaRepository;
         this.hvRepository = hvRepository;
+        this.hvVersionService = hvVersionService;
         this.estudianteRepository = estudianteRepository;
         this.pdfService = pdfService;
         this.customTemplateService = customTemplateService;
@@ -159,7 +166,8 @@ public class HvService {
                 resultados.add(new ResultadoEstudiante(e.getId(), nombre, true, null));
                 generadas++;
             } catch (Exception ex) {
-                resultados.add(new ResultadoEstudiante(e.getId(), nombre, false, ex.getMessage()));
+                log.warn("No se pudo generar la hoja de vida de {} ({})", e.getId(), nombre, ex);
+                resultados.add(new ResultadoEstudiante(e.getId(), nombre, false, mensajeSeguro(ex)));
             }
         }
         return new GeneracionMasivaResponse(estudiantes.size(), generadas,
@@ -223,26 +231,20 @@ public class HvService {
         String key = storageService.subir("hojas-de-vida",
                 "hv-" + docId + ".pdf", pdf, "application/pdf");
 
-        // La consulta de la version siguiente lleva PESSIMISTIC_WRITE: dos
-        // generaciones concurrentes se serializan y la segunda relee la
-        // version real. El unique parcial (V24) es la red de seguridad.
-        return guardarVersion(estudiante, plantilla, key);
-    }
-
-    private HojaDeVida guardarVersion(Estudiante estudiante, PlantillaHv plantilla, String key) {
-        int siguienteVersion = hvRepository.findByEstudianteIdOrderByNumeroVersionDesc(estudiante.getId())
-                .stream().findFirst().map(h -> h.getNumeroVersion() + 1).orElse(1);
-        hvRepository.findFirstByEstudianteIdAndActualTrue(estudiante.getId())
-                .ifPresent(h -> h.setActual(false));
-
-        var hv = new HojaDeVida();
-        hv.setEstudiante(estudiante);
-        hv.setPlantilla(plantilla);
-        hv.setNumeroVersion(siguienteVersion);
-        hv.setObjectKey(key);
-        hv.setActual(true);
-        hv.setGeneradaPor(usuarioActual());
-        return hvRepository.save(hv);
+        // Cada versión se confirma por separado. En una generación masiva, un
+        // fallo de un estudiante no deja abortada la transacción de los demás.
+        try {
+            return hvVersionService.registrar(estudiante, plantilla, key, usuarioActual());
+        } catch (RuntimeException ex) {
+            // El PDF ya estaba subido. Si la fila no pudo guardarse, se evita
+            // dejar un archivo huérfano ocupando el almacenamiento.
+            try {
+                storageService.eliminar(key);
+            } catch (Exception cleanupError) {
+                log.warn("No se pudo limpiar el PDF huérfano {}", key, cleanupError);
+            }
+            throw ex;
+        }
     }
 
     // ── Consulta y descarga ──────────────────────────────────────────────────
@@ -273,10 +275,14 @@ public class HvService {
     @Transactional
     public HojaDeVidaResponse marcarActual(UUID hvId) {
         var hv = obtener(hvId);
+        if (hv.isActual()) return toHvResponse(hv);
         hvRepository.findFirstByEstudianteIdAndActualTrue(hv.getEstudiante().getId())
                 .ifPresent(h -> h.setActual(false));
+        // Igual que al generar: primero se libera la única fila vigente y
+        // después se activa la elegida.
+        hvRepository.flush();
         hv.setActual(true);
-        return toHvResponse(hv);
+        return toHvResponse(hvRepository.saveAndFlush(hv));
     }
 
     /** Elimina una versión generada y conserva una versión vigente cuando exista otra. */
@@ -288,6 +294,9 @@ public class HvService {
         String objectKey = hv.getObjectKey();
         hvRepository.delete(hv);
         if (eraActual) {
+            // Evita que el UPDATE de la siguiente versión se ejecute antes que
+            // el DELETE de la actual y choque con uq_hv_estudiante_actual.
+            hvRepository.flush();
             hvRepository.findByEstudianteIdOrderByNumeroVersionDesc(estudianteId).stream()
                     .findFirst().ifPresent(siguiente -> siguiente.setActual(true));
         }
@@ -389,6 +398,12 @@ public class HvService {
     }
 
     private static boolean notBlank(String s) { return s != null && !s.isBlank(); }
+
+    private static String mensajeSeguro(Exception ex) {
+        String mensaje = ex.getMessage();
+        if (mensaje == null || mensaje.isBlank()) return "No se pudo generar la hoja de vida";
+        return mensaje.length() <= 300 ? mensaje : mensaje.substring(0, 300);
+    }
 
     private String usuarioActual() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
