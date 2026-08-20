@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from '@/compat/next-navigation'
-import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Globe, Landmark as Bank, LayoutGrid as SquaresFour, LoaderCircle as CircleNotch, Monitor, Moon, Palette, Settings as Gear, Search as MagnifyingGlass, Share2 as ShareNetwork, Shield, ShieldAlert as ShieldWarning, SlidersHorizontal as Sliders, Sun, X } from 'lucide-react'
+import { CheckCircle2 as CheckCircle, CircleAlert as WarningCircle, Globe, Landmark as Bank, LayoutGrid as SquaresFour, LoaderCircle as CircleNotch, Monitor, Moon, Palette, Search as MagnifyingGlass, Share2 as ShareNetwork, Shield, ShieldAlert as ShieldWarning, SlidersHorizontal as Sliders, Sun, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { Confirmar } from '@/components/ui/confirmar'
@@ -30,7 +30,6 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import { usePreferences } from '@/lib/preferences'
 import { adminApi, configuracionApi, programasApi } from '@/lib/api'
-import { textosAdmin } from '@/lib/textos-admin'
 
 /**
  * Las secciones, reagrupadas por **qué cambias y a quién afecta**.
@@ -137,7 +136,6 @@ export default function ConfiguracionPage() {
   const { user } = useAuth()
   const { theme, setTheme, locale, setLocale, t } = usePreferences()
   const T = textos(locale === 'en')
-  const C = textosAdmin(locale === 'en')
   /**
    * La sección abierta, con `?seccion=` para poder enlazarla desde fuera.
    *

@@ -89,7 +89,7 @@ public class CuentasDeDesarrolloInitializer implements CommandLineRunner {
         if (faltaEmpresa) {
             // La empresa tiene que existir antes que el rol: el disparador de
             // V54 rechaza una cuenta EMPRESA sin `empresa_id`.
-            Empresa empresa = empresaRepository.findByNombreIgnoreCaseActiva(EMPRESA_DEMO)
+            Empresa empresa = empresaRepository.findFirstByNombreIgnoreCaseAndActivoTrue(EMPRESA_DEMO)
                     .orElseGet(() -> {
                         var nueva = new Empresa();
                         nueva.setNombre(EMPRESA_DEMO);

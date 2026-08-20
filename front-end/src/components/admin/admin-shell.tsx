@@ -49,6 +49,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const esEstudiante = soloEsEstudiante(user?.roles)
 
+  useEffect(() => {
+    if (pathname === '/login') {
+      document.title = locale === 'en'
+        ? 'CAC Academic · Sign in'
+        : 'CAC Academic · Iniciar sesión'
+      return
+    }
+    document.title = esEstudiante
+      ? `CAC Academic · ${locale === 'en' ? 'Student portal' : 'Portal del estudiante'}`
+      : `CAC Academic · ${locale === 'en' ? 'Admin panel' : 'Panel administrativo'}`
+  }, [esEstudiante, locale, pathname])
+
   // ── Barra de progreso de navegación ──────────────────────────────────────
   const [navLoading, setNavLoading] = useState(false)
   const [navWidth, setNavWidth] = useState(0)

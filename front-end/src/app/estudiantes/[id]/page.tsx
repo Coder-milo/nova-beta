@@ -30,17 +30,18 @@ import { FilePreview, FilePreviewSheet } from '@/components/ui/file-preview'
 import { useConfirmar } from '@/components/ui/confirmar'
 import {
   estudiantesApi, perfilApi, seguimientosApi, hvApi, documentosApi,
-  auditoriaApi, pipelineApi, postulacionesApi, colocacionesApi, plataformasApi, ApiCallError,
+  auditoriaApi, pipelineApi, postulacionesApi, colocacionesApi, plataformasApi, copilotoApi, ApiCallError,
 } from '@/lib/api'
 import type {
   EstudianteResponse, FormacionResponse, FormacionRequest,
   ExperienciaResponse, ExperienciaRequest, SeguimientoResponse,
   SeguimientoRequest, HojaDeVidaResponse, DocumentoResponse,
   AuditoriaResponse, PipelineEmpleabilidadResponse, PostulacionResponse, ColocacionResponse,
-  PreparacionEstudianteRequest, EstadoHito, EstudianteRequest, PlataformaResponse,
+  PreparacionEstudianteRequest, EstadoHito, EstudianteRequest, PlataformaResponse, RespuestaCopiloto,
 } from '@/lib/types'
 import { ModalPostularEstudiante } from '@/components/admin/modal-postular-estudiante'
 import { PipelinePostulacionesSalesforce } from '@/components/admin/pipeline-postulaciones-salesforce'
+import { ResumenAccionable360 } from '@/components/admin/resumen-accionable-360'
 import { Textarea } from '@/components/ui/textarea'
 import { errorDe } from '@/lib/errores'
 import { usePreferences } from '@/lib/preferences'
@@ -543,6 +544,9 @@ function FichaEstudiante({ id }: { id: string }) {
   const [postulaciones, setPostulaciones] = useState<PostulacionResponse[]>([])
   const [colocaciones, setColocaciones] = useState<ColocacionResponse[]>([])
   const [loadingEmpleabilidad, setLoadingEmpleabilidad] = useState(true)
+  const [copiloto, setCopiloto] = useState<RespuestaCopiloto | null>(null)
+  const [loadingCopiloto, setLoadingCopiloto] = useState(true)
+  const [errorCopiloto, setErrorCopiloto] = useState(false)
   const [editandoPreparacion, setEditandoPreparacion] = useState(false)
   const [guardandoPreparacion, setGuardandoPreparacion] = useState(false)
   const [preparacion, setPreparacion] = useState<PreparacionEstudianteRequest>({})
@@ -619,6 +623,19 @@ function FichaEstudiante({ id }: { id: string }) {
     } finally { setLoadingEmpleabilidad(false) }
   }, [id])
 
+  const loadCopiloto = useCallback(async () => {
+    setLoadingCopiloto(true)
+    setErrorCopiloto(false)
+    try {
+      setCopiloto(await copilotoApi.porEstudiante(id))
+    } catch {
+      setCopiloto(null)
+      setErrorCopiloto(true)
+    } finally {
+      setLoadingCopiloto(false)
+    }
+  }, [id])
+
   const loadHistorial = useCallback(async () => {
     setLoadingHist(true)
     try {
@@ -646,9 +663,9 @@ function FichaEstudiante({ id }: { id: string }) {
   useEffect(() => {
     if (!id) return
     loadEstudiante()
-    loadFormaciones(); loadExperiencias(); loadHvs(); loadDocumentos(); loadSeguimientos(); loadEmpleabilidad(); loadHistorial()
+    loadFormaciones(); loadExperiencias(); loadHvs(); loadDocumentos(); loadSeguimientos(); loadEmpleabilidad(); loadCopiloto(); loadHistorial()
     documentosApi.tipos().then(setTiposDoc).catch(() => setTiposDoc([]))
-  }, [id, loadEstudiante, loadFormaciones, loadExperiencias, loadHvs, loadDocumentos, loadSeguimientos, loadEmpleabilidad, loadHistorial])
+  }, [id, loadEstudiante, loadFormaciones, loadExperiencias, loadHvs, loadDocumentos, loadSeguimientos, loadEmpleabilidad, loadCopiloto, loadHistorial])
 
   // Las plataformas del programa solo se saben cuando la ficha del estudiante
   // ya dijo a qué programa pertenece.
@@ -730,7 +747,7 @@ function FichaEstudiante({ id }: { id: string }) {
     try {
       const hv = await hvApi.generar(id, { idioma })
       flash('ok', `Hoja de vida versión ${hv.numeroVersion} (${idioma.toUpperCase()}) generada correctamente.`)
-      loadHvs(); setTab('hv')
+      loadHvs(); void loadCopiloto(); setTab('hv')
     } catch (err) { flash('error', errorDe(err, T.errorAlGenerar)) }
     finally { setGenerandoHv(false) }
   }
@@ -787,7 +804,7 @@ function FichaEstudiante({ id }: { id: string }) {
   }
 
   const handleMarcarActual = async (hvId: string) => {
-    try { await hvApi.marcarActual(hvId); loadHvs() }
+    try { await hvApi.marcarActual(hvId); loadHvs(); void loadCopiloto() }
     catch (err) { flash('error', errorDe(err, T.errorAlMarcar)) }
   }
 
@@ -796,6 +813,7 @@ function FichaEstudiante({ id }: { id: string }) {
     try {
       await hvApi.eliminar(hv.id)
       loadHvs()
+      void loadCopiloto()
       flash('ok', `Hoja de vida versión ${hv.numeroVersion} eliminada.`)
     } catch (err) { flash('error', errorDe(err, T.errorAlEliminar)) }
   }
@@ -835,6 +853,7 @@ function FichaEstudiante({ id }: { id: string }) {
       })
       setNuevoSeguimiento(emptySeguimiento)
       loadSeguimientos()
+      void loadCopiloto()
       flash('ok', 'Seguimiento registrado.')
     } catch (err) { flash('error', errorDe(err, T.errorAlCrear)) }
     finally { setGuardandoSeguimiento(false) }
@@ -852,12 +871,13 @@ function FichaEstudiante({ id }: { id: string }) {
         estado,
       })
       loadSeguimientos()
+      void loadCopiloto()
     } catch (err) { flash('error', errorDe(err, T.errorAlActualizar)) }
   }
 
   const handleEliminarSeguimiento = async (sid: string) => {
     if (!(await confirmar({ titulo: T.eliminarSeguimiento, descripcion: T.seEliminaraEsteX, textoConfirmar: C.eliminar }))) return
-    try { await seguimientosApi.eliminar(id, sid); loadSeguimientos() }
+    try { await seguimientosApi.eliminar(id, sid); loadSeguimientos(); void loadCopiloto() }
     catch (err) { flash('error', errorDe(err, T.errorAlEliminarX)) }
   }
 
@@ -874,6 +894,7 @@ function FichaEstudiante({ id }: { id: string }) {
       await seguimientosApi.actualizar(id, seguimientoEditando.id, formSeguimientoEdit)
       setSeguimientoEditando(null)
       loadSeguimientos()
+      void loadCopiloto()
       flash('ok', 'Seguimiento actualizado.')
     } catch (err) { flash('error', errorDe(err, T.noSePudoX)) }
     finally { setGuardandoSeguimientoEdit(false) }
@@ -905,9 +926,25 @@ function FichaEstudiante({ id }: { id: string }) {
       setEstudiante(actualizada)
       setEditandoPreparacion(false)
       loadEmpleabilidad()
+      void loadCopiloto()
       flash('ok', T.preparacionParaLa)
     } catch (err) { flash('error', errorDe(err, T.noSePudoXX)) }
     finally { setGuardandoPreparacion(false) }
+  }
+
+  /**
+   * Las acciones del resumen reutilizan las secciones que ya existen.
+   *
+   * El `setTimeout` espera al siguiente render: las tarjetas de seguimiento no
+   * están en el DOM mientras la pestaña Resumen está abierta.
+   */
+  const irASeccion = (destino: TabId, ancla?: string) => {
+    setTab(destino)
+    if (ancla && typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        document.getElementById(ancla)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 0)
+    }
   }
 
   // ── Estados globales ──────────────────────────────────────────────────────
@@ -1092,6 +1129,28 @@ function FichaEstudiante({ id }: { id: string }) {
       {/* ── Resumen ────────────────────────────────────────────────────────── */}
       {tab === 'resumen' && (
         <div className="flex flex-col gap-4">
+          <ResumenAccionable360
+            estudiante={est}
+            seguimientos={seguimientos}
+            hojasDeVida={hvs}
+            postulaciones={postulaciones}
+            pipeline={pipeline}
+            cargas={{
+              seguimientos: loadingSeg,
+              hojasDeVida: loadingHv,
+              empleabilidad: loadingEmpleabilidad,
+            }}
+            copiloto={copiloto}
+            cargandoCopiloto={loadingCopiloto}
+            errorCopiloto={errorCopiloto}
+            english={locale === 'en'}
+            onRegistrarSeguimiento={() => irASeccion('seguimientos', 'registrar-seguimiento')}
+            onRevisarHojaDeVida={() => irASeccion('hv')}
+            onNuevaPostulacion={() => setModalPostularAbierto(true)}
+            onGestionarPostulaciones={() => irASeccion('seguimientos', 'pipeline-postulaciones')}
+            onRevisarPreparacion={() => irASeccion('seguimientos', 'preparacion-empleabilidad')}
+          />
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Card className="rounded-lg border-border shadow-none">
               <CardContent className="pt-5 flex flex-col gap-1">
@@ -1205,8 +1264,8 @@ function FichaEstudiante({ id }: { id: string }) {
               <DetailField label={T.tieneComputador} value={est.tieneComputador == null ? null : est.tieneComputador ? 'Si' : 'No'} />
               <DetailField label={T.tieneInternet} value={est.tieneInternet == null ? null : est.tieneInternet ? 'Si' : 'No'} />
               <DetailField label="Movilidad" value={est.disponibilidadMovilidad == null ? null : est.disponibilidadMovilidad ? 'Disponible' : T.noDisponible} />
-              <DetailField label={T.fechaDeNacimiento} value={null} />
-              <DetailField label={T.genero} value={null} />
+              <DetailField label={T.fechaDeNacimiento} value={est.fechaNacimiento ? fechaCorta(est.fechaNacimiento, locale === 'en') : null} />
+              <DetailField label={T.genero} value={est.genero} />
               <DetailField label="Nacionalidad" value={est.nacionalidad} />
             </div>
           </CardContent>
@@ -1661,7 +1720,7 @@ function FichaEstudiante({ id }: { id: string }) {
                 </CardContent>
               </Card>
 
-              {estudiante && <Card className="rounded-lg border-border shadow-none">
+              {estudiante && <Card id="preparacion-empleabilidad" className="scroll-mt-24 rounded-lg border-border shadow-none">
                 <CardHeader className="pb-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className="text-base">{T.preparacionParaLaX}</CardTitle><CardDescription>{T.hitosPerfilOcupacional}</CardDescription></div><div className="flex items-center gap-2"><Badge variant="outline">{estudiante.hitosCumplidos}/5 hitos · {estudiante.porcentajeEmpleabilidad}%</Badge>{!editandoPreparacion && <Button type="button" variant="outline" size="sm" onClick={abrirEdicionPreparacion}><PencilSimple className="size-3.5" /> Gestionar</Button>}</div></div></CardHeader>
                 <CardContent className="space-y-4">
                   {editandoPreparacion ? <form onSubmit={guardarPreparacion} className="space-y-4">
@@ -1696,7 +1755,7 @@ function FichaEstudiante({ id }: { id: string }) {
               )}
 
               {/* Pipeline de Postulaciones y Entrevistas Estilo Salesforce */}
-              <div className="flex flex-col gap-3">
+              <div id="pipeline-postulaciones" className="scroll-mt-24 flex flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -1755,7 +1814,7 @@ function FichaEstudiante({ id }: { id: string }) {
             </>
           )}
 
-          <Card className="rounded-lg border-border shadow-none">
+          <Card id="registrar-seguimiento" className="scroll-mt-24 rounded-lg border-border shadow-none">
             <CardHeader>
               <CardTitle className="text-base">{T.registrarAccionDe}</CardTitle>
               <CardDescription>{T.contactosCompromisosY}</CardDescription>
@@ -1893,6 +1952,7 @@ function FichaEstudiante({ id }: { id: string }) {
           onGuardado={() => {
             void loadEmpleabilidad()
             void loadSeguimientos()
+            void loadCopiloto()
             flash('ok', locale === 'es' ? 'Postulación registrada con éxito' : 'Application registered successfully')
           }}
         />

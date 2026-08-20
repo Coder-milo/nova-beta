@@ -100,6 +100,16 @@ public class ImportacionCrmService {
     public ResultadoImportacionCrm importarEmpresas(HojaLeida hoja, boolean simular) {
 
         var errores = new ArrayList<FilaConError>();
+        // La hoja real contiene decenas de empresas. Resolver cada nombre con
+        // una consulta separada era un N+1 visible: solo la previsualización
+        // podía tardar más de un minuto. Se trae el directorio activo una vez
+        // y se compara con exactamente la misma clave normalizada.
+        var existentesPorClave = empresaRepository.findByActivoTrueOrderByNombreAsc().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        empresa -> ClaveNormalizada.deEmpresa(empresa.getNombre()),
+                        java.util.function.Function.identity(),
+                        (primera, ignorada) -> primera,
+                        LinkedHashMap::new));
         // Dentro del propio archivo se repiten empresas: la hoja suele ser un
         // registro de contactos, con una fila por acercamiento. Se recuerdan
         // los nombres ya vistos para que la segunda aparición cuente como
@@ -121,7 +131,15 @@ public class ImportacionCrmService {
             // `nombre` recortado para que tope con la columna de la base; el
             // resto de campos con tope se recortan en la construccion de abajo.
             nombre = cortar(nombre, 255);
-            var existente = empresaRepository.findByNombreIgnoreCaseActiva(nombre.trim());
+            var existente = Optional.ofNullable(existentesPorClave.get(clave));
+            // Si la misma empresa se repite dentro de una importación real, la
+            // primera fila pudo crearla después de construir el índice. Solo
+            // ese caso excepcional necesita una consulta puntual para aplicar
+            // la segunda fila como actualización en vez de intentar duplicar.
+            if (!simular && existente.isEmpty() && vistas.contains(clave)) {
+                existente = empresaRepository.findByNombreIgnoreCaseActiva(nombre.trim());
+                existente.ifPresent(empresa -> existentesPorClave.put(clave, empresa));
+            }
             boolean yaExiste = existente.isPresent() || vistas.contains(clave);
 
             try {
@@ -192,6 +210,15 @@ public class ImportacionCrmService {
         var porNombre = hoja.tiene("nombreCompleto")
                 ? new ResolutorDeParticipante(estudianteRepository) : null;
 
+        // Misma regla que en empresas: la vista previa no puede hacer una
+        // consulta por cada participante. Las vinculaciones vigentes se
+        // indexan una vez y cada fila se resuelve en memoria.
+        var vigentesPorEstudiante = colocacionRepository.vigentes().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        colocacion -> colocacion.getEstudiante().getId(),
+                        java.util.function.Function.identity(),
+                        (masReciente, ignorada) -> masReciente));
+
         var errores = new ArrayList<FilaConError>();
         // Estudiantes ya tratados en ESTE archivo.
         //
@@ -245,8 +272,7 @@ public class ImportacionCrmService {
                 // la fila corrige lo registrado en vez de abrir un segundo
                 // empleo simultáneo, que es lo que descuadraba los informes de
                 // cierre de cohorte.
-                var vigente = colocacionRepository
-                        .findFirstByEstudianteIdAndActivaTrueOrderByFechaInicioDesc(estudiante.get().getId());
+                var vigente = Optional.ofNullable(vigentesPorEstudiante.get(estudiante.get().getId()));
 
                 var datos = new GuardarColocacion(
                         estudiante.get().getId(),

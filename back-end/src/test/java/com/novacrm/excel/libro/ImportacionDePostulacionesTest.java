@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,12 +41,13 @@ class ImportacionDePostulacionesTest {
         ana = new Estudiante();
         ana.setNombre("Ana");
         ana.setApellido("Ruiz Gómez");
+        org.springframework.test.util.ReflectionTestUtils.setField(ana, "id", UUID.randomUUID());
 
         var estudianteRepository = mock(EstudianteRepository.class);
         when(estudianteRepository.findAllByActivoTrue()).thenReturn(List.of(ana));
 
         postulacionRepository = mock(PostulacionRepository.class);
-        when(postulacionRepository.findByEstudianteIdOrderByFechaPostulacionDesc(any()))
+        when(postulacionRepository.deVariosEstudiantes(any()))
                 .thenReturn(List.of());
         postulacionService = mock(PostulacionService.class);
 
@@ -143,7 +145,7 @@ class ImportacionDePostulacionesTest {
         yaExiste.setEstudiante(ana);
         yaExiste.setEmpresaNombre("Solvo Global");
         yaExiste.setCargo("Freight Coordinator bilingüe");
-        when(postulacionRepository.findByEstudianteIdOrderByFechaPostulacionDesc(ana.getId()))
+        when(postulacionRepository.deVariosEstudiantes(any()))
                 .thenReturn(List.of(yaExiste));
 
         var resultado = importacion.importar(hoja(Map.of(
@@ -154,6 +156,8 @@ class ImportacionDePostulacionesTest {
         assertEquals(0, resultado.creados());
         assertEquals(1, resultado.omitidos());
         verify(postulacionService, never()).crear(any(), any(), anyString(), anyBoolean());
+        verify(postulacionRepository).deVariosEstudiantes(any());
+        verify(postulacionRepository, never()).findByEstudianteIdOrderByFechaPostulacionDesc(any());
     }
 
     @Test

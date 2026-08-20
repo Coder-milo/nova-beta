@@ -142,7 +142,7 @@ const IconButton = forwardRef<
       {children}
       {!!badge && (
         <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-4 text-destructive-foreground">
-          {badge > 9 ? '9+' : badge}
+          {badge}
         </span>
       )}
     </button>
@@ -623,6 +623,14 @@ export function Header({ onOpenMobile }: HeaderProps) {
         // El nombre se corrige solo al cargar la conversación, que lo trae en
         // cada mensaje; el título del aviso sólo sirve de rótulo mientras tanto.
         abrirChatDirecto({ id: notification.referenciaId, nombre: notification.titulo, fotoUrl: null })
+        return
+      }
+      if (notification?.tipo === 'MATCH') {
+        router.push('/mis-postulaciones')
+        return
+      }
+      if (notification?.tipo === 'MENSAJE') {
+        router.push('/mis-mensajes')
         return
       }
       router.push('/mis-notificaciones')

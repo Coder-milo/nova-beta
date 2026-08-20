@@ -97,7 +97,17 @@ export function getThemePreference(): ThemePreference {
 export function getLocalePreference(): Locale {
   if (typeof window === 'undefined') return 'es'
   const saved = localStorage.getItem(getPrefKey(BASE_LOCALE_KEY))
-  return isLocale(saved) ? saved : 'es'
+  if (isLocale(saved)) return saved
+  try {
+    const rawUser = localStorage.getItem('nova_user')
+    const roles = rawUser ? JSON.parse(rawUser)?.roles : null
+    if (Array.isArray(roles) && roles.length === 1 && roles[0] === 'ESTUDIANTE') {
+      return 'en'
+    }
+  } catch {
+    // Una sesión local dañada no debe impedir que la interfaz arranque.
+  }
+  return 'es'
 }
 
 export function applyThemePreference(theme: ThemePreference) {

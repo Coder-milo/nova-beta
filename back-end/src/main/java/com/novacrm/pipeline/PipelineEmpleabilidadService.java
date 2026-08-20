@@ -11,7 +11,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -100,6 +105,68 @@ public class PipelineEmpleabilidadService {
                 colocado);
 
         return construir(estudianteId, nombreCompleto(estudiante), hechos);
+    }
+
+    /**
+     * Calcula el pipeline de una cohorte con consultas agrupadas.
+     *
+     * <p>El tablero administrativo pinta más de cien tarjetas. Llamar a
+     * {@link #calcular(Estudiante)} por cada una ejecutaba seis consultas por
+     * persona y tardaba cerca de cuarenta segundos en producción. Los hechos
+     * se cargan aquí por lote y la deducción final sigue usando exactamente la
+     * misma función pura que el perfil individual.
+     */
+    public Map<UUID, PipelineEmpleabilidad> calcularVarios(
+            List<Estudiante> estudiantes,
+            Map<UUID, List<com.novacrm.seguimiento.Seguimiento>> historialPorEstudiante,
+            Map<UUID, Long> matchesPostuladosPorEstudiante) {
+        if (estudiantes == null || estudiantes.isEmpty()) return Map.of();
+
+        List<UUID> ids = estudiantes.stream().map(Estudiante::getId).toList();
+        var idsConHv = hvService.idsConHvVigente(ids);
+        var idsColocados = new HashSet<>(colocacionRepository.idsColocados());
+
+        Map<UUID, Long> postulaciones = new HashMap<>();
+        for (var postulacion : postulacionRepository.deVariosEstudiantes(ids)) {
+            postulaciones.merge(postulacion.getEstudiante().getId(), 1L, Long::sum);
+        }
+
+        Map<UUID, Long> empresasContactadas = new HashMap<>();
+        for (var fila : matchRepository.contarEmpresasContactadasDeVarios(ids)) {
+            empresasContactadas.put(fila.getEstudianteId(), fila.getTotal());
+        }
+
+        Map<UUID, PipelineEmpleabilidad> resultado = new HashMap<>();
+        for (Estudiante estudiante : estudiantes) {
+            UUID id = estudiante.getId();
+            long cantidadPostulaciones = Math.max(
+                    postulaciones.getOrDefault(id, 0L),
+                    matchesPostuladosPorEstudiante.getOrDefault(id, 0L));
+            boolean simulacro = historialPorEstudiante.getOrDefault(id, List.of()).stream()
+                    .anyMatch(PipelineEmpleabilidadService::esSimulacroCompletado);
+            boolean hvLista = idsConHv.contains(id)
+                    || estudiante.getPreparacion().getCvListo().cumplido();
+            boolean colocado = idsColocados.contains(id)
+                    || estudiante.getEstadoEmpleabilidad() == EstadoEmpleabilidad.EMPLEADO;
+
+            var hechos = new Hechos(
+                    hvLista,
+                    estudiante.getPreparacion().getLinkedinOptimizado().cumplido(),
+                    simulacro,
+                    cantidadPostulaciones,
+                    empresasContactadas.getOrDefault(id, 0L),
+                    colocado);
+            resultado.put(id, construir(id, nombreCompleto(estudiante), hechos));
+        }
+        return Map.copyOf(resultado);
+    }
+
+    private static boolean esSimulacroCompletado(com.novacrm.seguimiento.Seguimiento seguimiento) {
+        String tipo = seguimiento.getTipo();
+        String estado = seguimiento.getEstado();
+        return tipo != null && estado != null
+                && tipo.toUpperCase(Locale.ROOT).startsWith("SIMULACRO")
+                && estado.equalsIgnoreCase("COMPLETADA");
     }
 
     private static String nombreCompleto(Estudiante estudiante) {

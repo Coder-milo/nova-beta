@@ -32,7 +32,12 @@ public class ResolutorDeParticipante {
     private final Map<String, Estudiante> porEmail = new HashMap<>();
 
     public ResolutorDeParticipante(EstudianteRepository repositorio) {
-        for (Estudiante e : repositorio.findAllByActivoTrue()) {
+        this(repositorio.findAllByActivoTrue());
+    }
+
+    /** Construye el índice desde una carga ya hecha por el llamador. */
+    public ResolutorDeParticipante(List<Estudiante> participantes) {
+        for (Estudiante e : participantes) {
             for (String clave : clavesDe(e)) {
                 porNombre.computeIfAbsent(clave, k -> new java.util.ArrayList<>()).add(e);
             }

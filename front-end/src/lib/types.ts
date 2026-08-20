@@ -52,6 +52,77 @@ export interface AlertaResponse {
   ruta: string | null
 }
 
+// ─── Copiloto de empleabilidad ─────────────────────────────────────────────
+
+export type PrioridadCopiloto = 'ALTA' | 'MEDIA' | 'BAJA'
+export type CategoriaCopiloto = 'SEGUIMIENTO' | 'EMPLEABILIDAD' | 'ENTREVISTA' | 'HOJA_DE_VIDA' | 'RADAR'
+export type TipoAccionCopiloto = 'SEGUIMIENTO' | 'POSTULACIONES' | 'PREPARACION' | 'HOJA_DE_VIDA' | 'OPORTUNIDADES'
+
+export interface TextoCopiloto {
+  tituloEs: string
+  tituloEn: string
+  queDetectoEs: string
+  queDetectoEn: string
+  porQueImportaEs: string
+  porQueImportaEn: string
+}
+
+export interface EvidenciaCopiloto {
+  codigo: string
+  valor: string
+  etiquetaEs: string
+  etiquetaEn: string
+}
+
+export interface AccionCopiloto {
+  tipo: TipoAccionCopiloto
+  etiquetaEs: string
+  etiquetaEn: string
+  ruta: string
+}
+
+export interface RecomendacionCopiloto {
+  codigo: string
+  prioridad: PrioridadCopiloto
+  categoria: CategoriaCopiloto
+  texto: TextoCopiloto
+  evidencia: EvidenciaCopiloto[]
+  accion: AccionCopiloto
+}
+
+export interface RespuestaCopiloto {
+  estudianteId: string
+  generadoEn: string
+  totalSenales: number
+  recomendaciones: RecomendacionCopiloto[]
+}
+
+export interface PersonaPrioritariaCopiloto {
+  estudianteId: string
+  nombre: string
+  prioridad: PrioridadCopiloto
+  motivoEs: string
+  motivoEn: string
+  ruta: string
+  totalRecomendaciones: number
+}
+
+export interface GrupoAccionCopiloto {
+  codigo: string
+  prioridad: PrioridadCopiloto
+  tituloEs: string
+  tituloEn: string
+  total: number
+  estudiantes: PersonaPrioritariaCopiloto[]
+}
+
+export interface CentroAccionCopiloto {
+  generadoEn: string
+  estudiantesEvaluados: number
+  grupos: GrupoAccionCopiloto[]
+  ranking: PersonaPrioritariaCopiloto[]
+}
+
 // ─── Programas ───────────────────────────────────────────────────────────────
 
 export type ProgramaEstado = 'PLANEACION' | 'BORRADOR' | 'ACTIVO' | 'EN_EJECUCION' | 'PAUSADO' | 'FINALIZADO' | 'CANCELADO' | 'ARCHIVADO'

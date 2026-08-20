@@ -70,7 +70,28 @@ class LectorDeLibroTest {
         var c = LectorDeLibro.clasificar(libro.hoja("Dashboard"));
 
         assertFalse(c.importable());
-        assertTrue(c.motivo().contains("identifica al participante"), c.motivo());
+        assertTrue(c.motivo().contains("indicadores"), c.motivo());
+    }
+
+    @Test
+    void noMandaALaIaElCodigoPegadoComoColumna() {
+        var libro = LibroDePrueba.nuevo().conHoja("Seguimiento Postulaciones",
+                fila("SEGUIMIENTO DE POSTULACIONES"),
+                fila("N° Participante", "Nombre Completo", "Empresa", "Cargo Aplicado",
+                        "Canal", "Fecha Postulación", "Estado",
+                        "function crearTablaParticipantes() {", "Observaciones"),
+                fila("80", "Ana Ruiz", "Solvo Global", "Agente", "LinkedIn", "2026-07-15", "Enviado",
+                        "var ss = SpreadsheetApp.getActiveSpreadsheet();", "Primera postulación"));
+        var ia = org.mockito.Mockito.mock(com.novacrm.ia.ReconocimientoConIa.class);
+        org.mockito.Mockito.when(ia.disponible()).thenReturn(true);
+
+        var clasificada = LectorDeLibro.clasificar(
+                libro.hoja("Seguimiento Postulaciones"), ia);
+
+        assertTrue(clasificada.importable(), clasificada.motivo());
+        assertNull(clasificada.hoja().columnas().get("function crearTablaParticipantes() {"));
+        org.mockito.Mockito.verify(ia, org.mockito.Mockito.never())
+                .sugerirCampos(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from '@/compat/next-link'
+import { useRouter } from '@/compat/next-navigation'
 import { ProximasCitas } from '@/components/student/proximas-citas'
 import { Bell, Calendar as CalendarBlank, ChevronLeft as CaretLeft, ChevronRight as CaretRight, CircleAlert as WarningCircle, FileText, Globe, Info, LoaderCircle as CircleNotch, Moon, Sun } from 'lucide-react'
 import {
@@ -117,6 +118,8 @@ function textosArea(english: boolean) {
         completarPerfil: 'Complete profile',
         verConversacion: 'Open conversation',
         cerrarConversacion: 'Close conversation',
+        verOportunidades: 'View opportunities',
+        verMensajes: 'Open messages',
       }
     : {
         accesosAsociadosATu: 'Accesos asociados a tu proceso de empleabilidad.',
@@ -179,10 +182,13 @@ function textosArea(english: boolean) {
         completarPerfil: 'Completar perfil',
         verConversacion: 'Ver conversación',
         cerrarConversacion: 'Cerrar conversación',
+        verOportunidades: 'Ver oportunidades',
+        verMensajes: 'Abrir mensajes',
       }
 }
 
 export function StudentAreaPage({ area }: { area: StudentArea }) {
+  const router = useRouter()
   const [perfil, setPerfil] = useState<EstudianteResponse | null>(null)
   const [seguimientos, setSeguimientos] = useState<SeguimientoDelEstudianteResponse[]>([])
   const [pipeline, setPipeline] = useState<PipelineEmpleabilidadResponse | null>(null)
@@ -283,6 +289,16 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
     } catch (e) {
       setError(mensajeDeError(e, A.noSePudoMarcar))
     } finally { setMarcandoTodas(false) }
+  }
+
+  const abrirNotificacion = async (n: NotificacionResponse) => {
+    try {
+      await marcarLeida(n)
+    } catch (e) {
+      setError(mensajeDeError(e, A.noSePudoMarcar))
+    }
+    if (n.tipo === 'MATCH') router.push('/mis-postulaciones')
+    else if (n.tipo === 'CHAT' || n.tipo === 'MENSAJE') router.push('/mis-mensajes')
   }
 
   if (loading) {
@@ -503,6 +519,15 @@ export function StudentAreaPage({ area }: { area: StudentArea }) {
                         className="text-xs font-semibold text-primary hover:underline"
                       >
                         {A.marcarComoLeida}
+                      </button>
+                    )}
+                    {(n.tipo === 'MATCH' || n.tipo === 'CHAT' || n.tipo === 'MENSAJE') && (
+                      <button
+                        type="button"
+                        onClick={() => void abrirNotificacion(n)}
+                        className="text-xs font-semibold text-primary hover:underline"
+                      >
+                        {n.tipo === 'MATCH' ? A.verOportunidades : A.verMensajes}
                       </button>
                     )}
                   </div>

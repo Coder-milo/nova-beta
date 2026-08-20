@@ -38,6 +38,17 @@ public class ImportacionDeParticipantes {
     @Transactional
     public ResultadoImportacionCrm importar(HojaLeida hoja, boolean simular) {
         var resolutor = new ResolutorDeParticipante(estudianteRepository);
+        // El libro real trae más de cien participantes. Consultar el catálogo
+        // de inglés dentro de cada fila convertía una vista previa en más de
+        // cien viajes a PostgreSQL y hacía que el proxy de Vercel venciera
+        // antes de recibir la respuesta. El catálogo es pequeño y estable: se
+        // carga una sola vez y se resuelve en memoria.
+        var nivelesPorCodigo = nivelInglesRepository.findAll().stream()
+                .filter(nivel -> nivel.getCodigo() != null)
+                .collect(java.util.stream.Collectors.toMap(
+                        nivel -> nivel.getCodigo().toUpperCase(java.util.Locale.ROOT),
+                        java.util.function.Function.identity(),
+                        (primero, ignorado) -> primero));
         var errores = new ArrayList<FilaConError>();
         int actualizados = 0;
 
@@ -65,7 +76,7 @@ public class ImportacionDeParticipantes {
             }
             try {
                 var estudiante = encontrado.estudiante();
-                aplicar(fila, estudiante);
+                aplicar(fila, estudiante, nivelesPorCodigo);
                 if (!simular) {
                     estudianteRepository.save(estudiante);
                 }
@@ -86,7 +97,8 @@ public class ImportacionDeParticipantes {
     /**
      * Vuelca la fila sobre el participante.
      */
-    private void aplicar(HojaLeida.Fila fila, Estudiante e) {
+    private void aplicar(HojaLeida.Fila fila, Estudiante e,
+                         java.util.Map<String, com.novacrm.catalogo.nivel_ingles.NivelIngles> nivelesPorCodigo) {
         texto(fila, "nacionalidad", e::setNacionalidad, 100);
         texto(fila, "genero", e::setGenero, 50);
         texto(fila, "tipoDocumento", e::setTipoDocumento, 50);
@@ -132,7 +144,7 @@ public class ImportacionDeParticipantes {
 
         edad(fila.texto("edad"), e);
         aniosExperiencia(fila.texto("tiempoExperiencia"), e);
-        nivelIngles(fila.texto("nivelIngles"), e);
+        nivelIngles(fila.texto("nivelIngles"), e, nivelesPorCodigo);
         estadoEmpleabilidad(fila.texto("estadoEmpleabilidad"), e);
 
         var preparacion = e.getPreparacion();
@@ -192,12 +204,16 @@ public class ImportacionDeParticipantes {
         }
     }
 
-    private void nivelIngles(String valor, Estudiante e) {
+    private static void nivelIngles(
+            String valor,
+            Estudiante e,
+            java.util.Map<String, com.novacrm.catalogo.nivel_ingles.NivelIngles> nivelesPorCodigo) {
         if (valor == null || valor.isBlank()) {
             return;
         }
         NivelMcer.desdeTexto(valor)
-                .flatMap(nivel -> nivelInglesRepository.findByCodigo(nivel.name()))
+                .map(nivel -> nivelesPorCodigo.get(nivel.name()))
+                .filter(java.util.Objects::nonNull)
                 .ifPresent(e::setNivelIngles);
     }
 

@@ -231,19 +231,34 @@ export default function ColocacionesPage() {
   const [form, setForm] = useState<ColocacionRequest>(vacia)
   const [catalogos, setCatalogos] = useState<CatalogosColocacion | null>(null)
 
+  const cargarOpcionesFormulario = useCallback(async () => {
+    try {
+      const [participantes, directorio] = await Promise.all([
+        estudiantesApi.buscarAvanzado({ page: 0, size: 250 }),
+        empresasApi.buscar({ page: 0, size: 250 }),
+      ])
+      setEstudiantes(participantes.content)
+      setEmpresas(directorio.content)
+    } catch {
+      // El listado y sus indicadores siguen siendo utilizables. Si se abre el
+      // formulario, los campos permiten escribir la empresa y reintentar.
+    }
+  }, [])
+
   const cargar = useCallback(async () => {
     setCargando(true); setError('')
     try {
-      const [lista, cifras, participantes, directorio, catalogo] = await Promise.all([
-        colocacionesApi.listar(), colocacionesApi.resumen(), estudiantesApi.buscarAvanzado({ page: 0, size: 250 }), empresasApi.buscar({ page: 0, size: 250 }),
+      const [lista, cifras, catalogo] = await Promise.all([
+        colocacionesApi.listar(), colocacionesApi.resumen(),
         colocacionesApi.catalogos(),
       ])
-      setRegistros(lista); setResumen(cifras); setEstudiantes(participantes.content); setEmpresas(directorio.content)
+      setRegistros(lista); setResumen(cifras)
       setCatalogos(catalogo)
     } catch (err) { setError(mensajeError(err, T.noSePudo)) }
     finally { setCargando(false) }
   }, [])
   useEffect(() => { void cargar() }, [cargar])
+  useEffect(() => { void cargarOpcionesFormulario() }, [cargarOpcionesFormulario])
 
   const filtrados = useMemo(() => {
     const busqueda = q.trim().toLocaleLowerCase('es-CO')

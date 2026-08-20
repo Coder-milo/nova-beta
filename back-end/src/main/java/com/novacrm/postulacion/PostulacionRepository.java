@@ -7,12 +7,21 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface PostulacionRepository extends JpaRepository<Postulacion, UUID> {
 
     List<Postulacion> findByEstudianteIdOrderByFechaPostulacionDesc(UUID estudianteId);
+
+    /** Procesos de varias fichas en una consulta; evita N+1 en el Copiloto. */
+    @Query("""
+            SELECT p FROM Postulacion p
+            WHERE p.estudiante.id IN :ids
+            ORDER BY p.fechaPostulacion DESC
+            """)
+    List<Postulacion> deVariosEstudiantes(@Param("ids") Collection<UUID> ids);
 
     Page<Postulacion> findByEstudianteId(UUID estudianteId, Pageable pageable);
 

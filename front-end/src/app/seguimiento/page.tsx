@@ -575,14 +575,14 @@ export default function SeguimientoPage() {
         </div>
       )}
 
-      {cargando && (
+      {vista === 'personas' && cargando && (
         <div className="flex items-center justify-center py-20">
           <PageSpinner />
           <span className="ml-2 text-sm text-muted-foreground">{T.cargando}</span>
         </div>
       )}
 
-      {error && !cargando && (
+      {vista === 'personas' && error && !cargando && (
         <div className="flex flex-col items-center gap-3 py-12">
           <WarningCircle className="size-8 text-destructive" />
           <p className="text-sm text-destructive">{error}</p>
@@ -592,7 +592,7 @@ export default function SeguimientoPage() {
         </div>
       )}
 
-      {!cargando && !error && tablero && (
+      {vista === 'personas' && !cargando && !error && tablero && (
         tablero.totalEstudiantes === 0 ? (
           <Card className="border-dashed shadow-none">
             <CardContent className="flex flex-col items-center py-14 text-center">

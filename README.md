@@ -1,5 +1,9 @@
 # NOVA CRM
 
+> **Documentación de entrega vigente:** consulta el índice en
+> [`docs/entrega/README.md`](docs/entrega/README.md). Incluye manuales,
+> arquitectura, API, despliegue, seguridad, UAT, limitaciones y acta de entrega.
+
 > **Carpeta de trabajo:** ejecuta siempre el proyecto desde la raíz de este repositorio, donde están `front-end/` y `back-end/`. No abras una carpeta `NOVA-CRM` dentro de otra; esa copia antigua fue retirada para que todos usen la misma versión.
 
 **CRM de Empleabilidad** — Sistema integral para la gestión de empleabilidad del programa CAC Eurocentres. Conecta estudiantes, programas, vacantes y empresas mediante un motor de matching inteligente, scraping automatizado de portales de empleo, importación masiva desde Excel, y emisión de certificaciones digitales verificables.
@@ -88,9 +92,11 @@ pnpm dev
 
 El frontend queda disponible en `http://localhost:3000`.
 
-**Credenciales admin por defecto (seed Flyway):**
-- Email: `admin@novacrm.com`
-- Password: `admin123`
+**Acceso inicial:** no se debe usar una contraseña pública o compartida.
+En un entorno nuevo, define `ADMIN_INITIAL_PASSWORD` antes del primer
+arranque; si no se define, la aplicación genera una credencial temporal y la
+informa una sola vez en el log de inicio. Cámbiala de inmediato desde la
+aplicación. Nunca publiques una contraseña real en este repositorio.
 
 ## Endpoints principales
 

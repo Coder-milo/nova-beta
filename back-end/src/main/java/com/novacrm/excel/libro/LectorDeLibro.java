@@ -189,6 +189,16 @@ public final class LectorDeLibro {
     static HojaClasificada clasificar(Sheet hoja, PresupuestoIa ia) {
         String nombre = hoja.getSheetName();
 
+        // Los tableros son salidas calculadas, no registros. El archivo real
+        // comienza por una pestaña "Dashboard" que comparte títulos como
+        // "CV listo" con participantes; mandarla a la IA solo añade latencia
+        // y nunca puede producir filas importables porque no identifica a
+        // ninguna persona.
+        if (esHojaDeResumen(nombre)) {
+            return HojaClasificada.omitida(nombre,
+                    "Es una hoja de indicadores o resumen; no contiene registros para importar");
+        }
+
         // Se busca la cabecera con el vocabulario de todos los destinos a la
         // vez: en este punto todavia no se sabe cual es, y usar el de uno solo
         // haria que la fila de titulos de las otras hojas pasara desapercibida.
@@ -231,18 +241,29 @@ public final class LectorDeLibro {
         // descartara sin llegar a preguntarle por ninguna de sus columnas.
         // Gana siempre la primera columna que lo reclamó, como en el diccionario.
         var columnasPorIa = new LinkedHashSet<String>();
-        if (ia.activo()) {
+        // Las cinco pestañas del formato NOVA ya tienen un vocabulario propio
+        // cubierto por el diccionario. Si además contienen lo obligatorio, no
+        // se consulta un LLM solo para intentar clasificar columnas auxiliares
+        // (número de fila, métricas o comentarios). Eso deja la vista previa
+        // disponible aunque Groq esté lento o sin cuota. Para hojas con nombre
+        // libre, o cuando falte un campo esencial, se conserva el rescate IA.
+        boolean necesitaRescateIa = !destino.camposFaltantes(porIndice).isEmpty()
+                || !esHojaEstandarDeSeguimiento(nombre);
+        if (ia.activo() && necesitaRescateIa) {
             var desconocidas = cabecera.get().titulos().entrySet().stream()
                     .filter(entrada -> !porIndice.containsKey(entrada.getKey()))
+                    .filter(entrada -> pareceTituloDeDato(entrada.getValue()))
                     .toList();
-            var sugeridos = ia.campos(
-                    desconocidas.stream().map(Map.Entry::getValue).toList(),
-                    destino.camposPosibles());
-            for (var entrada : desconocidas) {
-                String campo = sugeridos.get(entrada.getValue());
-                if (campo != null && !porIndice.containsValue(campo)) {
-                    porIndice.put(entrada.getKey(), campo);
-                    columnasPorIa.add(entrada.getValue());
+            if (!desconocidas.isEmpty()) {
+                var sugeridos = ia.campos(
+                        desconocidas.stream().map(Map.Entry::getValue).toList(),
+                        destino.camposPosibles());
+                for (var entrada : desconocidas) {
+                    String campo = sugeridos.get(entrada.getValue());
+                    if (campo != null && !porIndice.containsValue(campo)) {
+                        porIndice.put(entrada.getKey(), campo);
+                        columnasPorIa.add(entrada.getValue());
+                    }
                 }
             }
         }
@@ -319,6 +340,45 @@ public final class LectorDeLibro {
             }
         }
         return false;
+    }
+
+    private static boolean esHojaDeResumen(String nombre) {
+        String normalizado = DestinoDeHoja.Normalizacion.titulo(nombre);
+        return normalizado.equals("dashboard")
+                || normalizado.equals("tablero")
+                || normalizado.equals("indicadores")
+                || normalizado.equals("resumen");
+    }
+
+    private static boolean esHojaEstandarDeSeguimiento(String nombre) {
+        return switch (DestinoDeHoja.Normalizacion.titulo(nombre)) {
+            case "perfiles empleabilidad", "empresas por sector", "empresas contactadas",
+                    "vinculados y colocados", "seguimiento postulaciones" -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * Evita enviar código pegado accidentalmente dentro del Excel a la IA.
+     * El libro de entrega trae una columna cuyo encabezado es una función de
+     * Google Apps Script y debajo contiene el programa completo. No es un dato
+     * del CRM, y tratar de mapearlo gastaba una llamada y podía agotar el
+     * tiempo de la vista previa.
+     */
+    private static boolean pareceTituloDeDato(String titulo) {
+        if (titulo == null) return false;
+        String limpio = titulo.trim();
+        if (limpio.isEmpty() || limpio.length() > 100
+                || limpio.contains("{") || limpio.contains("}") || limpio.contains(";")) {
+            return false;
+        }
+        String normalizado = limpio.toLowerCase(Locale.ROOT);
+        return !(normalizado.startsWith("function ")
+                || normalizado.startsWith("var ")
+                || normalizado.startsWith("let ")
+                || normalizado.startsWith("const ")
+                || normalizado.startsWith("for (")
+                || normalizado.startsWith("if ("));
     }
 
     /**

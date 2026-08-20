@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -46,7 +47,10 @@ class ConsultasDelTableroTest {
         }
         when(estudiantes.findAllByActivoTrue()).thenReturn(cohorte);
         when(seguimientos.findByEstudianteIdOrderByFechaDesc(any())).thenReturn(List.of());
-        when(pipeline.calcular(any(Estudiante.class))).thenReturn(mock(PipelineEmpleabilidad.class));
+        var pipelines = cohorte.stream().collect(Collectors.toMap(
+                Estudiante::getId,
+                ignored -> mock(PipelineEmpleabilidad.class)));
+        when(pipeline.calcularVarios(anyList(), anyMap(), anyMap())).thenReturn(pipelines);
 
         var service = new TableroService(estudiantes, seguimientos, matches, pipeline);
         service.construir();
@@ -57,6 +61,7 @@ class ConsultasDelTableroTest {
         // para traer lo que la linea anterior ya habia traido.
         verify(estudiantes, never()).findById(any());
         verify(pipeline, never()).calcular(any(UUID.class));
-        verify(pipeline, times(108)).calcular(any(Estudiante.class));
+        verify(pipeline, never()).calcular(any(Estudiante.class));
+        verify(pipeline).calcularVarios(anyList(), anyMap(), anyMap());
     }
 }

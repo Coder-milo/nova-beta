@@ -216,6 +216,18 @@ function textos(english: boolean) {
         postuladas: 'Applied',
         buscarVacante: 'Search by role or company…',
         postulacionRevertida: 'Application withdrawn. The opening is available again.',
+        cargandoOportunidades: 'Loading opportunities…',
+        diasEsperando: (dias: number) => `${dias} day${dias === 1 ? '' : 's'} waiting for a response`,
+        exploraOportunidades: 'Explore openings analysed and recommended for your profile.',
+        buscarMasVacantes: 'Search more jobs', buscandoVacantes: 'Searching…',
+        tituloBuscarVacantes: 'Find and refresh job openings for your profile',
+        sinResultadosBusqueda: 'No openings matched your search.',
+        sinResultadosFiltro: 'There are no openings for the selected filter.',
+        postulado: 'Applied',
+        mostrandoResultados: (visibles: number, total: number) => `Showing ${visibles} of ${total} opportunities`,
+        cargarMas: 'Load more',
+        alConfirmarConEnlace: 'After confirmation, the original posting opens in a new tab so you can finish the company application. The process will also be logged in your tracker.',
+        alConfirmarSinEnlace: 'This opening has no direct external link. It will be logged in your tracker so you can coordinate with the employability team.',
       }
     : {
         cumple: 'cumple',
@@ -275,6 +287,18 @@ function textos(english: boolean) {
         postuladas: 'Postuladas',
         buscarVacante: 'Buscar por cargo o empresa…',
         postulacionRevertida: 'Postulación cancelada. La vacante vuelve a estar disponible.',
+        cargandoOportunidades: 'Cargando oportunidades…',
+        diasEsperando: (dias: number) => `${dias} día${dias === 1 ? '' : 's'} esperando respuesta`,
+        exploraOportunidades: 'Explora vacantes analizadas y recomendadas para tu perfil.',
+        buscarMasVacantes: 'Buscar más vacantes', buscandoVacantes: 'Buscando…',
+        tituloBuscarVacantes: 'Buscar y actualizar vacantes para tu perfil',
+        sinResultadosBusqueda: 'No se encontraron vacantes con el término de búsqueda ingresado.',
+        sinResultadosFiltro: 'No hay vacantes para el filtro seleccionado.',
+        postulado: 'Postulado',
+        mostrandoResultados: (visibles: number, total: number) => `Mostrando ${visibles} de ${total} oportunidades`,
+        cargarMas: 'Cargar más',
+        alConfirmarConEnlace: 'Al confirmar, se abrirá la oferta original en una nueva pestaña para que completes los datos solicitados por la empresa. El proceso también quedará registrado en tu seguimiento.',
+        alConfirmarSinEnlace: 'Esta vacante no incluye enlace externo directo. Se registrará en tu seguimiento para que puedas coordinar con el equipo de empleabilidad.',
       }
 }
 
@@ -453,6 +477,11 @@ export function StudentPostulaciones() {
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<'todas' | 'disponibles' | 'postuladas'>('todas')
   const [orden, setOrden] = useState<'afinidad' | 'recientes'>('afinidad')
+  const [limiteVisible, setLimiteVisible] = useState(12)
+
+  useEffect(() => {
+    setLimiteVisible(12)
+  }, [busqueda, filtroEstado, orden])
 
   const mostrarNotificacion = (tipo: 'exito' | 'error', mensaje: string) => {
     setNotificacion({ tipo, mensaje })
@@ -618,7 +647,7 @@ export function StudentPostulaciones() {
     return (
       <div className="flex min-h-60 items-center justify-center gap-2 text-sm text-muted-foreground">
         <CircleNotch className="size-5 animate-spin" />
-        Cargando oportunidades…
+        {T.cargandoOportunidades}
       </div>
     )
   }
@@ -725,7 +754,7 @@ export function StudentPostulaciones() {
                         {postulacion.modalidadEtiqueta ? ` · ${postulacion.modalidadEtiqueta}` : ''}
                       </p>
                     )}
-                    {postulacion.diasEsperando != null && <p className="mt-1 text-xs text-muted-foreground">{postulacion.diasEsperando} días esperando respuesta</p>}
+                    {postulacion.diasEsperando != null && <p className="mt-1 text-xs text-muted-foreground">{T.diasEsperando(postulacion.diasEsperando)}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={postulacion.estadoFinal ? 'secondary' : 'default'}>{postulacion.estadoEtiqueta}</Badge>
@@ -781,7 +810,7 @@ export function StudentPostulaciones() {
               {T.oportunidades} ({matches.length})
             </h2>
             <p className="text-xs text-muted-foreground">
-              Explora y postúlate a las vacantes analizadas y recomendadas para tu perfil.
+              {T.exploraOportunidades}
             </p>
           </div>
 
@@ -844,12 +873,10 @@ export function StudentPostulaciones() {
               onClick={refrescarOportunidades}
               disabled={buscandoOportunidades}
               className="h-8 gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
-              title="Buscar y actualizar nuevas vacantes para tu perfil"
+              title={T.tituloBuscarVacantes}
             >
               <Sparkle className={`size-3.5 ${buscandoOportunidades ? 'animate-spin' : ''}`} />
-              {buscandoOportunidades
-                ? (locale === 'en' ? 'Searching…' : 'Buscando…')
-                : (locale === 'en' ? 'Search more jobs' : 'Buscar más vacantes')}
+              {buscandoOportunidades ? T.buscandoVacantes : T.buscarMasVacantes}
             </Button>
           </div>
         </div>
@@ -862,23 +889,23 @@ export function StudentPostulaciones() {
               </span>
               <p className="max-w-md text-sm">
                 {busqueda
-                  ? 'No se encontraron vacantes con el término de búsqueda ingresado.'
+                  ? T.sinResultadosBusqueda
                   : matches.length === 0
                     ? T.vacioSinVacantes
-                    : 'No hay vacantes para el filtro seleccionado.'}
+                    : T.sinResultadosFiltro}
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {matchesFiltrados.map((m) => (
+            {matchesFiltrados.slice(0, limiteVisible).map((m) => (
               <Card key={m.id} className={`shadow-none transition-all ${m.postulado ? 'border-emerald-500/30 bg-emerald-500/[0.02]' : ''}`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <CardTitle className="text-base leading-snug">{m.vacanteTitulo}</CardTitle>
                     {m.postulado ? (
                       <Badge className="shrink-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-medium">
-                        Postulado
+                        {T.postulado}
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="shrink-0">
@@ -946,6 +973,16 @@ export function StudentPostulaciones() {
             ))}
           </div>
         )}
+        {matchesFiltrados.length > 0 && (
+          <div className="flex flex-col items-center justify-center gap-2 pt-1 text-xs text-muted-foreground sm:flex-row">
+            <span>{T.mostrandoResultados(Math.min(limiteVisible, matchesFiltrados.length), matchesFiltrados.length)}</span>
+            {limiteVisible < matchesFiltrados.length && (
+              <Button type="button" variant="outline" size="sm" onClick={() => setLimiteVisible((actual) => actual + 12)}>
+                {T.cargarMas}
+              </Button>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Modal de Confirmación de Postulación */}
@@ -976,11 +1013,11 @@ export function StudentPostulaciones() {
               </div>
               {urlDeOferta(matchPorPostular) ? (
                 <p className="text-[11px] leading-relaxed">
-                  Al confirmar, se abrirá la oferta original en una nueva pestaña para que completes los datos que solicite la empresa y quedará registrada en tu seguimiento.
+                  {T.alConfirmarConEnlace}
                 </p>
               ) : (
                 <p className="text-[11px] leading-relaxed">
-                  Esta vacante no incluye enlace externo directo. Se registrará la postulación en tu panel para coordinar con tu equipo de empleabilidad.
+                  {T.alConfirmarSinEnlace}
                 </p>
               )}
             </div>

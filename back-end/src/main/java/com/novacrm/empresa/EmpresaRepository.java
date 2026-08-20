@@ -29,6 +29,13 @@ public interface EmpresaRepository extends JpaRepository<Empresa, UUID> {
             """)
     Optional<Empresa> findByNombreIgnoreCaseActiva(@Param("nombre") String nombre);
 
+    /**
+     * Busqueda portable para los datos de demostracion del perfil dev.
+     * No usa la funcion PostgreSQL de normalizacion porque el entorno local
+     * tambien puede ejecutarse sobre H2 sin las migraciones de produccion.
+     */
+    Optional<Empresa> findFirstByNombreIgnoreCaseAndActivoTrue(String nombre);
+
     @Query("SELECT e FROM Empresa e WHERE e.id = :id AND e.activo = true")
     Optional<Empresa> findActivaById(@Param("id") UUID id);
 

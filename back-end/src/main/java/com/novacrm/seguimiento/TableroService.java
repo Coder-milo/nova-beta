@@ -98,13 +98,18 @@ public class TableroService {
                         .collect(java.util.stream.Collectors.toMap(
                                 MatchRepository.PostuladosPorEstudiante::getEstudianteId,
                                 MatchRepository.PostuladosPorEstudiante::getTotal));
+        Map<UUID, com.novacrm.pipeline.PipelineEmpleabilidad> pipelines = ids.isEmpty()
+                ? Map.of()
+                : pipelineService.calcularVarios(
+                        estudiantes, historialPorEstudiante, postuladosPorEstudiante);
 
         for (Estudiante estudiante : estudiantes) {
             var tarjeta = tarjetaDe(estudiante, hoy,
                     // Sin fila en el agrupado significa cero, no ausencia: un
                     // `group by` no devuelve nada para quien no tiene ninguna.
                     historialPorEstudiante.getOrDefault(estudiante.getId(), List.of()),
-                    postuladosPorEstudiante.getOrDefault(estudiante.getId(), 0L));
+                    postuladosPorEstudiante.getOrDefault(estudiante.getId(), 0L),
+                    pipelines.get(estudiante.getId()));
             porEstado.get(tarjeta.estadoContacto()).add(tarjeta);
         }
 
@@ -134,7 +139,8 @@ public class TableroService {
     private TarjetaTablero tarjetaDe(Estudiante estudiante, LocalDate hoy) {
         return tarjetaDe(estudiante, hoy,
                 seguimientoRepository.findByEstudianteIdOrderByFechaDesc(estudiante.getId()),
-                matchRepository.countByEstudianteIdAndPostuladoTrue(estudiante.getId()));
+                matchRepository.countByEstudianteIdAndPostuladoTrue(estudiante.getId()),
+                null);
     }
 
     /**
@@ -145,10 +151,13 @@ public class TableroService {
      * lo unico distinto es quien pide los datos.
      */
     private TarjetaTablero tarjetaDe(Estudiante estudiante, LocalDate hoy,
-                                     List<Seguimiento> historial, long postulados) {
+                                     List<Seguimiento> historial, long postulados,
+                                     com.novacrm.pipeline.PipelineEmpleabilidad pipelineCalculado) {
         // Con la ficha, no con su identificador: la version por identificador
         // la vuelve a buscar, y aqui ya la tenemos leida.
-        var pipeline = pipelineService.calcular(estudiante);
+        var pipeline = pipelineCalculado != null
+                ? pipelineCalculado
+                : pipelineService.calcular(estudiante);
 
         return new TarjetaTablero(
                 estudiante.getId(),

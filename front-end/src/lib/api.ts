@@ -1624,6 +1624,8 @@ import type {
   CandidatoAutomatizacionWhatsapp,
   ResumenAutomatizacionWhatsapp,
   MetricasPresupuestoWhatsapp,
+  RespuestaCopiloto,
+  CentroAccionCopiloto,
   VacanteDelPortal,
   VacanteEntrante,
   ResumenPostulaciones,
@@ -1691,6 +1693,15 @@ export const pipelineApi = {
     apiFetch<PipelineEmpleabilidadResponse>('/api/v1/pipeline/mi-pipeline', { token }),
   porEstudiante: (estudianteId: string, token?: string) =>
     apiFetch<PipelineEmpleabilidadResponse>(`/api/v1/pipeline/estudiante/${estudianteId}`, { token }),
+}
+
+export const copilotoApi = {
+  mio: (token?: string) =>
+    apiFetch<RespuestaCopiloto>('/api/v1/copiloto/mio', { token }),
+  porEstudiante: (estudianteId: string, token?: string) =>
+    apiFetch<RespuestaCopiloto>(`/api/v1/copiloto/estudiante/${estudianteId}`, { token }),
+  centroAccion: (token?: string) =>
+    apiFetch<CentroAccionCopiloto>('/api/v1/copiloto/centro-accion', { token }),
 }
 
 export const postulacionesApi = {

@@ -18,7 +18,11 @@ public interface ColocacionRepository extends JpaRepository<Colocacion, UUID> {
 
     long countByActivaTrue();
 
-    @Query("SELECT c FROM Colocacion c WHERE c.activa = true ORDER BY c.fechaInicio DESC NULLS LAST")
+    /**
+     * Las importaciones contrastan las colocaciones activas por estudiante.
+     * Traer la relación evita una consulta adicional por cada fila del libro.
+     */
+    @Query("SELECT c FROM Colocacion c JOIN FETCH c.estudiante WHERE c.activa = true ORDER BY c.fechaInicio DESC NULLS LAST")
     List<Colocacion> vigentes();
 
     /** Ids de quienes tienen colocacion vigente. Para no consultar uno a uno. */

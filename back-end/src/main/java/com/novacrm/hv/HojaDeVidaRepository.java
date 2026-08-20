@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 import java.util.UUID;
 
 public interface HojaDeVidaRepository extends JpaRepository<HojaDeVida, UUID> {
@@ -30,4 +31,8 @@ public interface HojaDeVidaRepository extends JpaRepository<HojaDeVida, UUID> {
 
     /** Indica si el estudiante ya tiene una hoja de vida vigente generada. */
     boolean existsByEstudianteIdAndActualTrue(UUID estudianteId);
+
+    /** Fichas con versión vigente, para calcular el Centro de Acción en lote. */
+    @Query("SELECT DISTINCT h.estudiante.id FROM HojaDeVida h WHERE h.actual = true AND h.estudiante.id IN :ids")
+    List<UUID> idsConHvVigente(@Param("ids") Collection<UUID> ids);
 }

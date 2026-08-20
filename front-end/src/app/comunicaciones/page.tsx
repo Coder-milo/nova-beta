@@ -15,12 +15,10 @@ import {
   CheckCircle2 as CheckCircle,
   CircleAlert as WarningCircle,
   Image as ImageSquare,
-  Layers,
   Link as LinkSimple,
   LoaderCircle as CircleNotch,
   Mail as EnvelopeSimple,
   Megaphone,
-  Sparkles,
 } from 'lucide-react'
 import {
   Card,
@@ -39,7 +37,6 @@ import type { ActividadRequest, ProgramaResponse } from '@/lib/types'
 import { PanelPlantillasCorreo } from '@/components/admin/panel-plantillas-correo'
 import { SelectorAudiencia, type AudienciaSeleccionada } from '@/components/admin/selector-audiencia'
 import { usePreferences } from '@/lib/preferences'
-import { textosAdmin } from '@/lib/textos-admin'
 import { Textarea } from '@/components/ui/textarea'
 import { errorDe } from '@/lib/errores'
 import { cn } from '@/lib/utils'

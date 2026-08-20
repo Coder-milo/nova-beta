@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -43,11 +42,13 @@ class ImportacionDeParticipantesTest {
         when(estudianteRepository.findAllByActivoTrue()).thenReturn(List.of(ana));
 
         nivelInglesRepository = mock(NivelInglesRepository.class);
-        when(nivelInglesRepository.findByCodigo(anyString())).thenAnswer(inv -> {
-            var nivel = new NivelIngles();
-            nivel.setCodigo(inv.getArgument(0));
-            return Optional.of(nivel);
-        });
+        var a2 = new NivelIngles();
+        a2.setCodigo("A2");
+        var b1 = new NivelIngles();
+        b1.setCodigo("B1");
+        var b2 = new NivelIngles();
+        b2.setCodigo("B2");
+        when(nivelInglesRepository.findAll()).thenReturn(List.of(a2, b1, b2));
 
         importacion = new ImportacionDeParticipantes(estudianteRepository, nivelInglesRepository);
     }
@@ -211,6 +212,8 @@ class ImportacionDeParticipantesTest {
 
         assertNotNull(ana.getNivelIngles());
         assertEquals("B1", ana.getNivelIngles().getCodigo());
+        verify(nivelInglesRepository).findAll();
+        verify(nivelInglesRepository, never()).findByCodigo(anyString());
     }
 
     /** "No estoy seguro/a" no es un nivel y no debe pisar el ya registrado. */

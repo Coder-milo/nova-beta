@@ -26,16 +26,17 @@ import { QuickAccess } from '@/components/dashboard/quick-access'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { PageHeader } from '@/components/admin/page-header'
 import { Button } from '@/components/ui/button'
-import { dashboardApi, ApiCallError } from '@/lib/api'
+import { dashboardApi, copilotoApi, ApiCallError } from '@/lib/api'
 import { usePreferences } from '@/lib/preferences'
 import type {
   DashboardSummaryResponse,
   DashboardChartsResponse,
   AlertaResponse,
-  PuntoDato,
+  CentroAccionCopiloto,
 } from '@/lib/types'
 import type { StatCard as StatCardType } from '@/lib/mock-data'
 import { primaryStats, secondaryStats } from '@/lib/mock-data'
+import { CentroAccion } from '@/components/dashboard/centro-accion'
 // ─── Mapeo de datos del backend a la forma que espera StatCard ───────────────
 
 /**
@@ -209,6 +210,9 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<AlertaResponse[] | null>(null)
   const [backendError, setBackendError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [centroAccion, setCentroAccion] = useState<CentroAccionCopiloto | null>(null)
+  const [loadingCentroAccion, setLoadingCentroAccion] = useState(true)
+  const [errorCentroAccion, setErrorCentroAccion] = useState(false)
   /**
    * Contador de recargas.
    *
@@ -271,6 +275,19 @@ export default function DashboardPage() {
       active = false
     }
   }, [recarga]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // El Copiloto carga aparte: si esta lectura falla, los KPIs reales del resto
+  // del panel no se sustituyen por datos de ejemplo ni desaparecen.
+  useEffect(() => {
+    let active = true
+    setLoadingCentroAccion(true)
+    setErrorCentroAccion(false)
+    copilotoApi.centroAccion()
+      .then((datos) => { if (active) setCentroAccion(datos) })
+      .catch(() => { if (active) { setCentroAccion(null); setErrorCentroAccion(true) } })
+      .finally(() => { if (active) setLoadingCentroAccion(false) })
+    return () => { active = false }
+  }, [recarga])
 
   if (loading && primeraCarga) {
     return <PageSpinner label={T.cargandoDashboard} />
@@ -348,6 +365,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-3.5">
         <AlertsCard alerts={useLive ? alerts! : null} />
       </div>
+
+      <CentroAccion
+        datos={centroAccion}
+        cargando={loadingCentroAccion}
+        error={errorCentroAccion}
+        english={locale === 'en'}
+      />
 
       {/* El mapa va después de las barras por proyecto y no antes: aquellas
           dicen cuánta gente hay, y este, dónde está. La pregunta de dónde solo

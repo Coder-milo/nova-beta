@@ -181,7 +181,7 @@ public final class PlantillaCorreo {
     private static String pieHtml(MarcaCorreo marca) {
         String urlBanner = marca.bannerUrl();
         String texto = marca.textoPie() == null || marca.textoPie().isBlank()
-                ? "Programa de Formación y Empleabilidad"
+                ? "Fundacion Santo Domingo · GitLab Foundation · CAC Eurocentres · Compartamos con Colombia"
                 : escapar(marca.textoPie());
 
         if (urlBanner == null || urlBanner.isBlank()) {

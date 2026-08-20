@@ -6,6 +6,7 @@ import { WhatsappLogo } from '@/components/ui/iconos-de-marca'
 import Link from '@/compat/next-link'
 import {
   documentosApi,
+  copilotoApi,
   estudiantesApi,
   matchesApi,
   notificacionesApi,
@@ -13,7 +14,7 @@ import {
   seguimientosApi,
   whatsappApi,
 } from '@/lib/api'
-import type { EstudianteResponse, PlataformaResponse, SeguimientoDelEstudianteResponse } from '@/lib/types'
+import type { EstudianteResponse, PlataformaResponse, RespuestaCopiloto, SeguimientoDelEstudianteResponse } from '@/lib/types'
 import { useBranding } from '@/lib/branding'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ProximasCitas } from '@/components/student/proximas-citas'
@@ -21,6 +22,7 @@ import { MiRuta } from '@/components/student/mi-ruta'
 import { Badge } from '@/components/ui/badge'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
+import { MiSiguientePaso } from '@/components/student/mi-siguiente-paso'
 
 /**
  * Textos propios de esta pantalla.
@@ -108,19 +110,22 @@ export default function InicioEstudiantePage() {
   const [noLeidas, setNoLeidas] = useState(0)
   const [whatsapp, setWhatsapp] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [copiloto, setCopiloto] = useState<RespuestaCopiloto | null>(null)
+  const [errorCopiloto, setErrorCopiloto] = useState(false)
 
   useEffect(() => {
     let active = true
     void (async () => {
       try {
         const p = await estudiantesApi.obtenerMiPerfil()
-        const [matches, proceso, misDocumentos, notificaciones, canal, misPlataformas] = await Promise.allSettled([
+        const [matches, proceso, misDocumentos, notificaciones, canal, misPlataformas, siguientePaso] = await Promise.allSettled([
           matchesApi.obtenerMisMatches(0, 100),
           seguimientosApi.mio(),
           documentosApi.mios({ size: 1 }),
           notificacionesApi.misNoLeidas(),
           whatsappApi.mio(),
           plataformasApi.mias(),
+          copilotoApi.mio(),
         ])
         if (!active) return
         setPerfil(p)
@@ -132,6 +137,8 @@ export default function InicioEstudiantePage() {
         if (misDocumentos.status === 'fulfilled') setDocumentos(misDocumentos.value.totalElements)
         if (notificaciones.status === 'fulfilled') setNoLeidas(notificaciones.value)
         if (misPlataformas.status === 'fulfilled') setPlataformas(misPlataformas.value)
+        if (siguientePaso.status === 'fulfilled') setCopiloto(siguientePaso.value)
+        else setErrorCopiloto(true)
         if (
           canal.status === 'fulfilled' &&
           canal.value.configurado &&
@@ -233,6 +240,8 @@ export default function InicioEstudiantePage() {
       {/* Por encima de las alertas: una entrevista tiene hora de caducidad y
           «completa tu perfil de LinkedIn» no. Si no hay citas no pinta nada. */}
       <ProximasCitas />
+
+      <MiSiguientePaso respuesta={copiloto} cargando={false} error={errorCopiloto} english={locale === 'en'} />
 
       {/* Dónde estoy y qué sigue. Va antes que las alertas porque las
           alertas son un extracto de esto: tres pendientes sueltos sin el

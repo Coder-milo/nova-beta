@@ -1,5 +1,6 @@
 package com.novacrm.excel.libro;
 
+import com.novacrm.estudiante.Estudiante;
 import com.novacrm.estudiante.EstudianteRepository;
 import com.novacrm.excel.dto.ResultadoImportacionCrm;
 import com.novacrm.excel.dto.ResultadoImportacionCrm.ColumnaReconocida;
@@ -14,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Locale;
 
 /**
  * Carga la hoja de seguimiento de postulaciones.
@@ -44,9 +44,22 @@ public class ImportacionDePostulaciones {
         this.postulacionService = postulacionService;
     }
 
-@Transactional
+    @Transactional
     public ResultadoImportacionCrm importar(HojaLeida hoja, boolean simular, String autor) {
-        var resolutor = new ResolutorDeParticipante(estudianteRepository);
+        var participantes = estudianteRepository.findAllByActivoTrue();
+        var resolutor = new ResolutorDeParticipante(participantes);
+        var ids = participantes.stream().map(Estudiante::getId)
+                .filter(java.util.Objects::nonNull).toList();
+        // Reimportar es lo habitual. Consultar el historial dentro del bucle
+        // hacía una petición a la base por cada fila; se trae todo el conjunto
+        // de los participantes del libro en una sola consulta y se compara en
+        // memoria con la misma clave normalizada.
+        var yaRegistradas = (ids.isEmpty()
+                ? java.util.List.<com.novacrm.postulacion.Postulacion>of()
+                : postulacionRepository.deVariosEstudiantes(ids)).stream()
+                .filter(p -> p.getEstudiante() != null && p.getEstudiante().getId() != null)
+                .map(p -> clave(p.getEstudiante().getId(), p.getEmpresaNombre(), p.getCargo()))
+                .collect(java.util.stream.Collectors.toSet());
         var errores = new ArrayList<FilaConError>();
         // Dentro del propio archivo se repite el par (participante, empresa,
         // cargo) cuando alguien anota dos veces el mismo acercamiento. Se
@@ -81,14 +94,12 @@ public class ImportacionDePostulaciones {
             // postulacion con un 22001. Se recorta como en participante.
             cargo = cortar(cargo, 255);
 
-            String clave = estudiante.getId() + "|"
-                    + empresa.trim().toLowerCase(Locale.ROOT) + "|"
-                    + cargo.trim().toLowerCase(Locale.ROOT);
+            String clave = clave(estudiante.getId(), empresa, cargo);
             if (!vistas.add(clave)) {
                 omitidos++;
                 continue;
             }
-            if (yaRegistrada(estudiante.getId(), empresa, cargo)) {
+            if (yaRegistradas.contains(clave)) {
                 omitidos++;
                 continue;
             }
@@ -136,14 +147,9 @@ public class ImportacionDePostulaciones {
      * subir—, asi que sin esto cada carga duplicaria todas las postulaciones y
      * el indicador de acercamientos crecerian solo.
      */
-    private boolean yaRegistrada(java.util.UUID estudianteId, String empresa, String cargo) {
-        return postulacionRepository.findByEstudianteIdOrderByFechaPostulacionDesc(estudianteId).stream()
-                .anyMatch(p -> igual(p.getEmpresaNombre(), empresa) && igual(p.getCargo(), cargo));
-    }
-
-    private static boolean igual(String uno, String otro) {
-        return uno != null && otro != null
-                && ResolutorDeParticipante.normalizar(uno).equals(ResolutorDeParticipante.normalizar(otro));
+    private static String clave(java.util.UUID estudianteId, String empresa, String cargo) {
+        return estudianteId + "|" + ResolutorDeParticipante.normalizar(empresa)
+                + "|" + ResolutorDeParticipante.normalizar(cargo);
     }
 
     /**

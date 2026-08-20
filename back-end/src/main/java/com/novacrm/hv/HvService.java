@@ -70,6 +70,13 @@ public class HvService {
         return hvRepository.existsByEstudianteIdAndActualTrue(estudianteId);
     }
 
+    /** Version agrupada para tableros: una consulta, no una por estudiante. */
+    public java.util.Set<java.util.UUID> idsConHvVigente(
+            java.util.Collection<java.util.UUID> estudianteIds) {
+        if (estudianteIds == null || estudianteIds.isEmpty()) return java.util.Set.of();
+        return new java.util.HashSet<>(hvRepository.idsConHvVigente(estudianteIds));
+    }
+
     // ── Plantillas ───────────────────────────────────────────────────────────
 
     public List<PlantillaResponse> listarPlantillas() {
