@@ -149,7 +149,7 @@ export function ImportadorLibro() {
             onClick={() => ejecutar(true)}
           >
             {trabajando === 'simular' && <CircleNotch className="size-4 animate-spin" />}
-            Revisar sin guardar
+            {trabajando === 'simular' ? 'Preparando servidor y revisando…' : 'Revisar sin guardar'}
           </Button>
           <Button
             disabled={!archivo || !simulacion || trabajando !== null}

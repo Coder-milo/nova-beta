@@ -75,7 +75,13 @@ export const onRequest = defineMiddleware(
     }
 
     if (url.pathname.startsWith('/api/')) {
-      const target = new URL(`${url.pathname}${url.search}`, backendBase())
+      // Endpoint interno y liviano para despertar Render antes de transmitir
+      // un Excel. Se conserva bajo /api para mantener el mismo origen y evitar
+      // que el navegador dependa de la política CORS del backend.
+      const rutaBackend = url.pathname === '/api/_health'
+        ? '/actuator/health'
+        : url.pathname
+      const target = new URL(`${rutaBackend}${url.search}`, backendBase())
 
       const headers = new Headers(request.headers)
       headers.delete('host')

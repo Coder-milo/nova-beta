@@ -181,4 +181,33 @@ class PlanQueSeRepiteTest {
         // en el primer analisis. Lo que se comprueba es que releer tampoco.
         verify(ia, never()).sugerirDestino(anyString(), anyList());
     }
+
+    /**
+     * Una hoja de un aliado puede no usar ninguno de nuestros títulos. La IA
+     * logra identificar el destino por el contexto, pero antes se comprobaban
+     * los campos obligatorios antes de preguntarle por las columnas: la hoja
+     * se omitía aunque la IA habría resuelto «Empresa».
+     */
+    @Test
+    @DisplayName("la IA puede mapear primero una columna obligatoria desconocida")
+    void laIaRescataElCampoObligatorioAntesDeValidarLaHoja() {
+        var archivo = LibroDePrueba.nuevo().conHoja("Directorio de aliados",
+                fila("Razón de la organización", "Actividad principal", "Municipio de operación"),
+                fila("Solvo S.A.S.", "BPO", "Barranquilla")).comoArchivo();
+        var ia = mock(ReconocimientoConIa.class);
+        when(ia.disponible()).thenReturn(true);
+        when(ia.sugerirDestino(anyString(), anyList())).thenReturn(Optional.of(DestinoDeHoja.EMPRESAS));
+        when(ia.sugerirCampo(eq("Razón de la organización"), any())).thenReturn(Optional.of("nombre"));
+        when(ia.sugerirCampo(eq("Actividad principal"), any())).thenReturn(Optional.of("sector"));
+        when(ia.sugerirCampo(eq("Municipio de operación"), any())).thenReturn(Optional.of("ciudad"));
+
+        var hoja = LectorDeLibro.leer(archivo, ia).get(0);
+
+        assertThat(hoja.importable()).as(hoja.motivo()).isTrue();
+        assertThat(hoja.destino()).isEqualTo(DestinoDeHoja.EMPRESAS);
+        assertThat(hoja.hoja().columnas()).containsEntry("Razón de la organización", "nombre");
+        assertThat(hoja.hoja().filas().get(0).texto("nombre")).isEqualTo("Solvo S.A.S.");
+        assertThat(hoja.columnasPorIa()).containsExactlyInAnyOrder(
+                "Razón de la organización", "Actividad principal", "Municipio de operación");
+    }
 }

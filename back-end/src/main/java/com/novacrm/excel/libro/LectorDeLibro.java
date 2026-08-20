@@ -225,14 +225,12 @@ public final class LectorDeLibro {
         }
 
         var porIndice = destino.mapear(cabecera.get().titulos());
-        var faltan = destino.camposFaltantes(porIndice);
-        if (!faltan.isEmpty()) {
-            return HojaClasificada.omitida(nombre,
-                    "Parece " + destino.getEtiqueta().toLowerCase(Locale.ROOT)
-                            + " pero le falta " + describir(faltan));
-        }
 
         // Columnas que ningun sinonimo reconoce: la IA puede proponer un campo.
+        // Esto va ANTES de comprobar los obligatorios. Una hoja con encabezados
+        // propios puede necesitar a la IA justo para encontrar «Empresa» o el
+        // identificador del participante; validarlos antes hacia que la hoja se
+        // descartara sin llegar a preguntarle por ninguna de sus columnas.
         // Gana siempre la primera columna que lo reclamó, como en el diccionario.
         var columnasPorIa = new LinkedHashSet<String>();
         if (ia.activo()) {
@@ -247,6 +245,15 @@ public final class LectorDeLibro {
                             columnasPorIa.add(entrada.getValue());
                         });
             }
+        }
+
+        // Ya con el mapeo determinista y el rescate de IA, se comprueba que la
+        // hoja tiene lo mínimo para no importar datos en un destino equivocado.
+        var faltan = destino.camposFaltantes(porIndice);
+        if (!faltan.isEmpty()) {
+            return HojaClasificada.omitida(nombre,
+                    "Parece " + destino.getEtiqueta().toLowerCase(Locale.ROOT)
+                            + " pero le falta " + describir(faltan));
         }
 
         var plan = new AnalisisDeLibro.Hoja(nombre, destino, null,

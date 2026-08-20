@@ -13,6 +13,7 @@
  */
 
 import type { ApiError, LoginRequest } from './types'
+import { esperarBackendDisponible, esFalloTransitorioDelBackend } from './backend-disponible'
 
 const BASE_URL = ''
 
@@ -477,11 +478,43 @@ import type {
 const conPlan = (base: string, simular: boolean, planId?: string | null) =>
   `${base}?simular=${simular}${planId ? `&planId=${planId}` : ''}`
 
+/**
+ * Despierta Render antes de enviar el archivo. Solo la simulación se repite
+ * automáticamente: es de solo lectura. La importación real no se reintenta
+ * para evitar duplicar registros si el backend alcanzó a escribir y se perdió
+ * únicamente la respuesta.
+ */
+async function subirImportacion<T>(
+  path: string,
+  archivo: File,
+  simular: boolean,
+  token?: string,
+): Promise<T> {
+  try {
+    await esperarBackendDisponible()
+  } catch {
+    throw new ApiCallError(503, {
+      status: 503,
+      message: 'El servidor tardó demasiado en iniciar. Vuelve a intentarlo en un momento.',
+    })
+  }
+
+  try {
+    return await apiUpload<T>(path, { archivo }, token)
+  } catch (error) {
+    if (simular && error instanceof ApiCallError && esFalloTransitorioDelBackend(error.status)) {
+      await esperarBackendDisponible()
+      return apiUpload<T>(path, { archivo }, token)
+    }
+    throw error
+  }
+}
+
 export const importarCrmApi = {
   empresas: (archivo: File, simular = false, planId?: string | null, token?: string) =>
-    apiUpload<ResultadoImportacionCrm>(conPlan('/api/v1/importar/empresas', simular, planId), { archivo }, token),
+    subirImportacion<ResultadoImportacionCrm>(conPlan('/api/v1/importar/empresas', simular, planId), archivo, simular, token),
   colocaciones: (archivo: File, simular = false, planId?: string | null, token?: string) =>
-    apiUpload<ResultadoImportacionCrm>(conPlan('/api/v1/importar/colocaciones', simular, planId), { archivo }, token),
+    subirImportacion<ResultadoImportacionCrm>(conPlan('/api/v1/importar/colocaciones', simular, planId), archivo, simular, token),
   /**
    * Libro completo: una sola subida para un archivo con varias pestañas.
    *
@@ -489,7 +522,7 @@ export const importarCrmApi = {
    * colocaciones— y las que no son datos importables se informan con su motivo.
    */
   libro: (archivo: File, simular = false, planId?: string | null, token?: string) =>
-    apiUpload<ResultadoImportacionLibro>(conPlan('/api/v1/importar/libro', simular, planId), { archivo }, token),
+    subirImportacion<ResultadoImportacionLibro>(conPlan('/api/v1/importar/libro', simular, planId), archivo, simular, token),
 }
 
 /** Un correo automático del sistema, tal como lo describe el backend. */
