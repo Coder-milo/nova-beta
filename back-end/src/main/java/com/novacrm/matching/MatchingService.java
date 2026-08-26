@@ -79,6 +79,7 @@ public class MatchingService {
      * plazas que no existen. Y sin las descartadas, que se conservan para
      * calibrar pero no se le vuelven a mostrar a quien ya dijo que no.
      */
+    @Transactional
     public Page<MatchResponse> obtenerMatches(UUID estudianteId, org.springframework.data.domain.Pageable pageable) {
         var ahora = java.time.LocalDateTime.now();
         var pagina = matchRepository.findVigentesDeEstudiante(estudianteId, ahora, pageable);
@@ -387,42 +388,56 @@ public class MatchingService {
                     skillSynonyms.tokenize(e.getCompetencias()));
         }
 
-        // Pares ya emparejados, en una sola consulta (BE-05): antes era un
-        // existsBy... por cada par estudiante×vacante.
+        // Pares ya emparejados, cargados para actualización y sincronización
         var vacanteIds = pool.stream().map(p -> p.vacante().getId()).toList();
-        Set<String> paresExistentes = matchRepository.findByVacanteIdIn(vacanteIds).stream()
-                .map(m -> m.getEstudiante().getId() + "|" + m.getVacante().getId())
-                .collect(Collectors.toSet());
+        Map<String, Match> matchesExistentes = matchRepository.findByVacanteIdIn(vacanteIds).stream()
+                .collect(Collectors.toMap(
+                        m -> m.getEstudiante().getId() + "|" + m.getVacante().getId(),
+                        m -> m,
+                        (m1, m2) -> m1));
 
         List<Match> matchesNuevos = new ArrayList<>();
         for (VacanteTokenizada candidata : pool) {
             var v = candidata.vacante();
             for (Estudiante e : estudiantes) {
-                if (paresExistentes.contains(e.getId() + "|" + v.getId())) continue;
-                // Antes de puntuar: recomendarle empleo remoto en ingles a
-                // quien no tiene computador, o una plaza en Berlin a quien no
-                // busca migrar, no es una recomendacion debil sino una
-                // imposible.
-                if (!ElegibilidadPorSegmento.esElegible(e, v)) continue;
+                String clave = e.getId() + "|" + v.getId();
+                Match existente = matchesExistentes.get(clave);
+
+                if (!ElegibilidadPorSegmento.esElegible(e, v)) {
+                    if (existente != null && !existente.isPostulado() && !existente.isDescartado()) {
+                        matchRepository.delete(existente);
+                    }
+                    continue;
+                }
+
                 var desglose = calcularPuntaje(e, v,
                         terminosPerfilPorEstudiante.get(e.getId()), candidata.terminos(),
                         competenciasPorEstudiante.get(e.getId()), candidata.competencias(),
                         pesos);
-                if (!superaElCorte(desglose, umbral)) continue;
 
-                var match = new Match();
-                match.setEstudiante(e);
-                match.setVacante(v);
-                match.aplicarDesglose(desglose, versionDeConfig);
-                try {
-                    matchRepository.save(match);
-                } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-                    // Dos ejecuciones del scheduler en paralelo: el otro hilo
-                    // ya creo el par y el unique lo rechaza. Es un no-op, no un
-                    // fallo.
-                    continue;
+                boolean pasaCorte = superaElCorte(desglose, umbral);
+
+                if (existente != null) {
+                    if (!existente.isPostulado() && !existente.isDescartado()) {
+                        if (pasaCorte) {
+                            existente.aplicarDesglose(desglose, versionDeConfig);
+                            matchRepository.save(existente);
+                        } else {
+                            matchRepository.delete(existente);
+                        }
+                    }
+                } else if (pasaCorte) {
+                    var match = new Match();
+                    match.setEstudiante(e);
+                    match.setVacante(v);
+                    match.aplicarDesglose(desglose, versionDeConfig);
+                    try {
+                        matchRepository.save(match);
+                        matchesNuevos.add(match);
+                    } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+                        // Concurrente: ya fue creado por otro hilo
+                    }
                 }
-                matchesNuevos.add(match);
             }
         }
 
@@ -531,10 +546,10 @@ public class MatchingService {
             PesosPorRareza pesos) {
 
         Double afinidad = ratioAfinidad(e, v, terminosEstudiante, terminosVacante, pesos);
-        Double habilidades = pesos.parecido(competenciasEstudiante, competenciasVacante);
+        Double habilidades = ratioHabilidades(competenciasEstudiante, competenciasVacante, pesos);
         Double ingles = ratioIngles(e, v, terminosVacante);
         Double ubicacion = ratioUbicacion(e, v);
-        Double experiencia = ratioExperiencia(e, v);
+        Double experiencia = ratioExperiencia(e, v, terminosVacante);
 
         var balanza = new DesglosePuntaje.Balanza();
         balanza.agregar(config.getPesoAfinidad(), afinidad);
@@ -548,36 +563,80 @@ public class MatchingService {
     }
 
     /**
-     * Afinidad de perfil: solapamiento de terminos normalizados por sinonimos,
-     * con un empujon si el sector del estudiante coincide con el de la empresa.
+     * Afinidad de perfil: solapamiento de términos normalizados por sinónimos,
+     * alineación directa en título/cargo objetivo y empujón por sector coincidente.
      */
     private Double ratioAfinidad(Estudiante e, Vacante v,
                                  Set<String> terminosEstudiante, Set<String> terminosVacante,
                                  PesosPorRareza pesos) {
+        if (terminosVacante == null || terminosVacante.isEmpty()) {
+            return null;
+        }
         Double solape = pesos.parecido(terminosEstudiante, terminosVacante);
         if (solape == null) {
             return null;
         }
+
+        // Match directo en cargo / profesión / título:
+        if (skillSynonyms != null) {
+            Set<String> tokensCargo = skillSynonyms.tokenize(
+                    e.getCargoObjetivo(), e.getUltimoCargo(), e.getProgramaAcademico());
+            Set<String> tokensTitulo = skillSynonyms.tokenize(v.getTitulo());
+
+            Double matchTitulo = pesos.cobertura(tokensCargo, tokensTitulo);
+            if (matchTitulo == null) {
+                matchTitulo = pesos.parecido(tokensCargo, tokensTitulo);
+            }
+            if (matchTitulo != null && matchTitulo > 0) {
+                solape = Math.max(solape, Math.min(solape * 0.35 + matchTitulo * 0.65, 1.0));
+            }
+
+            // Cobertura del cargo/carrera en todo el anuncio:
+            Double cobCargo = pesos.cobertura(tokensCargo, terminosVacante);
+            if (cobCargo != null && cobCargo > 0) {
+                solape = Math.max(solape, Math.min(solape * 0.45 + cobCargo * 0.55, 1.0));
+            }
+        }
+
         return hayCoincidenciaSector(e, v) ? Math.min(solape + 0.15, 1.0) : solape;
     }
 
     /**
-     * Ajuste de ingles entre estudiante y vacante.
+     * Competencias y habilidades: cobertura y solape ponderado por rareza.
+     */
+    private Double ratioHabilidades(Set<String> competenciasEstudiante, Set<String> competenciasVacante,
+                                    PesosPorRareza pesos) {
+        if (competenciasEstudiante == null || competenciasEstudiante.isEmpty()
+                || competenciasVacante == null || competenciasVacante.isEmpty()) {
+            return null;
+        }
+        Double cob = pesos.cobertura(competenciasEstudiante, competenciasVacante);
+        Double parecido = pesos.parecido(competenciasEstudiante, competenciasVacante);
+        if (cob == null && parecido == null) {
+            return null;
+        }
+        if (cob == null) return parecido;
+        if (parecido == null) return cob;
+        return Math.min(Math.max(parecido, cob * 0.80 + parecido * 0.20), 1.0);
+    }
+
+    /**
+     * Ajuste de inglés entre estudiante y vacante.
      *
-     * <p>Encierra la decision que mas afecta al resultado: que nivel del
+     * <p>Encierra la decisión que más afecta al resultado: qué nivel del
      * estudiante se compara. Se usa el medido en las pruebas y no el declarado
-     * en el formulario de admision, que en la primera cohorte estaba inflado en
-     * 89 de 102 casos; y si la vacante es de voz se compara contra el oral, que
-     * es donde esta la brecha real de esta poblacion.
-     *
-     * <p>Nulo cuando la vacante no declara nivel —no se puede juzgar algo que
-     * el anuncio no pide— y tambien cuando del estudiante no hay ni nivel
-     * declarado ni medido. Que la vacante no exija ingles ya no reparte puntos
-     * a todo el mundo: simplemente ese criterio no aplica a ese par.
+     * en el formulario de admisión, y si la vacante es de voz se compara contra el oral.
      */
     Double ratioIngles(Estudiante e, Vacante v, Set<String> terminosVacante) {
         int requerido = ordenNivelRequerido(v.getNivelInglesRequerido());
         if (requerido == 0) {
+            if (v.getSegmento() == com.novacrm.scraper.fuente.Segmento.REMOTO_INGLES) {
+                var perfil = PerfilIngles.de(e);
+                var nivel = VacanteDeVoz.esDeVoz(terminosVacante) ? perfil.paraVacanteDeVoz() : perfil.efectivo();
+                if (nivel.isPresent()) {
+                    return Math.min((double) nivel.get().getOrden() / com.novacrm.catalogo.nivel_ingles.NivelMcer.B1.getOrden(), 1.0);
+                }
+            }
             return null;
         }
         var perfil = PerfilIngles.de(e);
@@ -589,12 +648,7 @@ public class MatchingService {
     }
 
     /**
-     * Cercania geografica.
-     *
-     * <p>Se prefiere {@code ciudad} —limpia, y ahora poblada por el
-     * enriquecedor— sobre el texto libre de {@code ubicacion}. Una vacante
-     * remota vale para cualquier ciudad: el participante no tiene que
-     * desplazarse.
+     * Cercanía geográfica.
      */
     private Double ratioUbicacion(Estudiante e, Vacante v) {
         if (esRemota(v)) {
@@ -613,28 +667,42 @@ public class MatchingService {
                 && AreaMetropolitana.esCercana(v.getCiudad(), v.getUbicacion())) {
             return 1.0;
         }
-        return Boolean.TRUE.equals(e.getDisponibilidadMovilidad()) ? 0.6 : 0.0;
+        return Boolean.TRUE.equals(e.getDisponibilidadMovilidad()) ? 0.85 : 0.0;
     }
 
     /**
      * Experiencia.
-     *
-     * <p>Que la vacante pida cero anios es un dato —y bueno para esta
-     * poblacion—, asi que puntua completo. Que no diga nada, en cambio, no se
-     * puede juzgar; igual que no poder saber los anios del estudiante.
      */
-    private Double ratioExperiencia(Estudiante e, Vacante v) {
+    private Double ratioExperiencia(Estudiante e, Vacante v, Set<String> terminosVacante) {
         Integer requeridos = v.getAniosExperienciaRequeridos();
         if (requeridos == null) {
-            return null;
+            if (terminosVacante == null || terminosVacante.isEmpty() || (v.getDescripcion() == null && v.getRequisitos() == null)) {
+                return null;
+            }
+            if (esVacanteSenior(v.getTitulo())) {
+                requeridos = 3;
+            } else {
+                if (e.getAniosExperiencia() != null && e.getAniosExperiencia() >= 1) {
+                    return 1.0;
+                } else if (e.getAniosExperiencia() != null && e.getAniosExperiencia() == 0) {
+                    return 0.9;
+                }
+                return 0.85;
+            }
         }
         if (requeridos <= 0) {
             return 1.0;
         }
         if (e.getAniosExperiencia() == null) {
-            return null;
+            return 0.7;
         }
         return Math.min((double) e.getAniosExperiencia() / requeridos, 1.0);
+    }
+
+    private static boolean esVacanteSenior(String titulo) {
+        if (titulo == null) return false;
+        String t = normalizar(titulo);
+        return t.contains("senior") || t.contains("sr") || t.contains("lead") || t.contains("principal") || t.contains("architect");
     }
 
     private static boolean esRemota(Vacante v) {

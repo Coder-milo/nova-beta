@@ -35,9 +35,12 @@ function lazyRetry<T extends ComponentType<any>>(factory: () => Promise<{ defaul
     } catch (error) {
       const pageKey = 'nova_crm_lazy_retry'
       const lastRetry = sessionStorage.getItem(pageKey)
-      if (!lastRetry || Date.now() - Number(lastRetry) > 3000) {
-        sessionStorage.setItem(pageKey, String(Date.now()))
+      const now = Date.now()
+      // Si falla la carga dinámica del módulo (ej. al recompilar o actualizar chunks), recargar la página automáticamente una vez
+      if (!lastRetry || now - Number(lastRetry) > 6000) {
+        sessionStorage.setItem(pageKey, String(now))
         window.location.reload()
+        return new Promise<{ default: T }>(() => {})
       }
       throw error
     }
@@ -118,34 +121,38 @@ function CurrentRoute() {
     (esEmpresa && !empresaPuedeVer(pathname))
 
   useEffect(() => {
-    if (!cargando && fueraDeSitio && typeof window !== 'undefined') {
-      window.history.replaceState(null, '', esEmpresa ? RUTA_INICIO_EMPRESA : RUTA_INICIO_ESTUDIANTE)
+    if (cargando) return
+
+    if (esEstudiante && !estudiantePuedeVer(pathname)) {
+      window.history.replaceState(null, '', RUTA_INICIO_ESTUDIANTE)
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      return
+    }
+
+    if (esEmpresa && !empresaPuedeVer(pathname)) {
+      window.history.replaceState(null, '', RUTA_INICIO_EMPRESA)
       window.dispatchEvent(new PopStateEvent('popstate'))
     }
-  }, [cargando, fueraDeSitio, esEmpresa, pathname])
+  }, [cargando, esEstudiante, esEmpresa, pathname])
 
-  // Hasta que se sepa quien entro no se monta ninguna pantalla. La sesion se
-  // lee en un efecto, asi que en el primer render `user` es null y
-  // `soloEsEstudiante` responde false: pintar ya habria montado el dashboard
-  // de administracion —con sus llamadas a datos de todos los proyectos— en la
-  // pantalla de un estudiante, que es de donde salian los 403 del arranque.
-  const { locale } = usePreferences()
-  if (cargando) return <PageSpinner label={locale === 'en' ? 'Signing in…' : 'Iniciando sesión…'} />
+  if (cargando) {
+    return <PageSpinner />
+  }
 
-  // Mientras el efecto corrige la URL ya se pinta la pantalla de destino, para
-  // que no llegue a montarse el dashboard y disparar las llamadas que dan 403.
-  const Page = fueraDeSitio
-    ? (esEmpresa ? PortalEmpresaPage : PortalEstudiantePage)
-    : resolvePage(pathname)
+  if (fueraDeSitio) {
+    return esEstudiante ? <PortalEstudiantePage /> : <PortalEmpresaPage />
+  }
 
+  const Page = resolvePage(pathname)
   return <Page />
 }
 
-class AppErrorBoundary extends Component<
-  { children: ReactNode },
-  { error: Error | null }
-> {
-  state = { error: null as Error | null }
+interface State {
+  error: Error | null
+}
+
+class AppErrorBoundary extends Component<{ children: ReactNode }, State> {
+  state: State = { error: null }
 
   static getDerivedStateFromError(error: Error) {
     return { error }
@@ -153,6 +160,10 @@ class AppErrorBoundary extends Component<
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('Error al iniciar NOVA CRM', error, info)
+  }
+
+  private recargar = () => {
+    window.location.reload()
   }
 
   private recuperar = () => {
@@ -178,13 +189,22 @@ class AppErrorBoundary extends Component<
           <pre className="mt-4 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-black/30 p-3 text-left text-xs text-red-200">
             {this.state.error.message || this.state.error.name}
           </pre>
-          <button
-            type="button"
-            onClick={this.recuperar}
-            className="mt-6 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
-          >
-            {english ? 'Recover the application' : 'Recuperar aplicación'}
-          </button>
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <button
+              type="button"
+              onClick={this.recargar}
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 cursor-pointer"
+            >
+              {english ? 'Reload page' : 'Recargar página'}
+            </button>
+            <button
+              type="button"
+              onClick={this.recuperar}
+              className="rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white/90 hover:bg-white/20 cursor-pointer"
+            >
+              {english ? 'Reset session' : 'Restablecer sesión'}
+            </button>
+          </div>
         </section>
       </main>
     )

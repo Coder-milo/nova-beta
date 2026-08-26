@@ -30,6 +30,8 @@ class RemotiveConnectorTest {
         return MAPPER.readTree(json);
     }
 
+    private static final String FECHA_FRESCA = java.time.LocalDateTime.now().minusDays(1).toString();
+
     @Test
     void mapeaUnaOfertaCompleta() throws Exception {
         var json = oferta("""
@@ -40,12 +42,12 @@ class RemotiveConnectorTest {
                   "company_name": "Acme BPO",
                   "category": "Customer Service",
                   "job_type": "full_time",
-                  "publication_date": "2026-07-20T10:30:00",
+                  "publication_date": "%s",
                   "candidate_required_location": "LATAM",
                   "salary": "$1,200 - $1,600 USD/month",
                   "description": "<p>You will <strong>answer calls</strong> in English.</p>"
                 }
-                """);
+                """.formatted(FECHA_FRESCA));
 
         var vacante = conector.mapear(json).orElseThrow();
 
@@ -57,6 +59,8 @@ class RemotiveConnectorTest {
         assertEquals("$1,200 - $1,600 USD/month", vacante.getRangoSalarial());
         assertTrue(vacante.isActivo());
         assertNotNull(vacante.getHashDedup());
+        assertNotNull(vacante.getFechaPublicacion());
+        assertTrue(com.novacrm.scraper.fuente.FiltroFrescura.esFresca(vacante.getFechaPublicacion()));
     }
 
     /** Las condiciones de uso exigen enlazar de vuelta a la oferta original. */
@@ -64,8 +68,9 @@ class RemotiveConnectorTest {
     void conservaElEnlaceALaOfertaOriginal() throws Exception {
         var json = oferta("""
                 {"id": 42, "title": "CSR", "url": "https://remotive.com/remote-jobs/x-42",
+                 "publication_date": "%s",
                  "candidate_required_location": "Worldwide"}
-                """);
+                """.formatted(FECHA_FRESCA));
 
         var vacante = conector.mapear(json).orElseThrow();
 
@@ -78,8 +83,9 @@ class RemotiveConnectorTest {
     void guardaLaDescripcionEnTextoPlano() throws Exception {
         var json = oferta("""
                 {"id": 7, "title": "Agent", "candidate_required_location": "Worldwide",
+                 "publication_date": "%s",
                  "description": "<ul><li>Handle <b>inbound</b> calls</li></ul>"}
-                """);
+                """.formatted(FECHA_FRESCA));
 
         var vacante = conector.mapear(json).orElseThrow();
 
@@ -109,8 +115,8 @@ class RemotiveConnectorTest {
     @Test
     void descartaLaOfertaCuandoLaRegionNoAdmiteACandidatosDeColombia() throws Exception {
         var json = oferta("""
-                {"id": 99, "title": "Support Agent", "candidate_required_location": "USA Only"}
-                """);
+                {"id": 99, "title": "Support Agent", "publication_date": "%s", "candidate_required_location": "USA Only"}
+                """.formatted(FECHA_FRESCA));
 
         assertTrue(conector.mapear(json).isEmpty());
     }
@@ -118,29 +124,40 @@ class RemotiveConnectorTest {
     @Test
     void sinRegionDeclaradaSeAsumeAbierta() throws Exception {
         var json = oferta("""
-                {"id": 100, "title": "Support Agent"}
-                """);
+                {"id": 100, "title": "Support Agent", "publication_date": "%s"}
+                """.formatted(FECHA_FRESCA));
 
         assertTrue(conector.mapear(json).isPresent());
         assertEquals("Remoto", conector.mapear(json).orElseThrow().getUbicacion());
     }
 
     @Test
-    void descartaOfertasSinIdOSinTitulo() throws Exception {
+    void descartaOfertasSinIdOSinTituloOSinFecha() throws Exception {
         assertTrue(conector.mapear(oferta("""
-                {"title": "Sin id", "candidate_required_location": "Worldwide"}
-                """)).isEmpty());
+                {"title": "Sin id", "publication_date": "%s", "candidate_required_location": "Worldwide"}
+                """.formatted(FECHA_FRESCA))).isEmpty());
         assertTrue(conector.mapear(oferta("""
-                {"id": 5, "candidate_required_location": "Worldwide"}
+                {"id": 5, "publication_date": "%s", "candidate_required_location": "Worldwide"}
+                """.formatted(FECHA_FRESCA))).isEmpty());
+        assertTrue(conector.mapear(oferta("""
+                {"id": 6, "title": "Sin fecha", "candidate_required_location": "Worldwide"}
                 """)).isEmpty());
+    }
+
+    @Test
+    void descartaOfertasConFechaMayorA7Dias() throws Exception {
+        var json = oferta("""
+                {"id": 200, "title": "Stale Job", "publication_date": "2025-01-01T10:00:00", "candidate_required_location": "Worldwide"}
+                """);
+        assertTrue(conector.mapear(json).isEmpty());
     }
 
     /** El hash evita volver a guardar la misma oferta en la corrida siguiente. */
     @Test
     void laMismaOfertaProduceSiempreElMismoHash() throws Exception {
         var json = oferta("""
-                {"id": 555, "title": "CSR", "candidate_required_location": "Worldwide"}
-                """);
+                {"id": 555, "title": "CSR", "publication_date": "%s", "candidate_required_location": "Worldwide"}
+                """.formatted(FECHA_FRESCA));
 
         assertEquals(conector.mapear(json).orElseThrow().getHashDedup(),
                 conector.mapear(json).orElseThrow().getHashDedup());
@@ -149,11 +166,11 @@ class RemotiveConnectorTest {
     @Test
     void ofertasDistintasNoColisionan() throws Exception {
         var una = conector.mapear(oferta("""
-                {"id": 1, "title": "CSR", "candidate_required_location": "Worldwide"}
-                """)).orElseThrow();
+                {"id": 1, "title": "CSR", "publication_date": "%s", "candidate_required_location": "Worldwide"}
+                """.formatted(FECHA_FRESCA))).orElseThrow();
         var otra = conector.mapear(oferta("""
-                {"id": 2, "title": "CSR", "candidate_required_location": "Worldwide"}
-                """)).orElseThrow();
+                {"id": 2, "title": "CSR", "publication_date": "%s", "candidate_required_location": "Worldwide"}
+                """.formatted(FECHA_FRESCA))).orElseThrow();
 
         assertNotEquals(una.getHashDedup(), otra.getHashDedup());
     }

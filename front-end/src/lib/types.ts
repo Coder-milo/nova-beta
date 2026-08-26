@@ -1993,3 +1993,56 @@ export interface ResultadoActualizacion {
   fin: string | null
 }
 
+// ── Auditoría y Diagnóstico de LinkedIn (Estilo Manfred / ATS) ──────────────
+
+export interface CriterioAuditoriaDto {
+  clave: string
+  titulo: string
+  cumplido: boolean
+  puntosObtenidos: number
+  puntosMaximos: number
+  detalle: string
+  sugerencia: string | null
+}
+
+export interface AuditoriaLinkedinDto {
+  puntuacion: number
+  nivel: 'Básico' | 'Intermedio' | 'Avanzado' | 'Estelar / All-Star' | string
+  optimizado: boolean
+  criterios: CriterioAuditoriaDto[]
+  fortalezas: string[]
+  recomendaciones: string[]
+  datosExtraidos: DatosHvDto
+}
+
+export interface AplicarAuditoriaLinkedinRequest {
+  linkedinUrl: string
+  sincronizarPerfil: boolean
+  datosASincronizar?: DatosHvDto
+}
+
+export interface AdaptacionCvInglesRequest {
+  cargoObjetivo?: string
+  perfilProfesional?: string
+  competencias?: string
+  experiencias?: ExperienciaDto[]
+  nivelIngles?: string
+}
+
+export interface AdaptacionCvInglesResponse {
+  targetRole: string
+  professionalSummary: string
+  skills: string
+  experiences: ExperienciaDto[]
+  actionVerbsUsed: string[]
+  suggestions: string
+}
+
+export interface AplicarAdaptacionInglesRequest {
+  nivelIngles?: string
+  targetRole?: string
+  professionalSummary?: string
+  skills?: string
+  experiences?: ExperienciaDto[]
+}
+

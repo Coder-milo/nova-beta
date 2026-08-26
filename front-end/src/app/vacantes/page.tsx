@@ -536,6 +536,7 @@ export default function VacantesPage() {
       v.titulo.toLowerCase().includes(q) ||
       (v.empresaNombre?.toLowerCase().includes(q) ?? false) ||
       (v.ubicacion?.toLowerCase().includes(q) ?? false) ||
+      (v.ciudad?.toLowerCase().includes(q) ?? false) ||
       (v.descripcion?.toLowerCase().includes(q) ?? false)
     )
   })
@@ -775,9 +776,9 @@ export default function VacantesPage() {
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3 pt-0">
                       <div className="flex flex-wrap gap-1.5">
-                        {v.ubicacion && (
+                        {(v.ciudad || v.ubicacion) && (
                           <Badge variant="outline" className="text-[10px] gap-1 px-1.5">
-                            <MapPin className="size-2.5" />{v.ubicacion}
+                            <MapPin className="size-2.5" />{v.ciudad || v.ubicacion}
                           </Badge>
                         )}
                         {v.tipoContrato && (
@@ -929,7 +930,7 @@ export default function VacantesPage() {
                   {selected.fechaPublicacion && <> · <CalendarBlank className="size-3" /> {selected.fechaPublicacion}</>}
                 </SheetDescription>
                 <div className="flex flex-wrap gap-1.5 mt-2">
-                  {selected.ubicacion && <Badge variant="outline" className="gap-1"><MapPin className="size-3" />{selected.ubicacion}</Badge>}
+                  {(selected.ciudad || selected.ubicacion) && <Badge variant="outline" className="gap-1"><MapPin className="size-3" />{selected.ciudad || selected.ubicacion}</Badge>}
                   {selected.tipoContrato && <Badge variant="secondary" className="gap-1"><Briefcase className="size-3" />{selected.tipoContrato}</Badge>}
                   {selected.modalidadTrabajo && <Badge variant="secondary" className="gap-1"><Globe className="size-3" />{selected.modalidadTrabajo}</Badge>}
                 </div>

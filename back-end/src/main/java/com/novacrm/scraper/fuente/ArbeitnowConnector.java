@@ -165,7 +165,18 @@ public class ArbeitnowConnector implements FuenteDeVacantes {
         String url = texto(oferta, "url");
         vacante.setUrlOrigen(url);
         vacante.setUrlAplicar(url);
-        vacante.setFechaPublicacion(desdeEpoch(oferta.path("created_at")));
+
+        LocalDateTime fechaPub = desdeEpoch(oferta.path("created_at"));
+        if (fechaPub == null) {
+            log.debug("Oferta de Arbeitnow descartada por fecha no verificable: {}", slug);
+            return Optional.empty();
+        }
+        if (!FiltroFrescura.esFresca(fechaPub)) {
+            log.debug("Oferta de Arbeitnow descartada por antigüedad > 7 días: {} (publicada: {})", slug, fechaPub);
+            return Optional.empty();
+        }
+
+        vacante.setFechaPublicacion(fechaPub);
         vacante.setActivo(true);
 
         return Optional.of(new OfertaCruda(vacante, texto(oferta, "company_name")));
@@ -180,10 +191,7 @@ public class ArbeitnowConnector implements FuenteDeVacantes {
     }
 
     private static LocalDateTime desdeEpoch(JsonNode nodo) {
-        if (nodo == null || !nodo.canConvertToLong()) {
-            return null;
-        }
-        return LocalDateTime.ofInstant(Instant.ofEpochSecond(nodo.asLong()), ZoneId.systemDefault());
+        return ParserFechas.desdeEpoch(nodo).orElse(null);
     }
 
     private static String texto(JsonNode nodo, String campo) {

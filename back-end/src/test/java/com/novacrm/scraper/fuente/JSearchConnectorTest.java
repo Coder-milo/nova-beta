@@ -46,6 +46,8 @@ class JSearchConnectorTest {
      * ahi salen el nivel de ingles y los anios de experiencia, los dos
      * criterios que eran constantes para todas las vacantes automaticas.
      */
+    private static final String FECHA_FRESCA = java.time.LocalDateTime.now().minusDays(1).toString() + "Z";
+
     @Test
     void traeLosRequisitosQueNingunaOtraFuenteDa() throws Exception {
         var resultado = conector.mapear(oferta("""
@@ -56,6 +58,7 @@ class JSearchConnectorTest {
                   "job_city": "Barranquilla",
                   "job_state": "Atlantico",
                   "job_country": "CO",
+                  "job_posted_at_datetime_utc": "%s",
                   "job_highlights": {
                     "Qualifications": [
                       "Ingles B2 conversacional",
@@ -63,7 +66,7 @@ class JSearchConnectorTest {
                     ]
                   }
                 }
-                """)).orElseThrow();
+                """.formatted(FECHA_FRESCA))).orElseThrow();
 
         assertTrue(resultado.vacante().getRequisitos().contains("Ingles B2 conversacional"));
         assertTrue(resultado.vacante().getRequisitos().contains("Minimo 1 ano"));
@@ -71,6 +74,8 @@ class JSearchConnectorTest {
         assertEquals("Barranquilla", resultado.vacante().getCiudad());
         assertEquals("Barranquilla, Atlantico, CO", resultado.vacante().getUbicacion());
         assertEquals(Segmento.LOCAL_COLOMBIA, resultado.vacante().getSegmento());
+        assertNotNull(resultado.vacante().getFechaPublicacion());
+        assertTrue(FiltroFrescura.esFresca(resultado.vacante().getFechaPublicacion()));
     }
 
     /** Sin fecha de expiracion las vacantes automaticas no vencian nunca. */
@@ -80,34 +85,51 @@ class JSearchConnectorTest {
                 {
                   "job_id": "abc123",
                   "job_title": "Auxiliar de bodega",
-                  "job_posted_at_datetime_utc": "2026-07-01T10:00:00.000Z",
-                  "job_offer_expiration_datetime_utc": "2026-08-15T10:00:00.000Z"
+                  "job_posted_at_datetime_utc": "%s",
+                  "job_offer_expiration_datetime_utc": "2026-08-30T10:00:00.000Z"
                 }
-                """)).orElseThrow();
+                """.formatted(FECHA_FRESCA))).orElseThrow();
 
         assertNotNull(resultado.vacante().getFechaExpiracion());
         assertEquals(2026, resultado.vacante().getFechaExpiracion().getYear());
         assertEquals(8, resultado.vacante().getFechaExpiracion().getMonthValue());
+        assertNotNull(resultado.vacante().getFechaPublicacion());
+        assertTrue(FiltroFrescura.esFresca(resultado.vacante().getFechaPublicacion()));
     }
 
     @Test
-    void unaOfertaSinIdOSinTituloSeDescarta() throws Exception {
+    void unaOfertaSinIdOSinTituloOSinFechaSeDescarta() throws Exception {
         assertTrue(conector.mapear(oferta("""
-                {"job_title": "Sin id"}
-                """)).isEmpty());
+                {"job_title": "Sin id", "job_posted_at_datetime_utc": "%s"}
+                """.formatted(FECHA_FRESCA))).isEmpty());
         assertTrue(conector.mapear(oferta("""
-                {"job_id": "sin-titulo"}
+                {"job_id": "sin-titulo", "job_posted_at_datetime_utc": "%s"}
+                """.formatted(FECHA_FRESCA))).isEmpty());
+        assertTrue(conector.mapear(oferta("""
+                {"job_id": "sin-fecha", "job_title": "Auxiliar"}
                 """)).isEmpty());
+    }
+
+    @Test
+    void descartaOfertasConFechaMayorA7Dias() throws Exception {
+        var stale = conector.mapear(oferta("""
+                {
+                  "job_id": "viejo123",
+                  "job_title": "Auxiliar",
+                  "job_posted_at_datetime_utc": "2025-01-01T10:00:00.000Z"
+                }
+                """));
+        assertTrue(stale.isEmpty(), "oferta con más de 7 días debe descartarse");
     }
 
     @Test
     void dosOfertasDistintasNoComparteHash() throws Exception {
         var una = conector.mapear(oferta("""
-                {"job_id": "uno", "job_title": "Agente"}
-                """)).orElseThrow();
+                {"job_id": "uno", "job_title": "Agente", "job_posted_at_datetime_utc": "%s"}
+                """.formatted(FECHA_FRESCA))).orElseThrow();
         var otra = conector.mapear(oferta("""
-                {"job_id": "dos", "job_title": "Agente"}
-                """)).orElseThrow();
+                {"job_id": "dos", "job_title": "Agente", "job_posted_at_datetime_utc": "%s"}
+                """.formatted(FECHA_FRESCA))).orElseThrow();
 
         assertNotEquals(una.vacante().getHashDedup(), otra.vacante().getHashDedup());
     }
@@ -115,11 +137,11 @@ class JSearchConnectorTest {
     @Test
     void reconoceLasOfertasRemotas() throws Exception {
         var remota = conector.mapear(oferta("""
-                {"job_id": "uno", "job_title": "Agente", "job_is_remote": true}
-                """)).orElseThrow();
+                {"job_id": "uno", "job_title": "Agente", "job_is_remote": true, "job_posted_at_datetime_utc": "%s"}
+                """.formatted(FECHA_FRESCA))).orElseThrow();
         var presencial = conector.mapear(oferta("""
-                {"job_id": "dos", "job_title": "Agente", "job_is_remote": false}
-                """)).orElseThrow();
+                {"job_id": "dos", "job_title": "Agente", "job_is_remote": false, "job_posted_at_datetime_utc": "%s"}
+                """.formatted(FECHA_FRESCA))).orElseThrow();
 
         assertEquals("REMOTO", remota.vacante().getModalidadTrabajo());
         assertEquals("PRESENCIAL", presencial.vacante().getModalidadTrabajo());
@@ -174,19 +196,19 @@ class JSearchConnectorTest {
                   "data": [
                     {
                       "jobs": [
-                        {"job_id": "uno", "job_title": "Agente Bilingue"},
-                        {"job_id": "dos", "job_title": "Auxiliar de bodega"}
+                        {"job_id": "uno", "job_title": "Agente Bilingue", "job_posted_at_datetime_utc": "%s"},
+                        {"job_id": "dos", "job_title": "Auxiliar de bodega", "job_posted_at_datetime_utc": "%s"}
                       ],
                       "cursor": "abc"
                     },
                     {
                       "jobs": [
-                        {"job_id": "tres", "job_title": "Asesor comercial"}
+                        {"job_id": "tres", "job_title": "Asesor comercial", "job_posted_at_datetime_utc": "%s"}
                       ]
                     }
                   ]
                 }
-                """);
+                """.formatted(FECHA_FRESCA, FECHA_FRESCA, FECHA_FRESCA));
 
         assertEquals(3, resultado.size());
         assertEquals("Agente Bilingue", resultado.get(0).vacante().getTitulo());
@@ -200,13 +222,13 @@ class JSearchConnectorTest {
                   "status": "OK",
                   "data": {
                     "jobs": [
-                      {"job_id": "v2-1", "job_title": "Bilingual CSR"},
-                      {"job_id": "v2-2", "job_title": "Tech Support"}
+                      {"job_id": "v2-1", "job_title": "Bilingual CSR", "job_posted_at_datetime_utc": "%s"},
+                      {"job_id": "v2-2", "job_title": "Tech Support", "job_posted_at_datetime_utc": "%s"}
                     ],
                     "cursor": "cursor123"
                   }
                 }
-                """);
+                """.formatted(FECHA_FRESCA, FECHA_FRESCA));
 
         assertEquals(2, resultado.size());
         assertEquals("Bilingual CSR", resultado.get(0).vacante().getTitulo());

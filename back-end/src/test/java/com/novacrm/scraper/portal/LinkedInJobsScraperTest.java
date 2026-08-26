@@ -37,6 +37,7 @@ class LinkedInJobsScraperTest {
 
     @Test
     void parseaTarjetasRealesDeLinkedIn() {
+        String fechaFresca = java.time.LocalDate.now().minusDays(1).toString();
         String html = """
                 <ul>
                     <li>
@@ -57,7 +58,7 @@ class LinkedInJobsScraperTest {
                                     <span class="job-search-card__location">
                                         Barranquilla, Atlántico, Colombia
                                     </span>
-                                    <time class="job-search-card__listdate" datetime="2026-08-18">Hace 1 día</time>
+                                    <time class="job-search-card__listdate" datetime="%s">Hace 1 día</time>
                                 </div>
                             </div>
                         </div>
@@ -78,12 +79,13 @@ class LinkedInJobsScraperTest {
                                     <span class="job-search-card__location">
                                         Soledad, Atlántico, Colombia
                                     </span>
+                                    <time class="job-search-card__listdate">Hace 2 días</time>
                                 </div>
                             </div>
                         </div>
                     </li>
                 </ul>
-                """;
+                """.formatted(fechaFresca);
 
         Document doc = Jsoup.parse(html);
         var ofertas = LinkedInJobsScraper.parsear(doc, "Barranquilla");
@@ -96,11 +98,15 @@ class LinkedInJobsScraperTest {
         assertEquals("Barranquilla", o1.vacante().getCiudad());
         assertEquals("LINKEDIN", o1.vacante().getFuente());
         assertTrue(o1.vacante().getUrlOrigen().contains("4418504608"));
+        assertNotNull(o1.vacante().getFechaPublicacion());
+        assertTrue(com.novacrm.scraper.fuente.FiltroFrescura.esFresca(o1.vacante().getFechaPublicacion()));
 
         var o2 = ofertas.get(1);
         assertEquals("IT Support Agent Bilingual", o2.vacante().getTitulo());
         assertEquals("Auxis", o2.nombreEmpresa());
         assertEquals("Soledad", o2.vacante().getCiudad());
+        assertNotNull(o2.vacante().getFechaPublicacion());
+        assertTrue(com.novacrm.scraper.fuente.FiltroFrescura.esFresca(o2.vacante().getFechaPublicacion()));
     }
 
     @Test
@@ -117,6 +123,7 @@ class LinkedInJobsScraperTest {
                                 <h4 class="base-search-card__subtitle">Empresa Medellín</h4>
                                 <div class="base-search-card__metadata">
                                     <span class="job-search-card__location">Medellín, Antioquia, Colombia</span>
+                                    <time class="job-search-card__listdate">Hace 1 día</time>
                                 </div>
                             </div>
                         </div>
@@ -129,5 +136,44 @@ class LinkedInJobsScraperTest {
 
         // Debe descartarse por estar en Medellín y no ser remota
         assertTrue(ofertas.isEmpty());
+    }
+
+    @Test
+    void descartaOfertasConFechasAntiguasOSinFecha() {
+        String html = """
+                <ul>
+                    <li>
+                        <div class="base-card">
+                            <a class="base-card__full-link" href="https://co.linkedin.com/jobs/view/stale-job-11111111">
+                                <span class="sr-only">Old Job</span>
+                            </a>
+                            <div class="base-search-card__info">
+                                <h3 class="base-search-card__title">Old Job</h3>
+                                <div class="base-search-card__metadata">
+                                    <span class="job-search-card__location">Barranquilla, Atlántico, Colombia</span>
+                                    <time class="job-search-card__listdate" datetime="2026-01-01">Hace 2 meses</time>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="base-card">
+                            <a class="base-card__full-link" href="https://co.linkedin.com/jobs/view/no-date-job-22222222">
+                                <span class="sr-only">No Date Job</span>
+                            </a>
+                            <div class="base-search-card__info">
+                                <h3 class="base-search-card__title">No Date Job</h3>
+                                <div class="base-search-card__metadata">
+                                    <span class="job-search-card__location">Barranquilla, Atlántico, Colombia</span>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+                """;
+
+        Document doc = Jsoup.parse(html);
+        var ofertas = LinkedInJobsScraper.parsear(doc, "Barranquilla");
+        assertTrue(ofertas.isEmpty(), "las ofertas con más de 7 días o sin fecha deben descartarse");
     }
 }

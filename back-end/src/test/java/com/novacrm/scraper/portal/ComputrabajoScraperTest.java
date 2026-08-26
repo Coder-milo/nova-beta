@@ -77,5 +77,25 @@ class ComputrabajoScraperTest {
         assertEquals("$ 1.750.905,00 (Mensual)", vacante.getRangoSalarial());
         assertEquals(vacante.getTitulo(), vacante.getDescripcion(),
                 "sin descripcion en la tarjeta, el titulo es mejor que el ruido del card");
+        assertNotNull(vacante.getFechaPublicacion());
+        assertTrue(com.novacrm.scraper.fuente.FiltroFrescura.esFresca(vacante.getFechaPublicacion()));
+    }
+
+    @Test
+    void descartaTarjetasAntiguasOMalFormadas() {
+        var docStale = Jsoup.parse("""
+                <article class="box_offer" data-id='12345'>
+                    <h2><a class="js-o-link" href="/ofertas/vieja-12345">Oferta Vieja</a></h2>
+                    <p class="fs16 fc_base"><span class="mr10">Barranquilla, Atlántico</span></p>
+                    <p class="fs13 fc_aux">Hace 15 días</p>
+                </article>
+                <article class="box_offer" data-id='67890'>
+                    <h2><a class="js-o-link" href="/ofertas/sin-fecha-67890">Oferta Sin Fecha</a></h2>
+                    <p class="fs16 fc_base"><span class="mr10">Barranquilla, Atlántico</span></p>
+                </article>
+                """);
+
+        var ofertas = ComputrabajoScraper.parsear(docStale, "Barranquilla");
+        assertTrue(ofertas.isEmpty(), "las ofertas mayores a 7 días o sin fecha deben ser descartadas");
     }
 }

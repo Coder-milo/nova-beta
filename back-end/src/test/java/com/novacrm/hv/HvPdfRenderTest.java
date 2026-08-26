@@ -151,16 +151,28 @@ class HvPdfRenderTest {
     }
 
     @Test
-    void aceptaEntidadesHtmlComunesEnPlantillasWord() {
-        var pdfService = new HvPdfService(new HvTemplateService());
-        byte[] pdf = pdfService.renderizarHtmlAPdf("""
-                <!DOCTYPE html>
-                <html><head><meta charset="UTF-8"/></head>
-                <body><p>&bull;&nbsp;Experiencia profesional</p></body></html>
-                """);
+    void divideHabilidadesEnColumnasCuandoExcedenLimite() {
+        var e = new Estudiante();
+        e.setNombre("Hector");
+        e.setApellido("Developer");
+        e.setCargoObjetivo("Full Stack Developer");
+        e.setEmail("hector@example.com");
+        e.setPerfilProfesional("Desarrollador con experiencia en frontend y backend.");
+        // Lista con 20 habilidades como en el caso del usuario
+        e.setCompetencias("Java, Python, JavaScript, Spring Boot, RESTful APIs, MVC, JWT, PostgreSQL, Git, GitHub, VS Code, Soporte Técnico IT, Mantenimiento de Computadores, Diagnóstico de Sistemas, Redes Básicas, Atención al Cliente, Servicio al Cliente, Asesoría Bilingüe, HTML, CSS");
 
-        assertTrue(pdf.length > 1000, "La entidad nbsp no debe impedir la generación del PDF");
-        assertTrue(new String(pdf, 0, 4, java.nio.charset.StandardCharsets.US_ASCII).equals("%PDF"),
-                "La salida debe ser un PDF válido");
+        var templateService = new HvTemplateService();
+        String html = templateService.renderizar(e, List.of(), List.of(), "es", null, null, null, "CLASICO_FOTO");
+
+        assertTrue(html.contains("<table style=\"width:100%;border-collapse:collapse;margin-top:4pt;page-break-inside:avoid;\""),
+                "Cuando hay más de 4 habilidades debe generar una tabla en columnas");
+        assertTrue(html.contains("33.33%") || html.contains("50%"),
+                "Debe contener ancho de columna distribuido");
+        assertTrue(html.contains("Java") && html.contains("CSS") && html.contains("PostgreSQL"),
+                "Debe contener todas las habilidades");
+
+        var pdfService = new HvPdfService(templateService);
+        byte[] pdf = pdfService.generar(e, List.of(), List.of(), "#1C315E", "es", null, null, null, "CLASICO_FOTO");
+        assertTrue(pdf.length > 2000, "El PDF con habilidades en columnas debe generarse correctamente");
     }
 }

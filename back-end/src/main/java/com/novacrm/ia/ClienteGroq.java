@@ -10,7 +10,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-
 import org.springframework.web.client.HttpStatusCodeException;
 
 import java.util.List;
@@ -19,17 +18,13 @@ import java.util.Optional;
 
 /**
  * Llamadas a la API de Groq (modelos abiertos, tier gratuito).
- *
- * <p>Mismo contrato que el resto de integraciones externas: nunca lanza y
- * siempre devuelve {@link Optional} — sin clave configurada, con un 429 del
- * tier gratuito o con un cuerpo ilegible, el llamador sigue con su lógica de
- * siempre. La IA es un refuerzo, no una dependencia.
  */
 @Component
 public class ClienteGroq implements ProveedorIa {
 
     private static final Logger log = LoggerFactory.getLogger(ClienteGroq.class);
     private static final String API_BASE = "https://api.groq.com/openai/v1";
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final RestClient restClient;
     private final String modelo;
@@ -53,19 +48,32 @@ public class ClienteGroq implements ProveedorIa {
         this.apiKey = apiKey;
         this.modelo = modelo;
         this.retryEsperaMs = retryEsperaMs;
+
+        String urlFinal = (apiBase != null && !apiBase.isBlank()) ? apiBase.trim() : API_BASE;
+        if (urlFinal.endsWith("/")) {
+            urlFinal = urlFinal.substring(0, urlFinal.length() - 1);
+        }
+        if (!urlFinal.endsWith("/chat/completions")) {
+            urlFinal += "/chat/completions";
+        }
+
         var peticiones = new SimpleClientHttpRequestFactory();
         peticiones.setConnectTimeout(timeoutMs);
         peticiones.setReadTimeout(timeoutMs);
+
         this.restClient = RestClient.builder()
-                .baseUrl(apiBase)
+                .baseUrl(urlFinal)
                 .requestFactory(peticiones)
                 .defaultHeaders(headers -> {
-                    headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
+                    if (apiKey != null && !apiKey.isBlank()) {
+                        headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim());
+                    }
                     headers.setContentType(MediaType.APPLICATION_JSON);
                 })
                 .build();
+
         if (disponible()) {
-            log.info("ClienteGroq inicializado correctamente con modelo {}", modelo);
+            log.info("ClienteGroq inicializado correctamente con modelo {} en {}", modelo, urlFinal);
         } else {
             log.info("ClienteGroq inicializado sin API key (IA desactivada/fallback)");
         }
@@ -76,19 +84,11 @@ public class ClienteGroq implements ProveedorIa {
         return "groq";
     }
 
-    /** Si hay clave configurada, la IA puede usarse. */
     @Override
     public boolean disponible() {
         return apiKey != null && !apiKey.isBlank();
     }
 
-    /**
-     * Pide al modelo un objeto JSON. El prompt debe decirle que responda solo
-     * JSON: se usa {@code response_format} para forzarlo y el contenido se
-     * devuelve como árbol para que el llamador valide los campos.
-     *
-     * @return el JSON de la respuesta, o vacío si la llamada falla
-     */
     @Override
     public Optional<JsonNode> completarJson(String instrucciones, String contenido) {
         if (!disponible()) {
@@ -96,7 +96,7 @@ public class ClienteGroq implements ProveedorIa {
         }
         try {
             var respuesta = restClient.post()
-                    .uri("/chat/completions")
+                    .uri("")
                     .body(Map.of(
                             "model", modelo,
                             "temperature", 0,
@@ -114,15 +114,11 @@ public class ClienteGroq implements ProveedorIa {
             return extraerContenido(respuesta.getBody());
         } catch (HttpStatusCodeException e) {
             if (e.getStatusCode().value() == 429) {
-                // ponytail: retry simple para el 429 del tier gratuito; escalar a
-                // backoff exponencial si sigue dándolo de forma recurrente.
                 return reintentar(instrucciones, contenido);
             }
             log.warn("Groq respondió {} en una consulta de reconocimiento", e.getStatusCode());
             return Optional.empty();
         } catch (Exception e) {
-            // 429 del tier gratuito, timeout, red caida...: la IA no debe
-            // tumbar una importacion que sin ella ya funcionaba.
             log.warn("Consulta a Groq falló: {}", e.getMessage());
             return Optional.empty();
         }
@@ -133,7 +129,7 @@ public class ClienteGroq implements ProveedorIa {
             Thread.sleep(retryEsperaMs);
             log.warn("Groq respondió 429, reintento tras {}ms", retryEsperaMs);
             var reintento = restClient.post()
-                    .uri("/chat/completions")
+                    .uri("")
                     .body(Map.of(
                             "model", modelo,
                             "temperature", 0,
@@ -162,12 +158,19 @@ public class ClienteGroq implements ProveedorIa {
             if (contenido.isMissingNode() || contenido.isNull()) {
                 return Optional.empty();
             }
-            return Optional.of(MAPPER.readTree(contenido.asText()));
+            String raw = contenido.asText().trim();
+            if (raw.startsWith("```json")) {
+                raw = raw.substring(7);
+            } else if (raw.startsWith("```")) {
+                raw = raw.substring(3);
+            }
+            if (raw.endsWith("```")) {
+                raw = raw.substring(0, raw.length() - 3);
+            }
+            return Optional.of(MAPPER.readTree(raw.trim()));
         } catch (Exception e) {
             log.warn("Respuesta de Groq ilegible: {}", e.getMessage());
             return Optional.empty();
         }
     }
-
-    private static final ObjectMapper MAPPER = new ObjectMapper();
 }

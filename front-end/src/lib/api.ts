@@ -833,6 +833,8 @@ export const matchesApi = {
     apiFetch<void>(`/api/v1/matches/${matchId}`, { method: 'DELETE', token }),
   ejecutarMatching: (token?: string) =>
     apiFetch<{ matchesCreados: number }>('/api/v1/matches/ejecutar', { method: 'POST', token }),
+  recalcularMisMatches: (token?: string) =>
+    apiFetch<{ matchesCreados: number }>('/api/v1/matches/mis-matches/recalcular', { method: 'POST', token }),
 }
 
 // ─── Notificaciones ──────────────────────────────────────────────────────────
@@ -1196,6 +1198,8 @@ export const documentosApi = {
 import type {
   PlantillaResponse, HojaDeVidaResponse, GeneracionMasivaResponse, ExtraccionResponse,
   AnalisisCompletitudResponse, GenerarHvOpcionesRequest, DatosHvDto,
+  AuditoriaLinkedinDto, AplicarAuditoriaLinkedinRequest,
+  AdaptacionCvInglesRequest, AdaptacionCvInglesResponse, AplicarAdaptacionInglesRequest,
 } from './types'
 
 export const hvApi = {
@@ -1254,6 +1258,26 @@ export const hvApi = {
         seccionesExcluidas: opciones?.seccionesExcluidas,
         camposExcluidos: opciones?.camposExcluidos,
       },
+    }),
+  auditarLinkedin: (archivo: File, token?: string) =>
+    apiUpload<AuditoriaLinkedinDto>('/api/v1/hojas-de-vida/auditar-linkedin', { archivo }, token),
+  aplicarAuditoriaLinkedin: (payload: AplicarAuditoriaLinkedinRequest, token?: string) =>
+    apiFetch<EstudianteResponse>('/api/v1/hojas-de-vida/aplicar-auditoria-linkedin', {
+      method: 'POST',
+      data: payload,
+      token,
+    }),
+  adaptarIngles: (payload?: AdaptacionCvInglesRequest, token?: string) =>
+    apiFetch<AdaptacionCvInglesResponse>('/api/v1/hojas-de-vida/adaptar-ingles', {
+      method: 'POST',
+      data: payload,
+      token,
+    }),
+  aplicarIngles: (payload: AplicarAdaptacionInglesRequest, token?: string) =>
+    apiFetch<void>('/api/v1/hojas-de-vida/aplicar-ingles', {
+      method: 'POST',
+      data: payload,
+      token,
     }),
 }
 

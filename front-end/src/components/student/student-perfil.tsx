@@ -17,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { usePreferences } from '@/lib/preferences'
+import { calcularPorcentajeEmpleabilidad } from '@/lib/ruta-empleabilidad'
 
 interface Props {
   perfil: EstudianteResponse
@@ -160,18 +161,44 @@ export function StudentPerfil({ perfil, onUpdate }: Props) {
         apellido: perfil.apellido,
         email: perfil.email,
         programaId: perfil.programaId,
-        celular: form.celular || undefined,
-        ciudad: form.ciudad || undefined,
-        direccion: form.direccion || undefined,
-        cargoObjetivo: form.cargoObjetivo || undefined,
-        perfilProfesional: form.perfilProfesional || undefined,
-        disponibilidadLaboral: form.disponibilidadLaboral || undefined,
-        competencias: form.competencias || undefined,
-        idiomas: form.idiomas || undefined,
-        linkedinUrl: form.linkedinUrl || undefined,
+        celular: form.celular.trim(),
+        ciudad: form.ciudad.trim(),
+        direccion: form.direccion.trim(),
+        cargoObjetivo: form.cargoObjetivo.trim(),
+        perfilProfesional: form.perfilProfesional.trim(),
+        disponibilidadLaboral: form.disponibilidadLaboral.trim(),
+        competencias: form.competencias.trim(),
+        idiomas: form.idiomas.trim(),
+        linkedinUrl: form.linkedinUrl.trim(),
       }
       const updated = await estudiantesApi.actualizarMiPerfil(body)
-      onUpdate(updated)
+      const basePerfil = updated || perfil
+      const tienePerfilOcupacional = form.cargoObjetivo.trim().length > 0 || form.perfilProfesional.trim().length > 0
+      const tieneLinkedin = form.linkedinUrl.trim().length > 0
+      const nuevoHitoPerfil = tienePerfilOcupacional ? 'SI' : 'NO'
+      const nuevoHitoLinkedin = tieneLinkedin ? 'SI' : 'NO'
+      const perfilActualizado: EstudianteResponse = {
+        ...basePerfil,
+        cargoObjetivo: form.cargoObjetivo.trim(),
+        perfilProfesional: form.perfilProfesional.trim(),
+        competencias: form.competencias.trim(),
+        linkedinUrl: form.linkedinUrl.trim(),
+        celular: form.celular.trim(),
+        ciudad: form.ciudad.trim(),
+        direccion: form.direccion.trim(),
+        disponibilidadLaboral: form.disponibilidadLaboral.trim(),
+        idiomas: form.idiomas.trim(),
+        hitoPerfilOcupacional: nuevoHitoPerfil,
+        hitoLinkedinCreado: nuevoHitoLinkedin,
+        hitoLinkedinOptimizado: tieneLinkedin ? basePerfil.hitoLinkedinOptimizado : 'NO',
+        porcentajeEmpleabilidad: calcularPorcentajeEmpleabilidad({
+          ...basePerfil,
+          hitoPerfilOcupacional: nuevoHitoPerfil,
+          hitoLinkedinCreado: nuevoHitoLinkedin,
+          hitoLinkedinOptimizado: tieneLinkedin ? basePerfil.hitoLinkedinOptimizado : 'NO',
+        }),
+      }
+      onUpdate(perfilActualizado)
       setEditing(false)
     } catch (e) {
       setError(

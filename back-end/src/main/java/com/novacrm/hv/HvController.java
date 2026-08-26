@@ -24,13 +24,22 @@ public class HvController {
 
     private final HvService hvService;
     private final ExtraccionHvService extraccionService;
+    private final AuditoriaLinkedinService auditoriaLinkedinService;
+    private final com.novacrm.estudiante.EstudianteService estudianteService;
     private final HvPdfService pdfService;
+    private final AdaptacionCvInglesService adaptacionCvInglesService;
     private final OwnershipService ownershipService;
 
     public HvController(HvService hvService, ExtraccionHvService extraccionService,
+                        AuditoriaLinkedinService auditoriaLinkedinService,
+                        AdaptacionCvInglesService adaptacionCvInglesService,
+                        com.novacrm.estudiante.EstudianteService estudianteService,
                         HvPdfService pdfService, OwnershipService ownershipService) {
         this.hvService = hvService;
         this.extraccionService = extraccionService;
+        this.auditoriaLinkedinService = auditoriaLinkedinService;
+        this.adaptacionCvInglesService = adaptacionCvInglesService;
+        this.estudianteService = estudianteService;
         this.pdfService = pdfService;
         this.ownershipService = ownershipService;
     }
@@ -230,7 +239,6 @@ public class HvController {
         var datos = request.datos();
         String idioma = request.idioma() != null ? request.idioma() : "es";
         byte[] pdfBytes = pdfService.generar(datos, "#1C315E", idioma, request.seccionesExcluidas(), request.camposExcluidos());
-
         String nombreNombre = datos != null && datos.nombre() != null ? datos.nombre() : "Candidato";
         String nombreArchivo = "HV-CAC-" + nombreNombre + ".pdf";
 
@@ -239,5 +247,43 @@ public class HvController {
                         com.novacrm.shared.NombreDeDescarga.adjunto(nombreArchivo))
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdfBytes);
+    }
+
+    @PostMapping(value = "/auditar-linkedin", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Auditar y diagnosticar un perfil de LinkedIn exportado en PDF (estilo Manfred / ATS)")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public AuditoriaLinkedinDto auditarLinkedin(@RequestParam("archivo") MultipartFile archivo) {
+        return auditoriaLinkedinService.auditar(archivo);
+    }
+
+    @PostMapping("/aplicar-auditoria-linkedin")
+    @Operation(summary = "Aprobar el hito de LinkedIn Optimizado y opcionalmente sincronizar datos del perfil")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public com.novacrm.estudiante.dto.EstudianteResponse aplicarAuditoriaLinkedin(
+            @RequestBody AplicarAuditoriaLinkedinRequest request,
+            Authentication auth) {
+        var estudiante = ownershipService.obtenerEstudianteAutenticado(auth);
+        return estudianteService.aplicarAuditoriaLinkedin(estudiante.getId(), request);
+    }
+
+    @PostMapping("/adaptar-ingles")
+    @Operation(summary = "Traducir y adaptar el perfil y experiencias a formato English Resume con IA")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public com.novacrm.hv.dto.AdaptacionCvInglesResponse adaptarIngles(
+            @RequestBody(required = false) com.novacrm.hv.dto.AdaptacionCvInglesRequest request,
+            Authentication auth) {
+        var estudiante = ownershipService.obtenerEstudianteAutenticado(auth);
+        return adaptacionCvInglesService.adaptar(estudiante.getId(), request);
+    }
+
+    @PostMapping("/aplicar-ingles")
+    @Operation(summary = "Guardar nivel de inglés, datos adaptados y aprobar el hito de CV en inglés")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public void aplicarIngles(
+            @RequestBody com.novacrm.hv.dto.AplicarAdaptacionInglesRequest request,
+            Authentication auth) {
+        var estudiante = ownershipService.obtenerEstudianteAutenticado(auth);
+        adaptacionCvInglesService.aplicar(estudiante.getId(), request);
     }
 }

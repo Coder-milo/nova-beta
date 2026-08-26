@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -134,6 +135,19 @@ public class ElempleoScraper implements FuenteDeVacantes {
                 String titulo = oferta.path("title").asText("");
                 if (id.isBlank() || titulo.isBlank()) continue;
 
+                // 1. Extraer y validar fecha real de publicación
+                String rawDate = extraerTextoFecha(oferta, card);
+                var fechaPubOpt = com.novacrm.scraper.fuente.ParserFechas.parsear(rawDate);
+                if (fechaPubOpt.isEmpty()) {
+                    log.debug("Oferta de Elempleo descartada por fecha no verificable: {}", id);
+                    continue;
+                }
+                LocalDateTime fechaPub = fechaPubOpt.get();
+                if (!com.novacrm.scraper.fuente.FiltroFrescura.esFresca(fechaPub)) {
+                    log.debug("Oferta de Elempleo descartada por antigüedad > 7 días: {} (fecha: {})", id, fechaPub);
+                    continue;
+                }
+
                 var vacante = new Vacante();
                 vacante.setTitulo(titulo);
                 vacante.setFuente(PORTAL);
@@ -157,7 +171,7 @@ public class ElempleoScraper implements FuenteDeVacantes {
 
                 vacante.setSegmento(Segmento.LOCAL_COLOMBIA);
                 vacante.setActivo(true);
-                vacante.setFechaPublicacion(java.time.LocalDateTime.now());
+                vacante.setFechaPublicacion(fechaPub);
 
                 resultados.add(new OfertaCruda(vacante, textoONull(oferta, "company")));
             } catch (Exception e) {
@@ -165,6 +179,29 @@ public class ElempleoScraper implements FuenteDeVacantes {
             }
         }
         return resultados;
+    }
+
+    private static String extraerTextoFecha(JsonNode oferta, org.jsoup.nodes.Element card) {
+        String[] camposJson = {"publishDate", "date", "publicationDate", "fechaPublicacion", "date_posted", "created_at"};
+        for (String campo : camposJson) {
+            String val = textoONull(oferta, campo);
+            if (val != null && !val.isBlank()) {
+                return val;
+            }
+        }
+        var dateElem = card.selectFirst("span.js-publish-date, span.info-publish-date, span.date, span.time, p.text-muted, [class*='publish'], [class*='date']");
+        if (dateElem != null && !dateElem.text().isBlank()) {
+            return dateElem.text().trim();
+        }
+        for (var el : card.select("span, p, div")) {
+            String t = el.text().trim();
+            if (t.toLowerCase().contains("hace ") || t.toLowerCase().contains("publicad") || t.toLowerCase().contains("hoy") || t.toLowerCase().contains("ayer")) {
+                if (com.novacrm.scraper.fuente.ParserFechas.parsear(t).isPresent()) {
+                    return t;
+                }
+            }
+        }
+        return null;
     }
 
     private static String extraerCiudad(String ubicacion) {

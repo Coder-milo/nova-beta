@@ -64,6 +64,9 @@ class PapeleraIntegrationTest {
     @Autowired
     private PurgeScheduler purgeScheduler;
 
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.novacrm.postulacion.PostulacionService postulacionService;
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private Programa crearPrograma() {

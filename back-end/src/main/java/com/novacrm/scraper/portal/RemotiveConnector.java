@@ -217,7 +217,18 @@ public class RemotiveConnector implements FuenteDeVacantes {
         vacante.setUrlOrigen(url);
         vacante.setUrlAplicar(url);
 
-        vacante.setFechaPublicacion(fecha(texto(oferta, "publication_date")));
+        Optional<LocalDateTime> fechaPubOpt = com.novacrm.scraper.fuente.ParserFechas.parsear(texto(oferta, "publication_date"));
+        if (fechaPubOpt.isEmpty()) {
+            log.debug("Oferta de Remotive descartada por fecha no verificable: {}", id);
+            return Optional.empty();
+        }
+        LocalDateTime fechaPub = fechaPubOpt.get();
+        if (!com.novacrm.scraper.fuente.FiltroFrescura.esFresca(fechaPub)) {
+            log.debug("Oferta de Remotive descartada por antigüedad > 7 días: {} (publicada: {})", id, fechaPub);
+            return Optional.empty();
+        }
+
+        vacante.setFechaPublicacion(fechaPub);
         vacante.setSegmento(Segmento.REMOTO_INGLES);
         vacante.setActivo(true);
         return Optional.of(vacante);
@@ -230,21 +241,6 @@ public class RemotiveConnector implements FuenteDeVacantes {
         }
         String normalizada = region.toLowerCase(Locale.ROOT);
         return REGIONES_ADMITIDAS.stream().anyMatch(normalizada::contains);
-    }
-
-    private static LocalDateTime fecha(String valor) {
-        if (valor == null) {
-            return LocalDateTime.now();
-        }
-        try {
-            return LocalDateTime.parse(valor.replace(" ", "T"));
-        } catch (DateTimeParseException e) {
-            try {
-                return OffsetDateTime.parse(valor).toLocalDateTime();
-            } catch (DateTimeParseException otra) {
-                return LocalDateTime.now();
-            }
-        }
     }
 
     private static String texto(JsonNode nodo, String campo) {

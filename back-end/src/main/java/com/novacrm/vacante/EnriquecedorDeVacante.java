@@ -43,16 +43,21 @@ public class EnriquecedorDeVacante {
     private static final List<Map.Entry<List<String>, NivelMcer>> FRASES_INGLES = List.of(
             Map.entry(List.of(
                     "ingles nativo", "native english", "near native",
-                    "ingles c1", "ingles c2"), NivelMcer.C1),
+                    "ingles c1", "ingles c2", "c1 english", "c2 english",
+                    "ingles profesional", "professional english", "professional working english"), NivelMcer.C1),
             Map.entry(List.of(
-                    "ingles avanzado", "advanced english", "fluent english",
-                    "ingles fluido", "fully bilingual", "totalmente bilingue"), NivelMcer.B2),
+                    "ingles avanzado", "advanced english", "fluent english", "fluent in english",
+                    "ingles fluido", "fully bilingual", "totalmente bilingue", "100% bilingue",
+                    "100% bilingual", "ingles b2", "b2 english", "working english",
+                    "business english", "ingles de negocios"), NivelMcer.B2),
             Map.entry(List.of(
                     "bilingue", "bilingual",
                     "ingles conversacional", "conversational english",
-                    "ingles intermedio", "intermediate english"), NivelMcer.B1),
+                    "ingles intermedio", "intermediate english",
+                    "ingles tecnico", "technical english",
+                    "ingles b1", "b1 english"), NivelMcer.B1),
             Map.entry(List.of(
-                    "ingles basico", "basic english"), NivelMcer.A2));
+                    "ingles basico", "basic english", "ingles a2", "a2 english"), NivelMcer.A2));
 
     /**
      * Senales de que el puesto pide ingles sin decir cuanto. Se resuelve como B1
@@ -60,9 +65,10 @@ public class EnriquecedorDeVacante {
      * para no excluir de mas.
      */
     private static final List<String> INGLES_SIN_NIVEL = List.of(
-            "ingles requerido", "requiere ingles", "dominio del ingles",
+            "ingles requerido", "requiere ingles", "dominio del ingles", "dominio de ingles",
             "english required", "must speak english", "english proficiency",
-            "manejo de ingles", "indispensable ingles");
+            "manejo de ingles", "manejo del ingles", "indispensable ingles", "ingles indispensable",
+            "conocimiento de ingles", "conocimiento del ingles");
 
     /** El anuncio dice expresamente que no pide experiencia. */
     private static final List<String> SIN_EXPERIENCIA = List.of(
@@ -88,19 +94,62 @@ public class EnriquecedorDeVacante {
     private static final int MAX_ANIOS = 20;
 
     /**
-     * Ciudades colombianas reconocibles en el campo libre {@code ubicacion}.
-     * Incluye los municipios del area metropolitana de Barranquilla (Soledad,
-     * Malambo) porque ahi reside buena parte de los participantes.
+     * Ciudades y municipios colombianos reconocibles en el texto del anuncio o ubicación.
+     * Incluye las principales áreas metropolitanas del país y municipios con alta actividad laboral.
      */
     private static final List<String> CIUDADES = List.of(
-            "barranquilla", "soledad", "malambo", "puerto colombia", "galapa",
-            "bogota", "soacha", "medellin", "bello", "itagui", "envigado",
-            "cali", "palmira", "buenaventura", "cartagena", "bucaramanga",
-            "floridablanca", "santa marta", "cucuta", "pereira", "manizales",
-            "ibague", "villavicencio", "monteria", "valledupar", "neiva",
-            "pasto", "armenia", "sincelejo", "popayan", "riohacha", "tunja",
+            "barranquilla", "soledad", "malambo", "puerto colombia", "galapa", "baranoa", "sabanalarga",
+            "bogota", "soacha", "chia", "zipaquira", "facatativa", "mosquera", "madrid", "funza", "cajica",
+            "medellin", "bello", "itagui", "envigado", "sabaneta", "rionegro", "la estrella", "copacabana",
+            "cali", "palmira", "buenaventura", "yumbo", "jamundi", "tulua", "cartago", "buga",
+            "cartagena", "magangue", "turbaco",
+            "bucaramanga", "floridablanca", "giron", "piedecuesta", "barrancabermeja",
+            "santa marta", "cienaga",
+            "cucuta", "ocana", "pamplona", "villa del rosario", "los patios",
+            "pereira", "dosquebradas", "santa rosa de cabal",
+            "manizales", "villamaria",
+            "ibague", "espinal",
+            "villavicencio", "acacias",
+            "monteria", "cerete", "lorica",
+            "valledupar", "aguachica",
+            "neiva", "pitalito",
+            "pasto", "ipiales", "tumaco",
+            "armenia", "calarca",
+            "sincelejo", "corozal",
+            "popayan", "santander de quilichao",
+            "riohacha", "maicao",
+            "tunja", "duitama", "sogamoso", "chiquinquira",
             "florencia", "quibdo", "yopal", "mocoa", "san andres", "leticia",
-            "arauca", "duitama", "sogamoso", "girardot", "tulua", "cartago");
+            "arauca", "girardot", "fusagasuga");
+
+    private static final List<java.util.Map.Entry<String, String>> DEPARTAMENTOS_A_CIUDAD = List.of(
+            java.util.Map.entry("atlantico", "Barranquilla, Atlántico"),
+            java.util.Map.entry("cundinamarca", "Bogotá, D.C."),
+            java.util.Map.entry("bogota d.c.", "Bogotá, D.C."),
+            java.util.Map.entry("bogota dc", "Bogotá, D.C."),
+            java.util.Map.entry("antioquia", "Medellín, Antioquia"),
+            java.util.Map.entry("valle del cauca", "Cali, Valle del Cauca"),
+            java.util.Map.entry("santander", "Bucaramanga, Santander"),
+            java.util.Map.entry("norte de santander", "Cúcuta"),
+            java.util.Map.entry("bolivar", "Cartagena, Bolívar"),
+            java.util.Map.entry("risaralda", "Pereira, Risaralda"),
+            java.util.Map.entry("caldas", "Manizales, Caldas"),
+            java.util.Map.entry("quindio", "Armenia, Quindío"),
+            java.util.Map.entry("magdalena", "Santa Marta, Magdalena"),
+            java.util.Map.entry("tolima", "Ibagué, Tolima"),
+            java.util.Map.entry("meta", "Villavicencio, Meta"),
+            java.util.Map.entry("huila", "Neiva, Huila"),
+            java.util.Map.entry("cesar", "Valledupar, Cesar"),
+            java.util.Map.entry("cordoba", "Montería, Córdoba"),
+            java.util.Map.entry("sucre", "Sincelejo, Sucre"),
+            java.util.Map.entry("la guajira", "Riohacha, La Guajira"),
+            java.util.Map.entry("guajira", "Riohacha, La Guajira"),
+            java.util.Map.entry("narino", "Pasto, Nariño"),
+            java.util.Map.entry("cauca", "Popayán, Cauca"),
+            java.util.Map.entry("boyaca", "Tunja, Boyacá"),
+            java.util.Map.entry("casanare", "Yopal, Casanare"),
+            java.util.Map.entry("san andres", "San Andrés")
+    );
 
     /** Si la ubicacion dice esto, no hay ciudad que extraer: el puesto es remoto. */
     private static final List<String> SENALES_REMOTO = List.of(
@@ -130,8 +179,14 @@ public class EnriquecedorDeVacante {
         if (esBlanco(vacante.getCiudad())) {
             inferirCiudad(vacante.getUbicacion(), texto).ifPresent(vacante::setCiudad);
         }
+        if (esBlanco(vacante.getUbicacion()) && !esBlanco(vacante.getCiudad())) {
+            vacante.setUbicacion(vacante.getCiudad());
+        }
         if (esBlanco(vacante.getModalidadTrabajo())) {
             inferirModalidad(texto, vacante.getUbicacion()).ifPresent(vacante::setModalidadTrabajo);
+        }
+        if (esBlanco(vacante.getUbicacion()) && "REMOTO".equalsIgnoreCase(vacante.getModalidadTrabajo())) {
+            vacante.setUbicacion("Remoto");
         }
         if (esBlanco(vacante.getRangoSalarial())) {
             inferirSalario(vacante.getDescripcion()).ifPresent(vacante::setRangoSalarial);
@@ -227,28 +282,81 @@ public class EnriquecedorDeVacante {
     /**
      * Nivel de ingles exigido por el anuncio.
      *
-     * <p>Primero busca un codigo MCER escrito ("B2", "nivel B1"), que es la
-     * declaracion mas fiable; si no hay, cae a las frases. Reutiliza
-     * {@link NivelMcer#desdeTexto} para no tener dos formas distintas de leer
-     * un nivel en el mismo sistema.
+     * <p>Primero busca un codigo MCER contextual ("B2", "nivel B1", "CEFR C1"),
+     * garantizando que no sea una licencia C1, zona B2 o acrónimo B2B;
+     * si no hay, cae a las frases jerarquizadas y señales generales.
      */
     java.util.Optional<NivelMcer> inferirIngles(String texto) {
-        var porCodigo = NivelMcer.desdeTexto(texto);
+        if (texto == null || texto.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        String t = normalizar(texto);
+
+        // 1. Código MCER contextual con marco o idioma
+        var porCodigo = inferirCodigoMcerContextual(t);
         if (porCodigo.isPresent()) {
             return porCodigo;
         }
+
+        // 2. Frases ordenadas por nivel de exigencia
         for (var grupo : FRASES_INGLES) {
             for (String frase : grupo.getKey()) {
-                if (texto.contains(frase)) {
+                if (t.contains(frase)) {
                     return java.util.Optional.of(grupo.getValue());
                 }
             }
         }
+
+        // 3. Señales sin nivel específico resueltas como B1
         for (String frase : INGLES_SIN_NIVEL) {
-            if (texto.contains(frase)) {
+            if (t.contains(frase)) {
                 return java.util.Optional.of(NivelMcer.B1);
             }
         }
+        return java.util.Optional.empty();
+    }
+
+    private java.util.Optional<NivelMcer> inferirCodigoMcerContextual(String t) {
+        // Marco explícito: "MCER B2", "CEFR C1", "Marco común europeo B2", "Marco europeo: C1"
+        Pattern pMarco = Pattern.compile(
+                "\\b(?:mcer|cefr|marco\\s+(?:comun\\s+)?europeo)\\s*[:\\-–—]?\\s*(?:nivel\\s*)?([abc][12])\\b");
+        Matcher mMarco = pMarco.matcher(t);
+        if (mMarco.find()) {
+            try {
+                return java.util.Optional.of(NivelMcer.valueOf(mMarco.group(1).toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        // Nivel con idioma: "ingles B2", "B2 English", "Required: B2+ English", "nivel de ingles B2", "ingles C1", "english proficiency B2"
+        Pattern pInglesNivel = Pattern.compile(
+                "\\b(?:ingles|english)\\s*(?:(?:proficiency|requirements?|requirement|nivel|level|hablado|escrito|conversacional|tecnico|fluido|avanzado|intermedio|de)\\s*){0,3}[:\\-–—]?\\s*([abc][12])\\b|\\b([abc][12])\\s*\\+?\\s*(?:de\\s+ingles|en\\s+ingles|english)\\b");
+        Matcher mIngles = pInglesNivel.matcher(t);
+        if (mIngles.find()) {
+            String codigo = mIngles.group(1) != null ? mIngles.group(1) : mIngles.group(2);
+            try {
+                return java.util.Optional.of(NivelMcer.valueOf(codigo.toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        // Nivel genérico "Nivel B2", "Level C1", cuidando que no esté precedido por falsos positivos
+        Pattern pNivel = Pattern.compile("\\b(?:nivel|level)\\s*[:\\-–—]?\\s*([abc][12])\\s*\\+?\\b");
+        Matcher mNivel = pNivel.matcher(t);
+        while (mNivel.find()) {
+            int inicio = mNivel.start();
+            String fragmento = t.substring(Math.max(0, inicio - 25), inicio);
+            if (!fragmento.contains("zona") && !fragmento.contains("bodega") && !fragmento.contains("piso")
+                    && !fragmento.contains("licencia") && !fragmento.contains("pase") && !fragmento.contains("vitamina")
+                    && !fragmento.contains("sector") && !fragmento.contains("pasillo") && !fragmento.contains("bloque")
+                    && !fragmento.contains("modulo") && !fragmento.contains("formato")) {
+                try {
+                    return java.util.Optional.of(NivelMcer.valueOf(mNivel.group(1).toUpperCase(Locale.ROOT)));
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+        }
+
         return java.util.Optional.empty();
     }
 
@@ -335,9 +443,19 @@ public class EnriquecedorDeVacante {
     }
 
     private java.util.Optional<String> buscarCiudad(String textoNormalizado) {
+        if (textoNormalizado == null || textoNormalizado.isBlank()) {
+            return java.util.Optional.empty();
+        }
         for (String ciudad : CIUDADES) {
-            if (textoNormalizado.contains(ciudad)) {
+            Pattern p = Pattern.compile("\\b" + Pattern.quote(ciudad) + "\\b");
+            if (p.matcher(textoNormalizado).find()) {
                 return java.util.Optional.of(capitalizar(ciudad));
+            }
+        }
+        for (var entry : DEPARTAMENTOS_A_CIUDAD) {
+            Pattern p = Pattern.compile("\\b" + Pattern.quote(entry.getKey()) + "\\b");
+            if (p.matcher(textoNormalizado).find()) {
+                return java.util.Optional.of(entry.getValue());
             }
         }
         return java.util.Optional.empty();

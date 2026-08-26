@@ -223,8 +223,17 @@ public class SmartRecruitersConnector implements FuenteDeVacantes {
                         + URLEncoder.encode(empresa, StandardCharsets.UTF_8) + "/" + id;
                 vacante.setUrlOrigen(enlace);
                 vacante.setUrlAplicar(enlace);
-
-                fecha(oferta).ifPresent(vacante::setFechaPublicacion);
+                java.util.Optional<LocalDateTime> fechaPubOpt = fecha(oferta);
+                if (fechaPubOpt.isEmpty()) {
+                    log.debug("Oferta de SmartRecruiters descartada por fecha no verificable: {}", id);
+                    continue;
+                }
+                LocalDateTime fechaPub = fechaPubOpt.get();
+                if (!FiltroFrescura.esFresca(fechaPub)) {
+                    log.debug("Oferta de SmartRecruiters descartada por antigüedad > 7 días: {} (publicada: {})", id, fechaPub);
+                    continue;
+                }
+                vacante.setFechaPublicacion(fechaPub);
                 vacante.setTipoContrato(textoAnidado(oferta, "typeOfEmployment", "label"));
 
                 // El texto del anuncio solo esta en el detalle, y sin el la
@@ -319,13 +328,7 @@ public class SmartRecruitersConnector implements FuenteDeVacantes {
 
     private static java.util.Optional<LocalDateTime> fecha(JsonNode oferta) {
         String valor = texto(oferta, "releasedDate");
-        if (valor.isBlank()) return java.util.Optional.empty();
-        try {
-            // Viene como fecha ISO con zona; basta el dia.
-            return java.util.Optional.of(LocalDate.parse(valor.substring(0, 10)).atStartOfDay());
-        } catch (Exception e) {
-            return java.util.Optional.empty();
-        }
+        return ParserFechas.parsear(valor);
     }
 
     private static String texto(JsonNode nodo, String campo) {

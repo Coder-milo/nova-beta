@@ -68,6 +68,30 @@ final class PesosPorRareza {
     }
 
     /**
+     * Cobertura de los tokens de `consulta` dentro de `documento`, ponderado por rareza.
+     * De 0 a 1, o null si la consulta no tiene tokens conocidos o el documento está vacío.
+     */
+    Double cobertura(Set<String> consulta, Set<String> documento) {
+        if (consulta == null || consulta.isEmpty() || documento == null || documento.isEmpty()) {
+            return null;
+        }
+        double masaConsulta = masa(consulta);
+        if (masaConsulta <= 0) {
+            return null;
+        }
+        double comun = 0.0;
+        for (String token : consulta) {
+            if (documento.contains(token)) {
+                comun += peso(token);
+            }
+        }
+        if (comun <= 0) {
+            return 0.0;
+        }
+        return Math.min(comun / masaConsulta, 1.0);
+    }
+
+    /**
      * Parecido entre dos conjuntos, de 0 a 1, o {@code null} si alguno no tiene
      * ni un token que el mercado use.
      *
