@@ -153,9 +153,9 @@ public final class CorreosDelSistema {
         String colorAcento = marca != null && marca.colorPrimario() != null ? marca.colorPrimario() : "#1B6DF5";
         String badgeCita = PlantillaCorreo.badge("Entrevista Programada", "#EFF6FF", "#1D4ED8");
         String detalleCita = """
-                <p style="margin:0 0 8px 0;font-size:14px;color:#1F2A44;"><strong>📅 Fecha y hora:</strong> %s</p>
-                <p style="margin:0 0 8px 0;font-size:14px;color:#1F2A44;"><strong>📍 Modalidad:</strong> %s</p>
-                <p style="margin:0;font-size:14px;color:#1F2A44;"><strong>🔗 Lugar / Enlace:</strong> %s</p>
+                <p style="margin:0 0 8px 0;font-size:14px;color:#1F2A44;"><strong>Fecha y hora:</strong> %s</p>
+                <p style="margin:0 0 8px 0;font-size:14px;color:#1F2A44;"><strong>Modalidad:</strong> %s</p>
+                <p style="margin:0;font-size:14px;color:#1F2A44;"><strong>Lugar / Enlace:</strong> %s</p>
                 """.formatted(
                 escapar(fecha == null ? "" : fecha),
                 escapar(modalidad == null ? "" : modalidad),
