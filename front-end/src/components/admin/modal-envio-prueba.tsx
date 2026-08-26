@@ -44,6 +44,7 @@ export interface ModalEnvioPruebaProps {
   botonTexto?: string | null
   botonUrl?: string | null
   programaId?: string | null
+  estudianteId?: string | null
   variablesSimuladas?: Record<string, string>
   tipo?: string | null
   onEnviado?: (
@@ -104,6 +105,7 @@ export function ModalEnvioPrueba({
   botonTexto,
   botonUrl,
   programaId,
+  estudianteId,
   variablesSimuladas = {},
   tipo,
   onEnviado,
@@ -148,6 +150,7 @@ export function ModalEnvioPrueba({
           tipo,
           destinatario: destinoLimpio,
           programaId: programaId || undefined,
+          estudianteId: estudianteId || undefined,
         })
       } else {
         res = await plantillasCorreoApi.enviarPrueba({

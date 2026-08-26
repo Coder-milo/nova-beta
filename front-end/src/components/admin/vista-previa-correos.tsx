@@ -18,13 +18,17 @@ import {
   Send as PaperPlaneTilt,
   RefreshCw as ArrowsClockwise,
   Smartphone,
+  User,
+  Users,
 } from 'lucide-react'
-import { ApiCallError, correosApi, programasApi } from '@/lib/api'
+import { ApiCallError, correosApi, programasApi, estudiantesApi } from '@/lib/api'
 import type { TipoCorreo } from '@/lib/api'
-import type { ProgramaResponse } from '@/lib/types'
+import type { EstudianteResponse, ProgramaResponse } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Campo, Selector } from '@/components/ui/campo'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { ModalEnvioPrueba } from '@/components/admin/modal-envio-prueba'
 import { useAvisos } from '@/components/ui/avisos'
 import { usePreferences } from '@/lib/preferences'
@@ -46,23 +50,33 @@ function mensajeDe(error: unknown, C: TextosAdmin): string {
 function textos(english: boolean) {
   return english
     ? {
-        miralosAntesDe: 'See them before they go out. They are shown with sample data and the branding of the programme you choose, exactly as the student will receive them.',
-        cadaProgramaPuede: 'Each programme can have its own header, footer and colour.',
+        miralosAntesDe: 'See them before they go out. They are shown with sample data or customized for a real student, with the exact branding and alliances of the selected project.',
+        cadaProgramaPuede: 'Each project has its own funding partners, footer, header and colour.',
         correosQueEnvia: 'Emails the system sends',
         eligeUnCorreo: 'Choose an email to view it.',
         montandoElCorreo: 'Building the email…',
-        marcaDelPrograma: 'Programme branding',
+        marcaDelPrograma: 'Project / Programme Branding',
+        estudiantePersonalizado: 'Target Student / Personalization',
+        datosEjemplo: 'Standard sample data (María Gómez)',
+        buscarEstudiante: 'Search real student…',
+        cargandoEstudiantes: 'Searching students…',
+        sinEstudiantes: 'No students found.',
         escritorio: 'Desktop (600px)',
         movil: 'Mobile (375px)',
         enviarPrueba: 'Send Test Email',
       }
     : {
-        miralosAntesDe: 'Míralos antes de que salgan. Se muestran con datos de ejemplo y con la marca del programa que elijas, tal como los va a recibir el estudiante.',
-        cadaProgramaPuede: 'Cada programa puede tener su cabecera, su pie y su color.',
+        miralosAntesDe: 'Míralos antes de que salgan. Se muestran con datos de ejemplo o de un estudiante real específico, con la marca, aliados y colores exactos del proyecto seleccionado.',
+        cadaProgramaPuede: 'Cada proyecto cuenta con sus propios aliados de financiación, cabecera y pie de página.',
         correosQueEnvia: 'Correos que envía el sistema',
         eligeUnCorreo: 'Elige un correo para verlo.',
         montandoElCorreo: 'Montando el correo…',
-        marcaDelPrograma: 'Marca del programa',
+        marcaDelPrograma: 'Proyecto / Marca del Programa',
+        estudiantePersonalizado: 'Estudiante / Personalización',
+        datosEjemplo: 'Datos de ejemplo (María Gómez)',
+        buscarEstudiante: 'Buscar estudiante real…',
+        cargandoEstudiantes: 'Buscando estudiantes…',
+        sinEstudiantes: 'No se encontraron estudiantes.',
         escritorio: 'Escritorio (600px)',
         movil: 'Móvil (375px)',
         enviarPrueba: 'Enviar correo de prueba',
@@ -78,6 +92,13 @@ export function VistaPreviaCorreos() {
   const [programas, setProgramas] = useState<ProgramaResponse[]>([])
   const [tipo, setTipo] = useState('')
   const [programaId, setProgramaId] = useState('')
+  const [estudianteId, setEstudianteId] = useState('')
+  const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<EstudianteResponse | null>(null)
+  const [estudiantes, setEstudiantes] = useState<EstudianteResponse[]>([])
+  const [busquedaEstudiante, setBusquedaEstudiante] = useState('')
+  const [cargandoEstudiantes, setCargandoEstudiantes] = useState(false)
+  const [mostrarBuscadorEstudiante, setMostrarBuscadorEstudiante] = useState(false)
+
   const [html, setHtml] = useState('')
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -97,23 +118,53 @@ export function VistaPreviaCorreos() {
     programasApi.listar().then(setProgramas).catch(() => setProgramas([]))
   }, [])
 
+  // Búsqueda de estudiantes dinámica con debounce
+  useEffect(() => {
+    if (!mostrarBuscadorEstudiante) return
+    setCargandoEstudiantes(true)
+    const timer = setTimeout(() => {
+      estudiantesApi
+        .buscarAvanzado({
+          q: busquedaEstudiante.trim() || undefined,
+          programaId: programaId || undefined,
+          size: 30,
+        })
+        .then((res) => {
+          setEstudiantes(res.content ?? [])
+        })
+        .catch(() => setEstudiantes([]))
+        .finally(() => setCargandoEstudiantes(false))
+    }, 200)
+
+    return () => clearTimeout(timer)
+  }, [mostrarBuscadorEstudiante, busquedaEstudiante, programaId])
+
   const cargar = useCallback(async () => {
     if (!tipo) return
     setCargando(true)
     setError(null)
     try {
-      setHtml(await correosApi.vistaPrevia(tipo, programaId || undefined))
+      setHtml(await correosApi.vistaPrevia(tipo, programaId || undefined, estudianteId || undefined))
     } catch (e) {
       setError(mensajeDe(e, C))
       setHtml('')
     } finally {
       setCargando(false)
     }
-  }, [tipo, programaId])
+  }, [tipo, programaId, estudianteId])
 
   useEffect(() => {
     void cargar()
   }, [cargar])
+
+  const elegirEstudiante = (est: EstudianteResponse | null) => {
+    setEstudianteSeleccionado(est)
+    setEstudianteId(est ? est.id : '')
+    if (est?.programaId && !programaId) {
+      setProgramaId(est.programaId)
+    }
+    setMostrarBuscadorEstudiante(false)
+  }
 
   const elegido = tipos.find((t) => t.id === tipo)
 
@@ -128,7 +179,7 @@ export function VistaPreviaCorreos() {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <Campo etiqueta="Correo" ayuda={elegido?.cuando}>
             <Selector
               value={tipo}
@@ -144,6 +195,88 @@ export function VistaPreviaCorreos() {
               opciones={programas.map((p) => ({ valor: p.id, etiqueta: p.nombre }))}
               vacio="Marca institucional"
             />
+          </Campo>
+
+          <Campo
+            etiqueta={T.estudiantePersonalizado}
+            ayuda={estudianteSeleccionado ? `${estudianteSeleccionado.nombre} ${estudianteSeleccionado.apellido}` : T.datosEjemplo}
+          >
+            <div className="relative">
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMostrarBuscadorEstudiante((prev) => !prev)}
+                  className="w-full justify-between h-9 text-xs font-normal bg-background"
+                >
+                  <span className="truncate">
+                    {estudianteSeleccionado
+                      ? `${estudianteSeleccionado.nombre} ${estudianteSeleccionado.apellido}`
+                      : T.datosEjemplo}
+                  </span>
+                  <Users className="size-3.5 text-muted-foreground shrink-0 ml-1" />
+                </Button>
+                {estudianteSeleccionado && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => elegirEstudiante(null)}
+                    className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    title="Restablecer a datos de ejemplo"
+                  >
+                    ✕
+                  </Button>
+                )}
+              </div>
+
+              {mostrarBuscadorEstudiante && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg border border-border bg-card p-2 shadow-lg space-y-2">
+                  <Input
+                    placeholder={T.buscarEstudiante}
+                    value={busquedaEstudiante}
+                    onChange={(e) => setBusquedaEstudiante(e.target.value)}
+                    className="h-8 text-xs bg-background"
+                    autoFocus
+                  />
+                  <div className="max-h-48 overflow-y-auto divide-y divide-border rounded-md border border-border bg-background">
+                    <button
+                      type="button"
+                      onClick={() => elegirEstudiante(null)}
+                      className="w-full text-left p-2 hover:bg-muted/50 transition-colors text-xs font-medium text-foreground cursor-pointer flex items-center justify-between"
+                    >
+                      <span>{T.datosEjemplo}</span>
+                      {!estudianteSeleccionado && <Badge variant="secondary" className="text-[10px]">Activo</Badge>}
+                    </button>
+                    {cargandoEstudiantes ? (
+                      <p className="p-3 text-center text-xs text-muted-foreground">{T.cargandoEstudiantes}</p>
+                    ) : estudiantes.length === 0 ? (
+                      <p className="p-3 text-center text-xs text-muted-foreground">{T.sinEstudiantes}</p>
+                    ) : (
+                      estudiantes.map((est) => (
+                        <button
+                          key={est.id}
+                          type="button"
+                          onClick={() => elegirEstudiante(est)}
+                          className="w-full text-left p-2 hover:bg-muted/50 transition-colors text-xs cursor-pointer flex items-center justify-between"
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="font-medium text-foreground truncate">
+                              {est.nombre} {est.apellido}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground truncate">{est.email || 'Sin correo'}</p>
+                          </div>
+                          {est.id === estudianteId && (
+                            <Badge variant="default" className="text-[9px]">Seleccionado</Badge>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </Campo>
         </div>
 
@@ -255,6 +388,7 @@ export function VistaPreviaCorreos() {
             asunto={`[Prueba] ${elegido?.etiqueta ?? 'Correo del Sistema'}`}
             cuerpo={html}
             programaId={programaId || null}
+            estudianteId={estudianteId || null}
             onEnviado={(_res, dest) => {
               mostrarExito(
                 locale === 'en'

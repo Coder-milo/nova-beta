@@ -28,6 +28,12 @@ class VistaPreviaCorreoTest {
     @Mock
     private EmailService emailService;
 
+    @Mock
+    private com.novacrm.estudiante.EstudianteRepository estudianteRepository;
+
+    @Mock
+    private com.novacrm.programa.ProgramaRepository programaRepository;
+
     private VistaPreviaCorreoController controller;
 
     private static final MarcaCorreo MARCA = new MarcaCorreo(
@@ -37,7 +43,7 @@ class VistaPreviaCorreoTest {
 
     @BeforeEach
     void setUp() {
-        controller = new VistaPreviaCorreoController(marcaService, emailService);
+        controller = new VistaPreviaCorreoController(marcaService, emailService, estudianteRepository, programaRepository);
         lenient().when(marcaService.para(any())).thenReturn(MARCA);
         lenient().when(marcaService.frontendUrl()).thenReturn("https://nova.ejemplo.com");
     }
@@ -56,7 +62,7 @@ class VistaPreviaCorreoTest {
     @DisplayName("GET /vista-previa/{tipo} renderiza HTML para tipos válidos")
     void vistaPreviaGeneraHtmlParaTiposValidos() {
         for (var tipo : CorreosDelSistema.Tipo.values()) {
-            String html = controller.vistaPrevia(tipo.name(), UUID.randomUUID());
+            String html = controller.vistaPrevia(tipo.name(), UUID.randomUUID(), null);
 
             assertThat(html)
                     .as("Vista previa de %s debe ser HTML válido", tipo)
@@ -68,9 +74,28 @@ class VistaPreviaCorreoTest {
     @Test
     @DisplayName("GET /vista-previa/{tipo} lanza BusinessException para tipo inexistente")
     void vistaPreviaLanzaExcepcionParaTipoInexistente() {
-        assertThatThrownBy(() -> controller.vistaPrevia("NO_EXISTE", null))
+        assertThatThrownBy(() -> controller.vistaPrevia("NO_EXISTE", null, null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Tipo de correo no reconocido: NO_EXISTE");
+    }
+
+    @Test
+    @DisplayName("GET /vista-previa/{tipo} personaliza con los datos del estudiante real si se especifica")
+    void vistaPreviaPersonalizaConEstudianteReal() {
+        UUID estudianteId = UUID.randomUUID();
+        var estudiante = new com.novacrm.estudiante.Estudiante();
+        estudiante.setNombre("Héctor Luis");
+        estudiante.setApellido("Suárez Arroyo");
+        estudiante.setEmail("hector@ejemplo.com");
+        estudiante.setCargoObjetivo("Full Stack Developer");
+
+        when(estudianteRepository.findById(estudianteId)).thenReturn(java.util.Optional.of(estudiante));
+
+        String html = controller.vistaPrevia("ACTIVACION", null, estudianteId);
+
+        assertThat(html)
+                .contains("Héctor Luis Suárez Arroyo")
+                .contains("hector@ejemplo.com");
     }
 
     @Test

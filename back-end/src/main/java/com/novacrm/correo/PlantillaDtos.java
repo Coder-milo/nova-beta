@@ -131,7 +131,12 @@ public final class PlantillaDtos {
     public record EnviarPruebaSistemaRequest(
             CorreosDelSistema.Tipo tipo,
             String destinatario,
-            UUID programaId) {
+            UUID programaId,
+            UUID estudianteId) {
+
+        public EnviarPruebaSistemaRequest(CorreosDelSistema.Tipo tipo, String destinatario, UUID programaId) {
+            this(tipo, destinatario, programaId, null);
+        }
 
         public String emailDestino() {
             return destinatario == null ? "" : destinatario.trim();

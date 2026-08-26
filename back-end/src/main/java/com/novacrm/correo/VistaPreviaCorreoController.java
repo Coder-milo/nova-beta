@@ -37,10 +37,17 @@ public class VistaPreviaCorreoController {
 
     private final MarcaCorreoService marcaService;
     private final EmailService emailService;
+    private final com.novacrm.estudiante.EstudianteRepository estudianteRepository;
+    private final com.novacrm.programa.ProgramaRepository programaRepository;
 
-    public VistaPreviaCorreoController(MarcaCorreoService marcaService, EmailService emailService) {
+    public VistaPreviaCorreoController(MarcaCorreoService marcaService,
+                                       EmailService emailService,
+                                       com.novacrm.estudiante.EstudianteRepository estudianteRepository,
+                                       com.novacrm.programa.ProgramaRepository programaRepository) {
         this.marcaService = marcaService;
         this.emailService = emailService;
+        this.estudianteRepository = estudianteRepository;
+        this.programaRepository = programaRepository;
     }
 
     /**
@@ -58,26 +65,53 @@ public class VistaPreviaCorreoController {
     }
 
     /**
-     * Devuelve el correo montado con datos de ejemplo.
+     * Devuelve el correo montado con datos del estudiante o de ejemplo.
      *
-     * <p>Se sirve como {@code text/html} para poder pintarlo dentro de un
-     * iframe: es la única forma de verlo con sus estilos, porque el correo va
-     * maquetado con tablas y estilos en línea que se romperían al incrustarlo
-     * en la página.
-     *
-     * @param programaId marca de ese programa; sin él se usa la institucional
+     * @param programaId   marca de ese programa; sin él se usa la institucional
+     * @param estudianteId estudiante real seleccionado para personalizar la vista previa
      */
     @GetMapping(value = "/vista-previa/{tipo}", produces = MediaType.TEXT_HTML_VALUE + ";charset=UTF-8")
     @Operation(summary = "Ver cómo queda un correo sin enviarlo")
     public String vistaPrevia(@PathVariable String tipo,
-                              @RequestParam(required = false) UUID programaId) {
+                              @RequestParam(required = false) UUID programaId,
+                              @RequestParam(required = false) UUID estudianteId) {
         CorreosDelSistema.Tipo elegido;
         try {
             elegido = CorreosDelSistema.Tipo.valueOf(tipo.toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException e) {
             throw new BusinessException("Tipo de correo no reconocido: " + tipo);
         }
-        return CorreosDelSistema.ejemplo(elegido, marcaService.para(programaId), marcaService.frontendUrl());
+
+        String nombre = null;
+        String email = null;
+        String programaNombre = null;
+        String cargo = null;
+
+        if (estudianteId != null) {
+            var estOpt = estudianteRepository.findById(estudianteId);
+            if (estOpt.isPresent()) {
+                var est = estOpt.get();
+                nombre = (est.getNombre() != null ? est.getNombre().trim() : "") +
+                        (est.getApellido() != null && !est.getApellido().isBlank() ? " " + est.getApellido().trim() : "");
+                email = est.getEmail();
+                if (est.getPrograma() != null) {
+                    programaNombre = est.getPrograma().getNombre();
+                    if (programaId == null) {
+                        programaId = est.getPrograma().getId();
+                    }
+                }
+                cargo = est.getCargoObjetivo() != null && !est.getCargoObjetivo().isBlank()
+                        ? est.getCargoObjetivo()
+                        : est.getUltimoCargo();
+            }
+        }
+
+        if (programaNombre == null && programaId != null) {
+            programaNombre = programaRepository.findById(programaId).map(com.novacrm.programa.Programa::getNombre).orElse(null);
+        }
+
+        var marca = marcaService.para(programaId);
+        return CorreosDelSistema.ejemplo(elegido, marca, marcaService.frontendUrl(), nombre, email, programaNombre, cargo);
     }
 
     /**
@@ -95,10 +129,43 @@ public class VistaPreviaCorreoController {
             throw new BusinessException("Dirección de correo electrónico inválida: " + request.destinatario());
         }
 
+        String nombre = null;
+        String email = null;
+        String programaNombre = null;
+        String cargo = null;
+        UUID programaId = request.programaId();
+
+        if (request.estudianteId() != null) {
+            var estOpt = estudianteRepository.findById(request.estudianteId());
+            if (estOpt.isPresent()) {
+                var est = estOpt.get();
+                nombre = (est.getNombre() != null ? est.getNombre().trim() : "") +
+                        (est.getApellido() != null && !est.getApellido().isBlank() ? " " + est.getApellido().trim() : "");
+                email = est.getEmail();
+                if (est.getPrograma() != null) {
+                    programaNombre = est.getPrograma().getNombre();
+                    if (programaId == null) {
+                        programaId = est.getPrograma().getId();
+                    }
+                }
+                cargo = est.getCargoObjetivo() != null && !est.getCargoObjetivo().isBlank()
+                        ? est.getCargoObjetivo()
+                        : est.getUltimoCargo();
+            }
+        }
+
+        if (programaNombre == null && programaId != null) {
+            programaNombre = programaRepository.findById(programaId).map(com.novacrm.programa.Programa::getNombre).orElse(null);
+        }
+
         String html = CorreosDelSistema.ejemplo(
                 request.tipo(),
-                marcaService.para(request.programaId()),
-                marcaService.frontendUrl());
+                marcaService.para(programaId),
+                marcaService.frontendUrl(),
+                nombre,
+                email,
+                programaNombre,
+                cargo);
         String asunto = "[Prueba] " + request.tipo().getEtiqueta() + " — NOVA CRM";
 
         var resultado = emailService.enviar(destino, asunto, html);

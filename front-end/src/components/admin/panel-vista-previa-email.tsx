@@ -202,7 +202,23 @@ export function PanelVistaPreviaEmail({
     }
 
     const conVariables = interpolarVariables(contenido, variablesSimuladas)
-    return htmlServidor ? interpolarVariables(htmlServidor, variablesSimuladas) : envolverEnDocumentoEmail(conVariables, asuntoRenderizado)
+    if (htmlServidor) {
+      let res = interpolarVariables(htmlServidor, variablesSimuladas)
+      const nombreCompleto = `${variablesSimuladas.nombre || ''} ${variablesSimuladas.apellido || ''}`.trim()
+      if (nombreCompleto) {
+        res = res
+          .replace(/María Fernanda Gómez/g, nombreCompleto)
+          .replace(/María Fernanda/g, variablesSimuladas.nombre || 'Estudiante')
+      }
+      if (variablesSimuladas.programa) {
+        res = res.replace(/Ruta BPO Bilingüe/g, variablesSimuladas.programa)
+      }
+      if (variablesSimuladas.cargo) {
+        res = res.replace(/Bilingual Customer Support/g, variablesSimuladas.cargo)
+      }
+      return res
+    }
+    return envolverEnDocumentoEmail(conVariables, asuntoRenderizado)
   }, [cuerpo, botonTexto, botonUrl, variablesSimuladas, htmlServidor, asuntoRenderizado])
 
   // Detección de variables no sustituidas

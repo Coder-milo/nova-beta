@@ -328,36 +328,57 @@ public final class CorreosDelSistema {
      * su token— porque el objetivo de mirar el correo antes de mandarlo es ver
      * si algo se desborda o se corta, y con «Lorem ipsum» eso no se aprecia.
      */
+    /**
+     * Datos de ejemplo para la previsualización del panel con valores por defecto.
+     */
     public static String ejemplo(Tipo tipo, MarcaCorreo marca, String urlFrontend) {
+        return ejemplo(tipo, marca, urlFrontend, null, null, null, null);
+    }
+
+    /**
+     * Datos de ejemplo parametrizados con datos del estudiante seleccionado y su programa.
+     */
+    public static String ejemplo(Tipo tipo, MarcaCorreo marca, String urlFrontend,
+                                  String nombreEstudiante, String emailEstudiante,
+                                  String programaNombre, String cargoEstudiante) {
         String base = urlFrontend == null || urlFrontend.isBlank() ? "https://nova.ejemplo.com" : urlFrontend;
+        String nombre = (nombreEstudiante != null && !nombreEstudiante.isBlank()) ? nombreEstudiante : "María Fernanda Gómez";
+        String email = (emailEstudiante != null && !emailEstudiante.isBlank()) ? emailEstudiante : "estudiante@ejemplo.com";
+        String programa = (programaNombre != null && !programaNombre.isBlank())
+                ? programaNombre
+                : (marca != null && marca.textoCabecera() != null && !marca.textoCabecera().isBlank()
+                    ? marca.textoCabecera()
+                    : "Programa de Formación");
+        String cargo = (cargoEstudiante != null && !cargoEstudiante.isBlank()) ? cargoEstudiante : "Bilingual Professional";
+
         return switch (tipo) {
-            case ACTIVACION -> activacion("María Fernanda Gómez", "maria.gomez@ejemplo.com",
+            case ACTIVACION -> activacion(nombre, email,
                     base + "/recuperar-contrasena?token=token-de-ejemplo", 7, marca);
-            case RECUPERACION -> recuperacion("María Fernanda Gómez",
+            case RECUPERACION -> recuperacion(nombre,
                     base + "/recuperar-contrasena?token=token-de-ejemplo", 30, marca);
-            case CITA_ENTREVISTA, ENTREVISTA -> citaEntrevista("María Fernanda Gómez",
-                    "Konecta", "Bilingual Customer Support",
+            case CITA_ENTREVISTA, ENTREVISTA -> citaEntrevista(nombre,
+                    "Konecta", cargo,
                     "15 de Septiembre, 10:00 AM", "Virtual (Microsoft Teams)",
                     "https://teams.microsoft.com/l/meetup-join/ejemplo",
                     base + "/mis-entrevistas", marca);
-            case ASIGNACION_VACANTE, POSTULACION -> asignacionVacante("María Fernanda Gómez",
-                    "Konecta", "Bilingual Customer Support", "Ruta BPO Bilingüe",
+            case ASIGNACION_VACANTE, POSTULACION -> asignacionVacante(nombre,
+                    "Konecta", cargo, programa,
                     base + "/mis-postulaciones", marca);
-            case ANUNCIO -> anuncio("María Fernanda Gómez",
-                    "Feria de empleo BPO — 12 de agosto",
+            case ANUNCIO -> anuncio(nombre,
+                    "Convocatoria abierta — " + programa,
                     """
-                    <p>Se abre la convocatoria para la feria de empleo del sector BPO.</p>
-                    <p><strong>Qué necesitas llevar:</strong></p>
+                    <p>Se abre la convocatoria para nuevas oportunidades de empleo y formación.</p>
+                    <p><strong>Qué necesitas tener listo:</strong></p>
                     <ul>
-                      <li>Hoja de vida impresa (dos copias)</li>
-                      <li>Documento de identidad</li>
-                      <li>Certificado de nivel de inglés, si lo tienes</li>
+                      <li>Hoja de vida actualizada en el panel</li>
+                      <li>Documento de identidad al día</li>
+                      <li>Disponibilidad para entrevistas laborales</li>
                     </ul>
-                    <p>Confirma tu asistencia antes del <em>8 de agosto</em>.</p>
+                    <p>Consulta todos los detalles directamente desde tu panel.</p>
                     """,
                     base + "/mis-notificaciones", marca);
-            case RECORDATORIO_HV -> recordatorioHv("María Fernanda Gómez",
-                    "Ruta BPO Bilingüe",
+            case RECORDATORIO_HV -> recordatorioHv(nombre,
+                    programa,
                     base + "/mi-hoja-de-vida", marca);
         };
     }
