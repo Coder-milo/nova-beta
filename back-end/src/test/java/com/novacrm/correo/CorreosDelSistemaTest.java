@@ -125,6 +125,54 @@ class CorreosDelSistemaTest {
     }
 
     @Test
+    @DisplayName("las plantillas enriquecidas incluyen badges, tarjetas y barras de progreso")
+    void plantillasEnriquecidasIncluyenElementosVisuales() {
+        String activacion = CorreosDelSistema.activacion(
+                "María Gómez", "maria@ejemplo.com", "https://nova.ejemplo.com/activar?token=abc", 7, MARCA);
+        assertThat(activacion)
+                .contains("Acceso Activado")
+                .contains("Vigencia del enlace");
+
+        String recuperacion = CorreosDelSistema.recuperacion(
+                "María Gómez", "https://nova.ejemplo.com/reset?token=xyz", 30, MARCA);
+        assertThat(recuperacion)
+                .contains("Seguridad de la Cuenta")
+                .contains("Aviso de seguridad");
+
+        String entrevista = CorreosDelSistema.citaEntrevista(
+                "María Gómez", "Konecta", "Bilingual Support", "15 de Septiembre, 10:00 AM",
+                "Virtual", "https://teams.microsoft.com/meet", "https://nova.ejemplo.com/entrevistas", MARCA);
+        assertThat(entrevista)
+                .contains("Entrevista Programada")
+                .contains("Detalles de la citación")
+                .contains("Consejos clave para tu entrevista");
+
+        String vacante = CorreosDelSistema.asignacionVacante(
+                "María Gómez", "Konecta", "Bilingual Support", "Ruta BPO",
+                "https://nova.ejemplo.com/postulaciones", MARCA);
+        assertThat(vacante)
+                .contains("Oportunidad Laboral")
+                .contains("95% Afinidad")
+                .contains("Remoto 100% / Atlántico")
+                .contains("Oportunidad asignada");
+
+        String recordatorio = CorreosDelSistema.recordatorioHv(
+                "María Gómez", "Ruta BPO", "https://nova.ejemplo.com/mi-hv", MARCA);
+        assertThat(recordatorio)
+                .contains("Ruta de Empleabilidad")
+                .contains("Avance de la ruta")
+                .contains("60%")
+                .contains("Hitos pendientes en tu perfil");
+
+        String anuncio = CorreosDelSistema.anuncio(
+                "María Gómez", "Convocatoria", "<p>Texto del anuncio</p>",
+                "https://nova.ejemplo.com/material", MARCA);
+        assertThat(anuncio)
+                .contains("Comunicado Oficial")
+                .contains("Texto del anuncio");
+    }
+
+    @Test
     @DisplayName("las plantillas por defecto tienen variables válidas y datos completos")
     void plantillasPorDefectoSonValidas() {
         var plantillas = CorreosDelSistema.plantillasPorDefecto();

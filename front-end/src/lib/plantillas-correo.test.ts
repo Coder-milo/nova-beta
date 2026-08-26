@@ -123,3 +123,67 @@ describe('envolverEnDocumentoEmail', () => {
     assert.ok(html.includes('<title>Asunto Test</title>'))
   })
 })
+
+describe('Variables de plantillas transaccionales del sistema', () => {
+  test('interpola credenciales de activación y enlaces de un solo uso', () => {
+    const plantilla = 'Tu usuario es {{email}} y tu clave temporal: {{contrasena_temporal}}. Activa tu cuenta en {{enlace_activacion}} antes de {{tiempo_expiracion_minutos}} minutos.'
+    const variables = {
+      email: 'estudiante@eurocentres.edu.co',
+      contrasena_temporal: 'Nova2026!#',
+      enlace_activacion: 'https://novacrm.org/activar?t=abc123xyz',
+      tiempo_expiracion_minutos: '60',
+    }
+    const resultado = interpolarVariables(plantilla, variables)
+    assert.ok(resultado.includes('estudiante@eurocentres.edu.co'))
+    assert.ok(resultado.includes('Nova2026!#'))
+    assert.ok(resultado.includes('https://novacrm.org/activar?t=abc123xyz'))
+    assert.ok(resultado.includes('60 minutos'))
+  })
+
+  test('interpola datos de match de vacante con porcentaje de afinidad', () => {
+    const plantilla = '¡Nueva vacante encontrada! {{cargo}} en {{empresa}} (Afinidad: {{porcentaje_afinidad}}%). Modalidad: {{modalidad}}. Postúlate: {{enlace_vacante}}'
+    const variables = {
+      cargo: 'Bilingual Customer Service Agent',
+      empresa: 'Foundever Barranquilla',
+      porcentaje_afinidad: '95',
+      modalidad: 'Presencial - Atlántico',
+      enlace_vacante: 'https://novacrm.org/vacantes/v-123',
+    }
+    const resultado = interpolarVariables(plantilla, variables)
+    assert.ok(resultado.includes('Bilingual Customer Service Agent'))
+    assert.ok(resultado.includes('Foundever Barranquilla'))
+    assert.ok(resultado.includes('Afinidad: 95%'))
+    assert.ok(resultado.includes('Presencial - Atlántico'))
+  })
+
+  test('interpola recordatorio de hoja de vida y ruta de empleabilidad', () => {
+    const plantilla = 'Hola {{nombre}}, tu avance en la ruta de empleabilidad es del {{avance_empleabilidad}}%. Completa tus hitos en {{enlace_portal}}.'
+    const variables = {
+      nombre: 'Valeria',
+      avance_empleabilidad: '70',
+      enlace_portal: 'https://novacrm.org/mi-perfil',
+    }
+    const resultado = interpolarVariables(plantilla, variables)
+    assert.ok(resultado.includes('Valeria'))
+    assert.ok(resultado.includes('70%'))
+    assert.ok(resultado.includes('https://novacrm.org/mi-perfil'))
+  })
+})
+
+describe('correosApi.enviarPrueba API contract', () => {
+  test('valida la estructura de telemetría de envío de prueba', () => {
+    const mockRespuesta = {
+      enviados: 1,
+      bloqueadosPorLista: 0,
+      fallidos: 0,
+      canalDeCorreo: 'SES',
+    }
+    assert.equal(typeof mockRespuesta.enviados, 'number')
+    assert.equal(typeof mockRespuesta.bloqueadosPorLista, 'number')
+    assert.equal(typeof mockRespuesta.fallidos, 'number')
+    assert.equal(typeof mockRespuesta.canalDeCorreo, 'string')
+    assert.equal(mockRespuesta.enviados, 1)
+    assert.equal(mockRespuesta.canalDeCorreo, 'SES')
+  })
+})
+

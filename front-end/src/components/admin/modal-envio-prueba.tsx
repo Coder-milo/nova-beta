@@ -28,7 +28,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { plantillasCorreoApi, mensajeDeError } from '@/lib/api'
+import { correosApi, plantillasCorreoApi, mensajeDeError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { usePreferences } from '@/lib/preferences'
 import type { ResumenEnvioCorreo } from '@/lib/types'
@@ -39,12 +39,22 @@ const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-
 export interface ModalEnvioPruebaProps {
   abierto: boolean
   onCerrar: () => void
-  asunto: string
-  cuerpo: string
+  asunto?: string
+  cuerpo?: string
   botonTexto?: string | null
   botonUrl?: string | null
   programaId?: string | null
   variablesSimuladas?: Record<string, string>
+  tipo?: string | null
+  onEnviado?: (
+    resultado: {
+      enviados: number
+      bloqueadosPorLista: number
+      fallidos: number
+      canalDeCorreo: string
+    },
+    destinatario: string,
+  ) => void
 }
 
 /** Textos propios de este modal, en los dos idiomas. */
@@ -89,12 +99,14 @@ function textos(english: boolean) {
 export function ModalEnvioPrueba({
   abierto,
   onCerrar,
-  asunto,
-  cuerpo,
+  asunto = '',
+  cuerpo = '',
   botonTexto,
   botonUrl,
   programaId,
   variablesSimuladas = {},
+  tipo,
+  onEnviado,
 }: ModalEnvioPruebaProps) {
   const { user } = useAuth()
   const { locale } = usePreferences()
@@ -119,16 +131,51 @@ export function ModalEnvioPrueba({
     setResultado(null)
 
     try {
-      const res = await plantillasCorreoApi.enviarPrueba({
-        destinatario: destinoLimpio,
-        asunto,
-        cuerpo,
-        botonTexto: botonTexto || null,
-        botonUrl: botonUrl || null,
-        programaId: programaId || null,
-        variablesSimuladas,
+      let res: {
+        enviados: number
+        bloqueadosPorLista: number
+        fallidos: number
+        canalDeCorreo: string
+        destinatarios?: number
+        sinCorreo?: number
+        simulacion?: boolean
+        destinatariosPermitidos?: string[]
+        detalle?: any[]
+      }
+
+      if (tipo) {
+        res = await correosApi.enviarPrueba({
+          tipo,
+          destinatario: destinoLimpio,
+          programaId: programaId || undefined,
+        })
+      } else {
+        res = await plantillasCorreoApi.enviarPrueba({
+          destinatario: destinoLimpio,
+          asunto,
+          cuerpo,
+          botonTexto: botonTexto || null,
+          botonUrl: botonUrl || null,
+          programaId: programaId || null,
+          variablesSimuladas,
+        })
+      }
+
+      setResultado({
+        destinatarios: res.destinatarios ?? 1,
+        enviados: res.enviados,
+        bloqueadosPorLista: res.bloqueadosPorLista,
+        fallidos: res.fallidos,
+        sinCorreo: res.sinCorreo ?? 0,
+        simulacion: res.simulacion ?? false,
+        canalDeCorreo: res.canalDeCorreo,
+        destinatariosPermitidos: res.destinatariosPermitidos ?? [],
+        detalle: res.detalle ?? [],
       })
-      setResultado(res)
+
+      if (res.enviados > 0) {
+        onEnviado?.(res, destinoLimpio)
+      }
     } catch (e) {
       setError(mensajeDeError(e, T.falloEnvio))
     } finally {

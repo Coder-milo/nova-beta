@@ -250,6 +250,80 @@ public final class PlantillaCorreo {
     }
 
     /**
+     * Insignia / pill badge para destacar estados, afinidad o modalidades.
+     */
+    public static String badge(String texto, String colorFondo, String colorTexto) {
+        if (texto == null || texto.isBlank()) {
+            return "";
+        }
+        String fondo = colorFondo == null || colorFondo.isBlank() ? "#EEF2F6" : colorFondo;
+        String textoCol = colorTexto == null || colorTexto.isBlank() ? textoSobre(fondo) : colorTexto;
+        return """
+                <span style="display:inline-block;padding:4px 12px;font-size:12px;font-weight:bold;\
+                background-color:%s;color:%s;border-radius:12px;letter-spacing:0.3px;\
+                text-transform:uppercase;line-height:1.4;">%s</span>\
+                """.formatted(fondo, textoCol, escapar(texto));
+    }
+
+    /**
+     * Tarjeta informativa destacada con borde lateral acentuado.
+     */
+    public static String tarjetaInformativa(String titulo, String cuerpoHtml, String colorBorde) {
+        String borde = colorBorde == null || colorBorde.isBlank() ? AZUL : colorBorde;
+        String tituloHtml = titulo == null || titulo.isBlank()
+                ? ""
+                : """
+                  <p style="margin:0 0 8px 0;font-size:15px;font-weight:bold;color:%s;">
+                    %s
+                  </p>
+                  """.formatted(OSCURO, escapar(titulo));
+        return """
+                <table role="presentation" width="100%%" cellpadding="0" cellspacing="0"
+                       style="background-color:#F8FAFC;border:1px solid #E2E8F0;border-left:4px solid %s;
+                              border-radius:8px;margin:16px 0;">
+                  <tr>
+                    <td style="padding:16px 20px;">
+                      %s
+                      <div style="font-size:14px;line-height:1.6;color:%s;">
+                        %s
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+                """.formatted(borde, tituloHtml, TEXTO, cuerpoHtml != null ? cuerpoHtml : "");
+    }
+
+    /**
+     * Barra de progreso horizontal para rutas de formación o completitud de perfil.
+     */
+    public static String barraProgreso(int porcentaje, String colorBarra) {
+        int pct = Math.max(0, Math.min(100, porcentaje));
+        String color = colorBarra == null || colorBarra.isBlank() ? AZUL : colorBarra;
+        return """
+                <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="margin:16px 0 8px 0;">
+                  <tr>
+                    <td style="padding:0 0 6px 0;">
+                      <table role="presentation" width="100%%" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="font-size:13px;font-weight:bold;color:%s;">Avance de la ruta</td>
+                          <td align="right" style="font-size:13px;font-weight:bold;color:%s;">%d%%</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="background-color:#E2E8F0;border-radius:6px;height:10px;padding:0;overflow:hidden;">
+                      <table role="presentation" width="%d%%" cellpadding="0" cellspacing="0"
+                             style="background-color:%s;height:10px;border-radius:6px;">
+                        <tr><td style="height:10px;line-height:10px;font-size:0;">&nbsp;</td></tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+                """.formatted(OSCURO, color, pct, pct, color);
+    }
+
+    /**
      * Blanco o negro segun lo claro que sea el fondo.
      *
      * <p>El texto del boton estaba fijo en blanco. Con el azul institucional se
@@ -260,13 +334,23 @@ public final class PlantillaCorreo {
      * no 0,5, porque el ojo percibe el blanco mas luminoso.
      */
     static String textoSobre(String hexFondo) {
-        if (hexFondo == null || !hexFondo.matches("^#[0-9A-Fa-f]{6}$")) {
+        if (hexFondo == null) {
+            return "#FFFFFF";
+        }
+        String hex = hexFondo.trim();
+        if (hex.startsWith("#")) {
+            hex = hex.substring(1);
+        }
+        if (hex.length() == 3) {
+            hex = "" + hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2);
+        }
+        if (!hex.matches("^[0-9A-Fa-f]{6}$")) {
             return "#FFFFFF";
         }
         double luminancia = 0;
         double[] pesos = {0.2126, 0.7152, 0.0722};
         for (int i = 0; i < 3; i++) {
-            double canal = Integer.parseInt(hexFondo.substring(1 + i * 2, 3 + i * 2), 16) / 255.0;
+            double canal = Integer.parseInt(hex.substring(i * 2, (i + 1) * 2), 16) / 255.0;
             double lineal = canal <= 0.03928 ? canal / 12.92 : Math.pow((canal + 0.055) / 1.055, 2.4);
             luminancia += pesos[i] * lineal;
         }

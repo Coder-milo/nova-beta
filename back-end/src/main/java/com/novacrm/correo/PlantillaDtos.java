@@ -126,4 +126,22 @@ public final class PlantillaDtos {
             String canalDeCorreo,
             List<String> destinatariosPermitidos,
             List<ResultadoEnvio> detalle) {}
+
+    /** Solicitud para enviar un correo de prueba de una plantilla del sistema. */
+    public record EnviarPruebaSistemaRequest(
+            CorreosDelSistema.Tipo tipo,
+            String destinatario,
+            UUID programaId) {
+
+        public String emailDestino() {
+            return destinatario == null ? "" : destinatario.trim();
+        }
+    }
+
+    /** Respuesta estructurada con la telemetría del despacho de prueba. */
+    public record ResultadoEnvioResponse(
+            int enviados,
+            int bloqueadosPorLista,
+            int fallidos,
+            String canalDeCorreo) {}
 }

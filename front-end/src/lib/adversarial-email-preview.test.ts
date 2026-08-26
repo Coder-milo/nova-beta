@@ -145,3 +145,29 @@ describe('ADVERSARIAL STRESS TEST: EMAIL_REGEX Validation', () => {
     }
   })
 })
+
+describe('ADVERSARIAL STRESS TEST: Multilingual, Unicode & Injection Resilience', () => {
+  test('Preserves Spanish diacritics and Unicode characters accurately', () => {
+    const input = 'Estimado/a {{nombre}}, su citación para el cargo {{cargo}} en {{ciudad}} está confirmada. ¡Éxitos! 🚀'
+    const vars = {
+      nombre: 'Sofía María Gómez-Núñez',
+      cargo: 'Diseñadora Gráfica & Analista de Datos Bilingüe',
+      ciudad: 'Barranquilla (Atlántico)',
+    }
+    const result = interpolarVariables(input, vars)
+    assert.equal(
+      result,
+      'Estimado/a Sofía María Gómez-Núñez, su citación para el cargo Diseñadora Gráfica & Analista de Datos Bilingüe en Barranquilla (Atlántico) está confirmada. ¡Éxitos! 🚀',
+    )
+  })
+
+  test('Rejects prototype pollution attempts with __proto__ and prototype keys', () => {
+    const input = '{{__proto__}} {{constructor}} {{prototype}}'
+    const vars: Record<string, string> = JSON.parse('{"__proto__": "polluted", "prototype": "safe"}')
+    const result = interpolarVariables(input, vars)
+    // Prototype pollution should not corrupt Object prototype
+    assert.equal(typeof ({} as Record<string, unknown>).polluted, 'undefined')
+    assert.ok(typeof result === 'string')
+  })
+})
+

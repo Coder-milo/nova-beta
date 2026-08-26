@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Campo, Selector } from '@/components/ui/campo'
 import { ModalEnvioPrueba } from '@/components/admin/modal-envio-prueba'
+import { useAvisos } from '@/components/ui/avisos'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin, type TextosAdmin } from '@/lib/textos-admin'
 import { cn } from '@/lib/utils'
@@ -70,6 +71,7 @@ function textos(english: boolean) {
 
 export function VistaPreviaCorreos() {
   const { locale } = usePreferences()
+  const { mostrarExito, mostrarError, avisos } = useAvisos()
   const T = textos(locale === 'en')
   const C = textosAdmin(locale === 'en')
   const [tipos, setTipos] = useState<TipoCorreo[]>([])
@@ -249,12 +251,21 @@ export function VistaPreviaCorreos() {
           <ModalEnvioPrueba
             abierto={modalPruebaAbierto}
             onCerrar={() => setModalPruebaAbierto(false)}
+            tipo={tipo}
             asunto={`[Prueba] ${elegido?.etiqueta ?? 'Correo del Sistema'}`}
             cuerpo={html}
             programaId={programaId || null}
+            onEnviado={(_res, dest) => {
+              mostrarExito(
+                locale === 'en'
+                  ? `Test email sent to ${dest}`
+                  : `Correo de prueba enviado a ${dest}`,
+              )
+            }}
           />
         )}
       </CardContent>
+      {avisos}
     </Card>
   )
 }

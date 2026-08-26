@@ -532,6 +532,23 @@ export const correosApi = {
    */
   vistaPrevia: (tipo: string, programaId?: string) =>
     apiText(`/api/v1/correos/vista-previa/${tipo}${programaId ? `?programaId=${programaId}` : ''}`),
+  /**
+   * Envía un correo de prueba del sistema en vivo a la dirección especificada.
+   */
+  enviarPrueba: (
+    body: { tipo: string; destinatario: string; programaId?: string },
+    token?: string,
+  ) =>
+    apiFetch<{
+      enviados: number
+      bloqueadosPorLista: number
+      fallidos: number
+      canalDeCorreo: string
+    }>('/api/v1/correos/enviar-prueba', {
+      method: 'POST',
+      data: body,
+      token,
+    }),
 }
 
 /**
