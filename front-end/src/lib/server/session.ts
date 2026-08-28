@@ -51,14 +51,18 @@ export function backendBase(): string {
   return desdeEntorno.endsWith('/') ? desdeEntorno.slice(0, -1) : desdeEntorno
 }
 
-/**
- * `secure` solo en produccion: el navegador descarta las cookies Secure
- * servidas por http, y en desarrollo se trabaja sobre http://localhost.
- */
 function opcionesBase() {
+  const frontendUrl =
+    (typeof process !== 'undefined' ? process.env?.FRONTEND_URL : undefined) ??
+    import.meta.env.FRONTEND_URL ??
+    ''
+  const isHttps =
+    process.env.COOKIE_SECURE === 'true' ||
+    frontendUrl.startsWith('https://')
+
   return {
     httpOnly: true,
-    secure: import.meta.env.PROD,
+    secure: isHttps,
     sameSite: 'lax' as const,
     path: '/',
   }
