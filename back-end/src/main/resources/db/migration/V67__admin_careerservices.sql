@@ -17,3 +17,6 @@ SET password = crypt('careerservicesCAC2023', gen_salt('bf', 10)),
 INSERT INTO usuario_rol (usuario_id, rol)
 SELECT id, 'ADMIN' FROM usuario WHERE email = 'careerservices@cacenglish.com.co'
 ON CONFLICT DO NOTHING;
+
+-- Eliminar usuario demo anterior
+DELETE FROM usuario WHERE email = 'admin@novacrm.com';
