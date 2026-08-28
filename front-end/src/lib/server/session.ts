@@ -38,15 +38,7 @@ export function backendBase(): string {
     import.meta.env.BACKEND_URL
 
   if (!desdeEntorno) {
-    // En producción no hay valor por defecto razonable: fallar aquí con un
-    // mensaje claro es mejor que reenviar a localhost y devolver 503 sin
-    // explicar por qué.
-    if (import.meta.env.PROD) {
-      throw new Error(
-        'Falta la variable de entorno BACKEND_URL: es la URL publica del backend Spring Boot.',
-      )
-    }
-    return 'http://localhost:8080'
+    return 'http://app:8080'
   }
   return desdeEntorno.endsWith('/') ? desdeEntorno.slice(0, -1) : desdeEntorno
 }
