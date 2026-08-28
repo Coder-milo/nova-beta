@@ -121,10 +121,8 @@ export const onRequest = defineMiddleware(
           body,
           redirect: 'manual',
         })
-      } catch {
-        // Backend caido o inalcanzable: se responde un error con cuerpo JSON,
-        // que es lo que el cliente sabe interpretar. Sin esto salia un 500
-        // vacio y la interfaz no podia explicar nada.
+      } catch (err) {
+        console.error('Error forwarding request to backend target:', target.toString(), err)
         return new Response(
           JSON.stringify({ message: 'El servidor no esta disponible en este momento.' }),
           { status: 503, headers: { 'Content-Type': 'application/json' } },
