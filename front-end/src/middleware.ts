@@ -87,14 +87,16 @@ export const onRequest = defineMiddleware(
       headers.delete('host')
       headers.delete('expect')
       headers.delete('origin')
-      // La cookie de sesion es para este servidor, no para el backend.
       headers.delete('cookie')
+      headers.delete('connection')
+      headers.delete('keep-alive')
+      headers.delete('transfer-encoding')
+      headers.delete('content-encoding')
+      if (request.method === 'GET' || request.method === 'HEAD') {
+        headers.delete('content-length')
+        headers.delete('content-type')
+      }
 
-      // El backend limita por IP. Como todas las llamadas salen de este
-      // servidor, sin reenviar la IP real todos los usuarios compartirian un
-      // unico contador y la API responderia 429 con poca concurrencia.
-      // La cabecera que traiga el navegador se descarta: la escribe el
-      // cliente y le serviria para estrenar contador en cada peticion.
       headers.delete('x-forwarded-for')
       if (ipCliente) {
         headers.set('x-forwarded-for', ipCliente)
