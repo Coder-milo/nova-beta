@@ -49,6 +49,7 @@ export function calcularPorcentajeEmpleabilidad(perfil: {
   hitoLinkedinOptimizado?: EstadoHito | null
   hitoPerfilOcupacional?: EstadoHito | null
   colocado?: boolean | null
+  [key: string]: unknown
 }): number {
   const aporte = (estado: EstadoHito | null | undefined, peso: number): number => {
     if (!estado) return 0
