@@ -53,6 +53,18 @@ public final class CorreosDelSistema {
 
         public String getEtiqueta() { return etiqueta; }
         public String getCuando() { return cuando; }
+
+        @com.fasterxml.jackson.annotation.JsonCreator
+        public static Tipo desdeTexto(String valor) {
+            if (valor == null || valor.isBlank()) {
+                return null;
+            }
+            try {
+                return Tipo.valueOf(valor.trim().toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+        }
     }
 
     /**
@@ -63,32 +75,36 @@ public final class CorreosDelSistema {
      */
     public static String activacion(String nombre, String email, String enlace,
                                     int diasVigencia, MarcaCorreo marca) {
-        // Con tildes: el correo lo reciben los estudiantes del programa y es la
-        // primera cosa que ven del sistema. El HTML se sirve en UTF-8, así que
-        // no hay motivo técnico para escribirlo sin acentos.
+        String saludo = "Hola " + (nombre == null ? "Estudiante" : nombre) + ",";
+        String colorAcento = marca != null && marca.colorPrimario() != null ? marca.colorPrimario() : "#1B6DF5";
+        String badgeBienvenida = PlantillaCorreo.badge("Acceso Activado", "#ECFDF5", "#047857");
         String cuerpo = """
+                <div style="margin:0 0 16px 0;">
+                  %s
+                </div>
                 <p style="margin:0 0 14px 0;">
-                  Te creamos un acceso al panel del programa. Desde ahí vas a poder
+                  Te damos la bienvenida al panel del programa. Te creamos un acceso para que puedas
                   consultar tu perfil, tu hoja de vida y las vacantes que se ajustan a ti.
                 </p>
-                <p style="margin:0 0 4px 0;">
-                  Para entrar, primero <strong>define tu contraseña</strong>:
+                %s
+                <p style="margin:16px 0 4px 0;">
+                  Para comenzar, primero <strong>define tu contraseña</strong> pulsando el siguiente botón:
                 </p>
                 %s
-                <p style="margin:0 0 14px 0;font-size:14px;">
-                  El enlace es personal y caduca en %d días. Si se te vence, puedes pedir
-                  uno nuevo desde <em>&laquo;Olvidé mi contraseña&raquo;</em> en la pantalla de acceso.
-                </p>
                 %s
-                <p style="margin:16px 0 0 0;font-size:14px;">
-                  Si tienes problemas para entrar, responde a este correo y te ayudamos.
+                <p style="margin:16px 0 0 0;font-size:14px;color:#6B7280;">
+                  Si tienes problemas para entrar o activar tu cuenta, responde a este correo y te ayudamos.
                 </p>
                 """.formatted(
-                PlantillaCorreo.boton("Crear mi contraseña", enlace, marca.colorPrimario()),
-                diasVigencia,
-                PlantillaCorreo.recuadroDato("Tu usuario será", email));
+                badgeBienvenida,
+                PlantillaCorreo.recuadroDato("Tu usuario será", email == null ? "" : email),
+                PlantillaCorreo.boton("Crear mi contraseña", enlace == null ? "#" : enlace, colorAcento),
+                PlantillaCorreo.tarjetaInformativa(
+                        "Vigencia del enlace",
+                        String.format("El enlace es personal y caduca en <strong>%d días</strong>. Si se te vence, puedes pedir uno nuevo desde <em>&laquo;Olvidé mi contraseña&raquo;</em> en la pantalla de acceso.", diasVigencia),
+                        "#10B981"));
 
-        return PlantillaCorreo.construir("Activa tu acceso al panel", "Hola " + nombre + ",", cuerpo, marca);
+        return PlantillaCorreo.construir("Activa tu acceso al panel", saludo, cuerpo, marca);
     }
 
     /**
@@ -99,24 +115,32 @@ public final class CorreosDelSistema {
      * la gente lo intente al día siguiente y escriba a soporte.
      */
     public static String recuperacion(String nombre, String enlace, int minutosVigencia, MarcaCorreo marca) {
+        String saludo = "Hola " + (nombre == null ? "Usuario" : nombre) + ",";
+        String colorAcento = marca != null && marca.colorPrimario() != null ? marca.colorPrimario() : "#1B6DF5";
+        String badgeSeguridad = PlantillaCorreo.badge("Seguridad de la Cuenta", "#FEF3C7", "#92400E");
         String cuerpo = """
+                <div style="margin:0 0 16px 0;">
+                  %s
+                </div>
                 <p style="margin:0 0 14px 0;">
                   Recibimos una solicitud para restablecer tu contraseña. Si fuiste tú,
                   usa este botón para elegir una nueva:
                 </p>
                 %s
-                <p style="margin:0 0 14px 0;font-size:14px;">
-                  El enlace caduca en %d minutos y solo se puede usar una vez.
-                </p>
-                <p style="margin:16px 0 0 0;font-size:14px;">
+                %s
+                <p style="margin:16px 0 0 0;font-size:14px;color:#6B7280;">
                   Si no pediste este cambio, ignora este correo: tu contraseña actual
                   sigue funcionando y nadie ha accedido a tu cuenta.
                 </p>
                 """.formatted(
-                PlantillaCorreo.boton("Restablecer mi contraseña", enlace, marca.colorPrimario()),
-                minutosVigencia);
+                badgeSeguridad,
+                PlantillaCorreo.boton("Restablecer mi contraseña", enlace == null ? "#" : enlace, colorAcento),
+                PlantillaCorreo.tarjetaInformativa(
+                        "Aviso de seguridad",
+                        String.format("El enlace caduca en <strong>%d minutos</strong> y solo se puede usar una vez.", minutosVigencia),
+                        "#F59E0B"));
 
-        return PlantillaCorreo.construir("Recupera tu contraseña", "Hola " + nombre + ",", cuerpo, marca);
+        return PlantillaCorreo.construir("Recupera tu contraseña", saludo, cuerpo, marca);
     }
 
     /**
@@ -125,21 +149,34 @@ public final class CorreosDelSistema {
     public static String citaEntrevista(String nombre, String empresa, String cargo,
                                         String fecha, String modalidad, String lugar,
                                         String enlace, MarcaCorreo marca) {
+        String saludo = "Hola " + (nombre == null ? "Estudiante" : nombre) + ",";
+        String colorAcento = marca != null && marca.colorPrimario() != null ? marca.colorPrimario() : "#1B6DF5";
+        String badgeCita = PlantillaCorreo.badge("Entrevista Programada", "#EFF6FF", "#1D4ED8");
+        String detalleCita = """
+                <p style="margin:0 0 8px 0;font-size:14px;color:#1F2A44;"><strong>Fecha y hora:</strong> %s</p>
+                <p style="margin:0 0 8px 0;font-size:14px;color:#1F2A44;"><strong>Modalidad:</strong> %s</p>
+                <p style="margin:0;font-size:14px;color:#1F2A44;"><strong>Lugar / Enlace:</strong> %s</p>
+                """.formatted(
+                escapar(fecha == null ? "" : fecha),
+                escapar(modalidad == null ? "" : modalidad),
+                escapar(lugar == null ? "" : lugar));
+
+        String tipsEntrevista = """
+                • Preséntate o conéctate al menos 10 minutos antes.<br>
+                • Si es virtual, revisa previamente tu cámara, micrófono y conexión.<br>
+                • Ten a mano tu documento de identidad y repasa tu hoja de vida.
+                """;
+
         String cuerpo = """
+                <div style="margin:0 0 16px 0;">
+                  %s
+                </div>
                 <p style="margin:0 0 14px 0;">
                   Has sido programado para una entrevista laboral en <strong>%s</strong> para la vacante de <strong>%s</strong>.
                 </p>
-                <table role="presentation" width="100%%" cellpadding="0" cellspacing="0"
-                       style="background-color:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px;margin:16px 0;">
-                  <tr>
-                    <td>
-                      <p style="margin:0 0 8px 0;font-size:14px;color:#1F2A44;"><strong>Fecha y hora:</strong> %s</p>
-                      <p style="margin:0 0 8px 0;font-size:14px;color:#1F2A44;"><strong>Modalidad:</strong> %s</p>
-                      <p style="margin:0;font-size:14px;color:#1F2A44;"><strong>Lugar / Enlace:</strong> %s</p>
-                    </td>
-                  </tr>
-                </table>
-                <p style="margin:0 0 4px 0;">
+                %s
+                %s
+                <p style="margin:16px 0 4px 0;">
                   Por favor confirma tu asistencia y preséntate puntualmente:
                 </p>
                 %s
@@ -147,16 +184,16 @@ public final class CorreosDelSistema {
                   Si tienes algún inconveniente de fuerza mayor, notifícalo a tu coordinador con anticipación.
                 </p>
                 """.formatted(
-                escapar(empresa),
-                escapar(cargo),
-                escapar(fecha),
-                escapar(modalidad),
-                escapar(lugar),
+                badgeCita,
+                escapar(empresa == null ? "" : empresa),
+                escapar(cargo == null ? "" : cargo),
+                PlantillaCorreo.tarjetaInformativa("Detalles de la citación", detalleCita, colorAcento),
+                PlantillaCorreo.tarjetaInformativa("Consejos clave para tu entrevista", tipsEntrevista, "#10B981"),
                 enlace != null && !enlace.isBlank()
-                        ? PlantillaCorreo.boton("Ver detalles de la entrevista", enlace, marca.colorPrimario())
+                        ? PlantillaCorreo.boton("Ver detalles de la entrevista", enlace, colorAcento)
                         : "");
 
-        return PlantillaCorreo.construir("Cita de entrevista agendada", "Hola " + nombre + ",", cuerpo, marca);
+        return PlantillaCorreo.construir("Cita de entrevista agendada", saludo, cuerpo, marca);
     }
 
     /**
@@ -164,12 +201,37 @@ public final class CorreosDelSistema {
      */
     public static String asignacionVacante(String nombre, String empresa, String cargo,
                                           String programa, String enlace, MarcaCorreo marca) {
+        String saludo = "Hola " + (nombre == null ? "Estudiante" : nombre) + ",";
+        String colorAcento = marca != null && marca.colorPrimario() != null ? marca.colorPrimario() : "#1B6DF5";
+        String badgeOportunidad = PlantillaCorreo.badge("Oportunidad Laboral", "#ECFDF5", "#047857");
+        String badgeAfinidad = PlantillaCorreo.badge("95% Afinidad", "#DBEAFE", "#1E40AF");
+        String badgeModalidad = PlantillaCorreo.badge("Remoto 100% / Atlántico", "#FEF3C7", "#92400E");
+
+        String cuerpoVacante = """
+                <div style="margin-bottom:8px;">
+                  <span style="font-size:16px;font-weight:bold;color:#1F2A44;">%s</span><br>
+                  <span style="font-size:14px;color:#4B5563;">Empresa aliada: <strong>%s</strong></span><br>
+                  <span style="font-size:13px;color:#6B7280;">Programa: %s</span>
+                </div>
+                <div style="margin-top:10px;">
+                  %s &nbsp; %s
+                </div>
+                """.formatted(
+                escapar(cargo == null ? "" : cargo),
+                escapar(empresa == null ? "" : empresa),
+                escapar(programa == null ? "" : programa),
+                badgeAfinidad,
+                badgeModalidad);
+
         String cuerpo = """
+                <div style="margin:0 0 16px 0;">
+                  %s
+                </div>
                 <p style="margin:0 0 14px 0;">
                   ¡Buenas noticias! Tu perfil ha sido postulado a la vacante de <strong>%s</strong> en <strong>%s</strong> como parte de tu proceso en <strong>%s</strong>.
                 </p>
                 %s
-                <p style="margin:0 0 4px 0;">
+                <p style="margin:16px 0 4px 0;">
                   Puedes consultar el estado y los requisitos de la vacante en el siguiente enlace:
                 </p>
                 %s
@@ -177,15 +239,16 @@ public final class CorreosDelSistema {
                   El equipo de selección estará revisando tu postulación. Mantén tu información y disponibilidad actualizadas.
                 </p>
                 """.formatted(
-                escapar(cargo),
-                escapar(empresa),
-                escapar(programa),
-                PlantillaCorreo.recuadroDato("Vacante asignada", cargo + " · " + empresa),
+                badgeOportunidad,
+                escapar(cargo == null ? "" : cargo),
+                escapar(empresa == null ? "" : empresa),
+                escapar(programa == null ? "" : programa),
+                PlantillaCorreo.tarjetaInformativa("Oportunidad asignada", cuerpoVacante, colorAcento),
                 enlace != null && !enlace.isBlank()
-                        ? PlantillaCorreo.boton("Consultar vacante", enlace, marca.colorPrimario())
+                        ? PlantillaCorreo.boton("Consultar vacante", enlace, colorAcento)
                         : "");
 
-        return PlantillaCorreo.construir("Asignación a vacante", "Hola " + nombre + ",", cuerpo, marca);
+        return PlantillaCorreo.construir("Asignación a vacante", saludo, cuerpo, marca);
     }
 
     /**
@@ -196,25 +259,41 @@ public final class CorreosDelSistema {
      */
     public static String anuncio(String nombre, String titulo, String mensajeHtml,
                                  String urlMaterial, MarcaCorreo marca) {
+        String saludo = "Hola " + (nombre == null ? "Estudiante" : nombre) + ",";
+        String colorAcento = marca != null && marca.colorPrimario() != null ? marca.colorPrimario() : "#1B6DF5";
+        String badgeAnuncio = PlantillaCorreo.badge("Comunicado Oficial", "#EFF6FF", "#1E40AF");
         var cuerpo = new StringBuilder();
-        cuerpo.append("<div style=\"margin:0 0 14px 0;\">").append(mensajeHtml).append("</div>");
+        cuerpo.append("<div style=\"margin:0 0 16px 0;\">").append(badgeAnuncio).append("</div>");
+        cuerpo.append("<div style=\"margin:0 0 16px 0;line-height:1.6;\">").append(mensajeHtml != null ? mensajeHtml : "").append("</div>");
         if (urlMaterial != null && !urlMaterial.isBlank()) {
-            cuerpo.append(PlantillaCorreo.boton("Ver el material del anuncio", urlMaterial, marca.colorPrimario()));
+            cuerpo.append(PlantillaCorreo.boton("Ver el material del anuncio", urlMaterial, colorAcento));
         }
         cuerpo.append("""
-                <p style="margin:16px 0 0 0;font-size:14px;">
+                <p style="margin:16px 0 0 0;font-size:14px;color:#6B7280;">
                   También puedes consultarlo desde tus notificaciones en el panel.
                 </p>
                 """);
 
-        return PlantillaCorreo.construir(titulo, "Hola " + nombre + ",", cuerpo.toString(), marca);
+        return PlantillaCorreo.construir(titulo == null ? "Anuncio del programa" : titulo, saludo, cuerpo.toString(), marca);
     }
 
     /**
      * Correo de recordatorio para completar la hoja de vida.
      */
     public static String recordatorioHv(String nombre, String programa, String enlace, MarcaCorreo marca) {
+        String saludo = "Hola " + (nombre == null ? "Estudiante" : nombre) + ",";
+        String colorAcento = marca != null && marca.colorPrimario() != null ? marca.colorPrimario() : "#1B6DF5";
+        String badgeRuta = PlantillaCorreo.badge("Ruta de Empleabilidad", "#F5F3FF", "#6D28D9");
+        String hitosPendientes = """
+                • <strong>Datos personales y de contacto:</strong> Al día.<br>
+                • <strong>Experiencia laboral y proyectos prácticos:</strong> Pendiente de actualización.<br>
+                • <strong>Nivel de inglés y certificaciones:</strong> Pendiente de registrar.
+                """;
+
         String cuerpo = """
+                <div style="margin:0 0 16px 0;">
+                  %s
+                </div>
                 <p style="margin:0 0 14px 0;">
                   Queremos recordarte que tu hoja de vida aún no está completa en el panel de <strong>%s</strong>.
                 </p>
@@ -222,16 +301,24 @@ public final class CorreosDelSistema {
                   Para que las empresas aliadas puedan revisar tu perfil y podamos postularte a las vacantes disponibles, es indispensable completar todos tus datos de formación y experiencia.
                 </p>
                 %s
-                <p style="margin:16px 0 0 0;font-size:14px;color:#6B7280;">
+                %s
+                <p style="margin:16px 0 4px 0;">
                   Solo te tomará unos minutos. ¡Haz que tu perfil destaque!
                 </p>
+                %s
+                <p style="margin:16px 0 0 0;font-size:14px;color:#6B7280;">
+                  Si necesitas ayuda para completar tu perfil, ponte en contacto con tu coordinador.
+                </p>
                 """.formatted(
-                escapar(programa),
+                badgeRuta,
+                escapar(programa == null ? "" : programa),
+                PlantillaCorreo.barraProgreso(60, colorAcento),
+                PlantillaCorreo.tarjetaInformativa("Hitos pendientes en tu perfil", hitosPendientes, colorAcento),
                 enlace != null && !enlace.isBlank()
-                        ? PlantillaCorreo.boton("Actualizar mi hoja de vida", enlace, marca.colorPrimario())
+                        ? PlantillaCorreo.boton("Actualizar mi hoja de vida", enlace, colorAcento)
                         : "");
 
-        return PlantillaCorreo.construir("Completa tu hoja de vida", "Hola " + nombre + ",", cuerpo, marca);
+        return PlantillaCorreo.construir("Completa tu hoja de vida", saludo, cuerpo, marca);
     }
 
     /**
@@ -241,36 +328,57 @@ public final class CorreosDelSistema {
      * su token— porque el objetivo de mirar el correo antes de mandarlo es ver
      * si algo se desborda o se corta, y con «Lorem ipsum» eso no se aprecia.
      */
+    /**
+     * Datos de ejemplo para la previsualización del panel con valores por defecto.
+     */
     public static String ejemplo(Tipo tipo, MarcaCorreo marca, String urlFrontend) {
+        return ejemplo(tipo, marca, urlFrontend, null, null, null, null);
+    }
+
+    /**
+     * Datos de ejemplo parametrizados con datos del estudiante seleccionado y su programa.
+     */
+    public static String ejemplo(Tipo tipo, MarcaCorreo marca, String urlFrontend,
+                                  String nombreEstudiante, String emailEstudiante,
+                                  String programaNombre, String cargoEstudiante) {
         String base = urlFrontend == null || urlFrontend.isBlank() ? "https://nova.ejemplo.com" : urlFrontend;
+        String nombre = (nombreEstudiante != null && !nombreEstudiante.isBlank()) ? nombreEstudiante : "María Fernanda Gómez";
+        String email = (emailEstudiante != null && !emailEstudiante.isBlank()) ? emailEstudiante : "estudiante@ejemplo.com";
+        String programa = (programaNombre != null && !programaNombre.isBlank())
+                ? programaNombre
+                : (marca != null && marca.textoCabecera() != null && !marca.textoCabecera().isBlank()
+                    ? marca.textoCabecera()
+                    : "Programa de Formación");
+        String cargo = (cargoEstudiante != null && !cargoEstudiante.isBlank()) ? cargoEstudiante : "Bilingual Professional";
+
         return switch (tipo) {
-            case ACTIVACION -> activacion("María Fernanda Gómez", "maria.gomez@ejemplo.com",
+            case ACTIVACION -> activacion(nombre, email,
                     base + "/recuperar-contrasena?token=token-de-ejemplo", 7, marca);
-            case RECUPERACION -> recuperacion("María Fernanda Gómez",
+            case RECUPERACION -> recuperacion(nombre,
                     base + "/recuperar-contrasena?token=token-de-ejemplo", 30, marca);
-            case CITA_ENTREVISTA, ENTREVISTA -> citaEntrevista("María Fernanda Gómez",
-                    "Konecta", "Bilingual Customer Support",
+            case CITA_ENTREVISTA, ENTREVISTA -> citaEntrevista(nombre,
+                    "Konecta", cargo,
                     "15 de Septiembre, 10:00 AM", "Virtual (Microsoft Teams)",
                     "https://teams.microsoft.com/l/meetup-join/ejemplo",
                     base + "/mis-entrevistas", marca);
-            case ASIGNACION_VACANTE, POSTULACION -> asignacionVacante("María Fernanda Gómez",
-                    "Konecta", "Bilingual Customer Support", "Ruta BPO Bilingüe",
+            case ASIGNACION_VACANTE, POSTULACION -> asignacionVacante(nombre,
+                    "Konecta", cargo, programa,
                     base + "/mis-postulaciones", marca);
-            case ANUNCIO -> anuncio("María Fernanda Gómez",
-                    "Feria de empleo BPO — 12 de agosto",
+            case ANUNCIO -> anuncio(nombre,
+                    "Convocatoria abierta — " + programa,
                     """
-                    <p>Se abre la convocatoria para la feria de empleo del sector BPO.</p>
-                    <p><strong>Qué necesitas llevar:</strong></p>
+                    <p>Se abre la convocatoria para nuevas oportunidades de empleo y formación.</p>
+                    <p><strong>Qué necesitas tener listo:</strong></p>
                     <ul>
-                      <li>Hoja de vida impresa (dos copias)</li>
-                      <li>Documento de identidad</li>
-                      <li>Certificado de nivel de inglés, si lo tienes</li>
+                      <li>Hoja de vida actualizada en el panel</li>
+                      <li>Documento de identidad al día</li>
+                      <li>Disponibilidad para entrevistas laborales</li>
                     </ul>
-                    <p>Confirma tu asistencia antes del <em>8 de agosto</em>.</p>
+                    <p>Consulta todos los detalles directamente desde tu panel.</p>
                     """,
                     base + "/mis-notificaciones", marca);
-            case RECORDATORIO_HV -> recordatorioHv("María Fernanda Gómez",
-                    "Ruta BPO Bilingüe",
+            case RECORDATORIO_HV -> recordatorioHv(nombre,
+                    programa,
                     base + "/mi-hoja-de-vida", marca);
         };
     }

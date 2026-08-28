@@ -18,6 +18,8 @@ class SmartRecruitersConnectorTest {
 
     private final SmartRecruitersConnector conector =
             new SmartRecruitersConnector(true, "Sutherland");
+    private static final String FECHA_FRESCA_1 = java.time.LocalDateTime.now().minusDays(1).toString();
+    private static final String FECHA_FRESCA_2 = java.time.LocalDateTime.now().minusDays(2).toString();
 
     /** Dos ofertas cercanas, una en Bogota y una sin ciudad. */
     private static final String RESPUESTA = """
@@ -27,29 +29,31 @@ class SmartRecruitersConnectorTest {
                 {
                   "id": "abc-111",
                   "name": "Bilingual Customer Service Representative",
-                  "releasedDate": "2026-08-01T10:00:00.000Z",
+                  "releasedDate": "%s",
                   "location": { "city": "Barranquilla", "region": "Atlántico" },
                   "typeOfEmployment": { "label": "Full-time" }
                 },
                 {
                   "id": "abc-222",
                   "name": "Agente de soporte",
-                  "releasedDate": "2026-08-02T10:00:00.000Z",
+                  "releasedDate": "%s",
                   "location": { "city": "Soledad", "region": "Atlántico" }
                 },
                 {
                   "id": "abc-333",
                   "name": "Practicante Área de Nómina",
+                  "releasedDate": "%s",
                   "location": { "city": "Bogotá", "region": "Bogota D.C." }
                 },
                 {
                   "id": "abc-444",
                   "name": "Oferta sin ubicación declarada",
+                  "releasedDate": "%s",
                   "location": {}
                 }
               ]
             }
-            """;
+            """.formatted(FECHA_FRESCA_1, FECHA_FRESCA_2, FECHA_FRESCA_1, FECHA_FRESCA_1);
 
     @Test
     @DisplayName("se queda con lo que le sirve a la cohorte y descarta Bogotá")

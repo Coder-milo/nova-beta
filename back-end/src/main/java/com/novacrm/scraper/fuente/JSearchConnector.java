@@ -136,7 +136,7 @@ public class JSearchConnector implements FuenteDeVacantes {
             String url = ENDPOINT
                     + "?query=" + URLEncoder.encode(consulta, StandardCharsets.UTF_8)
                     + "&country=" + URLEncoder.encode(pais, StandardCharsets.UTF_8)
-                    + "&date_posted=month&page=1&num_pages=1";
+                    + "&date_posted=week&page=1&num_pages=1";
 
             HttpResponse<String> respuesta = httpClient().send(
                     HttpRequest.newBuilder(URI.create(url))
@@ -216,7 +216,9 @@ public class JSearchConnector implements FuenteDeVacantes {
         vacante.setHashDedup(sha256(FUENTE + "|" + id));
         vacante.setDescripcion(texto(oferta, "job_description"));
         String city = texto(oferta, "job_city");
-        vacante.setCiudad(city != null && !city.isBlank() ? city : "Barranquilla");
+        if (city != null && !city.isBlank()) {
+            vacante.setCiudad(city);
+        }
         vacante.setUbicacion(ubicacion(oferta));
         vacante.setTipoContrato(texto(oferta, "job_employment_type"));
         vacante.setModalidadTrabajo(
@@ -231,8 +233,26 @@ public class JSearchConnector implements FuenteDeVacantes {
         String url = texto(oferta, "job_apply_link");
         vacante.setUrlOrigen(url);
         vacante.setUrlAplicar(url);
-        vacante.setFechaPublicacion(fecha(texto(oferta, "job_posted_at_datetime_utc")));
-        vacante.setFechaExpiracion(fecha(texto(oferta, "job_offer_expiration_datetime_utc")));
+
+        Optional<LocalDateTime> fechaPubOpt = ParserFechas.parsear(texto(oferta, "job_posted_at_datetime_utc"));
+        if (fechaPubOpt.isEmpty()) {
+            JsonNode ts = oferta.path("job_posted_at_timestamp");
+            if (ts.canConvertToLong()) {
+                fechaPubOpt = ParserFechas.desdeEpoch(ts.asLong());
+            }
+        }
+        if (fechaPubOpt.isEmpty()) {
+            log.debug("Oferta de JSearch descartada por fecha no verificable: {}", id);
+            return Optional.empty();
+        }
+        LocalDateTime fechaPub = fechaPubOpt.get();
+        if (!FiltroFrescura.esFresca(fechaPub)) {
+            log.debug("Oferta de JSearch descartada por antigüedad > 7 días: {} (publicada: {})", id, fechaPub);
+            return Optional.empty();
+        }
+
+        vacante.setFechaPublicacion(fechaPub);
+        vacante.setFechaExpiracion(ParserFechas.parsear(texto(oferta, "job_offer_expiration_datetime_utc")).orElse(null));
         vacante.setActivo(true);
 
         return Optional.of(new OfertaCruda(vacante, texto(oferta, "employer_name")));
@@ -279,21 +299,6 @@ public class JSearchConnector implements FuenteDeVacantes {
             }
         }
         return partes.isEmpty() ? null : String.join("\n", partes);
-    }
-
-    private static LocalDateTime fecha(String valor) {
-        if (valor == null) {
-            return null;
-        }
-        try {
-            return OffsetDateTime.parse(valor).toLocalDateTime();
-        } catch (Exception e) {
-            try {
-                return LocalDateTime.parse(valor.replace(" ", "T"));
-            } catch (Exception otra) {
-                return null;
-            }
-        }
     }
 
     private static String texto(JsonNode nodo, String campo) {

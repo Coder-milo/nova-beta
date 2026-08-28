@@ -314,6 +314,24 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, UUID> {
     java.util.List<String> findSectoresObjetivoDeActivos();
 
     @org.springframework.data.jpa.repository.Query("""
+            SELECT DISTINCT e.titulo FROM Estudiante e
+            WHERE e.activo = true AND e.titulo IS NOT NULL AND e.titulo <> ''
+            """)
+    java.util.List<String> findTitulosDeActivos();
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT DISTINCT e.programaAcademico FROM Estudiante e
+            WHERE e.activo = true AND e.programaAcademico IS NOT NULL AND e.programaAcademico <> ''
+            """)
+    java.util.List<String> findProgramasAcademicosDeActivos();
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT DISTINCT e.areaFormacion FROM Estudiante e
+            WHERE e.activo = true AND e.areaFormacion IS NOT NULL AND e.areaFormacion <> ''
+            """)
+    java.util.List<String> findAreasFormacionDeActivos();
+
+    @org.springframework.data.jpa.repository.Query("""
             SELECT e.ciudad FROM Estudiante e
             WHERE e.activo = true AND e.ciudad IS NOT NULL AND e.ciudad <> ''
             GROUP BY e.ciudad

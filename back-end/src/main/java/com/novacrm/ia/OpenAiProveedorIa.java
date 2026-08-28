@@ -37,8 +37,16 @@ public class OpenAiProveedorIa implements ProveedorIa {
     public OpenAiProveedorIa(String apiKey, String modelo, String apiBase) {
         this.apiKey = apiKey;
         this.modelo = modelo;
+        String urlFinal = apiBase != null ? apiBase.trim() : API_BASE;
+        if (urlFinal.endsWith("/")) {
+            urlFinal = urlFinal.substring(0, urlFinal.length() - 1);
+        }
+        if (!urlFinal.endsWith("/chat/completions")) {
+            urlFinal += "/chat/completions";
+        }
+
         this.restClient = RestClient.builder()
-                .baseUrl(apiBase)
+                .baseUrl(urlFinal)
                 .defaultHeaders(headers -> {
                     headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
                     headers.setContentType(MediaType.APPLICATION_JSON);
@@ -63,7 +71,7 @@ public class OpenAiProveedorIa implements ProveedorIa {
         }
         try {
             var respuesta = restClient.post()
-                    .uri("/chat/completions")
+                    .uri("")
                     .body(Map.of(
                             "model", modelo,
                             "temperature", 0,

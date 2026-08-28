@@ -339,13 +339,13 @@ function textos(english: boolean) {
         tieneQueSer: 'Tiene que ser un hexadecimal de seis dígitos, tipo #1268E8.',
         corrigeLasImagenes: 'Corrige las imágenes marcadas antes de guardar.',
         elServidorVolvera: 'el servidor volverá a validarla al guardar.',
-        fundacionSantoDomingo: 'Fundación Santo Domingo · GitLab Foundation · CAC Eurocentres',
+        fundacionSantoDomingo: 'Fundación Santo Domingo · GitLab Foundation · CAC Eurocentres · Compartamos con Colombia',
         seMuestraEn: 'Se muestra en los correos enviados.',
         cierraLosCorreos: 'Cierra los correos del proyecto.',
         identidadVisualDel: 'Identidad visual del proyecto',
         cuandoSabesIngles: 'Cuando sabes inglés se nota',
         elegirUnColor: 'Elegir un color a medida',
-        textoDelPie: 'Texto del pie del correo',
+        textoDelPie: 'Aliados, financiadores y texto del pie de correo',
         volverALa: 'Volver a la gama global',
         bannerDeBienvenida: 'Banner de bienvenida',
         encabezadoDelPanel: 'Encabezado del panel',
@@ -864,8 +864,7 @@ export function PanelBranding({ programaIdInicial }: { programaIdInicial?: strin
                 }}
               />
               <p className="text-xs text-muted-foreground">
-                Se muestra también cuando el cliente de correo bloquea las imágenes,
-                que es lo que hacen por defecto. Vacío = los aliados del programa marco.
+                Define las entidades aliadas, financiadoras y operadores de este proyecto (ej. Fundación Santo Domingo · GitLab Foundation · CAC Eurocentres · Compartamos con Colombia). Se mostrará en el pie de página de todos los correos del proyecto.
               </p>
             </div>
 

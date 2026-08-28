@@ -21,8 +21,9 @@ import { ProximasCitas } from '@/components/student/proximas-citas'
 import { MiRuta } from '@/components/student/mi-ruta'
 import { Badge } from '@/components/ui/badge'
 import { usePreferences } from '@/lib/preferences'
-import { textosAdmin } from '@/lib/textos-admin'
 import { MiSiguientePaso } from '@/components/student/mi-siguiente-paso'
+import { ModalAccionRapidaRuta } from '@/components/student/modal-accion-rapida-ruta'
+import { useAvisos } from '@/components/ui/avisos'
 
 /**
  * Textos propios de esta pantalla.
@@ -62,6 +63,7 @@ function textos(english: boolean) {
         esLoPrimero: 'It is what a company reads first, and it is worth 15% of your score.',
         hojaEnIngles: 'Résumé in English',
         esElDiferenciador: 'It sets this programme apart and is worth as much as the Spanish one.',
+        perfilActualizado: 'Profile updated successfully.',
       }
     : {
         revisaTuTitular: 'Revisa tu titular, extracto, experiencia y palabras clave antes de solicitar validación.',
@@ -93,14 +95,16 @@ function textos(english: boolean) {
         esLoPrimero: 'Es lo primero que lee una empresa, y vale el 15% de tu puntaje.',
         hojaEnIngles: 'Hoja de vida en inglés',
         esElDiferenciador: 'Es el diferenciador del programa y vale lo mismo que la de español.',
+        perfilActualizado: 'Perfil actualizado con éxito.',
       }
 }
 
 export default function InicioEstudiantePage() {
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
-  const C = textosAdmin(locale === 'en')
   const { branding, refrescar } = useBranding()
+  const { mostrarExito, avisos } = useAvisos()
+
   const [perfil, setPerfil] = useState<EstudianteResponse | null>(null)
   const [vacantes, setVacantes] = useState(0)
   const [postulaciones, setPostulaciones] = useState(0)
@@ -112,6 +116,9 @@ export default function InicioEstudiantePage() {
   const [loading, setLoading] = useState(true)
   const [copiloto, setCopiloto] = useState<RespuestaCopiloto | null>(null)
   const [errorCopiloto, setErrorCopiloto] = useState(false)
+
+  // Control del modal rápido de acción directa en la ruta
+  const [pasoModal, setPasoModal] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -170,36 +177,83 @@ export default function InicioEstudiantePage() {
   // quedó montado antes de que se guardara el proyecto.
   useEffect(() => { refrescar() }, [refrescar])
 
+  // Callback reactivo cuando el modal actualiza el perfil
+  const handlePerfilActualizado = (nuevoPerfil: EstudianteResponse, mensajeFeedback?: string) => {
+    setPerfil(nuevoPerfil)
+    setPasoModal(null)
+    mostrarExito(mensajeFeedback || T.perfilActualizado)
+
+    // Refrescar el copiloto en segundo plano de forma silenciosa
+    void copilotoApi
+      .mio()
+      .then((res) => {
+        setCopiloto(res)
+        setErrorCopiloto(false)
+      })
+      .catch(() => {
+        // Fallback silencioso
+      })
+  }
+
+  // Interceptor para acciones directas del copiloto
+  const handleAccionCopiloto = (ruta: string, codigo?: string) => {
+    if (ruta === '/mi-hoja-de-vida' || codigo === 'CV_BLOQUEANTE') {
+      setPasoModal('cvListo')
+      return
+    }
+    if (ruta === '/configuracion-estudiante') {
+      if (perfil?.hitoPerfilOcupacional !== 'SI') {
+        setPasoModal('perfilOcupacional')
+        return
+      }
+      if (perfil?.hitoLinkedinCreado !== 'SI') {
+        setPasoModal('linkedinCreado')
+        return
+      }
+      if (perfil?.hitoLinkedinOptimizado !== 'SI') {
+        setPasoModal('linkedinOptimizado')
+        return
+      }
+      setPasoModal('perfilOcupacional')
+      return
+    }
+    // Para rutas que llevan a otras secciones completas (postulaciones, citas, seguimiento)
+    window.location.assign(ruta)
+  }
+
   const bannerUrl = branding?.bannerPanelUrl
   const ultimo = seguimientos[0]
   const alertas = useMemo(() => {
     if (!perfil) return []
-    const pendientes: Array<{ id: string; titulo: string; detalle: string; href: string; externa?: boolean }> = []
+    const pendientes: Array<{ id: string; titulo: string; detalle: string; href: string; pasoId?: string; externa?: boolean }> = []
     if (perfil.porcentajeCompletitud < 100) {
       pendientes.push({ id: 'perfil', titulo: 'Completa tu perfil', detalle: `Tu perfil está al ${perfil.porcentajeCompletitud}%. Completarlo mejora las oportunidades que recibe tu equipo.`, href: '/configuracion-estudiante' })
     }
-    if (perfil.hitoLinkedinCreado !== 'SI') {
-      pendientes.push({ id: 'linkedin-enlace', titulo: T.registraTuPerfil, detalle: T.agregaElEnlace, href: '/configuracion-estudiante' })
-    } else if (perfil.hitoLinkedinOptimizado !== 'SI') {
-      pendientes.push({ id: 'linkedin-optimizar', titulo: T.optimizaTuPerfil, detalle: T.revisaTuTitular, href: perfil.linkedinUrl || '/configuracion-estudiante', externa: Boolean(perfil.linkedinUrl) })
+    const tienePerfilOcupacional = perfil.hitoPerfilOcupacional === 'SI' || Boolean(perfil.cargoObjetivo?.trim() || perfil.perfilProfesional?.trim())
+    const tieneLinkedin = perfil.hitoLinkedinCreado === 'SI' || Boolean(perfil.linkedinUrl?.trim())
+
+    if (!tienePerfilOcupacional) {
+      pendientes.push({ id: 'perfil-ocupacional', titulo: 'Define tu perfil ocupacional', detalle: T.completaTuCargo, href: '/configuracion-estudiante', pasoId: 'perfilOcupacional' })
     }
-    if (perfil.hitoPerfilOcupacional !== 'SI') {
-      pendientes.push({ id: 'perfil-ocupacional', titulo: 'Define tu perfil ocupacional', detalle: T.completaTuCargo, href: '/configuracion-estudiante' })
+    if (!tieneLinkedin) {
+      pendientes.push({ id: 'linkedin-enlace', titulo: T.registraTuPerfil, detalle: T.agregaElEnlace, href: '/configuracion-estudiante', pasoId: 'linkedinCreado' })
+    } else if (perfil.hitoLinkedinOptimizado !== 'SI') {
+      pendientes.push({ id: 'linkedin-optimizar', titulo: T.optimizaTuPerfil, detalle: T.revisaTuTitular, href: perfil.linkedinUrl || '/configuracion-estudiante', pasoId: 'linkedinOptimizado', externa: Boolean(perfil.linkedinUrl) })
     }
     // Los dos hitos de la hoja de vida faltaban en esta lista, y son el 30% del
     // puntaje: el artefacto central de un programa de empleabilidad no aparecía
     // en «qué me toca ahora». Van después del perfil ocupacional porque la hoja
     // se escribe en función del cargo al que se apunta.
     if (perfil.hitoCvListo !== 'SI') {
-      pendientes.push({ id: 'cv', titulo: T.terminaTuHoja, detalle: T.esLoPrimero, href: '/mi-hoja-de-vida' })
+      pendientes.push({ id: 'cv', titulo: T.terminaTuHoja, detalle: T.esLoPrimero, href: '/mi-hoja-de-vida', pasoId: 'cvListo' })
     } else if (perfil.hitoCvIngles !== 'SI') {
-      pendientes.push({ id: 'cv-ingles', titulo: T.hojaEnIngles, detalle: T.esElDiferenciador, href: '/mi-hoja-de-vida' })
+      pendientes.push({ id: 'cv-ingles', titulo: T.hojaEnIngles, detalle: T.esElDiferenciador, href: '/mi-hoja-de-vida', pasoId: 'cvIngles' })
     }
     if (documentos === 0) {
       pendientes.push({ id: 'documentos', titulo: T.subeUnDocumento, detalle: T.mantenTuHoja, href: '/mis-documentos' })
     }
     return pendientes.slice(0, 3)
-  }, [documentos, perfil])
+  }, [documentos, perfil, T])
 
   if (loading) {
     return <div className="flex min-h-96 items-center justify-center gap-2 text-sm text-muted-foreground"><CircleNotch className="size-5 animate-spin" />Preparando tu panel…</div>
@@ -207,6 +261,19 @@ export default function InicioEstudiantePage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 pb-8">
+      {avisos}
+
+      {/* Modal interactivo de acción directa en la ruta */}
+      {perfil && (
+        <ModalAccionRapidaRuta
+          pasoId={pasoModal}
+          abierto={pasoModal !== null}
+          onCerrar={() => setPasoModal(null)}
+          perfil={perfil}
+          onPerfilActualizado={handlePerfilActualizado}
+        />
+      )}
+
       {whatsapp && (
         <a
           href={`https://wa.me/${whatsapp}`}
@@ -241,16 +308,73 @@ export default function InicioEstudiantePage() {
           «completa tu perfil de LinkedIn» no. Si no hay citas no pinta nada. */}
       <ProximasCitas />
 
-      <MiSiguientePaso respuesta={copiloto} cargando={false} error={errorCopiloto} english={locale === 'en'} />
+      <MiSiguientePaso
+        respuesta={copiloto}
+        cargando={false}
+        error={errorCopiloto}
+        english={locale === 'en'}
+        onEjecutarAccion={handleAccionCopiloto}
+      />
 
       {/* Dónde estoy y qué sigue. Va antes que las alertas porque las
           alertas son un extracto de esto: tres pendientes sueltos sin el
           recorrido que les da sentido. */}
-      {perfil && <MiRuta perfil={perfil} />}
+      {perfil && (
+        <MiRuta
+          perfil={perfil}
+          onAbrirPaso={(pasoId) => setPasoModal(pasoId)}
+        />
+      )}
 
       {alertas.length > 0 && <section className="rounded-xl border border-primary/25 bg-card p-5 shadow-none sm:p-6">
         <div className="flex items-start gap-3"><span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary"><WarningCircle className="size-5" /></span><div><h2 className="font-semibold text-foreground">{T.alertasParaAvanzar}</h2><p className="mt-1 text-sm text-muted-foreground">{T.accionesConcretasPara}</p></div></div>
-        <div className="mt-5 grid gap-3 lg:grid-cols-3">{alertas.map((alerta) => alerta.externa ? <a key={alerta.id} href={alerta.href} target="_blank" rel="noreferrer" className="group rounded-lg border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"><p className="text-sm font-semibold text-foreground">{alerta.titulo}</p><p className="mt-1.5 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">Ir a LinkedIn <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></a> : <Link key={alerta.id} href={alerta.href} className="group rounded-lg border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"><p className="text-sm font-semibold text-foreground">{alerta.titulo}</p><p className="mt-1.5 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">Resolver ahora <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" /></span></Link>)}</div>
+        <div className="mt-5 grid gap-3 lg:grid-cols-3">
+          {alertas.map((alerta) => {
+            if (alerta.pasoId) {
+              return (
+                <button
+                  key={alerta.id}
+                  type="button"
+                  onClick={() => setPasoModal(alerta.pasoId!)}
+                  className="group rounded-lg border border-border/80 bg-background p-4 text-left transition hover:border-primary/45 hover:bg-muted/50 cursor-pointer"
+                >
+                  <p className="text-sm font-semibold text-foreground">{alerta.titulo}</p>
+                  <p className="mt-1.5 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p>
+                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+                    Resolver ahora <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </button>
+              )
+            }
+            return alerta.externa ? (
+              <a
+                key={alerta.id}
+                href={alerta.href}
+                target="_blank"
+                rel="noreferrer"
+                className="group rounded-lg border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"
+              >
+                <p className="text-sm font-semibold text-foreground">{alerta.titulo}</p>
+                <p className="mt-1.5 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p>
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+                  Ir a LinkedIn <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </a>
+            ) : (
+              <Link
+                key={alerta.id}
+                href={alerta.href}
+                className="group rounded-lg border border-border/80 bg-background p-4 transition hover:border-primary/45 hover:bg-muted/50"
+              >
+                <p className="text-sm font-semibold text-foreground">{alerta.titulo}</p>
+                <p className="mt-1.5 min-h-10 text-xs leading-5 text-muted-foreground">{alerta.detalle}</p>
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+                  Resolver ahora <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </Link>
+            )
+          })}
+        </div>
       </section>}
 
       {plataformas.length > 0 && <section className="rounded-xl border border-border bg-card p-5 shadow-none sm:p-6">

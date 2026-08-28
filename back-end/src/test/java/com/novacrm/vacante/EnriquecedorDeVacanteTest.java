@@ -99,6 +99,48 @@ class EnriquecedorDeVacanteTest {
     }
 
     @Test
+    void noConfundeLicenciasConduccionNiUbicacionesConNivelDeIngles() {
+        var vChofer = vacante("Conductor con Pase C1", "Transporte de mercancía, pase C1 al día.");
+        enriquecedor.enriquecer(vChofer);
+        assertNull(vChofer.getNivelInglesRequerido(), "Pase C1 no es un nivel de inglés");
+
+        var vBodega = vacante("Operario de Bodega B1", "Cargue y descargue en bodega B1, nivel bachiller.");
+        enriquecedor.enriquecer(vBodega);
+        assertNull(vBodega.getNivelInglesRequerido(), "Bodega B1 no es un nivel de inglés");
+
+        var vB2b = vacante("Ejecutivo B2B", "Ventas corporativas en sector B2B.");
+        enriquecedor.enriquecer(vB2b);
+        assertNull(vB2b.getNivelInglesRequerido(), "B2B no es un nivel de inglés");
+
+        var vVit = vacante("Auxiliar de Farmacia", "Dispensación de Vitamina B1.");
+        enriquecedor.enriquecer(vVit);
+        assertNull(vVit.getNivelInglesRequerido(), "Vitamina B1 no es un nivel de inglés");
+    }
+
+    @Test
+    void infiereNivelesMcerMultidisciplinares() {
+        var vMcer = vacante("Business Analyst", "Levantamiento de procesos. Requisito: MCER B2.");
+        enriquecedor.enriquecer(vMcer);
+        assertEquals("B2", vMcer.getNivelInglesRequerido());
+
+        var vCefr = vacante("Auditor Internacional", "Requisitos: Certificación CEFR C1 indispensable.");
+        enriquecedor.enriquecer(vCefr);
+        assertEquals("C1", vCefr.getNivelInglesRequerido());
+
+        var vTech = vacante("Software Engineer", "Desarrollo backend en Java. Inglés C1 para reuniones diarias.");
+        enriquecedor.enriquecer(vTech);
+        assertEquals("C1", vTech.getNivelInglesRequerido());
+
+        var vUi = vacante("UI/UX Designer", "Design systems, Figma. Professional working English required.");
+        enriquecedor.enriquecer(vUi);
+        assertEquals("C1", vUi.getNivelInglesRequerido());
+
+        var vInd = vacante("Ingeniero Industrial", "Control de procesos de planta. Inglés técnico indispensable.");
+        enriquecedor.enriquecer(vInd);
+        assertEquals("B1", vInd.getNivelInglesRequerido());
+    }
+
+    @Test
     void noPisaUnNivelQueYaVenia() {
         var v = vacante("Agente bilingue", "Personal bilingue requerido.");
         v.setNivelInglesRequerido("C1");
@@ -178,6 +220,27 @@ class EnriquecedorDeVacanteTest {
         var v = vacante("Auxiliar contable", "El cargo se desempena en nuestra sede de Medellin.");
         enriquecedor.enriquecer(v);
         assertEquals("Medellin", v.getCiudad());
+        assertEquals("Medellin", v.getUbicacion());
+    }
+
+    @Test
+    void infiereCiudadDesdeDepartamento() {
+        var v = vacante("Ingeniero de Sistemas", "Empresa ubicada en Cundinamarca.");
+        enriquecedor.enriquecer(v);
+        assertEquals("Bogotá, D.C.", v.getCiudad());
+        assertEquals("Bogotá, D.C.", v.getUbicacion());
+
+        var vAtl = vacante("Asesor Bilingüe", "Sede en Atlántico.");
+        enriquecedor.enriquecer(vAtl);
+        assertEquals("Barranquilla, Atlántico", vAtl.getCiudad());
+    }
+
+    @Test
+    void sincronizaUbicacionSiSoloVeniaCiudad() {
+        var v = vacante("Diseñador", "Trabajo en sede.");
+        v.setCiudad("Galapa");
+        enriquecedor.enriquecer(v);
+        assertEquals("Galapa", v.getUbicacion());
     }
 
     // --- Vigencia ----------------------------------------------------------

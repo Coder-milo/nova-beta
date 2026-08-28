@@ -81,6 +81,7 @@ class ScrapingServiceTest {
         v.setHashDedup(sha256(fuente + "|" + id));
         v.setActivo(true);
         v.setRevisada(true);
+        v.setFechaPublicacion(LocalDateTime.now().minusDays(1));
         return v;
     }
 
@@ -332,5 +333,52 @@ class ScrapingServiceTest {
         ResultadoActualizacion syncRes = servicio.sincronizarFuente("LINKEDIN");
         assertThat(syncRes.vacantesNuevas()).isEqualTo(1);
         verify(vacanteRepository).save(any(Vacante.class));
+    }
+
+    @Test
+    @DisplayName("6. soloFrescas descarta ofertas con fecha mayor a 7 días o sin fecha")
+    void filtradoFrescuraDescartaVacantesConFechaViejaOSinFecha() {
+        var fuente = mock(FuenteDeVacantes.class);
+        when(fuente.nombre()).thenReturn("TEST_PORTAL");
+        when(fuente.segmento()).thenReturn(Segmento.LOCAL_COLOMBIA);
+        when(fuente.estaHabilitada()).thenReturn(true);
+        when(fuente.maximoConsultasPorCorrida()).thenReturn(1);
+
+        // 1. Fresca: 2 días de antigüedad
+        var vFresca = crearVacante("v-fresca", "TEST_PORTAL", "Bilingual Support Agent", "Barranquilla", "Barranquilla, Atlántico", "English required");
+        vFresca.setFechaPublicacion(LocalDateTime.now().minusDays(2));
+
+        // 2. Vieja: 10 días de antigüedad
+        var vVieja = crearVacante("v-vieja", "TEST_PORTAL", "Bilingual Support Agent", "Barranquilla", "Barranquilla, Atlántico", "English required");
+        vVieja.setFechaPublicacion(LocalDateTime.now().minusDays(10));
+
+        // 3. Sin fecha: null
+        var vSinFecha = crearVacante("v-sin-fecha", "TEST_PORTAL", "Bilingual Support Agent", "Barranquilla", "Barranquilla, Atlántico", "English required");
+        vSinFecha.setFechaPublicacion(null);
+
+        when(fuente.buscar(any(), any())).thenReturn(ResultadoBusqueda.de(List.of(
+                new OfertaCruda(vFresca, "Empresa 1"),
+                new OfertaCruda(vVieja, "Empresa 2"),
+                new OfertaCruda(vSinFecha, "Empresa 3")
+        )));
+
+        when(vacanteRepository.findByHashDedup(anyString())).thenReturn(Optional.empty());
+        when(vacanteRepository.findByHashContenido(anyString())).thenReturn(Optional.empty());
+        when(vacanteRepository.save(any(Vacante.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var servicio = new ScrapingService(
+                List.of(fuente),
+                estudianteRepository,
+                vacanteRepository,
+                ejecucionRepository,
+                registroDeVacante,
+                controlDeCuota
+        );
+
+        ResultadoActualizacion res = servicio.actualizar(ScrapingEjecucion.Origen.MANUAL);
+
+        // Solo vFresca debe ser guardada (1 de 3)
+        assertThat(res.vacantesNuevas()).isEqualTo(1);
+        verify(vacanteRepository, times(1)).save(any(Vacante.class));
     }
 }

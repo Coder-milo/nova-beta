@@ -97,6 +97,7 @@ public class LinkedInJobsScraper implements FuenteDeVacantes {
             String url = SEARCH_URL
                     + "?keywords=" + URLEncoder.encode(termino.trim(), StandardCharsets.UTF_8)
                     + "&location=" + URLEncoder.encode(ubicacionParam, StandardCharsets.UTF_8)
+                    + "&f_TPR=r604800"
                     + "&start=0";
 
             Thread.sleep(PAUSA_MS);
@@ -140,6 +141,19 @@ public class LinkedInJobsScraper implements FuenteDeVacantes {
                 // Extraer ID de la vacante de LinkedIn
                 String idOferta = extraerIdOferta(href);
 
+                // 1. Extraer y validar fecha real de publicación
+                String rawDate = extraerTextoFecha(card);
+                var fechaPubOpt = com.novacrm.scraper.fuente.ParserFechas.parsear(rawDate);
+                if (fechaPubOpt.isEmpty()) {
+                    log.debug("Oferta de LinkedIn Jobs descartada por fecha no verificable: {}", idOferta);
+                    continue;
+                }
+                LocalDateTime fechaPub = fechaPubOpt.get();
+                if (!com.novacrm.scraper.fuente.FiltroFrescura.esFresca(fechaPub)) {
+                    log.debug("Oferta de LinkedIn Jobs descartada por antigüedad > 7 días: {} (fecha: {})", idOferta, fechaPub);
+                    continue;
+                }
+
                 Element titleElem = card.selectFirst("h3.base-search-card__title, a.base-card__full-link");
                 String titulo = titleElem != null ? titleElem.text().trim() : "";
                 if (titulo.isBlank()) {
@@ -180,7 +194,7 @@ public class LinkedInJobsScraper implements FuenteDeVacantes {
                 vacante.setUrlAplicar(href);
                 vacante.setSegmento(modalidad.equals("Remoto") ? Segmento.REMOTO_INGLES : Segmento.LOCAL_COLOMBIA);
                 vacante.setActivo(true);
-                vacante.setFechaPublicacion(LocalDateTime.now());
+                vacante.setFechaPublicacion(fechaPub);
 
                 // Validación de admisibilidad geográfica
                 if (AreaMetropolitana.esAtlanticoORemota(vacante)) {
@@ -191,6 +205,29 @@ public class LinkedInJobsScraper implements FuenteDeVacantes {
             }
         }
         return resultados;
+    }
+
+    private static String extraerTextoFecha(Element card) {
+        Element timeElem = card.selectFirst("time.job-search-card__listdate, time.job-search-card__listdate--new, time[datetime], time");
+        if (timeElem != null) {
+            String dt = timeElem.attr("datetime").trim();
+            if (!dt.isBlank()) {
+                return dt;
+            }
+            String txt = timeElem.text().trim();
+            if (!txt.isBlank()) {
+                return txt;
+            }
+        }
+        for (Element el : card.select("span, div, p")) {
+            String t = el.text().trim();
+            if (t.toLowerCase().contains("hace ") || t.toLowerCase().contains("ago") || t.toLowerCase().contains("today") || t.toLowerCase().contains("yesterday")) {
+                if (com.novacrm.scraper.fuente.ParserFechas.parsear(t).isPresent()) {
+                    return t;
+                }
+            }
+        }
+        return null;
     }
 
     private static String extraerIdOferta(String href) {

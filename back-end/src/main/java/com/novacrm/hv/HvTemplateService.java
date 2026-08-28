@@ -292,20 +292,67 @@ public class HvTemplateService {
         var sb = new StringBuilder();
         String tituloSec = isEn ? "Technical Skills" : "Habilidades Técnicas";
         sb.append("<h2 style=\"").append(st.secTitle()).append("\">").append(esc(tituloSec)).append("</h2>");
-        sb.append("<ul style=\"").append(UL_WIDE).append("\">");
-        for (int i = 0; i < lineas.size(); i++) {
-            var t = lineas.get(i);
-            sb.append("<li style=\"").append(i == 0 ? LI_FIRST : LI_REST).append("\">");
-            if (t.contains(":")) {
-                var p = t.split(":", 2);
-                sb.append("<strong>").append(esc(p[0].trim())).append(":</strong> ").append(esc(p[1].trim()));
-            } else {
-                sb.append(esc(t));
+
+        int total = lineas.size();
+        if (total <= 4) {
+            // Lista simple de 1 columna para pocas habilidades (1 a 4)
+            sb.append("<ul style=\"").append(UL_WIDE).append("\">");
+            for (int i = 0; i < total; i++) {
+                sb.append("<li style=\"").append(i == 0 ? LI_FIRST : LI_REST).append("\">");
+                sb.append(formatearSkill(lineas.get(i)));
+                sb.append("</li>");
             }
-            sb.append("</li>");
+            sb.append("</ul>");
+        } else {
+            // Detección automática de límite y partición en 2 o 3 columnas balanceadas
+            int maxLen = lineas.stream().mapToInt(String::length).max().orElse(0);
+            int numCols = (total >= 9 && maxLen <= 32) ? 3 : 2;
+            int itemsPorCol = (int) Math.ceil((double) total / numCols);
+
+            sb.append("<table style=\"width:100%;border-collapse:collapse;margin-top:4pt;page-break-inside:avoid;\" cellpadding=\"0\" cellspacing=\"0\">");
+            sb.append("<tr>");
+
+            String anchoStr = (numCols == 3) ? "33.33%" : "50%";
+
+            for (int c = 0; c < numCols; c++) {
+                int inicio = c * itemsPorCol;
+                int fin = Math.min(inicio + itemsPorCol, total);
+
+                String padding;
+                if (numCols == 2) {
+                    padding = (c == 0) ? "padding-right:10pt;" : "padding-left:10pt;";
+                } else {
+                    if (c == 0) padding = "padding-right:8pt;";
+                    else if (c == numCols - 1) padding = "padding-left:8pt;";
+                    else padding = "padding-left:4pt;padding-right:4pt;";
+                }
+
+                sb.append("<td style=\"width:").append(anchoStr).append(";vertical-align:top;").append(padding).append("\">");
+                if (inicio < fin) {
+                    sb.append("<ul style=\"margin:0;padding-left:14pt;font-size:10.5pt;line-height:14pt;\">");
+                    for (int i = inicio; i < fin; i++) {
+                        sb.append("<li style=\"").append(i == inicio ? LI_FIRST : LI_REST).append("\">");
+                        sb.append(formatearSkill(lineas.get(i)));
+                        sb.append("</li>");
+                    }
+                    sb.append("</ul>");
+                }
+                sb.append("</td>");
+            }
+
+            sb.append("</tr>");
+            sb.append("</table>");
         }
-        sb.append("</ul>");
+
         replaceSection(html, "SKILLS", sb.toString());
+    }
+
+    private static String formatearSkill(String t) {
+        if (t.contains(":")) {
+            var p = t.split(":", 2);
+            return "<strong>" + esc(p[0].trim()) + ":</strong> " + esc(p[1].trim());
+        }
+        return esc(t);
     }
 
     /**

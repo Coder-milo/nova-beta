@@ -42,6 +42,15 @@ public class MatchController {
         return matchingService.obtenerMatches(est.getId(), pageable);
     }
 
+    @PostMapping("/mis-matches/recalcular")
+    @Operation(summary = "Recalcular matches para el estudiante autenticado")
+    @PreAuthorize("hasAnyRole('ESTUDIANTE', 'COORDINADOR', 'ADMIN')")
+    public Map<String, Object> recalcularMisMatches(Authentication auth) {
+        var est = ownershipService.obtenerEstudianteAutenticado(auth);
+        int creados = matchingService.ejecutarMatchingParaEstudiante(est.getId());
+        return Map.of("matchesCreados", creados);
+    }
+
     @GetMapping
     @Operation(summary = "Obtener matches de un estudiante")
     @PreAuthorize("hasAnyRole('COORDINADOR', 'ADMIN', 'ESTUDIANTE')")

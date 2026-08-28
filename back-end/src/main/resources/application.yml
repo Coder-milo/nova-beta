@@ -173,7 +173,7 @@ app:
     proveedor: ${IA_PROVEEDOR:groq}
     groq:
       api-key: ${GROQ_API_KEY:}
-      modelo: ${GROQ_MODELO:llama-3.3-70b-versatile}
+      modelo: ${GROQ_MODELO:openai/gpt-oss-120b}
       timeout-ms: ${GROQ_TIMEOUT_MS:10000}
     openai:
       api-key: ${OPENAI_API_KEY:}

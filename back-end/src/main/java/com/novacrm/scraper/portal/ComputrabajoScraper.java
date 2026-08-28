@@ -81,7 +81,7 @@ public class ComputrabajoScraper implements FuenteDeVacantes {
             String baseUrl = SITE_ROOT + "/ofertas-de-trabajo/?q="
                     + URLEncoder.encode(termino.trim(), StandardCharsets.UTF_8)
                     + "&l=" + URLEncoder.encode(ciudadBusqueda, StandardCharsets.UTF_8)
-                    + "&by=publicationdown";
+                    + "&pubdate=7&by=publicationdown";
 
             for (int pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
                 Thread.sleep(PAUSA_MS);
@@ -140,10 +140,23 @@ public class ComputrabajoScraper implements FuenteDeVacantes {
                     idOferta = href;
                 }
 
+                // 1. Extraer y validar fecha real de publicación
+                String textoFecha = extraerTextoFecha(card);
+                var fechaPubOpt = com.novacrm.scraper.fuente.ParserFechas.parsear(textoFecha);
+                if (fechaPubOpt.isEmpty()) {
+                    log.debug("Oferta de Computrabajo descartada por fecha no verificable: {}", idOferta);
+                    continue;
+                }
+                LocalDateTime fechaPub = fechaPubOpt.get();
+                if (!com.novacrm.scraper.fuente.FiltroFrescura.esFresca(fechaPub)) {
+                    log.debug("Oferta de Computrabajo descartada por antigüedad > 7 días: {} (fecha: {})", idOferta, fechaPub);
+                    continue;
+                }
+
                 Element empresaElem = card.selectFirst("a[offer-grid-article-company-url], a[href*='/empresas/'], p[class*='company']");
                 String empresa = empresaElem != null ? empresaElem.text().trim() : "Empresa Confidencial";
 
-                // 1. Extraer ubicación real desde la URL, elementos del HTML o el texto de la tarjeta
+                // 2. Extraer ubicación real desde la URL, elementos del HTML o el texto de la tarjeta
                 String ubicacion = extraerUbicacionReal(card, href, titulo, ciudadBusqueda);
                 String ciudad = extraerCiudad(ubicacion, href, titulo, ciudadBusqueda);
 
@@ -197,7 +210,7 @@ public class ComputrabajoScraper implements FuenteDeVacantes {
                 vacante.setUrlAplicar(vacante.getUrlOrigen());
                 vacante.setSegmento(modalidad.equals("Remoto") ? Segmento.REMOTO_INGLES : Segmento.LOCAL_COLOMBIA);
                 vacante.setActivo(true);
-                vacante.setFechaPublicacion(LocalDateTime.now());
+                vacante.setFechaPublicacion(fechaPub);
 
                 resultados.add(new OfertaCruda(vacante, empresa));
             } catch (Exception e) {
@@ -205,6 +218,22 @@ public class ComputrabajoScraper implements FuenteDeVacantes {
             }
         }
         return resultados;
+    }
+
+    private static String extraerTextoFecha(Element card) {
+        Element dateElem = card.selectFirst("p.fs13.fc_aux, p.fc_aux, span.fc_aux, p[class*='fc_aux'], span[class*='fc_aux']");
+        if (dateElem != null && !dateElem.text().isBlank()) {
+            return dateElem.text().trim();
+        }
+        for (Element el : card.select("p, span")) {
+            String t = el.text().trim();
+            if (t.toLowerCase().contains("hace ") || t.toLowerCase().contains("hoy") || t.toLowerCase().contains("ayer")) {
+                if (com.novacrm.scraper.fuente.ParserFechas.parsear(t).isPresent()) {
+                    return t;
+                }
+            }
+        }
+        return null;
     }
 
     private static String extraerUbicacionReal(Element card, String href, String titulo, String ciudadDefecto) {

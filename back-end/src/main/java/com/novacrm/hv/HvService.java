@@ -240,8 +240,9 @@ public class HvService {
 
         // Cada versión se confirma por separado. En una generación masiva, un
         // fallo de un estudiante no deja abortada la transacción de los demás.
+        HojaDeVida guardada;
         try {
-            return hvVersionService.registrar(estudiante, plantilla, key, usuarioActual());
+            guardada = hvVersionService.registrar(estudiante, plantilla, key, usuarioActual());
         } catch (RuntimeException ex) {
             // El PDF ya estaba subido. Si la fila no pudo guardarse, se evita
             // dejar un archivo huérfano ocupando el almacenamiento.
@@ -252,6 +253,13 @@ public class HvService {
             }
             throw ex;
         }
+
+        estudiante.getPreparacion().setCvListo(com.novacrm.estudiante.EstadoHito.SI);
+        if (opciones != null && "en".equalsIgnoreCase(opciones.idioma())) {
+            estudiante.getPreparacion().setCvEnIngles(com.novacrm.estudiante.EstadoHito.SI);
+        }
+        estudianteRepository.save(estudiante);
+        return guardada;
     }
 
     // ── Consulta y descarga ──────────────────────────────────────────────────
@@ -304,8 +312,17 @@ public class HvService {
             // Evita que el UPDATE de la siguiente versión se ejecute antes que
             // el DELETE de la actual y choque con uq_hv_estudiante_actual.
             hvRepository.flush();
-            hvRepository.findByEstudianteIdOrderByNumeroVersionDesc(estudianteId).stream()
-                    .findFirst().ifPresent(siguiente -> siguiente.setActual(true));
+            var restantes = hvRepository.findByEstudianteIdOrderByNumeroVersionDesc(estudianteId);
+            if (!restantes.isEmpty()) {
+                restantes.get(0).setActual(true);
+            } else {
+                var est = estudianteRepository.findById(estudianteId).orElse(null);
+                if (est != null) {
+                    est.getPreparacion().setCvListo(com.novacrm.estudiante.EstadoHito.NO);
+                    est.getPreparacion().setCvEnIngles(com.novacrm.estudiante.EstadoHito.NO);
+                    estudianteRepository.save(est);
+                }
+            }
         }
         storageService.eliminar(objectKey);
     }

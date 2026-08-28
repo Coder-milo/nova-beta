@@ -127,20 +127,28 @@ export function PanelVistaPreviaEmail({
 
   // Carga opcional de estudiantes reales para simulación con datos de producción
   useEffect(() => {
-    if (!abrirSelectorEstudiante || estudiantes.length > 0) return
+    if (!abrirSelectorEstudiante) return
     setCargandoEstudiantes(true)
-    estudiantesApi
-      .listar(programaId ?? '', 0, 30)
-      .then((res) => {
-        setEstudiantes(res.content ?? [])
-      })
-      .catch(() => {
-        setEstudiantes([])
-      })
-      .finally(() => {
-        setCargandoEstudiantes(false)
-      })
-  }, [abrirSelectorEstudiante, programaId, estudiantes.length])
+    const timer = setTimeout(() => {
+      estudiantesApi
+        .buscarAvanzado({
+          q: busquedaEstudiante.trim() || undefined,
+          programaId: programaId || undefined,
+          size: 50,
+        })
+        .then((res) => {
+          setEstudiantes(res.content ?? [])
+        })
+        .catch(() => {
+          setEstudiantes([])
+        })
+        .finally(() => {
+          setCargandoEstudiantes(false)
+        })
+    }, 200)
+
+    return () => clearTimeout(timer)
+  }, [abrirSelectorEstudiante, busquedaEstudiante, programaId])
 
   // Cambio de perfil estándar
   const cambiarPerfil = (perfilId: string) => {
@@ -194,7 +202,23 @@ export function PanelVistaPreviaEmail({
     }
 
     const conVariables = interpolarVariables(contenido, variablesSimuladas)
-    return htmlServidor ? interpolarVariables(htmlServidor, variablesSimuladas) : envolverEnDocumentoEmail(conVariables, asuntoRenderizado)
+    if (htmlServidor) {
+      let res = interpolarVariables(htmlServidor, variablesSimuladas)
+      const nombreCompleto = `${variablesSimuladas.nombre || ''} ${variablesSimuladas.apellido || ''}`.trim()
+      if (nombreCompleto) {
+        res = res
+          .replace(/María Fernanda Gómez/g, nombreCompleto)
+          .replace(/María Fernanda/g, variablesSimuladas.nombre || 'Estudiante')
+      }
+      if (variablesSimuladas.programa) {
+        res = res.replace(/Ruta BPO Bilingüe/g, variablesSimuladas.programa)
+      }
+      if (variablesSimuladas.cargo) {
+        res = res.replace(/Bilingual Customer Support/g, variablesSimuladas.cargo)
+      }
+      return res
+    }
+    return envolverEnDocumentoEmail(conVariables, asuntoRenderizado)
   }, [cuerpo, botonTexto, botonUrl, variablesSimuladas, htmlServidor, asuntoRenderizado])
 
   // Detección de variables no sustituidas
@@ -204,16 +228,8 @@ export function PanelVistaPreviaEmail({
   }, [asunto, cuerpo])
 
   const estudiantesFiltrados = useMemo(() => {
-    if (!busquedaEstudiante.trim()) return estudiantes
-    const term = busquedaEstudiante.toLowerCase()
-    return estudiantes.filter(
-      (e) =>
-        e.nombre?.toLowerCase().includes(term) ||
-        e.apellido?.toLowerCase().includes(term) ||
-        e.email?.toLowerCase().includes(term) ||
-        (e.numeroDocumento && e.numeroDocumento.includes(term)),
-    )
-  }, [estudiantes, busquedaEstudiante])
+    return estudiantes
+  }, [estudiantes])
 
   return (
     <div className={cn('flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm', className)}>
@@ -275,7 +291,7 @@ export function PanelVistaPreviaEmail({
                 {p.nombrePerfil}
               </option>
             ))}
-            <option value="selector_real">👤 {T.estudianteReal}…</option>
+            <option value="selector_real">{T.estudianteReal}…</option>
           </select>
 
           {/* Botón de edición de variables simuladas */}

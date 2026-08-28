@@ -281,22 +281,24 @@ public class EstudianteService {
     public EstudianteResponse actualizarMiPerfil(UUID id, EstudianteRequest r) {
         var e = buscar(id);
 
-        if (r.telefono() != null) e.setTelefono(r.telefono());
-        if (r.celular() != null) e.setCelular(r.celular());
-        if (r.ciudad() != null) e.setCiudad(r.ciudad());
-        if (r.barrio() != null) e.setBarrio(r.barrio());
-        if (r.direccion() != null) e.setDireccion(r.direccion());
-        if (r.perfilProfesional() != null) e.setPerfilProfesional(r.perfilProfesional());
-        if (r.cargoObjetivo() != null) e.setCargoObjetivo(r.cargoObjetivo());
-        if (r.sectorObjetivo() != null) e.setSectorObjetivo(r.sectorObjetivo());
-        if (r.competencias() != null) e.setCompetencias(r.competencias());
-        if (r.idiomas() != null) e.setIdiomas(r.idiomas());
-        if (r.referencias() != null) e.setReferencias(r.referencias());
-        if (r.disponibilidad() != null) e.setDisponibilidad(r.disponibilidad());
-        if (r.disponibilidadLaboral() != null) e.setDisponibilidadLaboral(r.disponibilidadLaboral());
+        if (r.telefono() != null) e.setTelefono(vacioANulo(r.telefono()));
+        if (r.celular() != null) e.setCelular(vacioANulo(r.celular()));
+        if (r.ciudad() != null) e.setCiudad(vacioANulo(r.ciudad()));
+        if (r.barrio() != null) e.setBarrio(vacioANulo(r.barrio()));
+        if (r.direccion() != null) e.setDireccion(vacioANulo(r.direccion()));
+        if (r.perfilProfesional() != null) e.setPerfilProfesional(vacioANulo(r.perfilProfesional()));
+        if (r.cargoObjetivo() != null) e.setCargoObjetivo(vacioANulo(r.cargoObjetivo()));
+        if (r.sectorObjetivo() != null) e.setSectorObjetivo(vacioANulo(r.sectorObjetivo()));
+        if (r.competencias() != null) e.setCompetencias(vacioANulo(r.competencias()));
+        if (r.idiomas() != null) e.setIdiomas(vacioANulo(r.idiomas()));
+        if (r.referencias() != null) e.setReferencias(vacioANulo(r.referencias()));
+        if (r.disponibilidad() != null) e.setDisponibilidad(vacioANulo(r.disponibilidad()));
+        if (r.disponibilidadLaboral() != null) e.setDisponibilidadLaboral(vacioANulo(r.disponibilidadLaboral()));
         if (r.disponibilidadMovilidad() != null) e.setDisponibilidadMovilidad(r.disponibilidadMovilidad());
-        if (r.motivacion() != null) e.setMotivacion(r.motivacion());
+        if (r.motivacion() != null) e.setMotivacion(vacioANulo(r.motivacion()));
         if (r.linkedinUrl() != null) e.setLinkedinUrl(vacioANulo(r.linkedinUrl()));
+
+        sincronizarHitosConDatosReales(e);
 
         var actualizado = estudianteRepository.save(e);
         auditoriaService.registrar("Estudiantes", "Actualización de perfil propio", "Estudiante",
@@ -472,10 +474,45 @@ public class EstudianteService {
                         "La fecha de nacimiento debe venir como AAAA-MM-DD");
             }
         }
+        sincronizarHitosConDatosReales(e);
+    }
+
+    /**
+     * Mantiene la coherencia de los hitos cuando el usuario llena o borra campos
+     * clave (como el cargo objetivo o la URL de LinkedIn). Si completa los datos,
+     * el hito avanza a SI; si borra la información, el checkmark desaparece (NO).
+     */
+    public static void sincronizarHitosConDatosReales(Estudiante e) {
+        if (e == null) return;
+        var p = e.getPreparacion();
+        if (p == null) {
+            p = new PreparacionEmpleabilidad();
+            e.setPreparacion(p);
+        }
+
+        // 1. Perfil ocupacional: si tiene cargo objetivo o perfil profesional con contenido, se marca SI.
+        // Si ambos se borran (ambos son nulos o en blanco), el hito vuelve a NO para que desaparezca el check.
+        boolean tienePerfilOcupacional = (e.getCargoObjetivo() != null && !e.getCargoObjetivo().isBlank())
+                || (e.getPerfilProfesional() != null && !e.getPerfilProfesional().isBlank());
+        if (!tienePerfilOcupacional) {
+            p.setPerfilOcupacional(EstadoHito.NO);
+        } else if (p.getPerfilOcupacional() == EstadoHito.NO) {
+            p.setPerfilOcupacional(EstadoHito.SI);
+        }
+
+        // 2. LinkedIn: si tiene enlace válido de LinkedIn, se marca creado SI.
+        // Si se borra el enlace, tanto creado como optimizado vuelven a NO para que desaparezca el check.
+        boolean tieneLinkedin = e.getLinkedinUrl() != null && !e.getLinkedinUrl().isBlank();
+        if (!tieneLinkedin) {
+            p.setLinkedinCreado(EstadoHito.NO);
+            p.setLinkedinOptimizado(EstadoHito.NO);
+        } else if (p.getLinkedinCreado() == EstadoHito.NO) {
+            p.setLinkedinCreado(EstadoHito.SI);
+        }
     }
 
     private static String vacioANulo(String valor) {
-        return valor.isBlank() ? null : valor.trim();
+        return valor == null || valor.isBlank() ? null : valor.trim();
     }
 
     /**
@@ -504,6 +541,7 @@ public class EstudianteService {
         if (cambios.cargoObjetivo() != null) estudiante.setCargoObjetivo(vacioANulo(cambios.cargoObjetivo()));
         if (cambios.perfilProfesional() != null) estudiante.setPerfilProfesional(vacioANulo(cambios.perfilProfesional()));
         if (cambios.competencias() != null) estudiante.setCompetencias(vacioANulo(cambios.competencias()));
+        sincronizarHitosConDatosReales(estudiante);
         return toResponse(estudianteRepository.save(estudiante));
     }
 
@@ -628,5 +666,58 @@ public class EstudianteService {
     @Transactional
     public void hardDeleteMasivo(List<UUID> ids) {
         BorradoEstudiante.borrarEnCadena(entityManager, ids);
+    }
+
+    /**
+     * Registra la aprobación del hito de optimización de LinkedIn tras la auditoría ATS de PDF,
+     * fijando tanto LinkedIn Creado como LinkedIn Optimizado en SI, y sincronizando de forma segura
+     * los campos vacíos de la ficha del estudiante.
+     */
+    @Transactional
+    public EstudianteResponse aplicarAuditoriaLinkedin(UUID id, com.novacrm.hv.dto.AplicarAuditoriaLinkedinRequest request) {
+        var estudiante = buscar(id);
+        var p = estudiante.getPreparacion();
+        if (p == null) {
+            p = new PreparacionEmpleabilidad();
+            estudiante.setPreparacion(p);
+        }
+
+        if (request.linkedinUrl() != null && !request.linkedinUrl().isBlank()) {
+            estudiante.setLinkedinUrl(request.linkedinUrl().trim());
+        }
+
+        if (request.sincronizarPerfil() && request.datosASincronizar() != null) {
+            var d = request.datosASincronizar();
+            if (d.cargoObjetivo() != null && !d.cargoObjetivo().isBlank() && (estudiante.getCargoObjetivo() == null || estudiante.getCargoObjetivo().isBlank())) {
+                estudiante.setCargoObjetivo(d.cargoObjetivo().trim());
+            }
+            if (d.perfilProfesional() != null && !d.perfilProfesional().isBlank() && (estudiante.getPerfilProfesional() == null || estudiante.getPerfilProfesional().isBlank())) {
+                estudiante.setPerfilProfesional(d.perfilProfesional().trim());
+            }
+            if (d.competencias() != null && !d.competencias().isBlank() && (estudiante.getCompetencias() == null || estudiante.getCompetencias().isBlank())) {
+                estudiante.setCompetencias(d.competencias().trim());
+            }
+            if (d.idiomas() != null && !d.idiomas().isBlank() && (estudiante.getIdiomas() == null || estudiante.getIdiomas().isBlank())) {
+                estudiante.setIdiomas(d.idiomas().trim());
+            }
+            if (d.ciudad() != null && !d.ciudad().isBlank() && (estudiante.getCiudad() == null || estudiante.getCiudad().isBlank())) {
+                estudiante.setCiudad(d.ciudad().trim());
+            }
+            if (d.titulo() != null && !d.titulo().isBlank() && (estudiante.getTitulo() == null || estudiante.getTitulo().isBlank())) {
+                estudiante.setTitulo(d.titulo().trim());
+            }
+            if (d.institucionEducativa() != null && !d.institucionEducativa().isBlank() && (estudiante.getInstitucionEducativa() == null || estudiante.getInstitucionEducativa().isBlank())) {
+                estudiante.setInstitucionEducativa(d.institucionEducativa().trim());
+            }
+            if (d.nivelIngles() != null && !d.nivelIngles().isBlank() && estudiante.getNivelIngles() == null) {
+                nivelInglesRepository.findByCodigo(d.nivelIngles().toUpperCase()).ifPresent(estudiante::setNivelIngles);
+            }
+        }
+
+        sincronizarHitosConDatosReales(estudiante);
+        p.setLinkedinCreado(EstadoHito.SI);
+        p.setLinkedinOptimizado(EstadoHito.SI);
+        estudianteRepository.save(estudiante);
+        return toResponse(estudiante);
     }
 }

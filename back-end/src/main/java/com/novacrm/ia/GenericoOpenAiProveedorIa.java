@@ -42,6 +42,13 @@ public class GenericoOpenAiProveedorIa implements ProveedorIa {
         this.temperatura = temperatura;
         
         String urlFinal = (apiBase != null && !apiBase.isBlank()) ? apiBase.trim() : "https://api.deepseek.com/v1";
+        if (urlFinal.endsWith("/")) {
+            urlFinal = urlFinal.substring(0, urlFinal.length() - 1);
+        }
+        if (!urlFinal.endsWith("/chat/completions")) {
+            urlFinal += "/chat/completions";
+        }
+
         this.restClient = RestClient.builder()
                 .baseUrl(urlFinal)
                 .defaultHeaders(headers -> {
@@ -77,7 +84,7 @@ public class GenericoOpenAiProveedorIa implements ProveedorIa {
             ));
 
             var respuesta = restClient.post()
-                    .uri("/chat/completions")
+                    .uri("")
                     .body(body)
                     .retrieve()
                     .toEntity(Map.class);

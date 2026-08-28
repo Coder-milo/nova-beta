@@ -19,10 +19,11 @@
  * ficha ya trae; el test comprueba que la suma siga dando 100.
  */
 
-import { CheckCircle2, Circle, CircleDot, Lock } from 'lucide-react'
+import { CheckCircle2, Circle, CircleDot, Lock, Sparkles } from 'lucide-react'
 import type { EstudianteResponse, EstadoHito } from '@/lib/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePreferences } from '@/lib/preferences'
+import { PESOS_RUTA as PESOS, calcularPorcentajeEmpleabilidad } from '@/lib/ruta-empleabilidad'
 
 /** Un paso de la ruta. `peso` es lo que aporta al porcentaje del programa. */
 interface Paso {
@@ -35,34 +36,36 @@ interface Paso {
   href: string | null
 }
 
-// Los pesos viven en `lib/ruta-empleabilidad`: son dato del dominio —copian la
-// fórmula con la que el programa reporta— y allí los cubre un test. Aquí solo
-// se pintan.
-import { PESOS_RUTA as PESOS } from '@/lib/ruta-empleabilidad'
+export interface MiRutaProps {
+  perfil: EstudianteResponse
+  onAbrirPaso?: (pasoId: string) => void
+}
 
 function textos(english: boolean) {
   return english
     ? {
-        titulo: 'My path',
+        titulo: 'My employability path',
         descripcion: 'The six steps the programme measures, in order. The percentage is the sum of what you have completed.',
+        progresoGeneral: 'Overall progress',
         hecho: 'Done',
         enProceso: 'In progress',
         pendiente: 'Pending',
-        ahora: 'Next',
+        ahora: 'Next step',
         loRegistraElEquipo: 'Your advisor records this one',
         vale: (n: number) => `worth ${n}%`,
         pasos: {
           perfilOcupacional: ['Define your occupational profile', 'What role you are aiming for. Everything else is written against this.'],
-          cvListo: ['Finish your résumé', 'It is what a company reads first.'],
-          cvIngles: ['Résumé in English', 'It is what sets this programme apart, and it is worth as much as the Spanish one.'],
+          cvListo: ['Spanish ATS Résumé', 'Formatted for local and regional job opportunities.'],
+          cvIngles: ['English Resume & Bilingual Profile', 'Adapted with AI for remote and multinational opportunities.'],
           linkedinCreado: ['Create your LinkedIn', 'So recruiters can find you outside the programme.'],
           linkedinOptimizado: ['Improve your LinkedIn', 'Headline, summary and keywords. Having it is not the same as it working.'],
           colocado: ['Get hired', 'Almost a third of the score. Your advisor records it with the contract.'],
         },
       }
     : {
-        titulo: 'Mi ruta',
+        titulo: 'Mi ruta de empleabilidad',
         descripcion: 'Los seis pasos que mide el programa, en orden. El porcentaje es la suma de lo que llevas hecho.',
+        progresoGeneral: 'Progreso general',
         hecho: 'Hecho',
         enProceso: 'En proceso',
         pendiente: 'Pendiente',
@@ -71,8 +74,8 @@ function textos(english: boolean) {
         vale: (n: number) => `vale ${n}%`,
         pasos: {
           perfilOcupacional: ['Define tu perfil ocupacional', 'A qué cargo apuntas. Todo lo demás se escribe en función de esto.'],
-          cvListo: ['Termina tu hoja de vida', 'Es lo primero que lee una empresa.'],
-          cvIngles: ['Hoja de vida en inglés', 'Es el diferenciador del programa, y vale lo mismo que la de español.'],
+          cvListo: ['Hoja de vida en español (ATS)', 'Tu currículum estándar para vacantes locales y nacionales.'],
+          cvIngles: ['English Resume bilingüe', 'Adaptado con IA para vacantes remotas e internacionales.'],
           linkedinCreado: ['Crea tu LinkedIn', 'Para que te encuentren fuera del programa.'],
           linkedinOptimizado: ['Mejora tu LinkedIn', 'Titular, extracto y palabras clave. Tenerlo no es lo mismo que que funcione.'],
           colocado: ['Consigue empleo', 'Casi un tercio del puntaje. Lo registra tu asesor con el contrato.'],
@@ -80,50 +83,129 @@ function textos(english: boolean) {
       }
 }
 
-export function MiRuta({ perfil }: { perfil: EstudianteResponse }) {
+export function MiRuta({ perfil, onAbrirPaso }: MiRutaProps) {
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
 
+  // Evaluación reactiva de los hitos con base en la información real del perfil
+  const hitoPerfil =
+    perfil.hitoPerfilOcupacional === 'SI' ||
+    Boolean(perfil.cargoObjetivo?.trim() || perfil.perfilProfesional?.trim())
+      ? 'SI'
+      : (perfil.hitoPerfilOcupacional || 'NO')
+
+  const hitoLinkedin =
+    perfil.hitoLinkedinCreado === 'SI' || Boolean(perfil.linkedinUrl?.trim())
+      ? 'SI'
+      : (perfil.hitoLinkedinCreado || 'NO')
+
   const pasos: Paso[] = [
-    { id: 'perfilOcupacional', peso: PESOS.perfilOcupacional, estado: perfil.hitoPerfilOcupacional,
+    {
+      id: 'perfilOcupacional',
+      peso: PESOS.perfilOcupacional,
+      estado: hitoPerfil,
       href: '/configuracion-estudiante',
-      titulo: T.pasos.perfilOcupacional[0], porque: T.pasos.perfilOcupacional[1] },
-    { id: 'cvListo', peso: PESOS.cvListo, estado: perfil.hitoCvListo, href: '/mi-hoja-de-vida',
-      titulo: T.pasos.cvListo[0], porque: T.pasos.cvListo[1] },
-    { id: 'cvIngles', peso: PESOS.cvIngles, estado: perfil.hitoCvIngles, href: '/mi-hoja-de-vida',
-      titulo: T.pasos.cvIngles[0], porque: T.pasos.cvIngles[1] },
-    { id: 'linkedinCreado', peso: PESOS.linkedinCreado, estado: perfil.hitoLinkedinCreado,
+      titulo: T.pasos.perfilOcupacional[0],
+      porque: T.pasos.perfilOcupacional[1],
+    },
+    {
+      id: 'cvListo',
+      peso: PESOS.cvListo,
+      estado: perfil.hitoCvListo || 'NO',
+      href: '/mi-hoja-de-vida',
+      titulo: T.pasos.cvListo[0],
+      porque: T.pasos.cvListo[1],
+    },
+    {
+      id: 'cvIngles',
+      peso: PESOS.cvIngles,
+      estado: perfil.hitoCvIngles || 'NO',
+      href: '/mi-hoja-de-vida',
+      titulo: T.pasos.cvIngles[0],
+      porque: T.pasos.cvIngles[1],
+    },
+    {
+      id: 'linkedinCreado',
+      peso: PESOS.linkedinCreado,
+      estado: hitoLinkedin,
       href: '/configuracion-estudiante',
-      titulo: T.pasos.linkedinCreado[0], porque: T.pasos.linkedinCreado[1] },
-    { id: 'linkedinOptimizado', peso: PESOS.linkedinOptimizado, estado: perfil.hitoLinkedinOptimizado,
+      titulo: T.pasos.linkedinCreado[0],
+      porque: T.pasos.linkedinCreado[1],
+    },
+    {
+      id: 'linkedinOptimizado',
+      peso: PESOS.linkedinOptimizado,
+      estado: hitoLinkedin === 'SI' ? (perfil.hitoLinkedinOptimizado || 'NO') : 'NO',
       href: perfil.linkedinUrl || '/configuracion-estudiante',
-      titulo: T.pasos.linkedinOptimizado[0], porque: T.pasos.linkedinOptimizado[1] },
+      titulo: T.pasos.linkedinOptimizado[0],
+      porque: T.pasos.linkedinOptimizado[1],
+    },
     // La colocación no la marca el estudiante: la registra el equipo con el
     // contrato, y de ahí salen las cifras del cierre de cohorte. Se muestra
     // igual porque es casi un tercio del puntaje y omitirla haría que la ruta
     // no sumara 100.
-    { id: 'colocado', peso: PESOS.colocado, estado: perfil.colocado ? 'SI' : 'NO', href: null,
-      titulo: T.pasos.colocado[0], porque: T.pasos.colocado[1] },
+    {
+      id: 'colocado',
+      peso: PESOS.colocado,
+      estado: perfil.colocado ? 'SI' : 'NO',
+      href: null,
+      titulo: T.pasos.colocado[0],
+      porque: T.pasos.colocado[1],
+    },
   ]
 
   // El siguiente paso es el primero sin terminar que dependa del estudiante.
   // «En proceso» cuenta como no terminado: es justo donde alguien se quedó.
   const siguiente = pasos.find((p) => p.estado !== 'SI' && p.href !== null)?.id
 
+  // El porcentaje calculado refleja fielmente la suma de lo completado en la ruta
+  const porcentaje = calcularPorcentajeEmpleabilidad({
+    hitoPerfilOcupacional: hitoPerfil,
+    hitoCvListo: perfil.hitoCvListo,
+    hitoCvIngles: perfil.hitoCvIngles,
+    hitoLinkedinCreado: hitoLinkedin,
+    hitoLinkedinOptimizado: hitoLinkedin === 'SI' ? perfil.hitoLinkedinOptimizado : 'NO',
+    colocado: perfil.colocado,
+  })
+
   return (
-    <Card className="glass-card">
-      <CardHeader>
+    <Card className="glass-card overflow-hidden">
+      <CardHeader className="pb-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <CardTitle className="text-base">{T.titulo}</CardTitle>
-          <span className="text-2xl font-semibold tabular-nums text-primary">
-            {perfil.porcentajeEmpleabilidad}%
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base">{T.titulo}</CardTitle>
+            {porcentaje === 100 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                <CheckCircle2 className="size-3.5" /> 100%
+              </span>
+            )}
+          </div>
+          <span className="text-2xl font-semibold tabular-nums text-primary transition-all duration-500">
+            {porcentaje}%
           </span>
         </div>
         <CardDescription>{T.descripcion}</CardDescription>
+
+        {/* Barra de progreso reactiva y animada */}
+        <div className="mt-3 space-y-1">
+          <div
+            className="h-2.5 w-full overflow-hidden rounded-full bg-secondary"
+            role="progressbar"
+            aria-label={T.progresoGeneral}
+            aria-valuenow={porcentaje}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+              style={{ width: `${porcentaje}%` }}
+            />
+          </div>
+        </div>
       </CardHeader>
 
-      <CardContent>
-        <ol className="flex flex-col">
+      <CardContent className="pt-2">
+        <ol className="flex flex-col space-y-1">
           {pasos.map((paso, i) => {
             const hecho = paso.estado === 'SI'
             const enProceso = paso.estado === 'EN_PROCESO'
@@ -135,38 +217,69 @@ export function MiRuta({ perfil }: { perfil: EstudianteResponse }) {
                 {/* La línea que une los pasos: es lo que convierte seis
                     tarjetas en un recorrido. No se dibuja bajo el último. */}
                 <span className="flex flex-col items-center self-stretch">
-                  <Icono
-                    className={`size-5 shrink-0 ${
-                      hecho ? 'text-emerald-600 dark:text-emerald-400'
-                        : enProceso ? 'text-amber-600 dark:text-amber-400'
-                          : esElSiguiente ? 'text-primary' : 'text-muted-foreground/50'
-                    }`}
-                    strokeWidth={2}
-                  />
+                  <span className={`relative flex size-6 shrink-0 items-center justify-center rounded-full ${
+                    esElSiguiente ? 'ring-2 ring-primary/40 bg-primary/10' : ''
+                  }`}>
+                    <Icono
+                      className={`size-5 shrink-0 transition-colors duration-300 ${
+                        hecho
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : enProceso
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : esElSiguiente
+                              ? 'text-primary'
+                              : 'text-muted-foreground/50'
+                      }`}
+                      strokeWidth={2}
+                    />
+                  </span>
                   {i < pasos.length - 1 && (
-                    <span className={`mt-1 w-px flex-1 ${hecho ? 'bg-emerald-600/40' : 'bg-border'}`} />
+                    <span
+                      className={`mt-1.5 w-px flex-1 transition-colors duration-500 ${
+                        hecho ? 'bg-emerald-600/40' : 'bg-border'
+                      }`}
+                    />
                   )}
                 </span>
 
-                <span className="min-w-0 flex-1 pb-4">
-                  <span className="flex flex-wrap items-baseline gap-x-2">
-                    <span className={`text-sm font-semibold ${hecho ? 'text-muted-foreground line-through decoration-1' : 'text-foreground'}`}>
+                <span className="min-w-0 flex-1 pb-3 pt-0.5">
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span
+                      className={`text-sm font-semibold transition-colors ${
+                        hecho
+                          ? 'text-muted-foreground line-through decoration-1'
+                          : esElSiguiente
+                            ? 'text-foreground font-bold'
+                            : 'text-foreground'
+                      }`}
+                    >
                       {paso.titulo}
                     </span>
-                    <span className="text-xs tabular-nums text-muted-foreground">{T.vale(paso.peso)}</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {T.vale(paso.peso)}
+                    </span>
                     {esElSiguiente && (
-                      <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground shadow-xs motion-safe:animate-pulse">
+                        <Sparkles className="size-3" />
                         {T.ahora}
                       </span>
                     )}
                     {enProceso && !esElSiguiente && (
-                      <span className="text-xs text-amber-700 dark:text-amber-400">{T.enProceso}</span>
+                      <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                        {T.enProceso}
+                      </span>
+                    )}
+                    {hecho && (
+                      <span className="rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                        {T.hecho}
+                      </span>
                     )}
                   </span>
+
                   {/* El «por qué» solo en lo que falta: en lo ya hecho es ruido
                       que aleja el paso siguiente del pulgar. */}
                   {!hecho && (
-                    <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
+                    <span className="mt-1 block text-xs leading-4 text-muted-foreground">
                       {paso.porque}
                       {paso.href === null && ` · ${T.loRegistraElEquipo}`}
                     </span>
@@ -175,10 +288,29 @@ export function MiRuta({ perfil }: { perfil: EstudianteResponse }) {
               </>
             )
 
-            const clases = `flex gap-3 rounded-md ${paso.href ? 'cursor-pointer hover:bg-secondary/40' : ''} ${esElSiguiente ? 'bg-primary/5' : ''} px-2 -mx-2 pt-2`
+            const clases = `w-full text-left flex gap-3 rounded-xl px-3 -mx-3 py-2 transition-all duration-200 ${
+              esElSiguiente
+                ? 'bg-primary/[0.06] border border-primary/25 shadow-xs'
+                : 'hover:bg-secondary/50'
+            } cursor-pointer`
 
-            // Solo se hace pulsable lo que lleva a algún sitio. Una lista donde
-            // todo parece enlace y la mitad no lo es enseña a no pulsar nada.
+            // Si se proporciona onAbrirPaso, todos los pasos accionables abren el modal in-situ
+            if (onAbrirPaso) {
+              return (
+                <li key={paso.id}>
+                  <button
+                    type="button"
+                    onClick={() => onAbrirPaso(paso.id)}
+                    className={clases}
+                    aria-label={`${paso.titulo} (${paso.estado === 'SI' ? T.hecho : T.pendiente})`}
+                  >
+                    {contenido}
+                  </button>
+                </li>
+              )
+            }
+
+            // Fallback si no hay controlador de modal
             return paso.href ? (
               <li key={paso.id}>
                 <a
@@ -191,7 +323,9 @@ export function MiRuta({ perfil }: { perfil: EstudianteResponse }) {
                 </a>
               </li>
             ) : (
-              <li key={paso.id} className={clases}>{contenido}</li>
+              <li key={paso.id} className={clases}>
+                {contenido}
+              </li>
             )
           })}
         </ol>

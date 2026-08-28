@@ -6,9 +6,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 class HashTest {
     @Test
     void generarHash() {
-        String pass = "Estudiante2026*";
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        String hash = encoder.encode(pass);
-        System.out.println(">>> HASH_GENERADO: " + hash + " <<<");
+        System.out.println(">>> HASH_ADMIN: " + encoder.encode("admin123") + " <<<");
+        System.out.println(">>> HASH_COORD: " + encoder.encode("coord123") + " <<<");
+        System.out.println(">>> HASH_EMPRESA: " + encoder.encode("empresa123") + " <<<");
+        System.out.println(">>> HASH_ESTUDIANTE: " + encoder.encode("estudiante123") + " <<<");
     }
 }

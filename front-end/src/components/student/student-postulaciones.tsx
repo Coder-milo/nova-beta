@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { ArrowRight, Briefcase, Building, Calendar, CheckCircle2 as CheckCircle, ChevronRight, CircleAlert as WarningCircle, Clock, DollarSign as CurrencyDollar, ExternalLink as ArrowSquareOut, GraduationCap, Languages as Translate, Laptop, LoaderCircle as CircleNotch, MapPin, RotateCcw, Search, Sparkles as Sparkle, Trash2 as Trash } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowRight, Briefcase, Building, Calendar, CheckCircle2 as CheckCircle, ChevronRight, CircleAlert as WarningCircle, Clock, DollarSign as CurrencyDollar, ExternalLink as ArrowSquareOut, GraduationCap, Languages as Translate, Laptop, LoaderCircle as CircleNotch, MapPin, RotateCcw, Search, Sparkles as Sparkle, Trash2 as Trash, X } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { ApiCallError, matchesApi, mensajeDeError, postulacionesApi } from '@/lib/api'
 import { hoyLocal } from '@/lib/utils'
+import { normalizarParaBuscar } from '@/lib/texto'
 import { usePreferences } from '@/lib/preferences'
 import type { MatchResponse, MiPostulacion, RazonDeMatch } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
@@ -303,7 +304,13 @@ function textos(english: boolean) {
 }
 
 export type TextosPostulaciones = ReturnType<typeof textos>
-function DetalleVacante({ m, T }: { m: MatchResponse; T: TextosPostulaciones }) {
+function DetalleVacante({
+  m,
+  T,
+}: {
+  m: MatchResponse
+  T: TextosPostulaciones
+}) {
   const ciudad = m.vacanteCiudad || m.vacanteUbicacion
   const experiencia =
     m.vacanteAniosExperienciaRequeridos == null
@@ -554,6 +561,11 @@ export function StudentPostulaciones() {
   const refrescarOportunidades = async () => {
     setBuscandoOportunidades(true)
     try {
+      try {
+        await matchesApi.recalcularMisMatches()
+      } catch {
+        // Si el endpoint bajo demanda falla o no está disponible, continuar con la consulta
+      }
       const page = await matchesApi.obtenerMisMatches(0, 100)
       setMatches(page.content)
       mostrarNotificacion(
@@ -643,6 +655,51 @@ export function StudentPostulaciones() {
     }
   }
 
+  const disponiblesCount = matches.filter((m) => !m.postulado).length
+  const postuladasCount = matches.filter((m) => m.postulado).length
+
+  // Filtrado y ordenación dinámicos con búsqueda normalizada multi-campo
+  const matchesFiltrados = useMemo(() => {
+    return matches.filter((m) => {
+      if (busqueda.trim()) {
+        const q = normalizarParaBuscar(busqueda)
+        if (q) {
+          const terminos = q.split(' ').filter(Boolean)
+          const textoCompleto = normalizarParaBuscar(
+            [
+              m.vacanteTitulo,
+              m.vacanteEmpresa,
+              m.vacanteUbicacion,
+              m.vacanteCiudad,
+              m.vacanteModalidadTrabajo,
+              m.vacanteTipoContrato,
+              m.vacanteJornada,
+              m.vacanteRequisitos,
+              m.vacanteDescripcion,
+              m.vacanteFuente,
+              m.vacanteNivelInglesRequerido,
+            ]
+              .filter(Boolean)
+              .join(' '),
+          )
+
+          const coincideTodo = terminos.every((termino) => textoCompleto.includes(termino))
+          if (!coincideTodo) return false
+        }
+      }
+      if (filtroEstado === 'disponibles') return !m.postulado
+      if (filtroEstado === 'postuladas') return m.postulado
+      return true
+    }).sort((a, b) => {
+      if (orden === 'recientes') {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+        return dateB - dateA
+      }
+      return b.puntaje - a.puntaje
+    })
+  }, [matches, busqueda, filtroEstado, orden])
+
   if (loading) {
     return (
       <div className="flex min-h-60 items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -651,30 +708,6 @@ export function StudentPostulaciones() {
       </div>
     )
   }
-
-  const disponiblesCount = matches.filter((m) => !m.postulado).length
-  const postuladasCount = matches.filter((m) => m.postulado).length
-
-  // Filtrado y ordenación dinámicos
-  const matchesFiltrados = matches.filter((m) => {
-    if (busqueda.trim()) {
-      const q = busqueda.toLowerCase().trim()
-      const matchTitulo = m.vacanteTitulo?.toLowerCase().includes(q)
-      const matchEmpresa = m.vacanteEmpresa?.toLowerCase().includes(q)
-      const matchUbicacion = m.vacanteUbicacion?.toLowerCase().includes(q)
-      if (!matchTitulo && !matchEmpresa && !matchUbicacion) return false
-    }
-    if (filtroEstado === 'disponibles') return !m.postulado
-    if (filtroEstado === 'postuladas') return m.postulado
-    return true
-  }).sort((a, b) => {
-    if (orden === 'recientes') {
-      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-      return dateB - dateA
-    }
-    return b.puntaje - a.puntaje
-  })
 
   return (
     <div className="space-y-8">
@@ -804,86 +837,99 @@ export function StudentPostulaciones() {
 
       {/* ── Sección de Oportunidades y Descubrimiento ── */}
       <section className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-foreground">
-              {T.oportunidades} ({matches.length})
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {T.exploraOportunidades}
-            </p>
-          </div>
-
-          {/* Barra de herramientas: Filtros, Búsqueda y Orden */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder={T.buscarVacante}
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                className="h-8 w-48 pl-8 text-xs sm:w-60"
-              />
+        {/* Cabecera y Barra de Control de Búsqueda */}
+        <div className="space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">
+                {T.oportunidades} ({matches.length})
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {T.exploraOportunidades}
+              </p>
             </div>
 
-            <div className="flex items-center rounded-lg border border-border bg-card p-0.5 text-xs">
-              <button
-                type="button"
-                onClick={() => setFiltroEstado('todas')}
-                className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                  filtroEstado === 'todas' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-                }`}
+            {/* Barra de herramientas: Búsqueda, Estado y Orden */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder={T.buscarVacante}
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  className="h-8 w-48 pl-8 pr-7 text-xs sm:w-60"
+                />
+                {busqueda && (
+                  <button
+                    type="button"
+                    onClick={() => setBusqueda('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer rounded-sm p-0.5"
+                    aria-label="Limpiar búsqueda"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center rounded-lg border border-border bg-card p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setFiltroEstado('todas')}
+                  className={`rounded-md px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+                    filtroEstado === 'todas' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {T.todas} ({matches.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroEstado('disponibles')}
+                  className={`rounded-md px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+                    filtroEstado === 'disponibles' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {T.nuevas} ({disponiblesCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroEstado('postuladas')}
+                  className={`rounded-md px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+                    filtroEstado === 'postuladas' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {T.postuladas} ({postuladasCount})
+                </button>
+              </div>
+
+              <select
+                value={orden}
+                onChange={(e) => setOrden(e.target.value as 'afinidad' | 'recientes')}
+                className="h-8 rounded-md border border-input bg-background px-2.5 text-xs cursor-pointer"
+                aria-label={T.ordenarPor}
               >
-                {T.todas} ({matches.length})
-              </button>
-              <button
+                <option value="afinidad">{T.mayorAfinidad}</option>
+                <option value="recientes">{T.masRecientes}</option>
+              </select>
+
+              <Button
                 type="button"
-                onClick={() => setFiltroEstado('disponibles')}
-                className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                  filtroEstado === 'disponibles' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-                }`}
+                variant="outline"
+                size="sm"
+                onClick={refrescarOportunidades}
+                disabled={buscandoOportunidades}
+                className="h-8 gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
+                title={T.tituloBuscarVacantes}
               >
-                {T.nuevas} ({disponiblesCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setFiltroEstado('postuladas')}
-                className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                  filtroEstado === 'postuladas' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {T.postuladas} ({postuladasCount})
-              </button>
+                <Sparkle className={`size-3.5 ${buscandoOportunidades ? 'animate-spin' : ''}`} />
+                {buscandoOportunidades ? T.buscandoVacantes : T.buscarMasVacantes}
+              </Button>
             </div>
-
-            <select
-              value={orden}
-              onChange={(e) => setOrden(e.target.value as 'afinidad' | 'recientes')}
-              className="h-8 rounded-md border border-input bg-background px-2.5 text-xs"
-              aria-label={T.ordenarPor}
-            >
-              <option value="afinidad">{T.mayorAfinidad}</option>
-              <option value="recientes">{T.masRecientes}</option>
-            </select>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={refrescarOportunidades}
-              disabled={buscandoOportunidades}
-              className="h-8 gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
-              title={T.tituloBuscarVacantes}
-            >
-              <Sparkle className={`size-3.5 ${buscandoOportunidades ? 'animate-spin' : ''}`} />
-              {buscandoOportunidades ? T.buscandoVacantes : T.buscarMasVacantes}
-            </Button>
           </div>
         </div>
 
         {matchesFiltrados.length === 0 ? (
           <Card className="border-dashed shadow-none">
-            <CardContent className="flex min-h-56 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+            <CardContent className="flex min-h-56 flex-col items-center justify-center gap-3 text-center text-muted-foreground p-6">
               <span className="flex size-12 items-center justify-center rounded-full bg-secondary">
                 <Briefcase className="size-5" />
               </span>
@@ -894,6 +940,19 @@ export function StudentPostulaciones() {
                     ? T.vacioSinVacantes
                     : T.sinResultadosFiltro}
               </p>
+              {busqueda && (
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBusqueda('')}
+                    className="text-xs"
+                  >
+                    {locale === 'en' ? 'Clear search text' : 'Borrar texto de búsqueda'}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (

@@ -100,7 +100,7 @@ public class ScrapingService {
         var activas = fuentes.stream().filter(FuenteDeVacantes::estaHabilitada).toList();
         var errores = new ArrayList<String>();
 
-        int cerradas = cerrarVencidas();
+        int cerradas = cerrarVencidas() + depurarVacantesNoConformes();
 
         // Fase de red, fuera de transaccion.
         var criterios = criteriosDeBusqueda();
@@ -113,18 +113,37 @@ public class ScrapingService {
         // cero igual que uno con los selectores rotos.
         var porPortal = contarPorPortal(activas, encontradas);
 
-        // El colador bilingue y geografico va despues de contar por portal y antes de
+        // El colador bilingue, geografico y de frescura temporal va despues de contar por portal y antes de
         // guardar: asi el registro sigue diciendo que trajo cada fuente —que es
         // como se ve si un portal murio— y aparte, cuantas se dejaron fuera.
         var bilingues = soloBilingues(encontradas);
         var validas = soloAtlanticoORemotas(bilingues);
-        int descartadas = encontradas.size() - validas.size();
+        var frescas = soloFrescas(validas, inicio);
+        int descartadas = encontradas.size() - frescas.size();
 
         // Fase de base de datos.
-        int nuevas = guardar(validas);
+        int nuevas = guardar(frescas);
 
         return registrarEjecucion(origen, inicio, activas, nuevas, cerradas, errores,
                 porPortal, descartadas);
+    }
+
+    /**
+     * Deja solo las ofertas con fecha de publicación verificada dentro de la ventana máxima de 7 días.
+     * Descarta ofertas sin fecha verificable o con más de 7 días de antigüedad.
+     */
+    private static List<OfertaCruda> soloFrescas(List<OfertaCruda> encontradas, LocalDateTime ahora) {
+        var frescas = new ArrayList<OfertaCruda>();
+        for (var oferta : encontradas) {
+            if (com.novacrm.scraper.fuente.FiltroFrescura.esFresca(oferta.vacante(), ahora)) {
+                frescas.add(oferta);
+            } else {
+                log.debug("Descartada por no cumplir frescura temporal (<= 7 días): {} [{}] fecha={}",
+                        oferta.vacante().getTitulo(), oferta.vacante().getFuente(),
+                        oferta.vacante().getFechaPublicacion());
+            }
+        }
+        return frescas;
     }
 
     /**
@@ -234,12 +253,60 @@ public class ScrapingService {
         return vencidas.size();
     }
 
+    /**
+     * Sanea integralmente la base de datos cerrando todas las vacantes no conformes:
+     * 1. Antigüedad mayor a 7 días respecto a la fecha actual o fecha no verificable.
+     * 2. Ubicación presencial/híbrida fuera del Atlántico (no 100% remotas).
+     * 3. Ofertas monolingües que no exigen inglés.
+     *
+     * @return cuantas vacantes fueron cerradas
+     */
+    @Transactional
+    public int depurarVacantesNoConformes() {
+        var ahora = LocalDateTime.now();
+        var limiteFrescura = ahora.minusDays(com.novacrm.scraper.fuente.FiltroFrescura.DIAS_MAXIMOS_DEFECTO);
+        var noConformes = vacanteRepository.findByActivoTrue().stream()
+                .filter(v -> {
+                    // 1. Antigüedad mayor a 7 días o fecha nula
+                    if (v.getFechaPublicacion() == null || v.getFechaPublicacion().isBefore(limiteFrescura)) {
+                        return true;
+                    }
+                    // 2. Ubicación no admisible (no Atlántico ni 100% Remoto)
+                    if (!com.novacrm.scraper.fuente.AreaMetropolitana.esAtlanticoORemota(v)) {
+                        return true;
+                    }
+                    // 3. No exige inglés
+                    if (!com.novacrm.scraper.fuente.FiltroBilingue.esDeTrabajoEnIngles(v)) {
+                        return true;
+                    }
+                    return false;
+                })
+                .toList();
+
+        for (var v : noConformes) {
+            MotivoCierre motivo = MotivoCierre.EXPIRADA;
+            if (!com.novacrm.scraper.fuente.AreaMetropolitana.esAtlanticoORemota(v) ||
+                    !com.novacrm.scraper.fuente.FiltroBilingue.esDeTrabajoEnIngles(v)) {
+                motivo = MotivoCierre.FUERA_DE_PERFIL;
+            }
+            v.cerrar(motivo, ahora);
+        }
+        vacanteRepository.saveAll(noConformes);
+        if (!noConformes.isEmpty()) {
+            log.info("Depuracion integral: {} vacantes no conformes cerradas en base de datos", noConformes.size());
+        }
+        return noConformes.size();
+    }
+
     /** Terminos y ciudades derivados de lo que declararon los participantes. */
     @Transactional(readOnly = true)
     public Criterios criteriosDeBusqueda() {
         var terminos = TerminosDeBusqueda.desdeEstudiantes(
                 estudianteRepository.findCargosObjetivoDeActivos(),
-                estudianteRepository.findSectoresObjetivoDeActivos());
+                estudianteRepository.findSectoresObjetivoDeActivos(),
+                estudianteRepository.findTitulosDeActivos(),
+                estudianteRepository.findProgramasAcademicosDeActivos(),
+                estudianteRepository.findAreasFormacionDeActivos());
         var ciudades = TerminosDeBusqueda.ciudades(
                 estudianteRepository.findCiudadesDeActivosPorFrecuencia());
         return new Criterios(terminos, ciudades);
@@ -715,9 +782,10 @@ public class ScrapingService {
 
         var bilingues = soloBilingues(encontradas);
         var validas = soloAtlanticoORemotas(bilingues);
-        int descartadas = encontradas.size() - validas.size();
+        var frescas = soloFrescas(validas, inicio);
+        int descartadas = encontradas.size() - frescas.size();
 
-        int nuevas = guardar(validas);
+        int nuevas = guardar(frescas);
 
         return registrarEjecucion(ScrapingEjecucion.Origen.MANUAL, inicio, List.of(fuente),
                 nuevas, 0, errores, porPortal, descartadas);

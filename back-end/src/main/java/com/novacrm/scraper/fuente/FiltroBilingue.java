@@ -5,84 +5,125 @@ import com.novacrm.vacante.Vacante;
 import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Decide si una oferta es de trabajo en ingles.
+ * Decide con rigor estricto si una oferta de empleo exige dominio del idioma inglés
+ * (perfil bilingüe multidisciplinar) o si debe ser 100% descartada.
  *
- * <p>El programa forma para empleabilidad <strong>bilingue</strong>. Una plaza
- * que no exige ingles puede ser una oferta estupenda y aun asi no servirle a
- * esta poblacion: 71 de los 108 activos apuntan a BPO y casi todos escribieron
- * un cargo objetivo que empieza por «Bilingual». Buscar «bilingue» en los
- * portales acerca, pero no basta —un buscador que recibe «asesor bilingue»
- * devuelve tambien «asesor comercial»—, y sin este filtro el tablon se llena de
- * ofertas monolingues entre las que hay que ir a pescar las cinco que valen.
+ * <p>El programa forma para empleabilidad <strong>bilingüe</strong> en diversas disciplinas
+ * (Ingenierías, Software/Tech, Finanzas, Negocios, Diseño Gráfico, Marketing, Operaciones,
+ * Soporte/BPO, etc.). Una plaza que no exige inglés no le sirve a los participantes.
  *
- * <h2>Que cuenta como prueba, y que no</h2>
- *
- * <p>Solo cuenta la <strong>mencion explicita del idioma</strong>: «bilingue»,
- * «ingles», «english», un nivel del marco europeo. Deliberadamente <em>no</em>
- * cuentan dos cosas que tientan:
- *
+ * <h2>Qué cuenta como prueba, y qué no</h2>
  * <ul>
- *   <li><strong>El nombre de la empresa.</strong> Los grandes BPO del Atlantico
- *       contratan tambien para campanas en espanol; dar por bilingue todo lo que
- *       publica un contact center meteria justo el ruido que esto quita.
- *   <li><strong>El cargo en ingles.</strong> «Customer Service Agent» como
- *       titulo no dice nada del idioma de trabajo: los portales colombianos
- *       publican cargos en ingles para plazas enteramente en espanol.
+ *   <li><strong>100% Gatekeeper:</strong> Las ofertas locales en español que no exijan inglés
+ *       son 100% rechazadas.</li>
+ *   <li><strong>Remoto en Inglés:</strong> Las ofertas con segmento {@link Segmento#REMOTO_INGLES}
+ *       pasan automáticamente, pues nacen en inglés para el mercado internacional.</li>
+ *   <li><strong>Nivel Explícito Previo:</strong> Si la vacante ya tiene {@code nivelInglesRequerido}
+ *       declarado, pasa automáticamente.</li>
+ *   <li><strong>Mención Explícita Multidisciplinar:</strong> Detecta menciones explícitas de idioma
+ *       («bilingüe», «inglés», «english»), niveles MCER/CEFR («B1», «B2», «C1», «C2», «B1+», «B2+»,
+ *       «C1+», «B1/B2», «B2/C1»), y variaciones de fraseo («inglés avanzado», «inglés intermedio»,
+ *       «inglés conversacional», «inglés fluido», «inglés técnico», «dominio de inglés», «manejo de inglés»,
+ *       «100% bilingüe», «totalmente bilingüe», «fluent in english», «working english», «english proficiency»).</li>
+ *   <li><strong>Protección contra Falsos Positivos:</strong> Neutraliza acrónimos comerciales
+ *       («B2B», «B2C», «B2G», «2B»), licencias de conducción («Licencia C1», «Pase B2»), ubicaciones
+ *       físicas («Zona B2», «Bodega B1», «Piso B2», «Pasillo B1»), vitaminas («Vitamina B1») y
+ *       cargos en inglés para plazas en español sin requisito de idioma.</li>
  * </ul>
- *
- * <p>Y al reves: <strong>lo que ya nace en ingles no se examina</strong>. Una
- * fuente de segmento {@link Segmento#REMOTO_INGLES} publica en ingles para
- * empresas de fuera; pedirle ademas que diga «bilingue» seria descartarla toda.
  */
 public final class FiltroBilingue {
 
     /**
-     * La prueba: el texto habla del idioma.
-     *
-     * <p>Ya normalizado —sin tildes y en minusculas—, asi que «bilingüe»,
-     * «Bilingüe» y «BILINGUE» caen en «bilingu».
+     * Raíces y expresiones que de forma inequívoca indican exigencia de idioma extranjero o inglés.
      */
-    private static final List<String> PRUEBAS_DE_IDIOMA = List.of(
-            "bilingu",        // bilingue, bilingual, bilinguismo
-            "trilingu",       // trilingue, trilingual
-            "ingles",
-            "english",
+    private static final List<String> RAICES_IDIOMA = List.of(
+            "bilingu",           // bilingue, bilingüe, bilingual, bilinguismo, bilingualism, 100% bilingue
+            "trilingu",          // trilingue, trilingual
+            "ingles",            // ingles, inglés
+            "english",           // english
             "idioma extranjero",
+            "idiomas extranjeros",
             "segundo idioma",
-            "nivel de idioma",
-            "b1", "b2", "c1", "c2");
-    // «fluent» y «conversational» estuvieron aqui y se quitaron: solo pueden
-    // decidir algo cuando la oferta no dice «english» ni «ingles» por ningun
-    // lado, y justo entonces no prueban nada —«fluent written communication» es
-    // una frase de cualquier anuncio en ingles—. Cuando acompañan al idioma
-    // («conversational English») ya los cubre la prueba de la palabra suelta.
-    // Dejarlos colaba ofertas en ingles que no piden ingles al candidato.
+            "lengua extranjera",
+            "lenguas extranjeras",
+            "lengua inglesa"
+    );
 
     /**
-     * Niveles sueltos que dan falsos positivos si se buscan como fragmento.
-     *
-     * <p>«b2» aparece dentro de referencias de puesto y de codigos; se exige que
-     * vaya rodeado de algo que lo haga un nivel de idioma. Sin esto, una oferta
-     * de «operario zona B2» pasaba por bilingue.
+     * Patrón de marco europeo explícito (MCER / CEFR / Marco común europeo / Nivel de idioma).
+     * Ejemplos: "MCER B2", "CEFR C1", "MCER-B2", "CEFR: B2+", "Marco Comun Europeo B2".
      */
-    private static final List<String> NIVELES = List.of("b1", "b2", "c1", "c2");
+    private static final Pattern PATRON_MARCO_EUROPEO = Pattern.compile(
+            "\\b(?:mcer|cefr|marco\\s+(?:comun\\s+)?europeo)\\s*[:\\-–—]?\\s*(?:nivel\\s*)?([abc][12](?:\\s*\\+|\\s*\\-|\\s*[\\/\\-]\\s*[abc][12])?)\\b"
+    );
+
+    /**
+     * Patrón de nivel explícito ("nivel B2", "level C1", "nivel: B2+", "level B1/B2").
+     */
+    private static final Pattern PATRON_NIVEL_EXPLICITO = Pattern.compile(
+            "\\b(?:nivel|level)\\s*[:\\-–—]?\\s*([abc][12](?:\\s*\\+|\\s*\\-|\\s*[\\/\\-]\\s*[abc][12])?)\\b"
+    );
+
+    /**
+     * Patrón de nivel sufijo ("B2 level", "C1 level", "B2 nivel", "C1 nivel").
+     */
+    private static final Pattern PATRON_NIVEL_SUFIJO = Pattern.compile(
+            "\\b([abc][12](?:\\s*\\+|\\s*\\-|\\s*[\\/\\-]\\s*[abc][12])?)\\s*(?:level|nivel)\\b"
+    );
+
+    /**
+     * Patrón de rangos de nivel MCER compuestos ("B1/B2", "B2/C1", "C1/C2", "B1-B2", "B2-C1", "B1 a B2", "B2 a C1").
+     */
+    private static final Pattern PATRON_RANGO_NIVELES = Pattern.compile(
+            "\\b([abc][12])\\s*(?:[\\/\\-]|a|o|to)\\s*([abc][12])\\b"
+    );
+
+    /**
+     * Niveles estándar evaluados individualmente.
+     */
+    private static final List<String> NIVELES_INDIVIDUALES = List.of("b1", "b2", "c1", "c2");
+
+    /**
+     * Prefijos o contextos negativos que invalidan un código alfanumérico como nivel de idioma.
+     */
+    private static final List<String> PREFIJOS_NEGATIVOS = List.of(
+            // Lugares e infraestructura
+            "zona", "bodega", "piso", "pasillo", "sector", "modulo", "bloque",
+            "torre", "manzana", "puerta", "sotano", "anden", "parqueadero",
+            "local", "stand", "planta", "sede", "estante",
+            // Licencias de conducción (Colombia categorías B1, B2, C1, C2, C3)
+            "licencia", "pase", "conduccion", "conducir", "categoria", "chofer", "conductor",
+            // Vitaminas y medicina
+            "vitamina", "complejo",
+            // Formatos y papel
+            "formato", "tamano", "tamano de papel"
+    );
+
+    /**
+     * Acrónimos comerciales no idiomáticos.
+     */
+    private static final Pattern PATRON_ACRONIMOS_NEGATIVOS = Pattern.compile(
+            "\\b(?:b2b|b2c|b2g|b2e|c2c|2b|2c)\\b"
+    );
 
     private FiltroBilingue() {
     }
 
     /**
-     * Si la oferta le sirve a un programa bilingue.
+     * Evalúa si la oferta le sirve al programa bilingüe multidisciplinar.
      *
-     * <p>Mira titulo, descripcion, requisitos y el nivel de ingles que declare
-     * la propia oferta. No mira la empresa, por lo dicho arriba.
+     * @param vacante vacante a validar
+     * @return {@code true} si exige inglés o es remota global; {@code false} en caso contrario.
      */
     public static boolean esDeTrabajoEnIngles(Vacante vacante) {
         if (vacante == null) {
             return false;
         }
-        // Lo que ya viene en ingles por construccion no se examina.
+        // Lo que ya viene en inglés por construcción (fuentes remotas) no se examina.
         if (vacante.getSegmento() == Segmento.REMOTO_INGLES) {
             return true;
         }
@@ -101,50 +142,111 @@ public final class FiltroBilingue {
         if (t.isBlank()) {
             return false;
         }
-        for (String prueba : PRUEBAS_DE_IDIOMA) {
-            if (NIVELES.contains(prueba)) {
-                if (esNivelDeIdioma(t, prueba)) {
-                    return true;
-                }
-                continue;
-            }
-            if (t.contains(prueba)) {
+
+        // 1. Raíces directas e inequívocas de idioma
+        for (String raiz : RAICES_IDIOMA) {
+            if (t.contains(raiz)) {
                 return true;
             }
         }
+
+        // 2. Patrones de marco europeo explícito (MCER / CEFR / Nivel B2)
+        if (PATRON_MARCO_EUROPEO.matcher(t).find()) {
+            return true;
+        }
+        Matcher mSufijo = PATRON_NIVEL_SUFIJO.matcher(t);
+        while (mSufijo.find()) {
+            if (esNivelValidoSinFalsoPositivo(t, mSufijo.start(), mSufijo.end(), mSufijo.group(1).trim())) {
+                return true;
+            }
+        }
+        Matcher mExp = PATRON_NIVEL_EXPLICITO.matcher(t);
+        while (mExp.find()) {
+            if (esNivelValidoSinFalsoPositivo(t, mExp.start(), mExp.end(), mExp.group(1).trim())) {
+                return true;
+            }
+        }
+
+        // 3. Rangos de niveles compuestos (ej. B1/B2, B2/C1)
+        Matcher mRango = PATRON_RANGO_NIVELES.matcher(t);
+        while (mRango.find()) {
+            if (esNivelValidoSinFalsoPositivo(t, mRango.start(), mRango.end(), mRango.group().trim())) {
+                return true;
+            }
+        }
+
+        // 4. Niveles individuales con filtro de falso positivo y contexto
+        for (String nivel : NIVELES_INDIVIDUALES) {
+            if (evaluarNivelIndividual(t, nivel)) {
+                return true;
+            }
+        }
+
         return false;
     }
 
     /**
-     * Un «b2» solo vale si esta cerca de una palabra de idioma.
-     *
-     * <p>Se mira una ventana de treinta caracteres a cada lado y no la oferta
-     * entera: en un texto largo casi siempre aparece «ingles» en alguna parte, y
-     * entonces la comprobacion del nivel no estaria comprobando nada —bastaria
-     * la palabra suelta, que ya la cubre la prueba anterior—.
+     * Un nivel individual (B1, B2, C1, C2) solo cuenta si no es falso positivo y tiene contexto idiomático.
      */
-    private static boolean esNivelDeIdioma(String texto, String nivel) {
+    private static boolean evaluarNivelIndividual(String texto, String nivel) {
         int desde = 0;
         while (true) {
             int i = texto.indexOf(nivel, desde);
             if (i < 0) {
                 return false;
             }
-            // Con limite de palabra: «b2» dentro de «sub2» o «b25» no es nivel.
-            boolean antesLimpio = i == 0 || !Character.isLetterOrDigit(texto.charAt(i - 1));
             int fin = i + nivel.length();
-            boolean despuesLimpio = fin >= texto.length()
-                    || !Character.isLetterOrDigit(texto.charAt(fin));
+
+            // Con límite de palabra: «b2» dentro de «sub2» o «b25» no es nivel.
+            boolean antesLimpio = i == 0 || !Character.isLetterOrDigit(texto.charAt(i - 1));
+            boolean despuesLimpio = fin >= texto.length() || !Character.isLetterOrDigit(texto.charAt(fin));
+
             if (antesLimpio && despuesLimpio) {
-                String ventana = texto.substring(Math.max(0, i - 30),
-                        Math.min(texto.length(), fin + 30));
-                if (ventana.contains("ingl") || ventana.contains("english")
-                        || ventana.contains("idioma") || ventana.contains("nivel")) {
-                    return true;
+                if (esNivelValidoSinFalsoPositivo(texto, i, fin, nivel)) {
+                    String ventana = texto.substring(Math.max(0, i - 40), Math.min(texto.length(), fin + 40));
+                    if (tieneContextoDeIdioma(ventana)) {
+                        return true;
+                    }
                 }
             }
             desde = i + 1;
         }
+    }
+
+    private static boolean esNivelValidoSinFalsoPositivo(String texto, int inicio, int fin, String tokenNivel) {
+        String fragmento = texto.substring(Math.max(0, inicio - 2), Math.min(texto.length(), fin + 2));
+        if (PATRON_ACRONIMOS_NEGATIVOS.matcher(fragmento).find()) {
+            return false;
+        }
+
+        int inicioPrefijo = Math.max(0, inicio - 35);
+        String prefijo = texto.substring(inicioPrefijo, inicio).trim();
+
+        for (String neg : PREFIJOS_NEGATIVOS) {
+            if (prefijo.endsWith(neg) || prefijo.matches(".*\\b" + neg + "\\b.*")) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static boolean tieneContextoDeIdioma(String ventana) {
+        return ventana.contains("ingl")
+                || ventana.contains("english")
+                || ventana.contains("idioma")
+                || ventana.contains("mcer")
+                || ventana.contains("cefr")
+                || ventana.contains("lengua")
+                || ventana.contains("language")
+                || ventana.contains("bilingu")
+                || ventana.contains("trilingu")
+                || ventana.contains("conversacional")
+                || ventana.contains("conversational")
+                || ventana.contains("fluido")
+                || ventana.contains("fluent")
+                || ventana.contains("tecnico")
+                || ventana.contains("technical");
     }
 
     private static String normalizar(String texto) {

@@ -34,15 +34,17 @@ class ArbeitnowConnectorTest {
      * alguien en Barranquilla: es ruido que compite por el cupo de
      * recomendaciones.
      */
+    private static final long EPOCH_FRESCO = java.time.Instant.now().minusSeconds(86400).getEpochSecond();
+
     @Test
     void descartaLasOfertasSinPatrocinioDeVisa() throws Exception {
         assertTrue(conector.mapear(oferta("""
-                {"slug": "sin-visa", "title": "Backend Engineer", "visa_sponsorship": false}
-                """)).isEmpty());
+                {"slug": "sin-visa", "title": "Backend Engineer", "visa_sponsorship": false, "created_at": %d}
+                """.formatted(EPOCH_FRESCO))).isEmpty());
 
         assertTrue(conector.mapear(oferta("""
-                {"slug": "con-visa", "title": "Backend Engineer", "visa_sponsorship": true}
-                """)).isPresent());
+                {"slug": "con-visa", "title": "Backend Engineer", "visa_sponsorship": true, "created_at": %d}
+                """.formatted(EPOCH_FRESCO))).isPresent());
     }
 
     @Test
@@ -50,8 +52,8 @@ class ArbeitnowConnectorTest {
         var sinFiltro = new ArbeitnowConnector(true, false);
 
         assertTrue(sinFiltro.mapear(oferta("""
-                {"slug": "sin-visa", "title": "Backend Engineer", "visa_sponsorship": false}
-                """)).isPresent());
+                {"slug": "sin-visa", "title": "Backend Engineer", "visa_sponsorship": false, "created_at": %d}
+                """.formatted(EPOCH_FRESCO))).isPresent());
     }
 
     @Test
@@ -67,9 +69,9 @@ class ArbeitnowConnectorTest {
                   "visa_sponsorship": true,
                   "job_types": ["full_time"],
                   "url": "https://www.arbeitnow.com/jobs/customer-support-berlin-123",
-                  "created_at": 1785000000
+                  "created_at": %d
                 }
-                """)).orElseThrow();
+                """.formatted(EPOCH_FRESCO))).orElseThrow();
 
         var vacante = resultado.vacante();
         assertEquals("Customer Support Specialist", vacante.getTitulo());
@@ -78,18 +80,30 @@ class ArbeitnowConnectorTest {
         assertEquals(Segmento.MIGRACION, vacante.getSegmento());
         assertEquals("full_time", vacante.getJornada());
         assertNotNull(vacante.getFechaPublicacion());
+        assertTrue(FiltroFrescura.esFresca(vacante.getFechaPublicacion()));
         assertEquals("Great team", vacante.getDescripcion(),
                 "la descripcion viene en HTML y alimenta la comparacion de terminos");
     }
 
     @Test
-    void unaOfertaSinSlugOSinTituloSeDescarta() throws Exception {
+    void unaOfertaSinSlugOSinTituloOSinFechaSeDescarta() throws Exception {
         assertTrue(conector.mapear(oferta("""
-                {"title": "Sin slug", "visa_sponsorship": true}
-                """)).isEmpty());
+                {"title": "Sin slug", "visa_sponsorship": true, "created_at": %d}
+                """.formatted(EPOCH_FRESCO))).isEmpty());
         assertTrue(conector.mapear(oferta("""
-                {"slug": "sin-titulo", "visa_sponsorship": true}
+                {"slug": "sin-titulo", "visa_sponsorship": true, "created_at": %d}
+                """.formatted(EPOCH_FRESCO))).isEmpty());
+        assertTrue(conector.mapear(oferta("""
+                {"slug": "sin-fecha", "title": "Backend Engineer", "visa_sponsorship": true}
                 """)).isEmpty());
+    }
+
+    @Test
+    void descartaOfertasConFechaMayorA7Dias() throws Exception {
+        long epochViejo = java.time.Instant.now().minusSeconds(30 * 86400L).getEpochSecond();
+        assertTrue(conector.mapear(oferta("""
+                {"slug": "oferta-vieja", "title": "Old Engineer", "visa_sponsorship": true, "created_at": %d}
+                """.formatted(epochViejo))).isEmpty());
     }
 
     @Test

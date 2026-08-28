@@ -527,11 +527,33 @@ export interface TipoCorreo {
 export const correosApi = {
   tipos: () => apiFetch<TipoCorreo[]>('/api/v1/correos/tipos'),
   /**
-   * HTML del correo con datos de ejemplo. Sale del mismo código que el envío
+   * HTML del correo con datos de ejemplo o de un estudiante específico. Sale del mismo código que el envío
    * real, así que lo que se ve aquí es lo que le llega al estudiante.
    */
-  vistaPrevia: (tipo: string, programaId?: string) =>
-    apiText(`/api/v1/correos/vista-previa/${tipo}${programaId ? `?programaId=${programaId}` : ''}`),
+  vistaPrevia: (tipo: string, programaId?: string, estudianteId?: string) => {
+    const params = new URLSearchParams()
+    if (programaId) params.set('programaId', programaId)
+    if (estudianteId) params.set('estudianteId', estudianteId)
+    const qs = params.toString() ? `?${params.toString()}` : ''
+    return apiText(`/api/v1/correos/vista-previa/${tipo}${qs}`)
+  },
+  /**
+   * Envía un correo de prueba del sistema en vivo a la dirección especificada.
+   */
+  enviarPrueba: (
+    body: { tipo: string; destinatario: string; programaId?: string; estudianteId?: string },
+    token?: string,
+  ) =>
+    apiFetch<{
+      enviados: number
+      bloqueadosPorLista: number
+      fallidos: number
+      canalDeCorreo: string
+    }>('/api/v1/correos/enviar-prueba', {
+      method: 'POST',
+      data: body,
+      token,
+    }),
 }
 
 /**
@@ -833,6 +855,8 @@ export const matchesApi = {
     apiFetch<void>(`/api/v1/matches/${matchId}`, { method: 'DELETE', token }),
   ejecutarMatching: (token?: string) =>
     apiFetch<{ matchesCreados: number }>('/api/v1/matches/ejecutar', { method: 'POST', token }),
+  recalcularMisMatches: (token?: string) =>
+    apiFetch<{ matchesCreados: number }>('/api/v1/matches/mis-matches/recalcular', { method: 'POST', token }),
 }
 
 // ─── Notificaciones ──────────────────────────────────────────────────────────
@@ -1196,6 +1220,8 @@ export const documentosApi = {
 import type {
   PlantillaResponse, HojaDeVidaResponse, GeneracionMasivaResponse, ExtraccionResponse,
   AnalisisCompletitudResponse, GenerarHvOpcionesRequest, DatosHvDto,
+  AuditoriaLinkedinDto, AplicarAuditoriaLinkedinRequest,
+  AdaptacionCvInglesRequest, AdaptacionCvInglesResponse, AplicarAdaptacionInglesRequest,
 } from './types'
 
 export const hvApi = {
@@ -1254,6 +1280,26 @@ export const hvApi = {
         seccionesExcluidas: opciones?.seccionesExcluidas,
         camposExcluidos: opciones?.camposExcluidos,
       },
+    }),
+  auditarLinkedin: (archivo: File, token?: string) =>
+    apiUpload<AuditoriaLinkedinDto>('/api/v1/hojas-de-vida/auditar-linkedin', { archivo }, token),
+  aplicarAuditoriaLinkedin: (payload: AplicarAuditoriaLinkedinRequest, token?: string) =>
+    apiFetch<EstudianteResponse>('/api/v1/hojas-de-vida/aplicar-auditoria-linkedin', {
+      method: 'POST',
+      data: payload,
+      token,
+    }),
+  adaptarIngles: (payload?: AdaptacionCvInglesRequest, token?: string) =>
+    apiFetch<AdaptacionCvInglesResponse>('/api/v1/hojas-de-vida/adaptar-ingles', {
+      method: 'POST',
+      data: payload,
+      token,
+    }),
+  aplicarIngles: (payload: AplicarAdaptacionInglesRequest, token?: string) =>
+    apiFetch<void>('/api/v1/hojas-de-vida/aplicar-ingles', {
+      method: 'POST',
+      data: payload,
+      token,
     }),
 }
 

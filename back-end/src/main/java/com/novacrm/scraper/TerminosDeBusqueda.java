@@ -2,6 +2,7 @@ package com.novacrm.scraper;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -11,152 +12,170 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Decide que se busca en los portales de empleo.
+ * Generador dinámico y multidisciplinar de términos de búsqueda enriquecidos para vacantes bilingües.
  *
- * <p>Este programa es de <strong>empleabilidad bilingue</strong>: lo que forma
- * es gente que trabaje en ingles, y la salida natural en el Atlantico es el
- * BPO. Los datos de la cohorte lo dicen sin ambiguedad —71 de 108 declararon
- * «BPO / Servicios tercerizados» como sector, y casi todos los cargos objetivo
- * empiezan por «Bilingual»—. Una vacante que no exige ingles no le sirve a esta
- * poblacion aunque sea una oferta perfectamente buena.
- *
- * <p>De ahi las dos partes de esta clase:
- *
- * <ul>
- *   <li>Un <strong>nucleo fijo</strong> que se busca siempre. Es lo que hace
- *       que la corrida traiga BPO bilingue aunque las fichas esten a medio
- *       llenar o la cohorte cambie.
- *   <li>Lo que declararon los estudiantes, <strong>filtrado a lo bilingue y
- *       ordenado por frecuencia</strong>.
- * </ul>
- *
- * <p>Lo de la frecuencia no es un detalle: antes se tomaban los ocho primeros
- * valores de un {@code SELECT DISTINCT} sobre {@code cargoObjetivo}. Como cada
- * participante escribe el suyo, eran 108 cadenas distintas y los ocho primeros
- * salian en el orden que quisiera la base. La corrida podia acabar buscando
- * «bilingual special education teacher» —un caso— y no «bilingual customer
- * service agent», que es a lo que apunta media cohorte.
+ * <p>Extrae dinámicamente los perfiles de los estudiantes registrados a través de sus
+ * diversas carreras, títulos, cargos y programas académicos (Tecnología, Datos,
+ * Finanzas, Negocios, Ingenierías, Diseño, Marketing, Soporte/BPO), enriqueciéndolos
+ * automáticamente con sufijos y operadores de búsqueda bilingüe adaptados a los portales
+ * de empleo.
  */
 public final class TerminosDeBusqueda {
 
-    /**
-     * Lo que se busca siempre, pase lo que pase con las fichas.
-     *
-     * <p>Van en espanol y en el orden en que rinden en los portales locales:
-     * «bilingue» a secas es el termino con el que las empresas del Atlantico
-     * publican estas plazas, mucho mas que cualquier cargo en ingles. Las
-     * ofertas de Computrabajo y Elempleo estan escritas en espanol aunque el
-     * trabajo sea en ingles.
-     */
-    static final List<String> NUCLEO_BILINGUE = List.of(
-            "bilingue",
-            "bilingual customer service",
-            "call center bilingue",
-            "asesor bilingue",
-            "ingles b2",
-            "bpo");
+    /** Tope por corrida: cada término es una petición más al portal. */
+    public static final int MAX_TERMINOS = 10;
 
-    /** Cuantos se reserva el nucleo. El resto sale de las fichas. */
+    /** Ciudad por defecto cuando no hay ninguna registrada. */
+    public static final String CIUDAD_POR_DEFECTO = "Colombia";
+
+    /**
+     * Núcleo balanceado y multidisciplinar de respaldo.
+     * Cubre Tech, Datos, Negocios/Finanzas, Ingenierías, Diseño, Marketing y Soporte/BPO.
+     */
+    public static final List<String> RESPALDO = List.of(
+            "bilingue",
+            "desarrollador bilingue",
+            "software engineer bilingual",
+            "analista datos bilingue",
+            "contador bilingue",
+            "ingeniero bilingue",
+            "disenador bilingue",
+            "marketing bilingue",
+            "bilingual customer service",
+            "soporte bilingue");
+
+    /** Alias por retrocompatibilidad */
+    public static final List<String> NUCLEO_BILINGUE = RESPALDO;
+
+    /** Cuantos se reserva el nucleo (retrocompatibilidad). */
     static final int RESERVADOS_AL_NUCLEO = NUCLEO_BILINGUE.size();
 
     /**
-     * Se usan si no hay ni fichas ni nada que derivar.
+     * Marcas de que un término ya contiene un modificador de idioma o búsqueda bilingüe.
      */
-    static final List<String> RESPALDO = List.of(
-            "bilingue",
-            "bilingual customer service",
-            "call center bilingue",
-            "asesor bilingue",
-            "ingles b2",
-            "ingles c1",
-            "bpo",
-            "customer service bilingue",
-            "soporte bilingue",
-            "servicio al cliente bilingue");
+    private static final Set<String> MARCAS_BILINGUES = Set.of(
+            "bilingu",      // bilingue, bilingual, bilingüe
+            "ingles",       // ingles, inglés
+            "english",      // english
+            "bpo",          // bpo
+            "c1",
+            "b2"
+    );
 
-    /** Tope por corrida: cada termino es una peticion mas al portal. */
-    static final int MAX_TERMINOS = 10;
-
-    /** Ciudad por defecto cuando no hay ninguna registrada. */
-    static final String CIUDAD_POR_DEFECTO = "Colombia";
-
-    /**
-     * Marcas de que un texto habla de trabajo en ingles.
-     *
-     * <p>Se usa para elegir <em>terminos de busqueda</em>, no para decidir si
-     * una oferta sirve; eso es mas estricto y vive en {@code FiltroBilingue}.
-     * Aqui basta con que la pista apunte al mundo del BPO bilingue, porque el
-     * peor caso es gastar una consulta.
-     */
-    private static final Set<String> PISTAS_DE_INGLES = Set.of(
-            "bilingu",      // bilingue, bilingual, bilingüe ya normalizado
-            "ingles",
-            "english",
-            "bpo",
-            "call center",
-            "contact center",
-            "customer service",
-            "customer experience",
-            "customer success",
-            "technical support",
-            "back office",
-            "help desk",
-            "telesales",
-            "chat support");
+    private static final String REGEX_DELIMITADORES = "[/|,;&\\n\\r]|\\b(y|e|and)\\b";
 
     private TerminosDeBusqueda() {
     }
 
     /**
-     * Construye los terminos: primero el nucleo, despues lo de las fichas.
-     *
-     * @param cargosObjetivo   valores de {@code cargoObjetivo}, uno por ficha
-     * @param sectoresObjetivo valores de {@code sectorObjetivo}, uno por ficha
+     * Construye los términos combinando colecciones arbitrarias de campos de estudiantes.
      */
+    @SafeVarargs
+    public static List<String> desdeEstudiantes(List<String>... coleccionesValores) {
+        if (coleccionesValores == null || coleccionesValores.length == 0) {
+            return RESPALDO;
+        }
+        return desdeColecciones(Arrays.asList(coleccionesValores));
+    }
+
+    /** Retrocompatibilidad (2 parámetros: cargos y sectores) */
     public static List<String> desdeEstudiantes(List<String> cargosObjetivo,
                                                 List<String> sectoresObjetivo) {
-        // El cargo es mas especifico que el sector, asi que pesa primero. Los
-        // dos se cuentan juntos para que un cargo que aparece dos veces gane a
-        // un sector que aparece una.
-        var derivados = porFrecuencia(cargosObjetivo, sectoresObjetivo);
+        if (cargosObjetivo == null && sectoresObjetivo == null) {
+            return RESPALDO;
+        }
+        List<List<String>> listas = new ArrayList<>();
+        if (cargosObjetivo != null) listas.add(cargosObjetivo);
+        if (sectoresObjetivo != null) listas.add(sectoresObjetivo);
+        return desdeColecciones(listas);
+    }
 
-        // Sin nada que derivar se usa el respaldo entero y no solo el nucleo:
-        // si no hay fichas de las que aprender, conviene abrir un poco mas la
-        // busqueda dentro de lo bilingue en vez de repetir cuatro terminos.
+    /** Ingesta completa de 5 campos académicos y profesionales */
+    public static List<String> desdeEstudiantes(List<String> cargosObjetivo,
+                                                List<String> sectoresObjetivo,
+                                                List<String> titulos,
+                                                List<String> programasAcademicos,
+                                                List<String> areasFormacion) {
+        if (cargosObjetivo == null && sectoresObjetivo == null && titulos == null
+                && programasAcademicos == null && areasFormacion == null) {
+            return RESPALDO;
+        }
+        List<List<String>> listas = new ArrayList<>();
+        if (cargosObjetivo != null) listas.add(cargosObjetivo);
+        if (sectoresObjetivo != null) listas.add(sectoresObjetivo);
+        if (titulos != null) listas.add(titulos);
+        if (programasAcademicos != null) listas.add(programasAcademicos);
+        if (areasFormacion != null) listas.add(areasFormacion);
+        return desdeColecciones(listas);
+    }
+
+    public static List<String> generar(List<String> textosCandidatos, List<String> sectores) {
+        return desdeEstudiantes(textosCandidatos, sectores);
+    }
+
+    private static List<String> desdeColecciones(List<List<String>> colecciones) {
+        var derivados = porFrecuenciaColecciones(colecciones);
+
         if (derivados.isEmpty()) {
             return RESPALDO;
         }
 
-        Set<String> terminos = new LinkedHashSet<>(NUCLEO_BILINGUE);
+        Set<String> terminos = new LinkedHashSet<>();
         for (String termino : derivados) {
             if (terminos.size() >= MAX_TERMINOS) {
                 break;
             }
             terminos.add(termino);
         }
+
+        // Si los derivados de los estudiantes son menos de MAX_TERMINOS,
+        // completamos con el núcleo multidisciplinar para aprovechar la cuota
+        if (terminos.size() < MAX_TERMINOS) {
+            for (String respaldo : RESPALDO) {
+                if (terminos.size() >= MAX_TERMINOS) {
+                    break;
+                }
+                terminos.add(respaldo);
+            }
+        }
+
         return List.copyOf(terminos);
     }
 
-    /**
-     * Los trozos que mas se repiten entre las fichas, solo los bilingues.
-     *
-     * <p>Se cuenta despues de trocear y limpiar, no sobre la cadena entera: las
-     * cadenas enteras son unicas —cada participante escribe la suya— y contar
-     * ahi daria uno para todo. Troceada, «Bilingual Customer Service Agent /
-     * Telesales Representative» aporta dos trozos que si coinciden con los de
-     * otras fichas.
-     */
-    static List<String> porFrecuencia(List<String> cargos, List<String> sectores) {
-        Map<String, Integer> cuenta = new LinkedHashMap<>();
-        contar(cuenta, cargos);
-        contar(cuenta, sectores);
+    @SafeVarargs
+    public static List<String> porFrecuencia(List<String>... colecciones) {
+        if (colecciones == null || colecciones.length == 0) {
+            return List.of();
+        }
+        return porFrecuenciaColecciones(Arrays.asList(colecciones));
+    }
 
-        return cuenta.entrySet().stream()
-                .filter(e -> hablaDeIngles(e.getKey()))
-                // Mas frecuente primero; a igualdad, el orden en que se vio.
-                // Estable a proposito: dos corridas seguidas sobre la misma
-                // cohorte tienen que buscar lo mismo, o no hay forma de saber
-                // si un portal dejo de responder o es que se le pidio otra cosa.
+    public static List<String> porFrecuencia(List<String> cargos, List<String> sectores) {
+        List<List<String>> listas = new ArrayList<>();
+        if (cargos != null) listas.add(cargos);
+        if (sectores != null) listas.add(sectores);
+        return porFrecuenciaColecciones(listas);
+    }
+
+    private static List<String> porFrecuenciaColecciones(List<List<String>> colecciones) {
+        Map<String, Integer> cuenta = new LinkedHashMap<>();
+        if (colecciones != null) {
+            for (List<String> valores : colecciones) {
+                contar(cuenta, valores);
+            }
+        }
+
+        Map<String, Integer> cuentaEnriquecida = new LinkedHashMap<>();
+        for (Map.Entry<String, Integer> entry : cuenta.entrySet()) {
+            String terminoBase = entry.getKey();
+            int freq = entry.getValue();
+            String enriquecido = enriquecerTermino(terminoBase);
+            if (enriquecido != null && !enriquecido.isBlank()) {
+                cuentaEnriquecida.merge(enriquecido, freq, Integer::sum);
+            }
+        }
+
+        return cuentaEnriquecida.entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue(Comparator.reverseOrder()))
                 .map(Map.Entry::getKey)
                 .toList();
@@ -173,28 +192,60 @@ public final class TerminosDeBusqueda {
         }
     }
 
-    /** Si el texto —ya normalizado— apunta a trabajo en ingles o a BPO. */
-    static boolean hablaDeIngles(String textoNormalizado) {
+    public static String enriquecerTermino(String terminoLimpio) {
+        if (terminoLimpio == null || terminoLimpio.isBlank()) {
+            return null;
+        }
+
+        if (tieneMarcaBilingue(terminoLimpio)) {
+            return recortarPalabras(terminoLimpio, 4);
+        }
+
+        String t = terminoLimpio.toLowerCase(Locale.ROOT);
+        if (esRolIngles(t)) {
+            String base = recortarPalabras(terminoLimpio, 3);
+            return "bilingual " + base;
+        }
+
+        String base = recortarPalabras(terminoLimpio, 3);
+        return base + " bilingue";
+    }
+
+    private static boolean esRolIngles(String texto) {
+        return texto.contains("developer")
+                || texto.contains("engineer")
+                || texto.contains("designer")
+                || texto.contains("manager")
+                || texto.contains("analyst")
+                || texto.contains("scientist")
+                || texto.contains("architect")
+                || texto.contains("specialist")
+                || texto.contains("full stack")
+                || texto.contains("frontend")
+                || texto.contains("backend")
+                || texto.contains("devops")
+                || texto.contains("qa");
+    }
+
+    public static boolean tieneMarcaBilingue(String textoNormalizado) {
         if (textoNormalizado == null || textoNormalizado.isBlank()) {
             return false;
         }
         String t = textoNormalizado.toLowerCase(Locale.ROOT);
-        return PISTAS_DE_INGLES.stream().anyMatch(t::contains);
+        return MARCAS_BILINGUES.stream().anyMatch(t::contains);
     }
 
-    /**
-     * Un mismo campo suele traer varias opciones ("BPO / Servicios
-     * tercerizados", "Customer Service Representative / Sales Agent"). Cada
-     * parte es un termino de busqueda distinto.
-     */
-    static List<String> trocear(String valor) {
+    static boolean hablaDeIngles(String textoNormalizado) {
+        return tieneMarcaBilingue(textoNormalizado);
+    }
+
+    public static List<String> trocear(String valor) {
         List<String> resultado = new ArrayList<>();
         if (valor == null || valor.isBlank()) {
             return resultado;
         }
-        for (String parte : valor.split("[/|,;]|\\by\\b")) {
+        for (String parte : valor.split(REGEX_DELIMITADORES)) {
             String limpio = limpiar(parte);
-            // Menos de cuatro letras da busquedas inservibles ("BPO" pasa, "de" no).
             if (limpio.length() >= 3 && !limpio.isBlank()) {
                 resultado.add(limpio);
             }
@@ -202,19 +253,28 @@ public final class TerminosDeBusqueda {
         return resultado;
     }
 
-    private static String limpiar(String texto) {
+    public static String limpiar(String texto) {
+        if (texto == null) {
+            return "";
+        }
         String limpio = Normalizer.normalize(texto.trim(), Normalizer.Form.NFD)
                 .replaceAll("\\p{InCombiningDiacriticalMarks}", "")
                 .replaceAll("[^\\p{Alnum}\\s]", " ")
                 .replaceAll("\\s+", " ")
                 .trim()
                 .toLowerCase(Locale.ROOT);
-        // Los portales devuelven poco con frases largas.
-        String[] palabras = limpio.split(" ");
-        if (palabras.length > 4) {
-            limpio = String.join(" ", java.util.Arrays.copyOfRange(palabras, 0, 4));
+        return recortarPalabras(limpio, 4);
+    }
+
+    public static String recortarPalabras(String texto, int maxPalabras) {
+        if (texto == null || texto.isBlank()) {
+            return "";
         }
-        return limpio;
+        String[] palabras = texto.trim().split("\\s+");
+        if (palabras.length <= maxPalabras) {
+            return texto.trim();
+        }
+        return String.join(" ", java.util.Arrays.copyOfRange(palabras, 0, maxPalabras));
     }
 
     /** Ciudades donde hay estudiantes; si no hay ninguna, busqueda nacional. */

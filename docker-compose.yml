@@ -91,6 +91,23 @@ services:
       retries: 3
       start_period: 40s
 
+  frontend:
+    build:
+      context: ./front-end
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      PUBLIC_API_URL: ${FRONTEND_PUBLIC_API_URL:-http://localhost:8080}
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
+    ports:
+      - "3000:3000"
+
 volumes:
   pgdata:
   minio_data:
