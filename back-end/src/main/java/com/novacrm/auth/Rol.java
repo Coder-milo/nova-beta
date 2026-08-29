@@ -3,6 +3,17 @@ package com.novacrm.auth;
 public enum Rol {
     ADMIN,
     COORDINADOR,
+
+    /**
+     * Cuenta técnica con acceso únicamente a la consola de diagnóstico.
+     *
+     * <p>No es un rol administrativo ni académico: no puede consultar
+     * estudiantes, vacantes, comunicaciones ni datos de negocio. Mantenerlo
+     * separado permite que quien mantiene el sistema vea su salud operativa
+     * sin convertirlo en una cuenta con acceso al CRM.
+     */
+    DESARROLLADOR,
+
     ESTUDIANTE,
 
     /**

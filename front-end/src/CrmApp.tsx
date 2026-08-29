@@ -17,6 +17,9 @@ import {
   estudiantePuedeVer,
   soloEsEstudiante,
   RUTA_INICIO_ESTUDIANTE,
+  desarrolladorPuedeVer,
+  soloEsDesarrollador,
+  RUTA_INICIO_DESARROLLADOR,
   empresaPuedeVer,
   soloEsEmpresa,
   RUTA_INICIO_EMPRESA,
@@ -63,6 +66,7 @@ const rutasPorPatron: ReadonlyArray<[RegExp, ComponentType]> = cargadoresPorPatr
 
 const PortalEstudiantePage = exactRoutes['/portal-estudiante']
 const PortalEmpresaPage = exactRoutes['/portal/vacantes']
+const PanelDesarrolladorPage = exactRoutes['/desarrollador']
 
 function NotFoundPage() {
   const { locale } = usePreferences()
@@ -112,13 +116,15 @@ function CurrentRoute() {
   const { user, cargando } = useAuth()
   const esEstudiante = soloEsEstudiante(user?.roles)
   const esEmpresa = soloEsEmpresa(user?.roles)
+  const esDesarrollador = soloEsDesarrollador(user?.roles)
 
   // Fuera de sitio: el rol no alcanza esta ruta. Se corrige la URL en vez de
   // navegar, para no dejar la pantalla prohibida en el historial —donde el
   // botón Atrás la volvería a abrir—.
   const fueraDeSitio =
     (esEstudiante && !estudiantePuedeVer(pathname)) ||
-    (esEmpresa && !empresaPuedeVer(pathname))
+    (esEmpresa && !empresaPuedeVer(pathname)) ||
+    (esDesarrollador && !desarrolladorPuedeVer(pathname))
 
   useEffect(() => {
     if (cargando) return
@@ -132,15 +138,23 @@ function CurrentRoute() {
     if (esEmpresa && !empresaPuedeVer(pathname)) {
       window.history.replaceState(null, '', RUTA_INICIO_EMPRESA)
       window.dispatchEvent(new PopStateEvent('popstate'))
+      return
     }
-  }, [cargando, esEstudiante, esEmpresa, pathname])
+
+    if (esDesarrollador && !desarrolladorPuedeVer(pathname)) {
+      window.history.replaceState(null, '', RUTA_INICIO_DESARROLLADOR)
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    }
+  }, [cargando, esEstudiante, esEmpresa, esDesarrollador, pathname])
 
   if (cargando) {
     return <PageSpinner />
   }
 
   if (fueraDeSitio) {
-    return esEstudiante ? <PortalEstudiantePage /> : <PortalEmpresaPage />
+    if (esEstudiante) return <PortalEstudiantePage />
+    if (esEmpresa) return <PortalEmpresaPage />
+    return <PanelDesarrolladorPage />
   }
 
   const Page = resolvePage(pathname)

@@ -98,6 +98,9 @@ public class SecurityConfig {
                 // Defensa en profundidad: además del @PreAuthorize de los controllers.
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/usuarios/**").hasRole("ADMIN")
+                // La consola técnica se aísla del CRM: la cuenta de
+                // desarrollador solo puede leer este diagnóstico seguro.
+                .requestMatchers("/api/v1/desarrollador/**").hasRole("DESARROLLADOR")
                 .requestMatchers("/credencial/**").permitAll()
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
@@ -153,10 +156,15 @@ public class SecurityConfig {
                     boolean esEmpresa = a != null && a.isAuthenticated()
                             && a.getAuthorities().stream()
                                 .anyMatch(g -> "ROLE_EMPRESA".equals(g.getAuthority()));
+                    boolean esDesarrollador = a != null && a.isAuthenticated()
+                            && a.getAuthorities().stream()
+                                .anyMatch(g -> "ROLE_DESARROLLADOR".equals(g.getAuthority()));
                     // Una cuenta de empresa fuera de /portal no pasa: es un
                     // tercero, y todo lo demas son datos de la institucion.
+                    // El mismo cierre explícito aplica a quien mantiene la
+                    // plataforma: un diagnóstico técnico no debe abrir el CRM.
                     return new org.springframework.security.authorization.AuthorizationDecision(
-                            a != null && a.isAuthenticated() && !esEmpresa);
+                            a != null && a.isAuthenticated() && !esEmpresa && !esDesarrollador);
                 })
             )
             .addFilterBefore(jwtFilter(), UsernamePasswordAuthenticationFilter.class);

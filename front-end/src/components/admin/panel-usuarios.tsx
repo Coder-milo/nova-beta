@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Cuentas del equipo: administradores y coordinadores.
+ * Cuentas del equipo: administración, coordinación y desarrollo.
  *
  * Estaba escrito dentro de la página de configuración, mezclado con los
  * formularios de institución y de operación. Aquí queda junto al resto de
@@ -28,7 +28,7 @@ import type { UsuarioResponse, EmpresaResponse } from '@/lib/types'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
 
-const ROLES_DISPONIBLES = ['ADMIN', 'COORDINADOR', 'EMPRESA'] as const
+const ROLES_DISPONIBLES = ['ADMIN', 'COORDINADOR', 'DESARROLLADOR', 'EMPRESA'] as const
 
 /**
  * Textos propios de esta pantalla.
@@ -59,7 +59,7 @@ function textos(english: boolean) {
         contrasenaMin8: 'Password * (min. 8)',
         seleccionaAlMenos: 'Choose at least one role.',
         elEmailEs: 'The email is required.',
-        cuentasConAcceso: 'Manage accounts for administrators, coordinators and partner companies.',
+        cuentasConAcceso: 'Manage accounts for administrators, coordinators, developers and partner companies.',
         crearNuevoUsuario: 'Create a new user',
         nombreYApellido: 'First and last name',
         noSePudo: 'Could not connect.',
@@ -92,7 +92,7 @@ function textos(english: boolean) {
         contrasenaMin8: 'Contraseña * (mín. 8)',
         seleccionaAlMenos: 'Selecciona al menos un rol.',
         elEmailEs: 'El email es obligatorio.',
-        cuentasConAcceso: 'Gestiona las cuentas de administradores, coordinadores y empresas aliadas.',
+        cuentasConAcceso: 'Gestiona las cuentas de administradores, coordinadores, desarrolladores y empresas aliadas.',
         crearNuevoUsuario: 'Crear nuevo usuario',
         nombreYApellido: 'Nombre y apellido',
         noSePudo: 'No se pudo conectar.',

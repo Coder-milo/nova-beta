@@ -28,6 +28,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  ServerCog,
   Trophy,
   Upload,
   type LucideIcon,
@@ -136,8 +137,18 @@ export const navItemsEmpresa: NavItem[] = [
   { title: 'Mi cuenta', href: '/portal/cuenta', icon: Settings, tono: 'pizarra' },
 ]
 
+/**
+ * La consola técnica es intencionalmente pequeña: una cuenta de desarrollo no
+ * administra el CRM ni navega por datos personales. Su único punto de entrada
+ * muestra diagnósticos que vienen del backend.
+ */
+export const navItemsDesarrollador: NavItem[] = [
+  { title: 'Panel técnico', href: '/desarrollador', icon: ServerCog, grupo: 'sistema', tono: 'cian' },
+]
+
 /** Dónde aterriza una empresa al entrar. */
 export const RUTA_INICIO_EMPRESA = '/portal/vacantes'
+export const RUTA_INICIO_DESARROLLADOR = '/desarrollador'
 
 /**
  * Las únicas rutas que una cuenta de empresa puede abrir.
@@ -157,6 +168,34 @@ const RUTAS_DE_EMPRESA = new Set([
 export function empresaPuedeVer(pathname: string): boolean {
   const normalizada = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
   return RUTAS_DE_EMPRESA.has(normalizada)
+}
+
+/**
+ * Un desarrollador puro no hereda permisos de coordinación ni administración.
+ * Si una cuenta institucional tiene ambos roles, prevalece su menú de gestión
+ * y el endpoint técnico sigue protegido por su rol específico.
+ */
+export function soloEsDesarrollador(roles?: string[]): boolean {
+  if (!roles || roles.length === 0) return false
+  const esDesarrollador = roles.includes('DESARROLLADOR') || roles.includes('ROLE_DESARROLLADOR')
+  const esInstitucional = [
+    'ADMIN', 'ROLE_ADMIN',
+    'COORDINADOR', 'ROLE_COORDINADOR',
+    'ESTUDIANTE', 'ROLE_ESTUDIANTE',
+    'EMPRESA', 'ROLE_EMPRESA',
+  ].some((rol) => roles.includes(rol))
+  return esDesarrollador && !esInstitucional
+}
+
+const RUTAS_DE_DESARROLLADOR = new Set([
+  RUTA_INICIO_DESARROLLADOR,
+  '/login',
+  '/recuperar-contrasena',
+])
+
+export function desarrolladorPuedeVer(pathname: string): boolean {
+  const normalizada = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+  return RUTAS_DE_DESARROLLADOR.has(normalizada)
 }
 
 /**
@@ -246,6 +285,7 @@ export function getNavItemsForRoles(roles?: string[], locale: Locale = 'es'): Na
   const items = !roles || roles.length === 0
     ? navItemsAdmin
     : soloEsEmpresa(roles) ? navItemsEmpresa
+    : soloEsDesarrollador(roles) ? navItemsDesarrollador
     : soloEsEstudiante(roles) ? navItemsEstudiante
     : navItemsAdmin
   return items.map((item) => ({

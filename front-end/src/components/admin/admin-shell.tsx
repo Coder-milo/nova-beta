@@ -10,7 +10,7 @@ import { Header } from '@/components/admin/header'
 import { StudentHelpChat } from '@/components/student/student-help-chat'
 import { AdminAssistantChat } from '@/components/admin/admin-assistant-chat'
 import { useAuth } from '@/lib/auth'
-import { soloEsEstudiante } from '@/lib/navigation'
+import { soloEsDesarrollador, soloEsEstudiante } from '@/lib/navigation'
 import { usePreferences } from '@/lib/preferences'
 
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -48,6 +48,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, [sidebarColapsado])
   const { user } = useAuth()
   const esEstudiante = soloEsEstudiante(user?.roles)
+  const esDesarrollador = soloEsDesarrollador(user?.roles)
 
   useEffect(() => {
     if (pathname === '/login') {
@@ -58,8 +59,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     }
     document.title = esEstudiante
       ? `CAC Academic · ${locale === 'en' ? 'Student portal' : 'Portal del estudiante'}`
-      : `CAC Academic · ${locale === 'en' ? 'Admin panel' : 'Panel administrativo'}`
-  }, [esEstudiante, locale, pathname])
+      : esDesarrollador
+        ? `CAC Academic · ${locale === 'en' ? 'Developer console' : 'Panel de desarrollador'}`
+        : `CAC Academic · ${locale === 'en' ? 'Admin panel' : 'Panel administrativo'}`
+  }, [esEstudiante, esDesarrollador, locale, pathname])
 
   // ── Barra de progreso de navegación ──────────────────────────────────────
   const [navLoading, setNavLoading] = useState(false)
@@ -166,9 +169,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             {children}
           </div>
         </main>
-        {!esEstudiante && <BarraUtilidades />}
+        {!esEstudiante && !esDesarrollador && <BarraUtilidades />}
       </div>
-      {esEstudiante ? <StudentHelpChat /> : <AdminAssistantChat />}
+      {esEstudiante ? <StudentHelpChat /> : !esDesarrollador && <AdminAssistantChat />}
     </div>
   )
 }

@@ -1926,6 +1926,7 @@ export const colocacionesApi = {
 import type {
   ConfiguracionGlobalRequest,
   ConfiguracionGlobalResponse,
+  DiagnosticoDesarrollador,
   EstadoIntegracion,
 } from './types'
 
@@ -1953,7 +1954,12 @@ export const configuracionApi = {
     apiFetch<{ exito: boolean; mensaje: string }>(
       `/api/v1/configuracion/integraciones/${id}/probar`,
       { method: 'POST' },
-    ),
+  ),
+}
+
+/** Diagnóstico de solo lectura exclusivo para el rol DESARROLLADOR. */
+export const desarrolladorApi = {
+  resumen: () => apiFetch<DiagnosticoDesarrollador>('/api/v1/desarrollador/resumen'),
 }
 
 /**

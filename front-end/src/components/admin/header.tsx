@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/sheet'
 import { busquedaApi, chatsApi, dashboardApi, estudiantesApi, mensajesApi, notificacionesApi } from '@/lib/api'
 import type { AlertaResponse, BusquedaResponse, ChatContactoResponse, ChatConversacionResponse, ChatDirectoMensajeResponse, EstudianteResponse, MensajeResponse, NotificacionResponse, ResultadoBusqueda } from '@/lib/types'
-import { getNavItemsForRoles, soloEsEstudiante } from '@/lib/navigation'
+import { getNavItemsForRoles, soloEsDesarrollador, soloEsEstudiante } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { useBranding } from '@/lib/branding'
@@ -187,6 +187,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
       }
 
   const esEstudiante = soloEsEstudiante(user?.roles)
+  const esDesarrollador = soloEsDesarrollador(user?.roles)
 
   /**
    * De dónde se saca la cara de alguien.
@@ -293,7 +294,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   // la cabecera. Un estudiante no los pide: el endpoint es de gestion y le
   // devolveria un 403.
   useEffect(() => {
-    if (!sesionLista || esEstudiante) return
+    if (!sesionLista || esEstudiante || esDesarrollador) return
     let activo = true
     const cargarAlertas = () => {
       void dashboardApi.alerts()
@@ -303,10 +304,10 @@ export function Header({ onOpenMobile }: HeaderProps) {
     cargarAlertas()
     const detener = intervaloVisible(cargarAlertas, 60_000)
     return () => { activo = false; detener() }
-  }, [sesionLista, esEstudiante])
+  }, [sesionLista, esEstudiante, esDesarrollador])
 
   useEffect(() => {
-    if (!sesionLista) return
+    if (!sesionLista || esDesarrollador) return
     let active = true
     const cargarNotificaciones = async () => {
       try {
@@ -336,7 +337,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
     void cargarNotificaciones()
     const detener = intervaloVisible(() => { void cargarNotificaciones() }, 45_000)
     return () => { active = false; detener() }
-  }, [sesionLista, esEstudiante])
+  }, [sesionLista, esEstudiante, esDesarrollador])
 
   useEffect(() => {
     if (!esEstudiante) return
@@ -366,7 +367,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   }, [contactQuery, esEstudiante])
 
   useEffect(() => {
-    if (esEstudiante || adminStudentQuery.trim().length < 2) {
+    if (esEstudiante || esDesarrollador || adminStudentQuery.trim().length < 2) {
       setAdminStudentResults([])
       setAdminStudentsLoading(false)
       return
@@ -380,7 +381,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
         .finally(() => { if (active) setAdminStudentsLoading(false) })
     }, 220)
     return () => { active = false; window.clearTimeout(timer) }
-  }, [adminStudentQuery, esEstudiante])
+  }, [adminStudentQuery, esEstudiante, esDesarrollador])
 
   useEffect(() => {
     if (!directContact || !esEstudiante) return
@@ -413,7 +414,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
   }, [directContact, esEstudiante])
 
   const cargarMensajes = useCallback(async () => {
-    if (!sesionLista) return
+    if (!sesionLista || esDesarrollador) return
     setMessagesLoading(true)
     setMessageError('')
     try {
@@ -430,7 +431,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
       setSelectedMessage(null)
       setMessageError(error instanceof Error ? error.message : avisos.noSePudieronCargar)
     } finally { setMessagesLoading(false) }
-  }, [sesionLista, esEstudiante])
+  }, [sesionLista, esEstudiante, esDesarrollador])
 
   /**
    * Con quién ha hablado el estudiante.
@@ -462,7 +463,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
    * cuando alguien va a leerla.
    */
   useEffect(() => {
-    if (!sesionLista) return
+    if (!sesionLista || esDesarrollador) return
     let activo = true
     const contar = () => {
       void mensajesApi.pendientes()
@@ -472,7 +473,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
     contar()
     const detener = intervaloVisible(contar, 45_000)
     return () => { activo = false; detener() }
-  }, [sesionLista])
+  }, [sesionLista, esDesarrollador])
   useEffect(() => {
     const abrirBandeja = () => setMessageSheetOpen(true)
     window.addEventListener('nova:open-messages', abrirBandeja)
@@ -486,7 +487,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
    * haya algo escrito, no al revés.
    */
   useEffect(() => {
-    if (esEstudiante || searchQuery.trim().length < 2) {
+    if (esEstudiante || esDesarrollador || searchQuery.trim().length < 2) {
       setSearching(false)
       if (searchQuery.trim().length < 2) setSearchResults(BUSQUEDA_VACIA)
       return
@@ -500,7 +501,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
         .finally(() => { if (active) setSearching(false) })
     }, 250)
     return () => { active = false; window.clearTimeout(timer) }
-  }, [esEstudiante, searchQuery])
+  }, [esEstudiante, esDesarrollador, searchQuery])
 
   /**
    * Cierra los resultados al pulsar fuera.
@@ -881,6 +882,38 @@ export function Header({ onOpenMobile }: HeaderProps) {
   const correoChatActivo = !esEstudiante
     ? (selectedMessage?.estudianteEmail ?? adminTarget?.email ?? '')
     : ''
+
+  // El rol técnico no debería ni ver controles que apuntan a datos del CRM.
+  // Este encabezado conserva únicamente navegación, identidad de la página e
+  // idioma, y los efectos anteriores ya evitaron pedir datos prohibidos.
+  if (esDesarrollador) {
+    return (
+      <header className="glass-chrome sticky top-0 z-40 flex h-13 shrink-0 items-center gap-2 border-b border-border border-t-2 border-t-primary px-3 transition-all md:px-4">
+        <button
+          type="button"
+          onClick={onOpenMobile}
+          aria-label={t('openMenu')}
+          className="relative z-10 flex size-9 items-center justify-center rounded-xl border border-border/50 bg-card/95 text-foreground shadow-sm transition-all hover:border-primary/30 hover:bg-card hover:scale-105 active:scale-95 lg:hidden"
+        >
+          <List className="size-5" />
+        </button>
+        <div className="min-w-0">
+          <h1 className="truncate text-[15px] font-semibold tracking-tight text-foreground">{current?.title ?? 'Panel técnico'}</h1>
+          <p className="truncate text-[11px] font-medium text-muted-foreground">
+            {locale === 'en' ? 'Developer access · Read only' : 'Acceso de desarrollador · Solo lectura'}
+          </p>
+        </div>
+        <div className="ml-auto">
+          <IconButton
+            label={locale === 'en' ? 'Cambiar a español' : 'Switch to English'}
+            onClick={() => setLocale(locale === 'en' ? 'es' : 'en')}
+          >
+            <Globe className="size-5" />
+          </IconButton>
+        </div>
+      </header>
+    )
+  }
 
   return (
     <>

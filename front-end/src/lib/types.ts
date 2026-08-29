@@ -1877,6 +1877,25 @@ export interface EstadoIntegracion {
   advertencia: string | null
 }
 
+/** Resumen técnico limitado que recibe el rol DESARROLLADOR. */
+export interface DiagnosticoDesarrollador {
+  estado: string
+  generadoEn: string
+  componentes: { nombre: string; estado: string }[]
+  integraciones: {
+    id: string
+    nombre: string
+    categoria: string
+    configurada: boolean
+    resumen: string
+    advertencia: string | null
+  }[]
+  runtime: {
+    javaVersion: string
+    perfilActivo: string
+  }
+}
+
 export interface PlataformaResponse {
   id: string
   codigo: string

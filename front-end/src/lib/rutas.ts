@@ -27,6 +27,7 @@ export const cargadoresDeRuta: Record<string, CargadorDeRuta> = {
   '/colocaciones': () => import('@/app/colocaciones/page'),
   '/configuracion': () => import('@/app/configuracion/page'),
   '/documentos': () => import('@/app/documentos/page'),
+  '/desarrollador': () => import('@/app/desarrollador/page'),
   '/empresas': () => import('@/app/empresas/page'),
   '/estudiantes': () => import('@/app/estudiantes/page'),
   '/estudiantes/nuevo': () => import('@/app/estudiantes/nuevo/page'),

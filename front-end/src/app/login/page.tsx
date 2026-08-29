@@ -8,7 +8,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PageSpinner } from '@/components/ui/page-spinner'
 import { ApiCallError, useAuth } from '@/lib/auth'
-import { RUTA_INICIO_ESTUDIANTE, soloEsEstudiante } from '@/lib/navigation'
+import {
+  RUTA_INICIO_DESARROLLADOR,
+  RUTA_INICIO_ESTUDIANTE,
+  soloEsDesarrollador,
+  soloEsEstudiante,
+} from '@/lib/navigation'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
 
@@ -118,7 +123,11 @@ export default function LoginPage() {
         // Cada rol a su sitio. Mandar a todo el mundo a `/` dejaba al
         // estudiante en el dashboard de administracion, que no puede consultar.
         router.replace(
-          soloEsEstudiante(usuario?.roles) ? RUTA_INICIO_ESTUDIANTE : '/',
+          soloEsEstudiante(usuario?.roles)
+            ? RUTA_INICIO_ESTUDIANTE
+            : soloEsDesarrollador(usuario?.roles)
+              ? RUTA_INICIO_DESARROLLADOR
+              : '/',
         )
       } catch (err) {
         if (err instanceof ApiCallError) {
