@@ -143,7 +143,7 @@ export const navItemsEmpresa: NavItem[] = [
  * muestra diagnósticos que vienen del backend.
  */
 export const navItemsDesarrollador: NavItem[] = [
-  { title: 'Panel técnico', href: '/desarrollador', icon: ServerCog, grupo: 'sistema', tono: 'cian' },
+  { title: 'Centro de desarrollo', href: '/desarrollador', icon: ServerCog, grupo: 'sistema', tono: 'cian' },
 ]
 
 /** Dónde aterriza una empresa al entrar. */

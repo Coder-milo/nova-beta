@@ -898,7 +898,7 @@ export function Header({ onOpenMobile }: HeaderProps) {
           <List className="size-5" />
         </button>
         <div className="min-w-0">
-          <h1 className="truncate text-[15px] font-semibold tracking-tight text-foreground">{current?.title ?? 'Panel técnico'}</h1>
+          <h1 className="truncate text-[15px] font-semibold tracking-tight text-foreground">{current?.title ?? 'Centro de desarrollo'}</h1>
           <p className="truncate text-[11px] font-medium text-muted-foreground">
             {locale === 'en' ? 'Developer access · Read only' : 'Acceso de desarrollador · Solo lectura'}
           </p>
