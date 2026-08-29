@@ -27,6 +27,9 @@ export default defineConfig({
     host: true,
     port: 3000,
   },
+  security: {
+    checkOrigin: false,
+  },
   vite: {
     // Evita que Windows deje la caché bloqueada dentro de node_modules.
     cacheDir: fromRoot('./.vite-cache'),

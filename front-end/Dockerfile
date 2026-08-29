@@ -1,23 +1,26 @@
 # Etapa 1: Dependencias y Compilación
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Habilitar corepack para pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 # Copiar manifiestos de dependencias
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
 
 # Instalar dependencias
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copiar código fuente
 COPY . .
 
 # Compilar servidor SSR de Astro
 ENV NODE_ENV=production
-RUN npm run build
+RUN pnpm run build
 
 # Etapa 2: Entorno de Ejecución Ligero
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 

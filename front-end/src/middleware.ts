@@ -87,14 +87,16 @@ export const onRequest = defineMiddleware(
       headers.delete('host')
       headers.delete('expect')
       headers.delete('origin')
-      // La cookie de sesion es para este servidor, no para el backend.
       headers.delete('cookie')
+      headers.delete('connection')
+      headers.delete('keep-alive')
+      headers.delete('transfer-encoding')
+      headers.delete('content-encoding')
+      if (request.method === 'GET' || request.method === 'HEAD') {
+        headers.delete('content-length')
+        headers.delete('content-type')
+      }
 
-      // El backend limita por IP. Como todas las llamadas salen de este
-      // servidor, sin reenviar la IP real todos los usuarios compartirian un
-      // unico contador y la API responderia 429 con poca concurrencia.
-      // La cabecera que traiga el navegador se descarta: la escribe el
-      // cliente y le serviria para estrenar contador en cada peticion.
       headers.delete('x-forwarded-for')
       if (ipCliente) {
         headers.set('x-forwarded-for', ipCliente)
@@ -121,10 +123,8 @@ export const onRequest = defineMiddleware(
           body,
           redirect: 'manual',
         })
-      } catch {
-        // Backend caido o inalcanzable: se responde un error con cuerpo JSON,
-        // que es lo que el cliente sabe interpretar. Sin esto salia un 500
-        // vacio y la interfaz no podia explicar nada.
+      } catch (err) {
+        console.error('Error forwarding request to backend target:', target.toString(), err)
         return new Response(
           JSON.stringify({ message: 'El servidor no esta disponible en este momento.' }),
           { status: 503, headers: { 'Content-Type': 'application/json' } },

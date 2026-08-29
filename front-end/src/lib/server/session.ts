@@ -38,27 +38,23 @@ export function backendBase(): string {
     import.meta.env.BACKEND_URL
 
   if (!desdeEntorno) {
-    // En producción no hay valor por defecto razonable: fallar aquí con un
-    // mensaje claro es mejor que reenviar a localhost y devolver 503 sin
-    // explicar por qué.
-    if (import.meta.env.PROD) {
-      throw new Error(
-        'Falta la variable de entorno BACKEND_URL: es la URL publica del backend Spring Boot.',
-      )
-    }
-    return 'http://localhost:8080'
+    return 'http://app:8080'
   }
   return desdeEntorno.endsWith('/') ? desdeEntorno.slice(0, -1) : desdeEntorno
 }
 
-/**
- * `secure` solo en produccion: el navegador descarta las cookies Secure
- * servidas por http, y en desarrollo se trabaja sobre http://localhost.
- */
 function opcionesBase() {
+  const frontendUrl =
+    (typeof process !== 'undefined' ? process.env?.FRONTEND_URL : undefined) ??
+    import.meta.env.FRONTEND_URL ??
+    ''
+  const isHttps =
+    process.env.COOKIE_SECURE === 'true' ||
+    frontendUrl.startsWith('https://')
+
   return {
     httpOnly: true,
-    secure: import.meta.env.PROD,
+    secure: isHttps,
     sameSite: 'lax' as const,
     path: '/',
   }
