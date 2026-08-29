@@ -1960,6 +1960,20 @@ export const configuracionApi = {
 /** Diagnóstico de solo lectura exclusivo para el rol DESARROLLADOR. */
 export const desarrolladorApi = {
   resumen: () => apiFetch<DiagnosticoDesarrollador>('/api/v1/desarrollador/resumen'),
+  probarIntegracion: (id: string) =>
+    apiFetch<{ exito: boolean; mensaje: string }>(
+      `/api/v1/desarrollador/integraciones/${encodeURIComponent(id)}/probar`,
+      { method: 'POST' },
+    ),
+  conectoresDeVacantes: () =>
+    apiFetch<EstadoConector[]>('/api/v1/desarrollador/vacantes/conectores'),
+  probarConectorDeVacantes: (fuente: string) =>
+    apiFetch<ResultadoPruebaFuente>(
+      `/api/v1/desarrollador/vacantes/conectores/${encodeURIComponent(fuente)}/probar`,
+      { method: 'POST' },
+    ),
+  ejecucionesDeVacantes: () =>
+    apiFetch<EjecucionDeScraping[]>('/api/v1/desarrollador/vacantes/ejecuciones'),
 }
 
 /**

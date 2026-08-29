@@ -24,6 +24,7 @@ public record DiagnosticoDesarrolladorResponse(
             String nombre,
             String categoria,
             boolean configurada,
+            boolean admitePrueba,
             String resumen,
             String advertencia) {}
 

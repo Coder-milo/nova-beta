@@ -18,8 +18,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { VistasGuardadas } from '@/components/admin/vistas-guardadas'
-import { PanelConectoresScraping } from '@/components/admin/panel-conectores-scraping'
-import { RegistroDeScraping } from '@/components/admin/registro-de-scraping'
 import { Badge } from '@/components/ui/badge'
 import { usePreferences } from '@/lib/preferences'
 import { textosAdmin } from '@/lib/textos-admin'
@@ -855,15 +853,6 @@ export default function VacantesPage() {
           )}
         </>
       )}
-
-      {/* Panel en vivo de conectores y fuentes de empleo (ATS & Portales) */}
-      <PanelConectoresScraping onActualizacionTerminada={() => void load()} />
-
-      {/* Registro de corridas.
-          Va al final y no arriba porque es diagnóstico: se consulta cuando algo
-          parece raro, no cada vez que se abre la pantalla. Arriba empujaría la
-          lista de ofertas, que es a lo que se entra aquí. */}
-      <RegistroDeScraping />
 
       {/* Creación manual */}
       <Sheet open={creando} onOpenChange={(open) => { if (!open && !guardando) setCreando(false) }}>

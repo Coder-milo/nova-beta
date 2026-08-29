@@ -21,7 +21,6 @@ import { PanelAcademico } from '@/components/admin/panel-academico'
 import { PanelBranding } from '@/components/admin/panel-branding'
 import { PanelCuentasEstudiante } from '@/components/admin/panel-cuentas-estudiante'
 import { PanelInstitucion } from '@/components/admin/panel-institucion'
-import { PanelIntegraciones } from '@/components/admin/panel-integraciones'
 import { PanelPlataformas } from '@/components/admin/panel-plataformas'
 import { PanelUsuarios } from '@/components/admin/panel-usuarios'
 import { PanelWhatsapp } from '@/components/admin/panel-whatsapp'
@@ -94,7 +93,7 @@ function textos(english: boolean) {
         resumenOperacion: 'How the programme behaves: match threshold, vacancy validity, retention.',
         resumenPersonas: 'Who gets in and with what account. Team, students and their invitation emails.',
         resumenMarca: 'Logo, colours and banner of each project. This is what the client sees.',
-        resumenConexiones: 'Outside services: email, WhatsApp, AI, job boards and learning platforms.',
+        resumenConexiones: 'Communication channels and learning platforms used by the programme.',
         resumenPreferencias: 'Theme and language. Affects only you, on this device.',
         resumenPeligro: 'Bulk deletion and cleanup. No undo.',
         seleccionarPrograma: 'Choose a programme:',
@@ -125,7 +124,7 @@ function textos(english: boolean) {
         resumenOperacion: 'Cómo se comporta el programa: umbral de match, vigencia de vacantes, retención.',
         resumenPersonas: 'Quién entra y con qué cuenta. Equipo, estudiantes y sus correos de invitación.',
         resumenMarca: 'Logo, colores y banner de cada proyecto. Es lo que ve el cliente.',
-        resumenConexiones: 'Servicios de fuera: correo, WhatsApp, IA, portales de empleo y plataformas.',
+        resumenConexiones: 'Canales de comunicación y plataformas de aprendizaje del programa.',
         resumenPreferencias: 'Tema e idioma. Solo te afecta a ti, en este dispositivo.',
         resumenPeligro: 'Borrado masivo y limpieza. No tiene vuelta atrás.',
         seleccionarPrograma: 'Seleccionar programa:',
@@ -360,7 +359,7 @@ export default function ConfiguracionPage() {
     { id: 'marca', label: T.marcaDelProyecto, icon: Palette,
       resumen: T.resumenMarca, busca: 'logo colores banner identidad cliente proyecto portada' },
     { id: 'conexiones', label: T.conexiones, icon: ShareNetwork,
-      resumen: T.resumenConexiones, busca: 'whatsapp correo smtp groq ia jsearch scraping minio plataformas apis' },
+      resumen: T.resumenConexiones, busca: 'whatsapp correo smtp plantillas mensajes plataformas aprendizaje' },
     { id: 'preferencias', label: T.misPreferencias, icon: SquaresFour,
       resumen: T.resumenPreferencias, busca: 'tema oscuro claro idioma español ingles apariencia' },
     { id: 'peligro', label: T.zonaDePeligro, icon: ShieldWarning, soloAdmin: true, peligrosa: true,
@@ -465,18 +464,9 @@ export default function ConfiguracionPage() {
 
       {activeTab === 'conexiones' && (
         <div className="flex flex-col gap-6">
-          {/* Era un formulario que guardaba las claves de Groq, WhatsApp y
-              JSearch en localStorage: texto plano legible por cualquier script
-              inyectado —el mismo fallo que se corrigió para el JWT— y encima
-              inútil, porque el backend las lee de variables de entorno al
-              arrancar y nada de lo que se escribiera aquí llegaba al servidor.
-              Ahora es un tablero de solo lectura contra el estado real. */}
-          <PanelIntegraciones />
-
-          {/* WhatsApp vive aquí y no en «Apariencia», que es donde estaba: es
-              un canal de salida como el correo. Y la placa de integraciones de
-              arriba —que lista correo, IA, almacenamiento y scraping— no lo
-              incluye, así que quien lo buscaba por ahí no lo encontraba. */}
+          {/* WhatsApp y los correos siguen en Administración: son canales
+              operativos del programa. Los diagnósticos de API, cuotas y
+              conectores viven en la consola de Desarrollador. */}
           <PanelWhatsapp />
 
           {/* Plataformas de formación externas: también son servicios de

@@ -2,6 +2,7 @@ package com.novacrm.desarrollador;
 
 import com.novacrm.configuracion.EstadoIntegracion;
 import com.novacrm.configuracion.IntegracionesService;
+import com.novacrm.scraper.ScrapingService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -26,6 +27,9 @@ class DiagnosticoDesarrolladorServiceTest {
     private IntegracionesService integracionesService;
 
     @Mock
+    private ScrapingService scrapingService;
+
+    @Mock
     private Environment environment;
 
     @Test
@@ -39,7 +43,7 @@ class DiagnosticoDesarrolladorServiceTest {
                 List.of("GROQ_API_KEY"), true, null)));
 
         var service = new DiagnosticoDesarrolladorService(
-                healthEndpoint, integracionesService, environment);
+                healthEndpoint, integracionesService, scrapingService, environment);
         var resultado = service.resumen();
 
         assertThat(resultado.estado()).isEqualTo("UP");

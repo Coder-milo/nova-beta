@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   CircleAlert,
   CircleX,
+  FlaskConical,
+  LoaderCircle,
   PlugZap,
   RefreshCw,
   ServerCog,
@@ -23,6 +25,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageSpinner } from '@/components/ui/page-spinner'
+import { PanelConectoresScraping } from '@/components/admin/panel-conectores-scraping'
+import { RegistroDeScraping } from '@/components/admin/registro-de-scraping'
 import { ApiCallError, desarrolladorApi } from '@/lib/api'
 import { usePreferences } from '@/lib/preferences'
 import type { DiagnosticoDesarrollador } from '@/lib/types'
@@ -49,6 +53,8 @@ export default function PanelDesarrolladorPage() {
   const [cargando, setCargando] = useState(true)
   const [actualizando, setActualizando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [probandoIntegracion, setProbandoIntegracion] = useState<string | null>(null)
+  const [pruebasIntegracion, setPruebasIntegracion] = useState<Record<string, { exito: boolean; mensaje: string }>>({})
 
   const cargar = useCallback(async (manual = false) => {
     if (manual) setActualizando(true)
@@ -75,6 +81,21 @@ export default function PanelDesarrolladorPage() {
   useEffect(() => {
     void cargar()
   }, [cargar])
+
+  const probarIntegracion = async (id: string) => {
+    setProbandoIntegracion(id)
+    try {
+      const resultado = await desarrolladorApi.probarIntegracion(id)
+      setPruebasIntegracion((anteriores) => ({ ...anteriores, [id]: resultado }))
+    } catch (err) {
+      const mensaje = err instanceof ApiCallError
+        ? (english ? `Test failed (HTTP ${err.status}).` : `La prueba falló (HTTP ${err.status}).`)
+        : (english ? 'The test could not be completed.' : 'No se pudo completar la prueba.')
+      setPruebasIntegracion((anteriores) => ({ ...anteriores, [id]: { exito: false, mensaje } }))
+    } finally {
+      setProbandoIntegracion(null)
+    }
+  }
 
   if (cargando) return <PageSpinner />
 
@@ -192,6 +213,27 @@ export default function PanelDesarrolladorPage() {
                           {integracion.advertencia}
                         </p>
                       )}
+                      {integracion.admitePrueba && (
+                        <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-2.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void probarIntegracion(integracion.id)}
+                            disabled={probandoIntegracion === integracion.id}
+                          >
+                            {probandoIntegracion === integracion.id
+                              ? <LoaderCircle className="animate-spin" />
+                              : <FlaskConical />}
+                            {english ? 'Run connection test' : 'Probar conexión'}
+                          </Button>
+                          {pruebasIntegracion[integracion.id] && (
+                            <span className={`text-xs ${pruebasIntegracion[integracion.id].exito ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive'}`}>
+                              {pruebasIntegracion[integracion.id].mensaje}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </article>
                   ))}
                 </div>
@@ -208,11 +250,16 @@ export default function PanelDesarrolladorPage() {
               <CardContent>
                 <ul className="space-y-3 text-sm leading-5 text-muted-foreground">
                   <li className="flex gap-2"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />{english ? 'Reads live application and integration status.' : 'Consulta el estado en vivo de la aplicación e integraciones.'}</li>
-                  <li className="flex gap-2"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />{english ? 'Can refresh diagnostics without changing data.' : 'Puede refrescar el diagnóstico sin modificar datos.'}</li>
+                  <li className="flex gap-2"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />{english ? 'Can run isolated connectivity tests; these never create or edit vacancies.' : 'Puede ejecutar pruebas aisladas de conexión; nunca crean ni modifican vacantes.'}</li>
                   <li className="flex gap-2"><CircleAlert className="mt-0.5 size-4 shrink-0 text-muted-foreground" />{english ? 'Cannot access students, applications, messages, documents or admin settings.' : 'No accede a estudiantes, postulaciones, mensajes, documentos ni ajustes administrativos.'}</li>
                 </ul>
               </CardContent>
             </Card>
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-[1.15fr_1.85fr]">
+            <PanelConectoresScraping />
+            <RegistroDeScraping />
           </section>
         </>
       )}

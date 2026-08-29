@@ -1887,6 +1887,7 @@ export interface DiagnosticoDesarrollador {
     nombre: string
     categoria: string
     configurada: boolean
+    admitePrueba: boolean
     resumen: string
     advertencia: string | null
   }[]

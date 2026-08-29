@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Registro de las corridas de actualización de vacantes.
+ * Registro técnico de las corridas de actualización de vacantes.
  *
  * La tabla existía desde hacía tiempo y solo se leía para sacar una cifra —«12
  * ofertas nuevas»—. El resto quedaba escrito y sin mirar, así que la pregunta
@@ -14,13 +14,14 @@
  * Elempleo muerto sin que nadie se enterara. La única forma de distinguirlo es
  * ver la serie —cero, cero, cero, cero— en vez de la última fila.
  *
- * Por eso esto es una lista y no un indicador: el dato que delata el problema
- * es la repetición, no el valor de hoy.
+ * Por eso esto vive en la consola de desarrollador y no en la operación diaria
+ * de Vacantes: el dato que delata el problema es la repetición, no el valor de
+ * hoy.
  */
 
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Clock, RefreshCw } from 'lucide-react'
-import { vacantesApi } from '@/lib/api'
+import { desarrolladorApi } from '@/lib/api'
 import type { EjecucionDeScraping } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -107,7 +108,7 @@ export function RegistroDeScraping() {
     setCargando(true)
     setError(null)
     try {
-      setCorridas(await vacantesApi.ejecuciones())
+      setCorridas(await desarrolladorApi.ejecucionesDeVacantes())
     } catch (e) {
       setError(errorDe(e))
     } finally {

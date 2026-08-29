@@ -76,6 +76,11 @@ function textos(english: boolean) {
         condicionesLaborales: 'Working conditions',
         identificaAlParticipante: 'Identify the participant and the company they joined.',
         seleccionaUnParticipante: 'Choose a participant',
+        buscarParticipante: 'Search by participant name or email',
+        escribeParaBuscarParticipante: 'Type at least two characters and select a participant.',
+        participanteSeleccionado: 'Participant selected.',
+        participanteNoEditable: 'The participant cannot be changed after the placement is recorded.',
+        sinResultadosParticipante: 'No participants match this search.',
         seleccionaOEscribe: 'Choose or type a company name',
         participante: 'Participant *',
         empresa: 'Company *',
@@ -155,6 +160,11 @@ function textos(english: boolean) {
         condicionesLaborales: 'Condiciones laborales',
         identificaAlParticipante: 'Identifica al participante y la empresa donde se incorporó.',
         seleccionaUnParticipante: 'Selecciona un participante',
+        buscarParticipante: 'Busca por nombre o correo del participante',
+        escribeParaBuscarParticipante: 'Escribe al menos dos caracteres y selecciona un participante.',
+        participanteSeleccionado: 'Participante seleccionado.',
+        participanteNoEditable: 'El participante no se puede cambiar después de registrar la colocación.',
+        sinResultadosParticipante: 'No hay participantes que coincidan con la búsqueda.',
         seleccionaOEscribe: 'Selecciona o escribe el nombre de una empresa',
         participante: 'Participante *',
         empresa: 'Empresa *',
@@ -220,7 +230,6 @@ export default function ColocacionesPage() {
   const { confirmar, dialogo } = useConfirmar()
   const [registros, setRegistros] = useState<ColocacionResponse[]>([])
   const [resumen, setResumen] = useState<ResumenColocaciones | null>(null)
-  const [estudiantes, setEstudiantes] = useState<EstudianteResponse[]>([])
   const [empresas, setEmpresas] = useState<EmpresaResponse[]>([])
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
@@ -230,14 +239,13 @@ export default function ColocacionesPage() {
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [form, setForm] = useState<ColocacionRequest>(vacia)
   const [catalogos, setCatalogos] = useState<CatalogosColocacion | null>(null)
+  const [busquedaParticipante, setBusquedaParticipante] = useState('')
+  const [coincidenciasParticipante, setCoincidenciasParticipante] = useState<EstudianteResponse[]>([])
+  const [buscandoParticipante, setBuscandoParticipante] = useState(false)
 
   const cargarOpcionesFormulario = useCallback(async () => {
     try {
-      const [participantes, directorio] = await Promise.all([
-        estudiantesApi.buscarAvanzado({ page: 0, size: 250 }),
-        empresasApi.buscar({ page: 0, size: 250 }),
-      ])
-      setEstudiantes(participantes.content)
+      const directorio = await empresasApi.buscar({ page: 0, size: 250 })
       setEmpresas(directorio.content)
     } catch {
       // El listado y sus indicadores siguen siendo utilizables. Si se abre el
@@ -260,13 +268,48 @@ export default function ColocacionesPage() {
   useEffect(() => { void cargar() }, [cargar])
   useEffect(() => { void cargarOpcionesFormulario() }, [cargarOpcionesFormulario])
 
+  /**
+   * El selector anterior descargaba 250 nombres para llenar un <select>.
+   * Buscar en el servidor evita una lista inmanejable y sigue funcionando si
+   * el programa supera ese límite.
+   */
+  useEffect(() => {
+    const consulta = busquedaParticipante.trim()
+    if (!abierto || editandoId || consulta.length < 2 || form.estudianteId) {
+      setCoincidenciasParticipante([])
+      setBuscandoParticipante(false)
+      return
+    }
+
+    let vigente = true
+    const temporizador = window.setTimeout(async () => {
+      setBuscandoParticipante(true)
+      try {
+        const resultado = await estudiantesApi.buscarAvanzado({ q: consulta, page: 0, size: 12 })
+        if (vigente) setCoincidenciasParticipante(resultado.content)
+      } catch {
+        if (vigente) setCoincidenciasParticipante([])
+      } finally {
+        if (vigente) setBuscandoParticipante(false)
+      }
+    }, 250)
+
+    return () => {
+      vigente = false
+      window.clearTimeout(temporizador)
+    }
+  }, [abierto, busquedaParticipante, editandoId, form.estudianteId])
+
   const filtrados = useMemo(() => {
     const busqueda = q.trim().toLocaleLowerCase('es-CO')
     if (!busqueda) return registros
     return registros.filter((r) => [r.estudianteNombre, r.empresaNombre, r.cargo, r.canalConsecucionEtiqueta].filter(Boolean).some((v) => v!.toLocaleLowerCase('es-CO').includes(busqueda)))
   }, [q, registros])
 
-  const abrirRegistro = () => { setEditandoId(null); setForm(vacia); setAbierto(true); setError('') }
+  const abrirRegistro = () => {
+    setEditandoId(null); setForm(vacia); setBusquedaParticipante('')
+    setCoincidenciasParticipante([]); setAbierto(true); setError('')
+  }
   const abrirEdicion = (registro: ColocacionResponse) => {
     setEditandoId(registro.id)
     setForm({
@@ -287,6 +330,8 @@ export default function ColocacionesPage() {
       chkColillaPago: registro.chkColillaPago,
       observaciones: registro.observaciones ?? '',
     })
+    setBusquedaParticipante(registro.estudianteNombre)
+    setCoincidenciasParticipante([])
     setAbierto(true)
     setError('')
   }
@@ -321,6 +366,13 @@ export default function ColocacionesPage() {
     { valor: 'true', etiqueta: T.cumple },
     { valor: 'false', etiqueta: T.noCumple },
   ]
+
+  const seleccionarParticipante = (estudiante: EstudianteResponse) => {
+    const nombre = [estudiante.nombre, estudiante.apellido].filter(Boolean).join(' ')
+    setForm((actual) => ({ ...actual, estudianteId: estudiante.id }))
+    setBusquedaParticipante(nombre)
+    setCoincidenciasParticipante([])
+  }
 
   return (
     <div className="space-y-5">
@@ -410,10 +462,42 @@ export default function ColocacionesPage() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="sm:col-span-2">
                       <span className="mb-1.5 block text-xs font-medium">{T.participante}</span>
-                      <select required disabled={Boolean(editandoId)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60" value={form.estudianteId} onChange={(event) => setForm({ ...form, estudianteId: event.target.value })}>
-                        <option value="">{T.seleccionaUnParticipante}</option>
-                        {estudiantes.map((estudiante) => <option key={estudiante.id} value={estudiante.id}>{estudiante.nombre} {estudiante.apellido} · {estudiante.nivelIngles || T.inglesSinRegistrar}</option>)}
-                      </select>
+                      <div className="relative">
+                        <MagnifyingGlass className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground" />
+                        <Input
+                          type="search"
+                          disabled={Boolean(editandoId)}
+                          className="pl-9"
+                          value={busquedaParticipante}
+                          placeholder={T.buscarParticipante}
+                          onChange={(event) => {
+                            setBusquedaParticipante(event.target.value)
+                            setForm((actual) => ({ ...actual, estudianteId: '' }))
+                          }}
+                          aria-describedby="ayuda-busqueda-participante"
+                        />
+                        {buscandoParticipante && <CircleNotch className="absolute right-3 top-3 size-4 animate-spin text-muted-foreground" />}
+                        {!editandoId && !form.estudianteId && busquedaParticipante.trim().length >= 2 && !buscandoParticipante && (
+                          <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-lg">
+                            {coincidenciasParticipante.length === 0 ? (
+                              <p className="px-3 py-2 text-xs text-muted-foreground">{T.sinResultadosParticipante}</p>
+                            ) : coincidenciasParticipante.map((estudiante) => (
+                              <button
+                                key={estudiante.id}
+                                type="button"
+                                onClick={() => seleccionarParticipante(estudiante)}
+                                className="flex w-full flex-col rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted"
+                              >
+                                <span className="text-sm font-medium text-foreground">{estudiante.nombre} {estudiante.apellido}</span>
+                                <span className="text-xs text-muted-foreground">{estudiante.email}{estudiante.nivelIngles ? ` · ${estudiante.nivelIngles}` : ''}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <p id="ayuda-busqueda-participante" className="mt-1 text-[11px] text-muted-foreground">
+                        {editandoId ? T.participanteNoEditable : form.estudianteId ? T.participanteSeleccionado : T.escribeParaBuscarParticipante}
+                      </p>
                     </label>
                     <label className="sm:col-span-2">
                       <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><Buildings className="size-3.5 text-primary" />{T.empresa}</span>

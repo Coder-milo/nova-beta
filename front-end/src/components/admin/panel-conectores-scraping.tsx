@@ -1,20 +1,19 @@
 'use client'
 
 /**
- * Panel de Monitoreo y Control en Vivo de Conectores y Fuentes de Scraping.
+ * Diagnóstico técnico de conectores y fuentes de scraping.
  *
  * Muestra el estado operativo en tiempo real de los conectores multi-nivel:
  * - Nivel 1: Conectores Nativos Directos (LinkedIn, Computrabajo, ElEmpleo, Jooble, Remotive, Magneto 365)
  * - Nivel 2: Proxy Agregador (JSearch Indeed/Glassdoor con cuota mensual)
  * - Nivel 3: ATS Directo de Empleadores del Atlántico (SmartRecruiters)
  *
- * Permite ejecutar pruebas exploratorias aisladas (dry-run) y sincronizaciones
- * bajo demanda con protección de Circuit Breaker.
+ * Vive exclusivamente en el panel de desarrollador. Permite pruebas
+ * exploratorias aisladas (dry-run), sin crear ni modificar vacantes.
  */
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Activity,
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
@@ -38,28 +37,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { vacantesApi } from '@/lib/api'
-import type { EstadoConector, ResultadoPruebaFuente, ResultadoActualizacion } from '@/lib/types'
+import { desarrolladorApi } from '@/lib/api'
+import type { EstadoConector, ResultadoPruebaFuente } from '@/lib/types'
 import { usePreferences } from '@/lib/preferences'
 import { errorDe } from '@/lib/errores'
-
-interface PanelConectoresProps {
-  onActualizacionTerminada?: () => void
-}
 
 function textos(english: boolean) {
   return english
     ? {
-        titulo: 'Job Board Connectors & ATS Monitoring',
+        titulo: 'Job-board connector diagnostics',
         descripcion:
-          'Live operational status, API quota tracking, latency diagnostics, and on-demand synchronization per source.',
+          'Technical status and isolated connector tests. Tests do not save vacancies; providers may still account for a request.',
         actualizarTodo: 'Refresh status',
         cargando: 'Loading connector status…',
         sinConectores: 'No active job connectors detected.',
         probar: 'Test',
         probando: 'Testing…',
-        sincronizar: 'Sync now',
-        sincronizando: 'Syncing…',
         estadoActivo: 'Active',
         estadoEspera: 'Needs API Key / Config',
         estadoError: 'Portal Error',
@@ -76,8 +69,6 @@ function textos(english: boolean) {
         ofertasEncontradas: 'Test vacancies found',
         mensaje: 'Message',
         cerrar: 'Close',
-        exitoSync: (n: number, fuente: string) => `Sync completed for ${fuente}: ${n} new vacancies saved.`,
-        errorSync: (fuente: string, err: string) => `Failed syncing ${fuente}: ${err}`,
         filtroCiudadSi: 'Barranquilla & Atlántico filter active',
         filtroCiudadNo: 'Remote / Nationwide search',
         tier1: 'Tier 1 · Direct Portal',
@@ -86,16 +77,14 @@ function textos(english: boolean) {
         tierExterior: 'International Visa',
       }
     : {
-        titulo: 'Panel de Conectores y Fuentes ATS',
+        titulo: 'Diagnóstico de conectores de vacantes',
         descripcion:
-          'Estado operativo en vivo, control de cuotas, diagnóstico de latencia y sincronización individual bajo demanda.',
+          'Estado técnico y pruebas aisladas de los conectores. Las pruebas no guardan vacantes, aunque el proveedor puede contabilizar una petición.',
         actualizarTodo: 'Actualizar estado',
         cargando: 'Cargando estado de conectores…',
         sinConectores: 'No se detectaron conectores de vacantes.',
         probar: 'Probar',
         probando: 'Probando…',
-        sincronizar: 'Sincronizar',
-        sincronizando: 'Sincronizando…',
         estadoActivo: 'Activo',
         estadoEspera: 'En espera de API Key',
         estadoError: 'Error de portal',
@@ -112,8 +101,6 @@ function textos(english: boolean) {
         ofertasEncontradas: 'Ofertas encontradas en prueba',
         mensaje: 'Mensaje del proveedor',
         cerrar: 'Cerrar',
-        exitoSync: (n: number, fuente: string) => `Sincronización de ${fuente} completada: ${n} vacantes nuevas guardadas.`,
-        errorSync: (fuente: string, err: string) => `Error al sincronizar ${fuente}: ${err}`,
         filtroCiudadSi: 'Filtro geográfico Atlántico / Barranquilla activo',
         filtroCiudadNo: 'Búsqueda remota / nacional',
         tier1: 'Nivel 1 · Portal Directo',
@@ -149,7 +136,7 @@ function formatoFecha(iso: string | null | undefined, locale: string) {
   })
 }
 
-export function PanelConectoresScraping({ onActualizacionTerminada }: PanelConectoresProps) {
+export function PanelConectoresScraping() {
   const { locale } = usePreferences()
   const T = textos(locale === 'en')
 
@@ -157,17 +144,14 @@ export function PanelConectoresScraping({ onActualizacionTerminada }: PanelConec
   const [cargando, setCargando] = useState(false)
   const [errorGlobal, setErrorGlobal] = useState<string | null>(null)
 
-  // Estado de acciones por conector
   const [probandoFuente, setProbandoFuente] = useState<string | null>(null)
-  const [sincronizandoFuente, setSincronizandoFuente] = useState<string | null>(null)
   const [resultadoPrueba, setResultadoPrueba] = useState<ResultadoPruebaFuente | null>(null)
-  const [notificacion, setNotificacion] = useState<{ tipo: 'exito' | 'error'; mensaje: string } | null>(null)
 
   const cargarConectores = useCallback(async () => {
     setCargando(true)
     setErrorGlobal(null)
     try {
-      const data = await vacantesApi.obtenerEstadoConectores()
+      const data = await desarrolladorApi.conectoresDeVacantes()
       setConectores(data)
     } catch (e) {
       setErrorGlobal(errorDe(e))
@@ -182,9 +166,8 @@ export function PanelConectoresScraping({ onActualizacionTerminada }: PanelConec
 
   const handleProbar = async (nombreFuente: string) => {
     setProbandoFuente(nombreFuente)
-    setNotificacion(null)
     try {
-      const resultado = await vacantesApi.probarConector(nombreFuente)
+      const resultado = await desarrolladorApi.probarConectorDeVacantes(nombreFuente)
       setResultadoPrueba(resultado)
     } catch (e) {
       setResultadoPrueba({
@@ -198,27 +181,6 @@ export function PanelConectoresScraping({ onActualizacionTerminada }: PanelConec
       })
     } finally {
       setProbandoFuente(null)
-    }
-  }
-
-  const handleSincronizar = async (nombreFuente: string) => {
-    setSincronizandoFuente(nombreFuente)
-    setNotificacion(null)
-    try {
-      const res: ResultadoActualizacion = await vacantesApi.sincronizarConector(nombreFuente)
-      setNotificacion({
-        tipo: 'exito',
-        mensaje: T.exitoSync(res.vacantesNuevas, nombreFuente),
-      })
-      await cargarConectores()
-      onActualizacionTerminada?.()
-    } catch (e) {
-      setNotificacion({
-        tipo: 'error',
-        mensaje: T.errorSync(nombreFuente, errorDe(e)),
-      })
-    } finally {
-      setSincronizandoFuente(null)
     }
   }
 
@@ -287,32 +249,6 @@ export function PanelConectoresScraping({ onActualizacionTerminada }: PanelConec
           </div>
         )}
 
-        {notificacion && (
-          <div
-            className={`flex items-center justify-between gap-2 rounded-xl border p-3 text-xs ${
-              notificacion.tipo === 'exito'
-                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
-                : 'border-destructive/30 bg-destructive/10 text-destructive'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              {notificacion.tipo === 'exito' ? (
-                <CheckCircle2 className="size-4 shrink-0" />
-              ) : (
-                <AlertTriangle className="size-4 shrink-0" />
-              )}
-              <span>{notificacion.mensaje}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setNotificacion(null)}
-              className="text-muted-foreground hover:text-foreground text-xs underline ml-2"
-            >
-              ×
-            </button>
-          </div>
-        )}
-
         {conectores === null && !errorGlobal && (
           <div className="py-8 text-center text-xs text-muted-foreground">
             {T.cargando}
@@ -330,7 +266,6 @@ export function PanelConectoresScraping({ onActualizacionTerminada }: PanelConec
             {conectores.map((c) => {
               const tierInfo = clasificarTier(c.nombre)
               const esProbando = probandoFuente === c.nombre
-              const esSincronizando = sincronizandoFuente === c.nombre
 
               const tieneCuota = c.cuotaLimite != null && c.cuotaLimite > 0
               const porcentajeCuota = tieneCuota && c.cuotaRestante != null
@@ -433,7 +368,7 @@ export function PanelConectoresScraping({ onActualizacionTerminada }: PanelConec
                       variant="outline"
                       size="sm"
                       onClick={() => void handleProbar(c.nombre)}
-                      disabled={esProbando || esSincronizando}
+                      disabled={esProbando}
                       className="h-7 px-2.5 text-xs gap-1"
                     >
                       {esProbando ? (
@@ -445,25 +380,6 @@ export function PanelConectoresScraping({ onActualizacionTerminada }: PanelConec
                         <>
                           <Play className="size-3 text-muted-foreground" />
                           {T.probar}
-                        </>
-                      )}
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      onClick={() => void handleSincronizar(c.nombre)}
-                      disabled={!c.habilitado || esProbando || esSincronizando}
-                      className="h-7 px-2.5 text-xs gap-1"
-                    >
-                      {esSincronizando ? (
-                        <>
-                          <RefreshCw className="size-3 animate-spin" />
-                          {T.sincronizando}
-                        </>
-                      ) : (
-                        <>
-                          <Activity className="size-3" />
-                          {T.sincronizar}
                         </>
                       )}
                     </Button>
